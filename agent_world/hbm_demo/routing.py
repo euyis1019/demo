@@ -233,14 +233,12 @@ def apply_routing(
     applied: Dict[str, Any] = {"nodes": []}
 
     if node_a_applies(session):
-        resp = send_move_agent(
+        send_move_agent(
             ipc_client,
             agent_id=JENSEN_ID,
             place_id=PLACE_JENSEN_ROOM,
             timeout=ipc_timeout,
         )
-        if resp.status.value != "completed":
-            raise RuntimeError(resp.error or "MOVE_AGENT Jensen failed (node A)")
         session.phase = "Phase 2"
         session.place_id = PLACE_JENSEN_ROOM
         session.phase2_start_tick = current_tick
@@ -255,14 +253,12 @@ def apply_routing(
         )
 
     if node_b_applies(session, db, current_tick):
-        resp = send_move_agent(
+        send_move_agent(
             ipc_client,
             agent_id=JENSEN_ID,
             place_id=PLACE_NEGOTIATION,
             timeout=ipc_timeout,
         )
-        if resp.status.value != "completed":
-            raise RuntimeError(resp.error or "MOVE_AGENT Jensen failed (node B)")
 
         mutation_event = {
             "id": f"route_b_mutate_{task_id}",
@@ -273,16 +269,12 @@ def apply_routing(
                 "attrs_patch": {"behavior_hint": NODE_B_BEHAVIOR_HINT},
             },
         }
-        mut_resp = send_inject_batch(
+        send_inject_batch(
             ipc_client,
             events=[mutation_event],
             tick_count=tick_count,
             timeout=ipc_timeout,
         )
-        if mut_resp.status.value != "completed":
-            raise RuntimeError(
-                mut_resp.error or "PlaceMutation inject failed (node B)"
-            )
 
         session.phase = "Phase 3"
         session.place_id = PLACE_NEGOTIATION
@@ -294,16 +286,12 @@ def apply_routing(
 
     if node_c_applies(session):
         for ceo_id in CEO_IDS:
-            resp = send_move_agent(
+            send_move_agent(
                 ipc_client,
                 agent_id=ceo_id,
                 place_id=PLACE_RECEPTION,
                 timeout=ipc_timeout,
             )
-            if resp.status.value != "completed":
-                raise RuntimeError(
-                    resp.error or f"MOVE_AGENT CEO {ceo_id} failed (node C)"
-                )
         session.phase = "Phase 4"
         applied["nodes"].append("C")
         applied["phase"] = session.phase

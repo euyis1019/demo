@@ -8,6 +8,7 @@ from flask import Blueprint, jsonify, request, session
 
 from agent_world.hbm_demo import game_service as gs
 from agent_world.hbm_demo.env_status import read_env_status
+from agent_world.hbm_demo.http_errors import service_error_payload
 
 hbm_bp = Blueprint("hbm", __name__)
 
@@ -91,8 +92,9 @@ def player_turn(sim_id: str):
             request_player_turn=body.get("player_turn"),
             tick_count=int(body.get("tick_count", 6)),
         )
-    except RuntimeError as exc:
-        return jsonify({"success": False, "error": str(exc)}), 503
+    except Exception as exc:  # noqa: BLE001
+        body, code = service_error_payload(exc)
+        return jsonify(body), code
 
     return jsonify({"success": True, "data": result})
 
@@ -115,8 +117,9 @@ def action_result(sim_id: str):
             task_id=task_id,
             request_place_id=request.args.get("place_id"),
         )
-    except KeyError as exc:
-        return _bad_request(str(exc), 404)
+    except Exception as exc:  # noqa: BLE001
+        body, code = service_error_payload(exc)
+        return jsonify(body), code
 
     return jsonify({"success": True, "data": result})
 
@@ -142,8 +145,9 @@ def debug_inject(sim_id: str):
             player_text,
             tick_count=tick_count,
         )
-    except RuntimeError as exc:
-        return jsonify({"success": False, "error": str(exc)}), 503
+    except Exception as exc:  # noqa: BLE001
+        body, code = service_error_payload(exc)
+        return jsonify(body), code
 
     gs.save_session(session, hbm, sim_id)
     env = read_env_status(gs.get_sim_dir()) or {}

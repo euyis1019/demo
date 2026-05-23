@@ -17,9 +17,16 @@ from openai import OpenAI
 
 from agent_world.hbm_demo.config_loader import load_scenario
 from agent_world.hbm_demo.env_status import is_runner_ready, read_env_status
+from agent_world.hbm_demo.errors import DatabaseReadError, RunnerNotReadyError
 from agent_world.hbm_demo import routing
 from agent_world.hbm_demo.ipc_helper import get_ipc_client, send_inject_batch
 from agent_world.hbm_demo.kernel import resolve_api_key
+from agent_world.hbm_demo.settings import (
+    DB_CONNECT_TIMEOUT,
+    DB_READ_RETRIES,
+    DEFAULT_IPC_TIMEOUT,
+    IMMEDIATE_MSG_TIMEOUT,
+)
 
 log = logging.getLogger("agent_world.hbm_demo.game_service")
 
@@ -109,24 +116,30 @@ class PendingTask:
     place_id: str
     phase: str
     player_turn: int
+    ipc_end_tick: Optional[int] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        out = {
             "task_id": self.task_id,
             "start_tick": self.start_tick,
             "place_id": self.place_id,
             "phase": self.phase,
             "player_turn": self.player_turn,
         }
+        if self.ipc_end_tick is not None:
+            out["ipc_end_tick"] = self.ipc_end_tick
+        return out
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "PendingTask":
+        ipc_end = data.get("ipc_end_tick")
         return cls(
             task_id=str(data["task_id"]),
             start_tick=int(data["start_tick"]),
             place_id=str(data["place_id"]),
             phase=str(data["phase"]),
             player_turn=int(data["player_turn"]),
+            ipc_end_tick=int(ipc_end) if ipc_end is not None else None,
         )
 
 
@@ -167,12 +180,44 @@ def sender_display_name(sender_id: Optional[int], name_map: Dict[int, str]) -> s
     return name_map.get(sid, f"agent_{sid}")
 
 
+def log_turn_event(
+    *,
+    event: str,
+    task_id: str,
+    phase: str,
+    player_turn: int,
+    start_tick: int,
+    end_tick: Optional[int] = None,
+    extra: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Structured turn logging (Phase 5)."""
+    payload: Dict[str, Any] = {
+        "event": event,
+        "task_id": task_id,
+        "phase": phase,
+        "player_turn": player_turn,
+        "start_tick": start_tick,
+    }
+    if end_tick is not None:
+        payload["end_tick"] = end_tick
+    if extra:
+        payload.update(extra)
+    log.info("hbm %s", payload)
+
+
 class ReadOnlyWorldDB:
     """Flask-side read-only SQLite accessor with lock retry."""
 
-    def __init__(self, db_path: Path, *, timeout: float = 5.0) -> None:
+    def __init__(
+        self,
+        db_path: Path,
+        *,
+        timeout: float = DB_CONNECT_TIMEOUT,
+        retries: int = DB_READ_RETRIES,
+    ) -> None:
         self.db_path = db_path
         self.timeout = timeout
+        self.retries = retries
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(
@@ -183,10 +228,11 @@ class ReadOnlyWorldDB:
         conn.row_factory = sqlite3.Row
         return conn
 
-    def _with_retry(self, fn: Any, *, retries: int = 4) -> Any:
+    def _with_retry(self, fn: Any, *, retries: int | None = None) -> Any:
         delay = 0.05
+        attempts = retries if retries is not None else self.retries
         last_exc: Exception | None = None
-        for _attempt in range(retries):
+        for _attempt in range(attempts):
             try:
                 conn = self._connect()
                 try:
@@ -200,8 +246,8 @@ class ReadOnlyWorldDB:
                 time.sleep(delay)
                 delay = min(delay * 2, 0.5)
         if last_exc is not None:
-            raise last_exc
-        raise RuntimeError("database read failed")
+            raise DatabaseReadError(str(last_exc)) from last_exc
+        raise DatabaseReadError("database read failed")
 
     def agents_at(self, place_id: str) -> List[int]:
         def _query(conn: sqlite3.Connection) -> List[int]:
@@ -357,6 +403,11 @@ class ReadOnlyWorldDB:
             return row is not None
 
         return bool(self._with_retry(_query))
+
+
+def make_readonly_db(sim_dir: Path | None = None) -> ReadOnlyWorldDB:
+    """Factory for Flask-side read-only DB with configured retry/timeout."""
+    return ReadOnlyWorldDB(get_world_db_path(sim_dir))
 
 
 def initial_stats() -> Dict[str, int]:
@@ -562,7 +613,7 @@ def generate_immediate_msg(
     session: HbmSession,
     player_text: str,
     *,
-    timeout: float = 1.0,
+    timeout: float = IMMEDIATE_MSG_TIMEOUT,
 ) -> str:
     """Generate one-line scene reaction; fall back on timeout (§API 1 step 4)."""
     try:
@@ -613,7 +664,7 @@ def run_debug_inject(
     """Phase 2 debug path — kept for compatibility."""
     sim = sim_dir or get_sim_dir()
     if not is_runner_ready(sim):
-        raise RuntimeError(
+        raise RunnerNotReadyError(
             "Runner not ready: start run_hbm first and wait for env_status.status=running"
         )
     task_id = f"task_{uuid.uuid4().hex[:12]}"
@@ -629,8 +680,6 @@ def run_debug_inject(
         tick_count=tick_count,
         timeout=timeout,
     )
-    if resp.status.value != "completed":
-        raise RuntimeError(resp.error or f"IPC inject failed: {resp.status.value}")
 
     session.player_turn += 1
     return {
@@ -650,12 +699,12 @@ def handle_player_turn(
     request_player_turn: Optional[int] = None,
     sim_dir: Path | None = None,
     tick_count: int = 6,
-    ipc_timeout: float = 600.0,
+    ipc_timeout: float = DEFAULT_IPC_TIMEOUT,
 ) -> Dict[str, Any]:
     """API 1 — score, inject, routing nodes A/B/C/D, Turn 16/25 (§4.2)."""
     sim = sim_dir or get_sim_dir()
     if not is_runner_ready(sim):
-        raise RuntimeError(
+        raise RunnerNotReadyError(
             "Runner not ready: start run_hbm first and wait for env_status.status=running"
         )
 
@@ -697,7 +746,7 @@ def handle_player_turn(
             "current_phase": hbm.phase,
         }
 
-    immediate_msg = generate_immediate_msg(hbm, player_text, timeout=1.0)
+    immediate_msg = generate_immediate_msg(hbm, player_text)
 
     events, broadcast = build_inject_events(hbm, player_text, task_id=task_id)
     if not events:
@@ -713,12 +762,15 @@ def handle_player_turn(
         tick_count=tick_count,
         timeout=ipc_timeout,
     )
-    if resp.status.value != "completed":
-        raise RuntimeError(resp.error or f"IPC inject failed: {resp.status.value}")
 
+    ipc_result = dict(resp.result or {})
     env_after = read_env_status(sim) or {}
     current_tick = int(env_after.get("current_tick", start_tick))
-    db = ReadOnlyWorldDB(get_world_db_path(sim))
+    ipc_end_tick = int(
+        ipc_result.get("end_tick", ipc_result.get("world_t", current_tick))
+    )
+    current_tick = max(current_tick, ipc_end_tick)
+    db = make_readonly_db(sim)
 
     task_place_id = hbm.place_id
     task_phase = hbm.phase
@@ -733,10 +785,14 @@ def handle_player_turn(
         ipc_timeout=ipc_timeout,
     )
     if routing_info.get("nodes"):
-        log.info(
-            "player_turn=%s routing applied: %s",
-            hbm.player_turn,
-            routing_info,
+        log_turn_event(
+            event="routing_applied",
+            task_id=task_id,
+            phase=hbm.phase,
+            player_turn=hbm.player_turn,
+            start_tick=start_tick,
+            end_tick=current_tick,
+            extra={"nodes": routing_info.get("nodes")},
         )
 
     hbm.player_turn += 1
@@ -745,6 +801,15 @@ def handle_player_turn(
     if is_final_turn:
         intent = routing.classify_turn25_intent(player_text)
         ending_id = routing.resolve_ending_id(intent, hbm.stats["trust"])
+        log_turn_event(
+            event="player_turn_completed",
+            task_id=task_id,
+            phase=hbm.phase,
+            player_turn=hbm.player_turn - 1,
+            start_tick=start_tick,
+            end_tick=current_tick,
+            extra={"status": "completed", "ending_id": ending_id},
+        )
         return {
             "status": "completed",
             "ending_id": ending_id,
@@ -753,7 +818,7 @@ def handle_player_turn(
             "stats_update": dict(hbm.stats),
             "current_phase": hbm.phase,
             "routing": routing_info,
-            "ipc": dict(resp.result or {}),
+            "ipc": ipc_result,
         }
 
     task = PendingTask(
@@ -762,8 +827,18 @@ def handle_player_turn(
         place_id=task_place_id,
         phase=task_phase,
         player_turn=hbm.player_turn - 1,
+        ipc_end_tick=ipc_end_tick,
     )
     save_task(flask_session, task, sim_id)
+
+    log_turn_event(
+        event="player_turn_processing",
+        task_id=task_id,
+        phase=hbm.phase,
+        player_turn=task.player_turn,
+        start_tick=start_tick,
+        end_tick=ipc_end_tick,
+    )
 
     return {
         "task_id": task_id,
@@ -772,8 +847,9 @@ def handle_player_turn(
         "stats_update": dict(hbm.stats),
         "current_phase": hbm.phase,
         "start_tick": start_tick,
+        "ipc_end_tick": ipc_end_tick,
         "routing": routing_info,
-        "ipc": dict(resp.result or {}),
+        "ipc": ipc_result,
     }
 
 
@@ -802,6 +878,13 @@ def check_action_complete(
     if db.has_grp_after({100, 200}, start, current_tick):
         return True
     return False
+
+
+def effective_tick_for_task(task: PendingTask, env_tick: int) -> int:
+    """Prefer IPC end tick when env_status lags behind inject completion (§6.2.1)."""
+    if task.ipc_end_tick is not None:
+        return max(env_tick, task.ipc_end_tick)
+    return env_tick
 
 
 def format_messages(
@@ -869,21 +952,24 @@ def get_action_result(
     if not env or "current_tick" not in env:
         return {"status": "processing", "task_id": task_id}
 
-    current_tick = int(env["current_tick"])
-    db = ReadOnlyWorldDB(get_world_db_path(sim))
+    env_tick = int(env["current_tick"])
+    effective_tick = effective_tick_for_task(task, env_tick)
+    db = make_readonly_db(sim)
     name_map = get_name_map()
 
-    if not check_action_complete(task, current_tick, db):
+    if not check_action_complete(task, effective_tick, db):
         return {
             "status": "processing",
             "task_id": task_id,
-            "current_tick": current_tick,
+            "current_tick": env_tick,
+            "effective_tick": effective_tick,
             "start_tick": task.start_tick,
+            "ipc_end_tick": task.ipc_end_tick,
         }
 
     since_t = task.start_tick
     f2f_history = db.fetch_f2f_history_at(
-        task.place_id, current_tick, since_t
+        task.place_id, effective_tick, since_t
     )
     public_messages = format_f2f_public_messages(
         [h for h in f2f_history if h[0] > since_t],
@@ -891,22 +977,36 @@ def get_action_result(
     )
 
     rdc_rows = db.fetch_messages_since(
-        channel_type="RDC", since_t=since_t, t_now=current_tick
+        channel_type="RDC", since_t=since_t, t_now=effective_tick
     )
     observer_messages = format_messages(rdc_rows, name_map)
 
     grp_rows = db.fetch_messages_since(
-        channel_type="GRP", since_t=since_t, t_now=current_tick
+        channel_type="GRP", since_t=since_t, t_now=effective_tick
     )
     group_messages = format_messages(grp_rows, name_map)
 
     stats_update = dict(hbm.stats) if hbm else initial_stats()
     current_phase = hbm.phase if hbm else task.phase
 
+    log_turn_event(
+        event="action_result_completed",
+        task_id=task_id,
+        phase=current_phase,
+        player_turn=task.player_turn,
+        start_tick=task.start_tick,
+        end_tick=effective_tick,
+        extra={
+            "public_count": len(public_messages),
+            "rdc_count": len(observer_messages),
+            "grp_count": len(group_messages),
+        },
+    )
+
     return {
         "status": "completed",
         "task_id": task_id,
-        "end_tick": current_tick,
+        "end_tick": effective_tick,
         "public_messages": public_messages,
         "observer_messages": observer_messages,
         "group_messages": group_messages,
