@@ -431,6 +431,7 @@ def create_session(sim_dir: Path | None = None) -> HbmSession:
 def save_session(flask_session: Any, hbm: HbmSession, sim_id: str = DEFAULT_SIM_ID) -> None:
     store = flask_session.setdefault(SESSION_KEY, {})
     store[sim_id] = hbm.to_dict()
+    flask_session.modified = True
 
 
 def load_session(
@@ -502,6 +503,7 @@ def save_task(
     sim_tasks = store.setdefault(sim_id, {})
     sim_tasks[task.task_id] = task.to_dict()
     sim_tasks["__latest__"] = task.task_id
+    flask_session.modified = True
 
 
 def load_task(

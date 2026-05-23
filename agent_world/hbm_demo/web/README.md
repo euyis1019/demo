@@ -35,7 +35,8 @@ src/
   components/    # F2 — 三屏 UI 壳（layout / panels / overlays）
   mock/          # F2 — 静态 Mock 数据（F3 起由 store 替换）
   utils/         # 共享工具（place 映射等）
-  store/         # F3+ — game state
-  hooks/         # F3+ — game loop
+  constants/     # F3 — 轮询间隔等
+  store/         # F3 — game state（reducer + provider）
+  hooks/         # F3 — useHealthCheck / useGameLoop
   styles/        # global.css
 ```

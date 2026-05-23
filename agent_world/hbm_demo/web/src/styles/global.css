@@ -242,6 +242,16 @@ body {
   border-top: 1px solid var(--hbm-panel-border);
 }
 
+.game-error {
+  margin: 0 0 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  color: #f85149;
+  background: rgba(248, 81, 73, 0.12);
+  border: 1px solid rgba(248, 81, 73, 0.35);
+}
+
 .msg-line {
   max-width: 88%;
   padding: 0.625rem 0.75rem;
