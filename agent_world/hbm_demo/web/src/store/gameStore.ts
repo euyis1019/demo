@@ -223,7 +223,4 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   }
 }
 
-/** Re-export for tests — implementation in utils/messages.ts. */
-export { mergeMessages } from "../utils/messages";
-
 export { MAX_TURNS };

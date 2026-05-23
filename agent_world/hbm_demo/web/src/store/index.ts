@@ -1,7 +1,6 @@
 export {
   createInitialState,
   gameReducer,
-  mergeMessages,
   INITIAL_STATS,
   MAX_TURNS,
   type GameAction,
