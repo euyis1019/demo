@@ -18,6 +18,8 @@ npm run dev
 
 浏览器打开 http://localhost:5173
 
+**25 轮完整试玩**：见 [`dev_logs/19_HBM_Demo_25轮参考台词.md`](../../../dev_logs/19_HBM_Demo_25轮参考台词.md)
+
 API 请求走 Vite 代理：`/api` → `http://127.0.0.1:5050`（HBM Demo 专用端口；`VITE_API_PROXY_TARGET` 可覆盖）。
 
 ## 脚本

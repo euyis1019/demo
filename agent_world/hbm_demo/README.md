@@ -162,6 +162,8 @@ curl -s "http://127.0.0.1:5050/api/hbm/simulations/hbm_memory_war/action-result?
 
 单回合 inject 含 LLM 决策，墙钟约 15–60 秒，属正常现象。
 
+**25 轮参考台词**：见 [`dev_logs/19_HBM_Demo_25轮参考台词.md`](../../dev_logs/19_HBM_Demo_25轮参考台词.md)
+
 ## 目录结构
 
 ```text
