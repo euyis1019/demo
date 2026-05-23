@@ -56,7 +56,7 @@ python -m agent_world.hbm_demo.run_hbm \
 
 ```bash
 HBM_SIM_DIR=agent_world/hbm_demo/sim/hbm_memory_war/ \
-FLASK_APP=agent_world.app:create_app flask run --port 5000
+FLASK_APP=agent_world.app:create_app flask run --host 127.0.0.1 --port 5050
 ```
 
 ---

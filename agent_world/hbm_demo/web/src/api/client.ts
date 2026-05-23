@@ -1,3 +1,4 @@
+import { HBM_DEMO_FLASK_ORIGIN } from "../constants/ports";
 import { API_ROOT } from "./config";
 import { errorCodeForStatus, HbmApiError, userMessageForStatus } from "./errors";
 import type { ApiResponse } from "./types";
@@ -15,7 +16,7 @@ function resolveOrigin(): string {
   if (API_ROOT) {
     return API_ROOT;
   }
-  return "http://127.0.0.1:5000";
+  return HBM_DEMO_FLASK_ORIGIN;
 }
 
 function buildUrl(path: string, query?: Record<string, string | undefined>): string {

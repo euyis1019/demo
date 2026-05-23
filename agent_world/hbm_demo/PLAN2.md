@@ -75,7 +75,7 @@ F0 前端脚手架
 | 样式 | Tailwind CSS 或 CSS Modules | 三屏深色布局 |
 | 状态 | Zustand 或 React Context | stats / messages / ui |
 | HTTP | `fetch` + `credentials: 'include'` | Flask Session Cookie |
-| 开发代理 | **Vite proxy `/api` → `:5000`** | **不走跨域，无需 CORS 补丁** |
+| 开发代理 | **Vite proxy `/api` → `:5050`** | **不走跨域，专用端口避开 macOS 5000** |
 | 轮询 | 1.5s 间隔，最多 120 次 | 对齐 Runner LLM 延迟 |
 | 后端 | 已有 Flask + run_hbm | F6 由 shell 脚本拉起 |
 | 启动 | **`scripts/start_demo.sh`** | 一行命令核心交付物 |
@@ -88,7 +88,7 @@ F0 前端脚手架
 agent_world/hbm_demo/
   web/                          # F0 新建
     package.json
-    vite.config.ts              # proxy /api → localhost:5000
+    vite.config.ts              # proxy /api → localhost:5050
     src/
       api/          client.ts, types.ts, hbm.ts
       store/        gameStore.ts
@@ -156,6 +156,7 @@ agent_world/hbm_demo/
 | 4 | `start_demo.sh` 须在**仓库根**执行 | 脚本内 `cd` 到仓库根；启动前检查已执行 `pip install -e .`（见附录 C） |
 | 5 | `player-turn` 可能耗时**数分钟** | `fetch` **勿设短 timeout**；后端 IPC 默认 `HBM_IPC_TIMEOUT=600` 秒 |
 | 6 | 刷新页面后**聊天记录丢失** | Flask session **不持久化 messages**；MVP 可接受；可选 **F9 localStorage** 缓存 |
+| 7 | macOS **5000** 常被 AirPlay 占用 | HBM Demo 默认 Flask **5050**（`5050–5059` 自动选取）；见 `scripts/demo_ports.sh` |
 
 ### 5.1 Session 与消息持久化（对应 #6）
 
@@ -187,7 +188,7 @@ Flask session 仅存 stats / phase / turn；**消息历史后端不持久**。
 | ID | 任务 |
 |----|------|
 | F0-1 | 在 `hbm_demo/` 下：`npm create vite@latest web -- --template react-ts` |
-| F0-2 | `vite.config.ts`：`server.port=5173`，`proxy['/api'] → http://127.0.0.1:5000` |
+| F0-2 | `vite.config.ts`：`server.port=5173`，`proxy['/api'] → http://127.0.0.1:5050` |
 | F0-3 | 全局 CSS：深色三栏基调 |
 | F0-4 | `web/README.md`：`npm install` / `npm run dev` |
 
@@ -515,7 +516,7 @@ async function sendTurn(playerText: string) {
 1. 检测 Python、Node、`DMXAPI_KEY`；检测 `python -c "import agent_world"` 或提示先 `pip install -e .`  
 2. 后台启动 Runner，轮询 `env_status.json` 直到 `status=running`  
 3. 后台启动 Flask（`HBM_SIM_DIR` 指向 `hbm_demo/sim/hbm_memory_war/`）  
-4. 轮询 `GET http://127.0.0.1:5000/api/hbm/simulations/hbm_memory_war/health` 直到 200  
+4. 轮询 `GET http://127.0.0.1:5050/api/hbm/simulations/hbm_memory_war/health` 直到 200（5050–5059 自动选取空闲端口）  
 5. 前台启动 `cd agent_world/hbm_demo/web && npm run dev`（若 `node_modules` 不存在则先 `npm install`）  
 6. `trap` 捕获 EXIT/INT/TERM，调用 `stop_demo.sh` 清理  
 
@@ -524,7 +525,7 @@ async function sendTurn(playerText: string) {
 ```bash
 export HBM_SIM_DIR="${ROOT}/agent_world/hbm_demo/sim/hbm_memory_war"
 export FLASK_APP=agent_world.app:create_app
-export FLASK_RUN_PORT=5000
+export FLASK_RUN_PORT=5050
 ```
 
 **用户看到**：
@@ -532,7 +533,7 @@ export FLASK_RUN_PORT=5000
 ```text
 HBM Demo 已启动
   Runner : OK
-  Flask  : http://127.0.0.1:5000
+  Flask  : http://127.0.0.1:5050
   前端   : http://localhost:5173
 按 Ctrl+C 停止全部进程
 ```

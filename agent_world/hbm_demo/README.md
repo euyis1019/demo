@@ -2,7 +2,31 @@
 
 《HBM 显存价格保卫战》双进程 Demo：`run_hbm`（Runner + LLM Agent）与 Flask（Stats / 路由 / API）。
 
-技术规范见仓库根目录 `dev_docs/`，开发规划见本目录 `PLAN.md`。
+技术规范见仓库根目录 `dev_docs/`，开发规划见本目录 `PLAN.md`（后端）与 `PLAN2.md`（前端 + 一键启动）。
+
+## 一行命令启动（推荐）
+
+在**仓库根目录**执行：
+
+```bash
+./agent_world/hbm_demo/scripts/start_demo.sh
+```
+
+脚本将依次启动 Runner → Flask（默认 **5050**，避开 macOS 5000）→ 前端 dev server，并提示访问 `http://localhost:5173`。按 **Ctrl+C** 停止全部进程。
+
+**环境前提**（需事先安装）：
+
+| 依赖 | 说明 |
+|------|------|
+| Python 3.10+ | 仓库根目录 `pip install -e .` 或 `uv sync` |
+| Node.js 18+ | 前端 `npm install`（脚本可自动执行） |
+| `DMXAPI_KEY` | 见下方「配置 API Key」 |
+
+停止后台进程（脚本异常退出时也可手动执行）：
+
+```bash
+./agent_world/hbm_demo/scripts/stop_demo.sh
+```
 
 ## 架构
 
@@ -35,6 +59,8 @@
 | `HBM_DB_TIMEOUT` | `5.0` | Flask 只读 SQLite 连接超时 |
 | `HBM_DB_READ_RETRIES` | `6` | API 2 读库 locked 时重试次数 |
 | `HBM_IMMEDIATE_MSG_TIMEOUT` | `1.0` | immediate_msg LLM 超时（秒） |
+| `FLASK_RUN_PORT` | `5050`（5050–5059 自动选取） | HBM Demo Flask 端口（专用，避开系统 5000） |
+| `VITE_PORT` | `5173` | 前端 dev server 端口 |
 | `FLASK_APP` | `agent_world.app:create_app` | Flask 入口 |
 
 ## 启动步骤
@@ -43,11 +69,14 @@
 
 ```bash
 export DMXAPI_KEY=sk-your-key
-# 或写入 agent_world/hbm_demo/.env：
-# DMXAPI_KEY=sk-your-key
+# 或复制示例并编辑：
+# cp agent_world/hbm_demo/.env.example agent_world/hbm_demo/.env
+# 也可写入 agent_world/demo/.env
 ```
 
-### 2. 启动 Runner（终端 1）
+### 2. 手动分进程启动（脚本失败时的 fallback）
+
+#### 终端 1 — Runner
 
 ```bash
 python -m agent_world.hbm_demo.run_hbm \
@@ -57,12 +86,19 @@ python -m agent_world.hbm_demo.run_hbm \
 
 等待日志出现 `HBM runner ready`，且 `sim/hbm_memory_war/env_status.json` 中 `status` 为 `running`。
 
-### 3. 启动 Flask（终端 2）
+#### 终端 2 — Flask
 
 ```bash
 export HBM_SIM_DIR=agent_world/hbm_demo/sim/hbm_memory_war/
 export FLASK_APP=agent_world.app:create_app
-flask run --port 5000
+flask run --host 127.0.0.1 --port 5050
+```
+
+#### 终端 3 — 前端
+
+```bash
+cd agent_world/hbm_demo/web && npm run dev
+# http://localhost:5173
 ```
 
 ## API 速查
@@ -83,22 +119,22 @@ flask run --port 5000
 
 ```bash
 # 初始化
-curl -s -X POST http://127.0.0.1:5000/api/hbm/simulations/hbm_memory_war/session/start \
+curl -s -X POST http://127.0.0.1:5050/api/hbm/simulations/hbm_memory_war/session/start \
   -c cookies.txt
 
 # 健康检查（Runner 须已启动）
-curl -s http://127.0.0.1:5000/api/hbm/simulations/hbm_memory_war/health
+curl -s http://127.0.0.1:5050/api/hbm/simulations/hbm_memory_war/health
 
 # 查询 session 状态
-curl -s http://127.0.0.1:5000/api/hbm/simulations/hbm_memory_war/session -b cookies.txt
+curl -s http://127.0.0.1:5050/api/hbm/simulations/hbm_memory_war/session -b cookies.txt
 
 # API 1
-curl -s -X POST http://127.0.0.1:5000/api/hbm/simulations/hbm_memory_war/player-turn \
+curl -s -X POST http://127.0.0.1:5050/api/hbm/simulations/hbm_memory_war/player-turn \
   -b cookies.txt -H 'Content-Type: application/json' \
   -d '{"player_text":"我的算法能把显存消耗降低80%。"}'
 
 # API 2（替换 task_id）
-curl -s "http://127.0.0.1:5000/api/hbm/simulations/hbm_memory_war/action-result?task_id=task_xxx" \
+curl -s "http://127.0.0.1:5050/api/hbm/simulations/hbm_memory_war/action-result?task_id=task_xxx" \
   -b cookies.txt
 ```
 
@@ -130,6 +166,10 @@ curl -s "http://127.0.0.1:5000/api/hbm/simulations/hbm_memory_war/action-result?
 
 ```text
 hbm_demo/
+  scripts/
+    start_demo.sh     一行启动（F6）
+    stop_demo.sh      清理 Runner / Flask / Vite
+  web/                React + Vite 前端（F0–F5）
   run_hbm.py          Runner 入口
   kernel.py           内核装配 + PlaceMutation 桥接
   hbm_agent.py        LLM Agent

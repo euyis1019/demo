@@ -5,7 +5,8 @@
 ## 环境
 
 - Node.js 18+
-- 后端：须先启动 Runner + Flask（见 [`../README.md`](../README.md)）
+- 推荐在**仓库根目录**一键启动：`./agent_world/hbm_demo/scripts/start_demo.sh`（见 [`../README.md`](../README.md)）
+- 或手动先启动 Runner + Flask，再在本目录 `npm run dev`
 
 ## 安装与开发
 
@@ -17,7 +18,7 @@ npm run dev
 
 浏览器打开 http://localhost:5173
 
-API 请求走 Vite 代理：`/api` → `http://127.0.0.1:5000`（无需 CORS）。
+API 请求走 Vite 代理：`/api` → `http://127.0.0.1:5050`（HBM Demo 专用端口；`VITE_API_PROXY_TARGET` 可覆盖）。
 
 ## 脚本
 
