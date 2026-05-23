@@ -1,0 +1,111 @@
+/**
+ * HBM Demo global styles — dark monitoring-dashboard baseline (PLAN2 F0-3, dev_logs/03).
+ */
+
+:root {
+  color-scheme: dark;
+  --hbm-bg: #0b0f14;
+  --hbm-panel: #121820;
+  --hbm-panel-border: #1e2a38;
+  --hbm-text: #e6edf3;
+  --hbm-muted: #8b949e;
+  --hbm-accent: #3d8bfd;
+  --hbm-status-width: 240px;
+  --hbm-observer-width: 320px;
+  font-family:
+    "SF Pro Text",
+    "PingFang SC",
+    "Microsoft YaHei",
+    system-ui,
+    sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--hbm-text);
+  background-color: var(--hbm-bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: 320px;
+  overflow: hidden;
+}
+
+.app-shell {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--hbm-panel);
+  border: 1px solid var(--hbm-panel-border);
+}
+
+.panel--status {
+  flex: 0 0 var(--hbm-status-width);
+  border-right: none;
+}
+
+.panel--main {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-left: none;
+  border-right: none;
+}
+
+.panel--observer {
+  flex: 0 0 var(--hbm-observer-width);
+  border-left: none;
+}
+
+.panel__header {
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hbm-muted);
+  border-bottom: 1px solid var(--hbm-panel-border);
+}
+
+.panel__body {
+  flex: 1;
+  padding: 1rem;
+  overflow: auto;
+}
+
+.panel__placeholder {
+  color: var(--hbm-muted);
+  font-size: 0.875rem;
+}
+
+.app-title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--hbm-text);
+}
+
+.app-subtitle {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--hbm-muted);
+}
