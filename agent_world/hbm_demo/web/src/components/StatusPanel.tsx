@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import type { Stats } from "../api/types";
 
 export interface StatusPanelProps {
@@ -16,7 +17,7 @@ const STAT_ROWS: { key: keyof Stats; label: string }[] = [
   { key: "burnout", label: "Burnout" },
 ];
 
-/** F2-2 — 四维 Stats、Phase、Turn、地点（dev_logs/03 左栏）。 */
+/** F2-2 + F4-5 — Stats 变化高亮动画；Turn x / 25。 */
 export function StatusPanel({
   stats,
   phase,
@@ -25,6 +26,26 @@ export function StatusPanel({
   placeLabel,
   presentAgents = [],
 }: StatusPanelProps) {
+  const prevStatsRef = useRef(stats);
+  const [pulseKeys, setPulseKeys] = useState<Set<keyof Stats>>(new Set());
+
+  useEffect(() => {
+    const changed = new Set<keyof Stats>();
+    for (const { key } of STAT_ROWS) {
+      if (prevStatsRef.current[key] !== stats[key]) {
+        changed.add(key);
+      }
+    }
+    if (changed.size > 0) {
+      setPulseKeys(changed);
+      const timer = setTimeout(() => setPulseKeys(new Set()), 700);
+      prevStatsRef.current = stats;
+      return () => clearTimeout(timer);
+    }
+    prevStatsRef.current = stats;
+    return undefined;
+  }, [stats]);
+
   return (
     <>
       <div className="panel__header">Status</div>
@@ -35,7 +56,16 @@ export function StatusPanel({
             {STAT_ROWS.map(({ key, label }) => (
               <li key={key} className="stat-list__item">
                 <span className="stat-list__label">{label}</span>
-                <span className="stat-list__value">{stats[key]}</span>
+                <span
+                  className={[
+                    "stat-list__value",
+                    pulseKeys.has(key) ? "stat-list__value--pulse" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                >
+                  {stats[key]}
+                </span>
               </li>
             ))}
           </ul>
@@ -50,8 +80,10 @@ export function StatusPanel({
             </div>
             <div className="meta-list__row">
               <dt>Turn</dt>
-              <dd>
-                {playerTurn} / {maxTurns}
+              <dd className="meta-list__turn">
+                <span className="meta-list__turn-current">{playerTurn}</span>
+                <span className="meta-list__turn-sep">/</span>
+                <span className="meta-list__turn-max">{maxTurns}</span>
               </dd>
             </div>
           </dl>

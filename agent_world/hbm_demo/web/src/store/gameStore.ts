@@ -7,7 +7,9 @@ import type {
   SessionStartData,
   Stats,
 } from "../api/types";
+import { getPhaseTransitionMessage } from "../constants/phaseTransitions";
 import { MAX_TURNS } from "../constants/gameLoop";
+import { mergeMessages as mergeMessageLists } from "../utils/messages";
 
 export type EndingId = PlayerTurnCompleted["ending_id"];
 export type GameView = "boot" | "playing" | "game_over" | "ending";
@@ -20,6 +22,7 @@ export interface GameState {
   sessionInitialized: boolean;
   loading: boolean;
   immediateMsg?: string;
+  phaseToast?: string | null;
   stats: Stats;
   phase: string;
   playerTurn: number;
@@ -29,6 +32,7 @@ export interface GameState {
   grpMessages: GameMessage[];
   endingId?: EndingId;
   lastError?: string;
+  runnerModalOpen: boolean;
 }
 
 export const INITIAL_STATS: Stats = {
@@ -45,6 +49,7 @@ export function createInitialState(): GameState {
     runnerReady: false,
     sessionInitialized: false,
     loading: false,
+    phaseToast: null,
     stats: { ...INITIAL_STATS },
     phase: "Phase 1",
     playerTurn: 1,
@@ -52,6 +57,7 @@ export function createInitialState(): GameState {
     f2fMessages: [],
     rdcMessages: [],
     grpMessages: [],
+    runnerModalOpen: false,
   };
 }
 
@@ -68,10 +74,26 @@ export type GameAction =
   | { type: "SET_GAME_OVER"; data: PlayerTurnGameOver }
   | { type: "SET_ENDING"; data: PlayerTurnCompleted }
   | { type: "SET_ERROR"; message?: string }
+  | { type: "SET_RUNNER_MODAL"; open: boolean }
+  | { type: "DISMISS_PHASE_TOAST" }
   | { type: "RESET_PLAYTHROUGH" };
 
 function statsFromSnapshot(data: SessionSnapshot | SessionStartData): Stats {
   return { ...(data.stats ?? INITIAL_STATS) };
+}
+
+function applyPhaseChange(
+  state: GameState,
+  newPhase: string,
+): Pick<GameState, "phase" | "phaseToast"> {
+  if (newPhase === state.phase) {
+    return { phase: state.phase, phaseToast: state.phaseToast };
+  }
+  const toast = getPhaseTransitionMessage(state.phase, newPhase);
+  return {
+    phase: newPhase,
+    phaseToast: toast ?? state.phaseToast ?? null,
+  };
 }
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
@@ -84,6 +106,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         healthChecking: false,
         runnerReady: action.ready,
         healthError: action.error,
+        runnerModalOpen: action.ready ? false : true,
       };
     case "START_SESSION":
       return {
@@ -98,22 +121,29 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         rdcMessages: [],
         grpMessages: [],
         immediateMsg: undefined,
+        phaseToast: null,
         endingId: undefined,
         lastError: undefined,
       };
-    case "APPLY_SESSION":
+    case "APPLY_SESSION": {
       if (!action.data.initialized) {
         return { ...state, sessionInitialized: false, view: "boot" };
       }
+      const newPhase =
+        action.data.phase ?? action.data.current_phase ?? state.phase;
       return {
         ...state,
-        view: state.view === "game_over" || state.view === "ending" ? state.view : "playing",
+        view:
+          state.view === "game_over" || state.view === "ending"
+            ? state.view
+            : "playing",
         sessionInitialized: true,
         stats: statsFromSnapshot(action.data),
-        phase: action.data.phase ?? action.data.current_phase ?? state.phase,
+        ...applyPhaseChange(state, newPhase),
         playerTurn: action.data.player_turn ?? state.playerTurn,
         placeId: action.data.place_id ?? state.placeId,
       };
+    }
     case "SET_LOADING":
       return { ...state, loading: action.loading };
     case "SET_IMMEDIATE":
@@ -128,18 +158,29 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case "PUSH_PLAYER_BUBBLE":
       return {
         ...state,
-        f2fMessages: [...state.f2fMessages, action.message],
+        f2fMessages: mergeMessageLists(state.f2fMessages, [action.message]),
       };
-    case "APPEND_ACTION_RESULT":
+    case "APPEND_ACTION_RESULT": {
+      const phaseUpdate = applyPhaseChange(state, action.data.current_phase);
       return {
         ...state,
         stats: { ...action.data.stats_update },
-        phase: action.data.current_phase,
+        ...phaseUpdate,
         immediateMsg: undefined,
-        f2fMessages: mergeMessages(state.f2fMessages, action.data.public_messages),
-        rdcMessages: mergeMessages(state.rdcMessages, action.data.observer_messages),
-        grpMessages: mergeMessages(state.grpMessages, action.data.group_messages),
+        f2fMessages: mergeMessageLists(
+          state.f2fMessages,
+          action.data.public_messages,
+        ),
+        rdcMessages: mergeMessageLists(
+          state.rdcMessages,
+          action.data.observer_messages,
+        ),
+        grpMessages: mergeMessageLists(
+          state.grpMessages,
+          action.data.group_messages,
+        ),
       };
+    }
     case "SET_GAME_OVER":
       return {
         ...state,
@@ -147,8 +188,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         loading: false,
         immediateMsg: undefined,
         stats: { ...action.data.stats_update },
-        phase: action.data.current_phase,
-        f2fMessages: mergeMessages(state.f2fMessages, action.data.public_messages),
+        ...applyPhaseChange(state, action.data.current_phase),
+        f2fMessages: mergeMessageLists(
+          state.f2fMessages,
+          action.data.public_messages,
+        ),
       };
     case "SET_ENDING":
       return {
@@ -157,11 +201,15 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         loading: false,
         immediateMsg: undefined,
         stats: { ...action.data.stats_update },
-        phase: action.data.current_phase,
+        ...applyPhaseChange(state, action.data.current_phase),
         endingId: action.data.ending_id,
       };
     case "SET_ERROR":
       return { ...state, lastError: action.message, loading: false };
+    case "SET_RUNNER_MODAL":
+      return { ...state, runnerModalOpen: action.open };
+    case "DISMISS_PHASE_TOAST":
+      return { ...state, phaseToast: null };
     case "RESET_PLAYTHROUGH":
       return {
         ...createInitialState(),
@@ -173,37 +221,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   }
 }
 
-export function mergeMessages(
-  existing: GameMessage[],
-  incoming: GameMessage[] | undefined,
-): GameMessage[] {
-  if (!incoming?.length) {
-    return existing;
-  }
-  const seen = new Set(existing.map(messageKey));
-  const merged = [...existing];
-  for (const message of incoming) {
-    const key = messageKey(message);
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    merged.push(message);
-  }
-  return merged.sort(
-    (a, b) => (a.attempted_at ?? 0) - (b.attempted_at ?? 0),
-  );
-}
-
-function messageKey(message: GameMessage): string {
-  return [
-    message.type,
-    message.sender,
-    message.recipient ?? "",
-    message.group_id ?? "",
-    message.attempted_at ?? "",
-    message.content,
-  ].join("|");
-}
+/** Re-export for tests — implementation in utils/messages.ts. */
+export { mergeMessages } from "../utils/messages";
 
 export { MAX_TURNS };

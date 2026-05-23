@@ -34,9 +34,9 @@ src/
   api/           # F1 — HTTP client（types / client / hbm / errors）
   components/    # F2 — 三屏 UI 壳（layout / panels / overlays）
   mock/          # F2 — 静态 Mock 数据（F3 起由 store 替换）
-  utils/         # 共享工具（place 映射等）
-  constants/     # F3 — 轮询间隔等
+  utils/         # 消息 merge/sort、place 映射
+  constants/     # F3/F4 — 轮询、Phase 过渡、GRP 标签
   store/         # F3 — game state（reducer + provider）
-  hooks/         # F3 — useHealthCheck / useGameLoop
+  hooks/         # F3–F5 — game loop / auto-scroll / loading / env-status
   styles/        # global.css
 ```

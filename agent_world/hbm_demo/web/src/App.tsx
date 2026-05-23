@@ -1,5 +1,5 @@
 /**
- * F3 — 游戏主循环：health → session/start → sendTurn + poll（PLAN2 F3）。
+ * F5 — 错误处理、loading elapsed、Runner 503 Modal（PLAN2 F5）。
  */
 
 import "./styles/global.css";
@@ -10,20 +10,30 @@ import {
   LoadingOverlay,
   MainChat,
   ObserverPanel,
+  PhaseToast,
   PlayerInput,
+  RunnerNotReadyModal,
   StatusPanel,
   ThreeColumnLayout,
 } from "./components";
 import { MAX_TURNS } from "./constants/gameLoop";
-import { useGameLoop, useHealthCheck, useStartGame } from "./hooks";
+import {
+  useEnvStatus,
+  useGameLoop,
+  useHealthCheck,
+  useLoadingElapsed,
+  useStartGame,
+} from "./hooks";
 import { GameStoreProvider, useGameStoreContext } from "./store";
 import { placeDisplayName } from "./utils/places";
 
 function GameApp() {
-  const { state } = useGameStoreContext();
+  const { state, dispatch } = useGameStoreContext();
   const { retryHealth } = useHealthCheck();
-  const { startGame } = useStartGame();
+  const { startGame, restartGame } = useStartGame();
   const { sendTurn } = useGameLoop();
+  const loadingElapsed = useLoadingElapsed(state.loading);
+  const envTick = useEnvStatus(state.sessionInitialized && state.view === "playing");
 
   const {
     healthChecking,
@@ -32,6 +42,7 @@ function GameApp() {
     sessionInitialized,
     loading,
     immediateMsg,
+    phaseToast,
     stats,
     phase,
     playerTurn,
@@ -42,36 +53,67 @@ function GameApp() {
     view,
     endingId,
     lastError,
+    runnerModalOpen,
   } = state;
 
   if (healthChecking) {
     return (
-      <BootScreen
-        runnerReady={false}
-        message="正在检测 Runner 与数据库状态…"
-        onRetryHealth={() => void retryHealth()}
-      />
+      <>
+        <BootScreen
+          runnerReady={false}
+          message="正在检测 Runner 与数据库状态…"
+          onRetryHealth={() => void retryHealth()}
+        />
+        <RunnerNotReadyModal
+          open={runnerModalOpen}
+          onClose={() => dispatch({ type: "SET_RUNNER_MODAL", open: false })}
+          onRetryHealth={() => void retryHealth()}
+        />
+      </>
     );
   }
 
   if (!sessionInitialized || view === "boot") {
     return (
-      <BootScreen
-        runnerReady={runnerReady}
-        message={
-          healthError ??
-          (runnerReady
-            ? "后端已就绪，点击开始游戏进入 Turn 1"
-            : "请先启动 run_hbm 与 Flask")
-        }
-        onStart={() => void startGame()}
-        onRetryHealth={() => void retryHealth()}
-      />
+      <>
+        <BootScreen
+          runnerReady={runnerReady}
+          message={
+            healthError ??
+            (runnerReady
+              ? "后端已就绪，点击开始游戏进入 Turn 1"
+              : "请先启动 run_hbm 与 Flask")
+          }
+          onStart={() => void startGame()}
+          onRetryHealth={() => void retryHealth()}
+        />
+        <RunnerNotReadyModal
+          open={runnerModalOpen}
+          onClose={() => dispatch({ type: "SET_RUNNER_MODAL", open: false })}
+          onRetryHealth={() => void retryHealth()}
+        />
+      </>
     );
   }
 
+  const badEndLine =
+    view === "game_over"
+      ? f2fMessages.filter((m) => m.sender !== "玩家").at(-1)?.content
+      : undefined;
+
   return (
     <>
+      <PhaseToast
+        message={phaseToast}
+        onDismiss={() => dispatch({ type: "DISMISS_PHASE_TOAST" })}
+      />
+
+      <RunnerNotReadyModal
+        open={runnerModalOpen}
+        onClose={() => dispatch({ type: "SET_RUNNER_MODAL", open: false })}
+        onRetryHealth={() => void retryHealth()}
+      />
+
       <ThreeColumnLayout
         status={
           <StatusPanel
@@ -100,6 +142,7 @@ function GameApp() {
           <ObserverPanel
             rdcMessages={rdcMessages}
             grpMessages={grpMessages}
+            currentTick={envTick}
           />
         }
       />
@@ -107,14 +150,21 @@ function GameApp() {
       <LoadingOverlay
         visible={loading}
         message="Agent 世界运转中，等待 NPC 响应…"
+        elapsedSeconds={loadingElapsed}
       />
 
       {view === "game_over" ? (
-        <GameOverScreen onRestart={() => void startGame()} />
+        <GameOverScreen
+          onRestart={() => void restartGame()}
+          description={
+            badEndLine ??
+            "你的技术阐述未能通过前台筛选，保安礼貌地请你离开 NVIDIA 总部。"
+          }
+        />
       ) : null}
 
       {view === "ending" && endingId ? (
-        <EndingScreen endingId={endingId} onRestart={() => void startGame()} />
+        <EndingScreen endingId={endingId} onRestart={() => void restartGame()} />
       ) : null}
     </>
   );

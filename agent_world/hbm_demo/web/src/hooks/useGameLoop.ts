@@ -5,14 +5,15 @@ import {
   postPlayerTurn,
   startSession,
 } from "../api/hbm";
-import { HbmApiError } from "../api/errors";
 import type { ActionResultCompleted } from "../api/types";
+import { POLL_TIMEOUT_MESSAGE } from "../constants/runner";
 import {
   MAX_POLL_ATTEMPTS,
   PLAYER_SENDER,
   POLL_INTERVAL_MS,
 } from "../constants/gameLoop";
 import { useGameStoreContext } from "../store/GameStoreProvider";
+import { errorMessage, isRunnerNotReadyError } from "../utils/apiError";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -20,9 +21,7 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
-function isCompletedAction(
-  data: unknown,
-): data is ActionResultCompleted {
+function isCompletedAction(data: unknown): data is ActionResultCompleted {
   return (
     typeof data === "object" &&
     data !== null &&
@@ -30,12 +29,14 @@ function isCompletedAction(
   );
 }
 
-/** F3-2 — start game via session/start. */
+/** F3-2 / F4-8 — start or restart via session/start（清空 messages）。 */
 export function useStartGame() {
   const { applySessionStart, setLoading, dispatch } = useGameStoreContext();
 
   const startGame = useCallback(async () => {
     setLoading(true);
+    dispatch({ type: "DISMISS_PHASE_TOAST" });
+    dispatch({ type: "SET_ERROR", message: undefined });
     try {
       const response = await startSession();
       if (!response.data) {
@@ -43,22 +44,19 @@ export function useStartGame() {
       }
       applySessionStart(response.data);
     } catch (err) {
-      const message =
-        err instanceof HbmApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : "开始游戏失败";
-      dispatch({ type: "SET_ERROR", message });
+      dispatch({ type: "SET_ERROR", message: errorMessage(err, "开始游戏失败") });
+      if (isRunnerNotReadyError(err)) {
+        dispatch({ type: "SET_RUNNER_MODAL", open: true });
+      }
     } finally {
       setLoading(false);
     }
   }, [applySessionStart, dispatch, setLoading]);
 
-  return { startGame };
+  return { startGame, restartGame: startGame };
 }
 
-/** F3-3 — dual-stage turn loop (PLAN2 appendix B). */
+/** F3-3 + F5 — dual-stage turn loop with elapsed / poll timeout / 503 modal。 */
 export function useGameLoop() {
   const { state, dispatch, setLoading } = useGameStoreContext();
 
@@ -68,6 +66,16 @@ export function useGameLoop() {
       dispatch({ type: "APPLY_SESSION", data: response.data });
     }
   }, [dispatch]);
+
+  const handleApiError = useCallback(
+    (err: unknown, fallback: string) => {
+      dispatch({ type: "SET_ERROR", message: errorMessage(err, fallback) });
+      if (isRunnerNotReadyError(err)) {
+        dispatch({ type: "SET_RUNNER_MODAL", open: true });
+      }
+    },
+    [dispatch],
+  );
 
   const sendTurn = useCallback(
     async (playerText: string) => {
@@ -116,30 +124,38 @@ export function useGameLoop() {
 
         const taskId = data.task_id;
         const placeId = state.placeId;
+        let pollCompleted = false;
 
         for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt += 1) {
           await sleep(POLL_INTERVAL_MS);
           const poll = await getActionResult(taskId, { place_id: placeId });
           if (isCompletedAction(poll.data)) {
+            pollCompleted = true;
             dispatch({ type: "APPEND_ACTION_RESULT", data: poll.data });
             await refreshSession();
             break;
           }
         }
+
+        if (!pollCompleted) {
+          dispatch({ type: "SET_ERROR", message: POLL_TIMEOUT_MESSAGE });
+        }
       } catch (err) {
-        const message =
-          err instanceof HbmApiError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : "本回合处理失败";
-        dispatch({ type: "SET_ERROR", message });
+        handleApiError(err, "本回合处理失败");
       } finally {
         setLoading(false);
         dispatch({ type: "SET_IMMEDIATE", message: undefined });
       }
     },
-    [dispatch, refreshSession, setLoading, state.loading, state.placeId, state.playerTurn],
+    [
+      dispatch,
+      handleApiError,
+      refreshSession,
+      setLoading,
+      state.loading,
+      state.placeId,
+      state.playerTurn,
+    ],
   );
 
   return { sendTurn, refreshSession };

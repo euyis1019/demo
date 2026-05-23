@@ -19,7 +19,8 @@ export function BootScreen({
         <p className="boot-screen__subtitle">{message}</p>
         {!runnerReady ? (
           <p className="boot-screen__warn">
-            Runner 未就绪，请先启动 <code>run_hbm</code> 后再试。
+            Runner 未就绪，请先启动 <code>run_hbm</code> 后再试。可点击下方「复制启动命令」或「重新检测
+            Runner」。
           </p>
         ) : null}
         <div className="boot-screen__actions">
@@ -37,7 +38,7 @@ export function BootScreen({
               className="btn btn--ghost"
               onClick={onRetryHealth}
             >
-              重新检测
+              重新检测 Runner
             </button>
           ) : null}
         </div>

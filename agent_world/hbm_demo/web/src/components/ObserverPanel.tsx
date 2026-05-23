@@ -1,18 +1,26 @@
 import { useState } from "react";
 import type { GameMessage } from "../api/types";
-import { MessageLine } from "./MessageLine";
+import { useAutoScroll } from "../hooks/useAutoScroll";
+import { messageReactKey } from "../utils/messages";
+import { MessageBubble } from "./MessageBubble";
 
 export type ObserverTab = "rdc" | "grp";
 
 export interface ObserverPanelProps {
   rdcMessages: GameMessage[];
   grpMessages: GameMessage[];
+  currentTick?: number | null;
 }
 
-/** F2-4 — Tab「私聊 RDC」「群聊 GRP」（dev_logs/03 右栏）。 */
-export function ObserverPanel({ rdcMessages, grpMessages }: ObserverPanelProps) {
+/** F2-4 + F4-3 — Tab RDC/GRP + auto-scroll。 */
+export function ObserverPanel({
+  rdcMessages,
+  grpMessages,
+  currentTick = null,
+}: ObserverPanelProps) {
   const [tab, setTab] = useState<ObserverTab>("rdc");
   const messages = tab === "rdc" ? rdcMessages : grpMessages;
+  const scrollAnchorRef = useAutoScroll([tab, messages.length]);
 
   return (
     <>
@@ -57,14 +65,22 @@ export function ObserverPanel({ rdcMessages, grpMessages }: ObserverPanelProps) 
             </p>
           ) : (
             messages.map((msg, index) => (
-              <MessageLine
-                key={`${tab}-${msg.sender}-${msg.attempted_at ?? index}-${index}`}
+              <MessageBubble
+                key={messageReactKey(msg, index)}
                 message={msg}
                 variant={tab}
               />
             ))
           )}
+          <div ref={scrollAnchorRef} className="scroll-anchor" aria-hidden="true" />
         </div>
+        <footer className="observer-panel__footer">
+          {currentTick !== null ? (
+            <span>World Tick · {currentTick}</span>
+          ) : (
+            <span className="observer-panel__footer-muted">env-status 不可用</span>
+          )}
+        </footer>
       </div>
     </>
   );

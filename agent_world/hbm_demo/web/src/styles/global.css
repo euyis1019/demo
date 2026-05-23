@@ -260,21 +260,34 @@ body {
   border: 1px solid var(--hbm-panel-border);
 }
 
+/* F4 — MessageBubble (replaces msg-line in live UI) */
+.msg-bubble {
+  max-width: 88%;
+  padding: 0.625rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--hbm-panel-border);
+}
+
+.msg-bubble--player,
 .msg-line--player {
   align-self: flex-end;
   background: rgba(61, 139, 253, 0.12);
   border-color: rgba(61, 139, 253, 0.35);
 }
 
+.msg-bubble--npc,
 .msg-line--npc {
   align-self: flex-start;
 }
 
+.msg-bubble--terminal,
 .msg-line--terminal {
   border-color: rgba(255, 193, 7, 0.45);
   background: rgba(255, 193, 7, 0.08);
 }
 
+.msg-bubble__header,
 .msg-line__header {
   display: flex;
   align-items: center;
@@ -284,29 +297,119 @@ body {
   color: var(--hbm-muted);
 }
 
+.msg-bubble__sender,
+.msg-bubble__route,
 .msg-line__sender,
 .msg-line__route {
   font-weight: 600;
 }
 
+.msg-bubble--terminal .msg-bubble__sender,
+.msg-bubble--terminal .msg-bubble__route,
 .msg-line--terminal .msg-line__sender,
 .msg-line--terminal .msg-line__route {
   color: #ffc107;
 }
 
+.msg-bubble__group,
 .msg-line__group {
   padding: 0.125rem 0.375rem;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.06);
   font-size: 0.625rem;
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+.msg-bubble__content,
 .msg-line__content {
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.main-chat__scroll,
+.observer-panel__scroll {
+  display: flex;
+  flex-direction: column;
+}
+
+.scroll-anchor {
+  height: 1px;
+  flex-shrink: 0;
+}
+
+.stat-list__value--pulse {
+  animation: hbm-stat-pulse 0.7s ease;
+  color: #3fb950;
+}
+
+@keyframes hbm-stat-pulse {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.meta-list__turn {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.meta-list__turn-current {
+  font-weight: 700;
+  color: var(--hbm-accent);
+}
+
+.meta-list__turn-sep,
+.meta-list__turn-max {
+  color: var(--hbm-muted);
+}
+
+.phase-toast {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  z-index: 80;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: min(520px, calc(100% - 2rem));
+  padding: 0.875rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(61, 139, 253, 0.45);
+  background: rgba(18, 24, 32, 0.96);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transform: translateX(-50%);
+}
+
+.phase-toast__text {
+  margin: 0;
+  flex: 1;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.phase-toast__close {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--hbm-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .observer-panel__header {
@@ -524,4 +627,70 @@ body {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* F5 — Runner 503 modal + Observer env footer */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(11, 15, 20, 0.88);
+}
+
+.runner-modal__card {
+  width: min(560px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--hbm-panel-border);
+  background: var(--hbm-panel);
+}
+
+.runner-modal__title {
+  margin: 0 0 0.75rem;
+  font-size: 1.125rem;
+}
+
+.runner-modal__desc {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: var(--hbm-muted);
+  line-height: 1.5;
+}
+
+.runner-modal__command {
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: var(--hbm-bg);
+  border: 1px solid var(--hbm-panel-border);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.runner-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.observer-panel__footer {
+  flex-shrink: 0;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--hbm-panel-border);
+  font-size: 0.6875rem;
+  color: var(--hbm-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.observer-panel__footer-muted {
+  opacity: 0.7;
 }
