@@ -17,6 +17,7 @@ from openai import OpenAI
 
 from agent_world.hbm_demo.config_loader import load_scenario
 from agent_world.hbm_demo.env_status import is_runner_ready, read_env_status
+from agent_world.hbm_demo import routing
 from agent_world.hbm_demo.ipc_helper import get_ipc_client, send_inject_batch
 from agent_world.hbm_demo.kernel import resolve_api_key
 
@@ -311,6 +312,29 @@ class ReadOnlyWorldDB:
 
         return bool(self._with_retry(_query))
 
+    def fetch_rdc_messages(
+        self,
+        *,
+        sender_id: int,
+        recipient_id: int,
+        since_t: int,
+        t_now: int,
+    ) -> List[sqlite3.Row]:
+        def _query(conn: sqlite3.Connection) -> List[sqlite3.Row]:
+            return conn.execute(
+                """
+                SELECT message_id, sender_id, recipient_id, content, attempted_at
+                FROM direct_message
+                WHERE channel_type='RDC'
+                  AND sender_id=? AND recipient_id=?
+                  AND attempted_at >= ? AND attempted_at <= ?
+                ORDER BY attempted_at, message_id
+                """,
+                (sender_id, recipient_id, since_t, t_now),
+            ).fetchall()
+
+        return self._with_retry(_query)
+
     def has_grp_after(
         self, group_ids: Set[int], start_tick: int, t_now: int
     ) -> bool:
@@ -549,37 +573,25 @@ def generate_immediate_msg(
         return IMMEDIATE_MSG_PLACEHOLDER
 
 
+def build_inject_events(
+    session: HbmSession,
+    player_text: str,
+    *,
+    task_id: str,
+) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """Build inject events and optional broadcast per session phase (§4 / P4)."""
+    return routing.build_inject_payload(session, player_text, task_id=task_id)
+
+
 def build_dialogue_injection_events(
     session: HbmSession,
     player_text: str,
     *,
     task_id: str,
-    sim_dir: Path | None = None,
+    sim_dir: Path | None = None,  # noqa: ARG001 — kept for call-site compat
 ) -> List[Dict[str, Any]]:
-    """Build DialogueInjection events for agents at **session.place_id**."""
-    sim = sim_dir or get_sim_dir()
-    db = ReadOnlyWorldDB(get_world_db_path(sim))
-    agent_ids = db.agents_at(session.place_id)
-    if not agent_ids:
-        return []
-
-    text = player_text.strip()
-    if not text.startswith("玩家"):
-        text = f"玩家说：{text}"
-
-    events: List[Dict[str, Any]] = []
-    for aid in sorted(agent_ids):
-        events.append(
-            {
-                "id": f"{task_id}_agent_{aid}",
-                "trigger": {"type": "at_condition", "expr": "True"},
-                "effect": {
-                    "type": "dialogue_injection",
-                    "agent_id": int(aid),
-                    "text": text,
-                },
-            }
-        )
+    """Backward-compatible wrapper returning events only."""
+    events, _broadcast = build_inject_events(session, player_text, task_id=task_id)
     return events
 
 
@@ -640,7 +652,7 @@ def handle_player_turn(
     tick_count: int = 6,
     ipc_timeout: float = 600.0,
 ) -> Dict[str, Any]:
-    """API 1 — Phase 1 flow (steps 1–7; routing deferred to Phase 4)."""
+    """API 1 — score, inject, routing nodes A/B/C/D, Turn 16/25 (§4.2)."""
     sim = sim_dir or get_sim_dir()
     if not is_runner_ready(sim):
         raise RuntimeError(
@@ -670,6 +682,7 @@ def handle_player_turn(
     env = read_env_status(sim) or {}
     start_tick = int(env.get("current_tick", 0))
     task_id = f"task_{uuid.uuid4().hex[:12]}"
+    is_final_turn = hbm.player_turn == 25
 
     deltas = score_player_turn(hbm, player_text)
     apply_stat_deltas(hbm, deltas)
@@ -686,32 +699,71 @@ def handle_player_turn(
 
     immediate_msg = generate_immediate_msg(hbm, player_text, timeout=1.0)
 
-    events = build_dialogue_injection_events(
-        hbm, player_text, task_id=task_id, sim_dir=sim
-    )
+    events, broadcast = build_inject_events(hbm, player_text, task_id=task_id)
     if not events:
-        raise RuntimeError(f"no agents at session.place_id={hbm.place_id!r}")
+        raise RuntimeError(
+            f"no inject events for phase={hbm.phase!r} turn={hbm.player_turn}"
+        )
 
+    ipc_client = get_ipc_client(str(sim))
     resp = send_inject_batch(
-        get_ipc_client(str(sim)),
+        ipc_client,
         events=events,
+        broadcast=broadcast,
         tick_count=tick_count,
         timeout=ipc_timeout,
     )
     if resp.status.value != "completed":
         raise RuntimeError(resp.error or f"IPC inject failed: {resp.status.value}")
 
-    task = PendingTask(
+    env_after = read_env_status(sim) or {}
+    current_tick = int(env_after.get("current_tick", start_tick))
+    db = ReadOnlyWorldDB(get_world_db_path(sim))
+
+    task_place_id = hbm.place_id
+    task_phase = hbm.phase
+
+    routing_info = routing.apply_routing(
+        hbm,
+        ipc_client=ipc_client,
+        db=db,
         task_id=task_id,
-        start_tick=start_tick,
-        place_id=hbm.place_id,
-        phase=hbm.phase,
-        player_turn=hbm.player_turn,
+        current_tick=current_tick,
+        tick_count=tick_count,
+        ipc_timeout=ipc_timeout,
     )
-    save_task(flask_session, task, sim_id)
+    if routing_info.get("nodes"):
+        log.info(
+            "player_turn=%s routing applied: %s",
+            hbm.player_turn,
+            routing_info,
+        )
 
     hbm.player_turn += 1
     save_session(flask_session, hbm, sim_id)
+
+    if is_final_turn:
+        intent = routing.classify_turn25_intent(player_text)
+        ending_id = routing.resolve_ending_id(intent, hbm.stats["trust"])
+        return {
+            "status": "completed",
+            "ending_id": ending_id,
+            "intent": intent,
+            "immediate_msg": immediate_msg,
+            "stats_update": dict(hbm.stats),
+            "current_phase": hbm.phase,
+            "routing": routing_info,
+            "ipc": dict(resp.result or {}),
+        }
+
+    task = PendingTask(
+        task_id=task_id,
+        start_tick=start_tick,
+        place_id=task_place_id,
+        phase=task_phase,
+        player_turn=hbm.player_turn - 1,
+    )
+    save_task(flask_session, task, sim_id)
 
     return {
         "task_id": task_id,
@@ -720,6 +772,7 @@ def handle_player_turn(
         "stats_update": dict(hbm.stats),
         "current_phase": hbm.phase,
         "start_tick": start_tick,
+        "routing": routing_info,
         "ipc": dict(resp.result or {}),
     }
 

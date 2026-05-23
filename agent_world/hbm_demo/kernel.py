@@ -98,6 +98,24 @@ def resolve_api_key(llm_cfg: Dict[str, Any]) -> str:
     )
 
 
+def _wire_place_mutation_patch(place_store: PlaceStore) -> None:
+    """Bridge PlaceMutationEffect to PlaceStore in-memory attrs (MVP).
+
+    Engine ``PlaceMutationEffect`` looks for ``patch_attrs`` / ``update_attrs``.
+    ``PlaceStore`` only exposes ``attrs(place_id)`` as a read method today, so
+    without this shim the effect falls through to ``places.attrs.get(...)`` and
+    crashes with ``'function' object has no attribute 'get'``.
+    """
+
+    def patch_attrs(place_id: str, attrs_patch: Dict[str, Any]) -> None:
+        rec = place_store.places.get(str(place_id))
+        if rec is None:
+            raise KeyError(f"unknown place_id: {place_id}")
+        rec.attrs.update(dict(attrs_patch))
+
+    place_store.patch_attrs = patch_attrs  # type: ignore[attr-defined]
+
+
 async def _init_stores(
     scenario: Dict[str, Any],
     sim_dir: Path,
@@ -134,6 +152,7 @@ async def _init_stores(
     place_store.load_from_db(world_db)
     relation_graph.load_from_db(world_db)
     capability_table.load_from_db(world_db)
+    _wire_place_mutation_patch(place_store)
 
     return (
         world_db,
