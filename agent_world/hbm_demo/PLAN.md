@@ -157,6 +157,21 @@ python -m agent_world.hbm_demo.run_hbm \
 
 ---
 
+### Phase 6 — 交付收尾与前端联调 API
+
+**目标**：补齐前端/运维所需的 session 查询与双进程健康检查，完成六阶段交付闭环。
+
+| 任务 | 说明 |
+|------|------|
+| P6-1 | `GET .../session` — 返回 stats / phase / place_id / player_turn（无需 POST start 也可查未初始化） |
+| P6-2 | `GET .../health` — Runner 就绪 + world.db 可读；未就绪返回 503 |
+| P6-3 | `health.py` 解耦栈检查；`game_service.get_session_snapshot()` |
+| P6-4 | README / PLAN 同步 Phase 6 API 文档 |
+
+**验收**：Flask 在 Runner 未启动时 `health`→503、`session`→`initialized:false`；Runner 就绪后 `health`→200、`session/start` 后 GET session 返回完整 stats。
+
+---
+
 ## 三、模块设计要点
 
 ### 3.1 `run_hbm.py`

@@ -8,6 +8,7 @@ from flask import Blueprint, jsonify, request, session
 
 from agent_world.hbm_demo import game_service as gs
 from agent_world.hbm_demo.env_status import read_env_status
+from agent_world.hbm_demo.health import check_stack_health
 from agent_world.hbm_demo.http_errors import service_error_payload
 
 hbm_bp = Blueprint("hbm", __name__)
@@ -54,6 +55,29 @@ def session_start(sim_id: str):
             },
         }
     )
+
+
+@hbm_bp.route("/simulations/<sim_id>/session", methods=["GET"])
+def session_get(sim_id: str):
+    """Return current game session snapshot (stats / phase / turn)."""
+    err = _check_sim_id(sim_id)
+    if err:
+        return err
+
+    data = gs.get_session_snapshot(session, sim_id)
+    return jsonify({"success": True, "data": data})
+
+
+@hbm_bp.route("/simulations/<sim_id>/health", methods=["GET"])
+def health_check(sim_id: str):
+    """Check Runner + world.db readiness before player-turn."""
+    err = _check_sim_id(sim_id)
+    if err:
+        return err
+
+    data = check_stack_health(gs.get_sim_dir())
+    status_code = 200 if data.get("ready") else 503
+    return jsonify({"success": data.get("ready", False), "data": data}), status_code
 
 
 @hbm_bp.route("/simulations/<sim_id>/env-status", methods=["GET"])

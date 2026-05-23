@@ -458,6 +458,41 @@ def get_or_create_session(
     return hbm
 
 
+def get_session_snapshot(
+    flask_session: Any,
+    sim_id: str = DEFAULT_SIM_ID,
+    *,
+    sim_dir: Path | None = None,
+) -> Dict[str, Any]:
+    """Return current Flask session game state for frontend polling (Phase 6)."""
+    sim = sim_dir or get_sim_dir()
+    env = read_env_status(sim) or {}
+    runner_ready = is_runner_ready(sim)
+    hbm = load_session(flask_session, sim_id)
+    if hbm is None:
+        return {
+            "initialized": False,
+            "sim_id": sim_id,
+            "runner_ready": runner_ready,
+            "env_status": env,
+        }
+    return {
+        "initialized": True,
+        "sim_id": sim_id,
+        "task_id": hbm.task_id,
+        "start_tick": hbm.start_tick,
+        "place_id": hbm.place_id,
+        "phase": hbm.phase,
+        "current_phase": hbm.phase,
+        "player_turn": hbm.player_turn,
+        "stats": dict(hbm.stats),
+        "stats_update": dict(hbm.stats),
+        "phase2_start_tick": hbm.phase2_start_tick,
+        "runner_ready": runner_ready,
+        "env_status": env,
+    }
+
+
 def save_task(
     flask_session: Any,
     task: PendingTask,

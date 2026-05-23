@@ -72,6 +72,8 @@ flask run --port 5000
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `session/start` | 初始化 session（stats / phase / place_id） |
+| GET | `session` | 查询当前 session 快照（Phase 6） |
+| GET | `health` | 双进程就绪探针（Runner + world.db） |
 | GET | `env-status` | 读取 Runner `env_status.json` |
 | POST | `player-turn` | API 1：打分 + inject + 路由 |
 | GET | `action-result?task_id=...` | API 2：轮询 NPC 消息 |
@@ -83,6 +85,12 @@ flask run --port 5000
 # 初始化
 curl -s -X POST http://127.0.0.1:5000/api/hbm/simulations/hbm_memory_war/session/start \
   -c cookies.txt
+
+# 健康检查（Runner 须已启动）
+curl -s http://127.0.0.1:5000/api/hbm/simulations/hbm_memory_war/health
+
+# 查询 session 状态
+curl -s http://127.0.0.1:5000/api/hbm/simulations/hbm_memory_war/session -b cookies.txt
 
 # API 1
 curl -s -X POST http://127.0.0.1:5000/api/hbm/simulations/hbm_memory_war/player-turn \
@@ -130,6 +138,7 @@ hbm_demo/
   routes.py           Flask Blueprint
   ipc_helper.py       IPC 封装
   errors.py / settings.py / http_errors.py
+  health.py           Phase 6 栈健康检查
   hbm_scenario.yaml   场景配置
   sim/                运行时产物（world.db 等）
 ```
