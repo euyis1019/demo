@@ -1,0 +1,47 @@
+export interface BootScreenProps {
+  onStart?: () => void;
+  onRetryHealth?: () => void;
+  runnerReady?: boolean;
+  message?: string;
+}
+
+/** F2-5 — 启动屏（F3 接 useHealthCheck + session/start）。 */
+export function BootScreen({
+  onStart,
+  onRetryHealth,
+  runnerReady = true,
+  message = "Multi-Agent 监控大屏 · 本地可玩 Demo",
+}: BootScreenProps) {
+  return (
+    <div className="screen-overlay boot-screen" role="dialog" aria-modal="true">
+      <div className="boot-screen__card">
+        <h1 className="boot-screen__title">HBM 显存价格保卫战</h1>
+        <p className="boot-screen__subtitle">{message}</p>
+        {!runnerReady ? (
+          <p className="boot-screen__warn">
+            Runner 未就绪，请先启动 <code>run_hbm</code> 后再试。
+          </p>
+        ) : null}
+        <div className="boot-screen__actions">
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={onStart}
+            disabled={!runnerReady}
+          >
+            开始游戏
+          </button>
+          {onRetryHealth ? (
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={onRetryHealth}
+            >
+              重新检测
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}

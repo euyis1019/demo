@@ -1,35 +1,54 @@
 /**
- * F0 shell — three-column layout placeholder (F2 will add components).
- * Left: Stats | Center: Main chat | Right: Observer (RDC/GRP).
+ * F2 — 三屏 Mock 布局（PLAN2 F2 / dev_logs/03）。
+ * BootScreen / LoadingOverlay / 结局屏组件已就绪，F3+ 接入 store 与 API。
  */
 
 import "./styles/global.css";
+import {
+  MainChat,
+  ObserverPanel,
+  PlayerInput,
+  StatusPanel,
+  ThreeColumnLayout,
+} from "./components";
+import {
+  MOCK_F2F_MESSAGES,
+  MOCK_GRP_MESSAGES,
+  MOCK_IMMEDIATE_MSG,
+  MOCK_MAX_TURNS,
+  MOCK_PHASE,
+  MOCK_PLACE_LABEL,
+  MOCK_PLAYER_TURN,
+  MOCK_PRESENT_AGENTS,
+  MOCK_RDC_MESSAGES,
+  MOCK_STATS,
+} from "./mock/demoSnapshot";
 
 function App() {
   return (
-    <div className="app-shell" data-phase="F0">
-      <aside className="panel panel--status" aria-label="状态面板">
-        <div className="panel__header">Status</div>
-        <div className="panel__body">
-          <p className="panel__placeholder">Stats · Phase · Turn（F2）</p>
-        </div>
-      </aside>
-
-      <main className="panel panel--main" aria-label="主交互区">
-        <div className="panel__header">Main Chat</div>
-        <div className="panel__body">
-          <h1 className="app-title">HBM 显存价格保卫战</h1>
-          <p className="app-subtitle">前端工程已就绪（Phase F0）</p>
-        </div>
-      </main>
-
-      <aside className="panel panel--observer" aria-label="上帝视角">
-        <div className="panel__header">Observer</div>
-        <div className="panel__body">
-          <p className="panel__placeholder">RDC · GRP（F2）</p>
-        </div>
-      </aside>
-    </div>
+    <ThreeColumnLayout
+      status={
+        <StatusPanel
+          stats={MOCK_STATS}
+          phase={MOCK_PHASE}
+          playerTurn={MOCK_PLAYER_TURN}
+          maxTurns={MOCK_MAX_TURNS}
+          placeLabel={MOCK_PLACE_LABEL}
+          presentAgents={MOCK_PRESENT_AGENTS}
+        />
+      }
+      main={
+        <MainChat messages={MOCK_F2F_MESSAGES} immediateMsg={MOCK_IMMEDIATE_MSG}>
+          <PlayerInput placeholder="输入你的台词…（F3 接 API）" />
+        </MainChat>
+      }
+      observer={
+        <ObserverPanel
+          rdcMessages={MOCK_RDC_MESSAGES}
+          grpMessages={MOCK_GRP_MESSAGES}
+        />
+      }
+    />
   );
 }
 
