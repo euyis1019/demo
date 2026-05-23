@@ -9,7 +9,7 @@ import type {
 } from "../api/types";
 import { getPhaseTransitionMessage } from "../constants/phaseTransitions";
 import { MAX_TURNS } from "../constants/gameLoop";
-import { mergeMessages as mergeMessageLists } from "../utils/messages";
+import { mergeMessages as mergeMessageLists, stampPlayerBubble } from "../utils/messages";
 
 export type EndingId = PlayerTurnCompleted["ending_id"];
 export type GameView = "boot" | "playing" | "game_over" | "ending";
@@ -158,7 +158,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case "PUSH_PLAYER_BUBBLE":
       return {
         ...state,
-        f2fMessages: mergeMessageLists(state.f2fMessages, [action.message]),
+        f2fMessages: mergeMessageLists(state.f2fMessages, [
+          stampPlayerBubble(state.f2fMessages, action.message),
+        ]),
       };
     case "APPEND_ACTION_RESULT": {
       const phaseUpdate = applyPhaseChange(state, action.data.current_phase);
