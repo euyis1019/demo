@@ -31,7 +31,7 @@ API 请求走 Vite 代理：`/api` → `http://127.0.0.1:5000`（无需 CORS）�
 
 ```text
 src/
-  api/           # F1 — HTTP client
+  api/           # F1 — HTTP client（types / client / hbm / errors）
   store/         # F2+ — game state
   components/    # F2+ — UI
   hooks/         # F3+ — game loop
