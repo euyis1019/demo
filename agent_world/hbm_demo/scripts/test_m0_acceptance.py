@@ -924,6 +924,130 @@ def test_f07_d_agent_control() -> None:
     ok("D5 dev_docs/1 Phase 4 inject Agent 2 + present_silent")
 
 
+def test_f07_e_step1_player_facing_f2f() -> None:
+    """F07-E Step1 — E0 player-facing F2F + E6 session/start hygiene (dev_logs/29)."""
+    import asyncio
+    import tempfile
+    from types import SimpleNamespace
+
+    section("T2g F07-E Step1 E0 player F2F + E6 session hygiene")
+    from agent_world.hbm_demo.features import FEATURE_REGISTRY
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_experience_hardening,
+        is_f07_enabled,
+        load_turn_control,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.player_facing_f2f import (
+        PLAYER_RECIPIENT_ID,
+        co_located_peer_count,
+        emit_player_facing_f2f,
+        is_speak_to_local_action,
+        should_emit_player_facing_f2f,
+    )
+    from agent_world.hbm_demo.features.f06_read_model.world_db import ReadOnlyWorldDB
+    from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import (
+        async_state_path,
+        clear_async_state,
+        save_task_runtime,
+    )
+    from agent_world.persistence.world_db import WorldDB
+
+    phase = FEATURE_REGISTRY.get("F07", {}).get("phase", "")
+    if "F07-E" not in phase:
+        raise TestFailure(f"F07 registry phase should mention F07-E Step1: {phase!r}")
+    ok(f"FEATURE_REGISTRY F07 phase: {phase}")
+
+    if not is_f07_enabled():
+        ok("F07-E Step1 tests skipped (F07 disabled)")
+        return
+
+    load_turn_control.cache_clear()
+    if not is_experience_hardening():
+        raise TestFailure("experience_hardening.enabled should be true in turn_control.yaml")
+    ok("E0 is_experience_hardening() enabled")
+
+    if not is_speak_to_local_action("speak_to_local"):
+        raise TestFailure("is_speak_to_local_action failed for string tool name")
+    ok("E0 is_speak_to_local_action")
+
+    if should_emit_player_facing_f2f({"success": True, "recipients": [99]}):
+        raise TestFailure("should not emit when FaceToFaceBus inserted rows")
+    if not should_emit_player_facing_f2f({"success": True, "recipients": []}):
+        raise TestFailure("should emit when recipients empty")
+    ok("E0 should_emit_player_facing_f2f")
+
+    world = SimpleNamespace(
+        places=SimpleNamespace(
+            L_t=lambda aid: "nvidia_reception" if aid == 1 else "negotiation_room",
+            agents_at=lambda place: {1} if place == "nvidia_reception" else {2, 3},
+        )
+    )
+    if co_located_peer_count(world, 1) != 0:
+        raise TestFailure("Phase 1 reception should have 0 co-located peers for agent 1")
+    if co_located_peer_count(world, 2) != 1:
+        raise TestFailure("negotiation_room agent 2 should have 1 peer")
+    ok("E0 co_located_peer_count")
+
+    async def _emit_and_read() -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "world.db"
+            wdb = WorldDB(str(db_path))
+            wdb.init_schema()
+            mid = await emit_player_facing_f2f(
+                wdb,
+                sender_id=1,
+                place_id="nvidia_reception",
+                content="您提到的方案，我需要跟黄总确认，请稍等。",
+                t=7,
+            )
+            if mid <= 0:
+                raise TestFailure(f"emit_player_facing_f2f bad message_id: {mid}")
+            ro = ReadOnlyWorldDB(db_path)
+            rows = ro.fetch_f2f_history_at("nvidia_reception", 7, 0, limit=10)
+            if len(rows) < 1:
+                raise TestFailure("fetch_f2f_history_at should see player-facing F2F")
+            if rows[0][3] != "您提到的方案，我需要跟黄总确认，请稍等。":
+                raise TestFailure(f"unexpected F2F content: {rows[0]}")
+
+    asyncio.run(_emit_and_read())
+    ok(f"E0 emit_player_facing_f2f → ReadOnlyWorldDB F2F≥1 (recipient={PLAYER_RECIPIENT_ID})")
+
+    routes_src = (HBM_DIR / "http" / "routes.py").read_text(encoding="utf-8")
+    if "clear_async_state" not in routes_src or "session_start" not in routes_src:
+        raise TestFailure("routes.session_start should call clear_async_state (E6)")
+    ok("E6 session/start clears async_state (source)")
+
+    save_task_runtime(
+        SIM_DIR,
+        {
+            "task_id": "stale_task",
+            "start_tick": 0,
+            "place_id": "nvidia_reception",
+            "phase": "Phase 1",
+            "player_turn": 4,
+        },
+        session_dict={
+            "task_id": "stale_task",
+            "start_tick": 0,
+            "place_id": "nvidia_reception",
+            "phase": "Phase 1",
+            "player_turn": 4,
+            "stats": {"vision": 8, "execution": 5, "trust": 12, "burnout": 3},
+        },
+    )
+    if not async_state_path(SIM_DIR).is_file():
+        raise TestFailure("test setup: runtime.json not written")
+    clear_async_state(SIM_DIR)
+    if async_state_path(SIM_DIR).exists():
+        raise TestFailure("clear_async_state should remove runtime.json")
+    ok("E6 clear_async_state removes F11 runtime overlay")
+
+    ws_src = (HBM_DIR / "core" / "runner" / "world_step.py").read_text(encoding="utf-8")
+    if "_maybe_emit_player_facing_f2f" not in ws_src:
+        raise TestFailure("HbmWorldStep missing player-facing F2F hook")
+    ok("E0 HbmWorldStep speak_to_local dispatch hook present")
+
+
 def test_m6_frontend_features() -> None:
     section("T1g M6 web/src/features/ 前端 Feature 拆分")
     web_src = HBM_DIR / "web" / "src"
@@ -1591,9 +1715,14 @@ def start_stack() -> Tuple[subprocess.Popen[Any], subprocess.Popen[Any], str, bo
 
     # Fresh world.db so action-result counts reflect this run only.
     SIM_DIR.mkdir(parents=True, exist_ok=True)
+    from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import (
+        clear_async_state,
+    )
+
     for stale in (SIM_DIR / "world.db", SIM_DIR / "env_status.json"):
         if stale.exists():
             stale.unlink()
+    clear_async_state(SIM_DIR)
 
     env = apply_hbm_demo_env(os.environ.copy())
     env["HBM_SIM_DIR"] = str(SIM_DIR)
@@ -1699,6 +1828,7 @@ def main() -> int:
         test_f07_b_agent_control,
         test_f07_c_agent_control,
         test_f07_d_agent_control,
+        test_f07_e_step1_player_facing_f2f,
         test_f05_routing_payload,
         test_f11_live_turn_sync,
         test_f11_c_frontend,

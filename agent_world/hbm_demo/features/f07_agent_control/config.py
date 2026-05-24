@@ -27,6 +27,14 @@ def is_f07_enabled() -> bool:
     return bool(load_turn_control().get("enabled", False))
 
 
+def is_experience_hardening() -> bool:
+    """F07-E — player-facing F2F channel + later guard rails."""
+    if not is_f07_enabled():
+        return False
+    block = load_turn_control().get("experience_hardening") or {}
+    return bool(block.get("enabled", False))
+
+
 def resolve_inject_tick_count(phase: str, tick_count: int) -> int:
     """Phase 1 + F07 needs inject batch ≥ start+8 for §13.2 timeout completion."""
     n = int(tick_count)

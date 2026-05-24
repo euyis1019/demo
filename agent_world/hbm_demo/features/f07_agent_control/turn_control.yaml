@@ -1,5 +1,9 @@
 enabled: true
 
+# F07-E experience hardening (dev_logs/29 Step 1+)
+experience_hardening:
+  enabled: true
+
 phases:
   Phase 1:
     primary_active: [1, 2, 3]

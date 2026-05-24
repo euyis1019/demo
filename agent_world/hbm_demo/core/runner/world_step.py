@@ -85,8 +85,15 @@ class HbmWorldStep(WorldStep):
 
         for atype, akwargs in _extract_actions(decision):
             try:
-                await self.dispatcher.dispatch(
+                dispatch_result = await self.dispatcher.dispatch(
                     agent_id, atype, t, **(akwargs or {})
+                )
+                await self._maybe_emit_player_facing_f2f(
+                    agent_id=agent_id,
+                    action_type=atype,
+                    action_kwargs=akwargs or {},
+                    dispatch_result=dispatch_result,
+                    t=t,
                 )
             except Exception as exc:  # noqa: BLE001
                 log.warning(
@@ -95,6 +102,57 @@ class HbmWorldStep(WorldStep):
                     atype,
                     exc,
                 )
+
+    async def _maybe_emit_player_facing_f2f(
+        self,
+        *,
+        agent_id: int,
+        action_type: Any,
+        action_kwargs: Dict[str, Any],
+        dispatch_result: Any,
+        t: int,
+    ) -> None:
+        from agent_world.hbm_demo.features.f07_agent_control.config import (
+            is_experience_hardening,
+        )
+        from agent_world.hbm_demo.features.f07_agent_control.player_facing_f2f import (
+            emit_player_facing_f2f,
+            is_speak_to_local_action,
+            should_emit_player_facing_f2f,
+        )
+
+        if not is_experience_hardening():
+            return
+        if not is_speak_to_local_action(action_type):
+            return
+        if not should_emit_player_facing_f2f(dispatch_result):
+            return
+        content = str(action_kwargs.get("content") or "").strip()
+        if not content:
+            return
+        place_id = self._agent_place_id(agent_id)
+        if not place_id or self.world_db is None:
+            return
+        try:
+            await emit_player_facing_f2f(
+                self.world_db,
+                sender_id=int(agent_id),
+                place_id=str(place_id),
+                content=content,
+                t=int(t),
+            )
+            log.debug(
+                "F07-E0 player_facing_f2f agent=%s place=%s t=%s",
+                agent_id,
+                place_id,
+                t,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "player_facing_f2f failed agent=%s: %s",
+                agent_id,
+                exc,
+            )
 
     async def _run_place(
         self, place_id: str, agent_ids: List[int], t: int

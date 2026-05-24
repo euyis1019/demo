@@ -37,6 +37,11 @@ def session_start(sim_id: str):
     if err:
         return err
 
+    from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import (
+        clear_async_state,
+    )
+
+    clear_async_state(gs.get_sim_dir())
     hbm = gs.create_session()
     gs.save_session(session, hbm, sim_id)
     env = read_env_status(gs.get_sim_dir()) or {}
