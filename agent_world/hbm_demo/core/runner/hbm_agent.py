@@ -96,14 +96,21 @@ class HbmAgent(DemoAgent):
             {"role": "user", "content": user_text},
         ]
 
+        ctx = getattr(world, "_hbm_tick_context", None)
+        temperature = float(self.temperature)
+        max_tokens = int(self.max_tokens)
+        if ctx and ctx.get("enabled", True):
+            temperature = float(ctx.get("temperature_override", temperature))
+            max_tokens = int(ctx.get("max_tokens_override", max_tokens))
+
         try:
             resp = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 tools=HBM_TOOLS,
                 tool_choice="auto",
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
+                temperature=temperature,
+                max_tokens=max_tokens,
             )
         except Exception as exc:  # noqa: BLE001
             log.error("agent %s LLM call failed: %s", self.agent_id, exc)
@@ -128,6 +135,16 @@ class HbmAgent(DemoAgent):
             if content:
                 log.info("agent %s thought: %s", self.agent_id, content[:200])
             tool_calls = [_ToolCall(tool_name="do_nothing", args={})]
+
+        ctx = getattr(world, "_hbm_tick_context", None)
+        if ctx and ctx.get("enabled", True):
+            from agent_world.hbm_demo.features.f07_agent_control.tool_guard import (
+                filter_tool_calls,
+            )
+
+            tool_calls = filter_tool_calls(
+                tool_calls, agent_id=int(self.agent_id), ctx=ctx
+            )
 
         return _Response(info={"tool_calls": tool_calls})
 

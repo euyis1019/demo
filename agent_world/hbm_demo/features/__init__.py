@@ -62,8 +62,15 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
     },
     "F07": {
         "name": "Agent 行为控制 ABCS",
-        "status": "design",
+        "status": "implemented",
         "path": "features/f07_agent_control/",
+        "modules": [
+            "config",
+            "matrix",
+            "turn_context",
+            "tool_guard",
+            "turn_control.yaml",
+        ],
         "doc": "dev_logs/24_HBM_Demo_Agent行为控制整合方案.md",
     },
     "F08": {

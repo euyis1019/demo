@@ -1,0 +1,32 @@
+# F07 ABCS — turn control matrix (dev_logs/24 §4)
+# Set enabled: false to revert to pre-ABCS Runner behavior.
+
+enabled: true
+
+llm_defaults:
+  temperature: 0.65
+  max_tokens: 500
+
+llm_by_phase:
+  Phase 1:
+    temperature: 0.65
+    max_tokens: 350
+  Phase 2:
+    temperature: 0.65
+    max_tokens: 400
+  Phase 3:
+    temperature: 0.70
+    max_tokens: 500
+  Phase 4:
+    temperature: 0.70
+    max_tokens: 450
+
+active_agents_by_phase:
+  Phase 1: [1]
+  Phase 2: [2]
+  Phase 3: [2, 3, 4, 5, 6]
+  Phase 4: [2, 3]
+
+# Tech VP passive RDC replies during Phase 2 (L3 exception, dev_logs/24 §5.3).
+passive_agents_by_phase:
+  Phase 2: [3]

@@ -72,7 +72,9 @@ agent_world/hbm_demo/
 │   ├── f04_stats/         # 打分与 Stats（M2 ✅）
 │   ├── f05_story_routing/ # 剧情节点 A/B/C/D（routing 已迁入）
 │   ├── f06_read_model/    # ReadOnlyWorldDB（M2 ✅）
-│   └── f07_agent_control/ # ABCS 待建
+│   └── f07_agent_control/ # F07 ABCS（M5 ✅）
+│       ├── config.py, matrix.py, turn_context.py, tool_guard.py
+│       └── turn_control.yaml（根目录）
 ├── shared/                # 跨 Feature 基础设施（M1）
 ├── scripts/               # F10 一行启动
 ├── sim/hbm_memory_war/    # 运行时产物

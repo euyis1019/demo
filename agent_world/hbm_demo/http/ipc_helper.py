@@ -31,12 +31,15 @@ def send_inject_batch(
     events: List[Dict[str, Any]],
     tick_count: int = 6,
     broadcast: Optional[Dict[str, Any]] = None,
+    turn_context: Optional[Dict[str, Any]] = None,
     timeout: float = DEFAULT_IPC_TIMEOUT,
 ) -> IPCResponse:
-    """Send batch script inject with optional broadcast and tick_count."""
+    """Send batch script inject with optional broadcast, tick_count, and TurnContext."""
     payload: Dict[str, Any] = {"events": events, "tick_count": tick_count}
     if broadcast:
         payload["broadcast"] = broadcast
+    if turn_context is not None:
+        payload["turn_context"] = turn_context
     try:
         resp = client.send_command(
             CommandType.INJECT_SCRIPT_EVENT,

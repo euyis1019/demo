@@ -69,9 +69,24 @@ def wire_handlers(
 
         n = int(payload.get("tick_count", 6))
         tick_loops = max(3, min(n, 8))
-        for _ in range(tick_loops):
-            await world_step.run_one_tick()
-            write_env_status(sim_dir_str, get_current_tick())
+
+        turn_ctx = payload.get("turn_context")
+        if turn_ctx and turn_ctx.get("enabled", True):
+            log.info(
+                "ABCS turn_context phase=%s turn=%s active=%s",
+                turn_ctx.get("phase"),
+                turn_ctx.get("player_turn"),
+                turn_ctx.get("active_agent_ids"),
+            )
+        if hasattr(world_step, "set_tick_context"):
+            world_step.set_tick_context(turn_ctx)
+        try:
+            for _ in range(tick_loops):
+                await world_step.run_one_tick()
+                write_env_status(sim_dir_str, get_current_tick())
+        finally:
+            if hasattr(world_step, "clear_tick_context"):
+                world_step.clear_tick_context()
 
         end_tick = int(world_state.clock.t)
         return {

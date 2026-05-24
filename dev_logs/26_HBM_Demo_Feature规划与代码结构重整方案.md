@@ -442,8 +442,22 @@ score (F04) → immediate_msg (F04) → build_inject (F05) → IPC inject (F08)
 | **M2** ✅ | 拆 `game_service` → f01–f04、f06；根 `game_service` re-export | 中 | 完整 25 轮可玩 |
 | **M3** ✅ | `core/runner/*` 迁入；`run_hbm` shim | 中 | Runner IPC 全命令 |
 | **M4** ✅ | `http/*` 迁入；`routes` shim | 低 | 7 HTTP 端点 |
-| **M5** | 实现 F07 ABCS Phase A→C | 中 | §24 验收清单 |
+| **M5** ✅ | 实现 F07 ABCS Phase A→C | 中 | §24 验收清单 |
 | **M6** | 前端 `web/src/features/*` | 低 | UI 无回归 |
+
+### M5 已落地文件
+
+```
+turn_control.yaml
+features/f07_agent_control/config.py, matrix.py, turn_context.py, tool_guard.py
+turn_context.py                                    # 根 shim
+core/runner/world_step.py                          # L3 _pick_active
+core/runner/hbm_agent.py                           # L2/L5
+core/runner/ipc_handlers.py                        # turn_context IPC
+http/ipc_helper.py                                 # payload turn_context
+features/f05_story_routing/routing.py              # L4 约束前缀
+hbm_scenario.yaml                                  # L1/L2 temperature + soul
+```
 
 ### M4 已落地文件
 
@@ -660,5 +674,25 @@ python agent_world/hbm_demo/scripts/test_m0_acceptance.py
 
 **修复**：`http/__init__.py` 不再 eager import `routes`，避免 `ipc_helper` → `routes` → `game_service` → `reset` 循环依赖。
 
-**下一步**：M5 实现 F07 ABCS。
+**下一步**：M6 前端 `web/src/features/` 拆分。
+
+---
+
+## 18. M5 验收测试记录
+
+**执行时间**：2026-05-24  
+**脚本**：`agent_world/hbm_demo/scripts/test_m0_acceptance.py`（含 T1f M5 F07 ABCS）  
+**结果**：**ALL M0–M5 TESTS PASSED**
+
+| 用例 | 覆盖 Feature | 结果 |
+|------|--------------|------|
+| T1f F07 单元 | turn_context、matrix、tool_guard、根 shim | ✓ |
+| T2 L4 前缀 | inject payload 含「系统约束」 | ✓ |
+| T4 E2E GRP=0 | Phase 1 Turn 1 无 CEO 群聊（干净 world.db） | ✓ |
+| T5 session/reset | 重开后 Turn 1 仍通过 | ✓ |
+| T0–T6 全量回归 | M0–M4 无回归 | ✓ |
+
+**ABCS 五层**：L1 soul 服从句 + L2 temperature 0.65 + L3 tick 白名单 + L4 约束前缀 + L5 工具/MOVE 拦截。回滚：`turn_control.yaml` → `enabled: false`。
+
+**下一步**：M6 前端 features 目录。
 

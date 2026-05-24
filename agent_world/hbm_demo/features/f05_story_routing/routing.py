@@ -13,6 +13,10 @@ from openai import OpenAI
 from agent_world.hbm_demo.shared.config_loader import load_scenario
 from agent_world.hbm_demo.http.ipc_helper import send_inject_batch, send_move_agent
 from agent_world.hbm_demo.core.runner.kernel import resolve_api_key
+from agent_world.hbm_demo.features.f07_agent_control.turn_context import (
+    build_turn_context,
+    format_constraint_prefix,
+)
 
 log = logging.getLogger("agent_world.hbm_demo.routing")
 
@@ -91,9 +95,12 @@ def build_inject_payload(
     player_text: str,
     *,
     task_id: str,
-) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
-    """Build DialogueInjection events and optional Turn 16 broadcast."""
-    dialogue = format_player_dialogue(player_text)
+) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]], Dict[str, Any]]:
+    """Build DialogueInjection events, optional Turn 16 broadcast, and TurnContext."""
+    turn_ctx = build_turn_context(session)
+    prefix = format_constraint_prefix(turn_ctx)
+    dialogue_body = format_player_dialogue(player_text)
+    dialogue = f"{prefix}\n\n{dialogue_body}" if prefix else dialogue_body
     agent_ids = inject_agent_ids_for_phase(session.phase)
     events = [
         build_dialogue_event(task_id=task_id, agent_id=aid, text=dialogue)
@@ -115,7 +122,7 @@ def build_inject_payload(
             )
         )
 
-    return events, broadcast
+    return events, broadcast, turn_ctx
 
 
 def has_positive_tech_vp_rdc(db: Any, *, since_tick: int, t_now: int) -> bool:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""M0–M4 acceptance tests — dev_logs/26 §7."""
+"""M0–M5 acceptance tests — dev_logs/26 §7."""
 
 from __future__ import annotations
 
@@ -269,6 +269,67 @@ def test_m4_http_shims() -> None:
     ok(f"hbm_bp registers {len(expected)} HTTP endpoints (F08)")
 
 
+def test_m5_f07_abcs() -> None:
+    section("T1f M5 F07 ABCS turn control")
+    from agent_world.demo.demo_agent import _ToolCall
+    from agent_world.hbm_demo.features.f07_agent_control.matrix import (
+        allowed_tools_for,
+        is_move_allowed,
+        resolve_active_agent_ids,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.tool_guard import filter_tool_calls
+    from agent_world.hbm_demo.features.f07_agent_control.turn_context import (
+        build_turn_context,
+        format_constraint_prefix,
+    )
+    import agent_world.hbm_demo.turn_context as root_tc
+    from agent_world.hbm_demo.features.f07_agent_control import turn_context as feat_tc
+
+    if root_tc.build_turn_context is not feat_tc.build_turn_context:
+        raise TestFailure("turn_context.py shim != f07 implementation")
+    ok("turn_context.py shim → features/f07_agent_control")
+
+    class FakeSession:
+        phase = "Phase 1"
+        player_turn = 1
+        place_id = "nvidia_reception"
+        stats = {"vision": 0, "execution": 0, "trust": 10, "burnout": 0}
+
+    ctx = build_turn_context(FakeSession())
+    if not ctx.get("enabled"):
+        raise TestFailure("ABCS should be enabled by default")
+    if ctx.get("active_agent_ids") != [1]:
+        raise TestFailure(f"Phase 1 active agents wrong: {ctx}")
+    ok("F07 build_turn_context Phase 1 → active=[1]")
+
+    prefix = format_constraint_prefix(ctx)
+    if "系统约束" not in prefix or "Phase 1" not in prefix:
+        raise TestFailure(f"constraint prefix missing: {prefix[:80]}")
+    ok("F07 L4 format_constraint_prefix")
+
+    if resolve_active_agent_ids("Phase 3", 16) != [2, 3, 4, 5, 6, 7]:
+        raise TestFailure("Turn 16 should append Sam to Phase 3 active list")
+    ok("F07 Turn 16 Sam activation")
+
+    p1_tools = allowed_tools_for(4, "Phase 1", 1)
+    if p1_tools != {"do_nothing"}:
+        raise TestFailure(f"Phase 1 CEO tools should be do_nothing only: {p1_tools}")
+    ok("F07 L5 Phase 1 CEO tool whitelist")
+
+    if is_move_allowed(7, "Phase 1", 1):
+        raise TestFailure("Sam MOVE should be blocked before Turn 16")
+    ok("F07 L5 Sam MOVE blocked Turn 1")
+
+    blocked = filter_tool_calls(
+        [_ToolCall(tool_name="send_to_group", args={"group_id": 200, "content": "x"})],
+        agent_id=4,
+        ctx=ctx,
+    )
+    if not blocked or blocked[0].tool_name != "do_nothing":
+        raise TestFailure("send_to_group should be replaced with do_nothing")
+    ok("F07 L5 tool_guard blocks GRP for CEO Phase 1")
+
+
 def test_f05_routing_payload() -> None:
     section("T2 F05 剧情路由 payload 单元")
     from agent_world.hbm_demo.features.f05_story_routing.routing import (
@@ -281,16 +342,20 @@ def test_f05_routing_payload() -> None:
         player_turn = 1
         stats = {"vision": 0, "execution": 0, "trust": 10, "burnout": 0}
 
-    events, broadcast = build_inject_payload(FakeSession(), "你好", task_id="t1")
+    events, broadcast, turn_ctx = build_inject_payload(FakeSession(), "你好", task_id="t1")
     if len(events) != 1 or events[0]["effect"]["agent_id"] != 1:
         raise TestFailure(f"Phase 1 Turn 1 inject wrong: {events}")
-    ok("Phase 1 Turn 1 → single inject to Agent 1")
+    if "系统约束" not in events[0]["effect"]["text"]:
+        raise TestFailure("Phase 1 inject missing ABCS constraint prefix")
+    if not turn_ctx.get("enabled"):
+        raise TestFailure("Turn 1 missing turn_context")
+    ok("Phase 1 Turn 1 → single inject to Agent 1 + L4 prefix")
     if broadcast is not None:
         raise TestFailure("Turn 1 should not broadcast")
 
     FakeSession.player_turn = 16
     FakeSession.phase = "Phase 3"
-    events, broadcast = build_inject_payload(FakeSession(), "谈判", task_id="t16")
+    events, broadcast, _ctx16 = build_inject_payload(FakeSession(), "谈判", task_id="t16")
     if broadcast is None:
         raise TestFailure("Turn 16 missing broadcast")
     sam = [e for e in events if e["effect"]["agent_id"] == 7]
@@ -365,9 +430,12 @@ def test_e2e_stack(base: str) -> None:
         raise TestFailure(f"Turn 1 not completed: {result}")
     public = result.get("public_messages") or []
     observer = result.get("observer_messages") or []
+    grp = result.get("group_messages") or []
+    if len(grp) > 0:
+        raise TestFailure(f"F07 Phase 1 Turn 1 should have 0 GRP, got {len(grp)}: {grp}")
     ok(
         f"GET /action-result completed — F2F={len(public)} observer={len(observer)} "
-        f"turn→{result.get('player_turn')}"
+        f"GRP={len(grp)} turn→{result.get('player_turn')}"
     )
 
     section("T5 F01 会话重开 (session/reset)")
@@ -426,6 +494,12 @@ def start_stack() -> Tuple[subprocess.Popen[Any], subprocess.Popen[Any], str]:
     stop = ROOT / "agent_world" / "hbm_demo" / "scripts" / "stop_demo.sh"
     subprocess.run(["bash", str(stop)], check=False, capture_output=True)
     time.sleep(1)
+
+    # Fresh world.db so action-result GRP counts reflect this run only (F07 E2E).
+    SIM_DIR.mkdir(parents=True, exist_ok=True)
+    for stale in (SIM_DIR / "world.db", SIM_DIR / "env_status.json"):
+        if stale.exists():
+            stale.unlink()
 
     env = os.environ.copy()
     env["HBM_SIM_DIR"] = str(SIM_DIR)
@@ -514,7 +588,7 @@ def stop_stack(runner: subprocess.Popen[Any], flask: subprocess.Popen[Any]) -> N
 
 
 def main() -> int:
-    print("HBM Demo M0–M4 Acceptance Tests (dev_logs/26)")
+    print("HBM Demo M0–M5 Acceptance Tests (dev_logs/26)")
     failures: List[str] = []
 
     for fn in (
@@ -523,6 +597,7 @@ def main() -> int:
         test_m2_game_service_shims,
         test_m3_runner_shims,
         test_m4_http_shims,
+        test_m5_f07_abcs,
         test_f05_routing_payload,
         test_runner_module_entry,
     ):
@@ -555,7 +630,7 @@ def main() -> int:
         for f in failures:
             print(f"  - {f}")
         return 1
-    print("ALL M0–M4 TESTS PASSED")
+    print("ALL M0–M5 TESTS PASSED")
     return 0
 
 

@@ -2,7 +2,7 @@
 
 **记录时间**：2026-05-24  
 **分支**：`jensen-hwang-demo`  
-**状态**：**设计稿 · 待实现**（本文档阶段不改代码）  
+**状态**：**已实现**（M5 · commit `jensen-hwang-demo`）  
 **关联文档**：
 - 目录与运行机制 → [`22_HBM_Demo目录结构与功能说明.md`](./22_HBM_Demo目录结构与功能说明.md)
 - 25 轮参考台词 → [`19_HBM_Demo_25轮参考台词.md`](./19_HBM_Demo_25轮参考台词.md)
@@ -362,4 +362,16 @@ game_service.handle_player_turn
 
 ---
 
-*本文档为 Agent 行为失控问题的整合设计，实现前以本文为准；实现完成后应在本文件末尾追加「实施记录」章节并链接相关 commit。*
+*本文档为 Agent 行为失控问题的整合设计；实现见 `features/f07_agent_control/` 与 `turn_control.yaml`。*
+
+---
+
+## 12. 实施记录（M5 · 2026-05-24）
+
+| Phase | 项 | 状态 |
+|-------|-----|------|
+| A | temperature 0.65、`turn_control.yaml`、`turn_context.py`、L4 约束前缀 | ✅ |
+| B | L3 `HbmWorldStep._pick_active`、IPC `turn_context`、L5 tool/MOVE 拦截 | ✅ |
+| C | Turn hint 字典、E2E GRP=0 断言、结构化 ABCS 日志 | ✅ |
+
+回滚：`turn_control.yaml` 设 `enabled: false`。
