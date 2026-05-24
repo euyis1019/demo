@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""M0–M3 acceptance tests — dev_logs/26 §7."""
+"""M0–M4 acceptance tests — dev_logs/26 §7."""
 
 from __future__ import annotations
 
@@ -227,6 +227,48 @@ def test_m3_runner_shims() -> None:
     ok(f"IPC CommandType registry includes {len(registered)} F00 commands")
 
 
+def test_m4_http_shims() -> None:
+    section("T1e M4 http/ 模块与根 shim")
+    import agent_world.hbm_demo.routes as root_routes
+    import agent_world.hbm_demo.ipc_helper as root_ipc
+    import agent_world.hbm_demo.health as root_health
+    import agent_world.hbm_demo.http_errors as root_errors
+    from agent_world.hbm_demo.http import routes as http_routes
+    from agent_world.hbm_demo.http import ipc_helper as http_ipc
+    from agent_world.hbm_demo.http import health as http_health
+    from agent_world.hbm_demo.http import http_errors as http_err
+
+    pairs = (
+        ("routes.hbm_bp", root_routes.hbm_bp, http_routes.hbm_bp),
+        ("ipc_helper.send_inject_batch", root_ipc.send_inject_batch, http_ipc.send_inject_batch),
+        ("health.check_stack_health", root_health.check_stack_health, http_health.check_stack_health),
+        ("http_errors.service_error_payload", root_errors.service_error_payload, http_err.service_error_payload),
+    )
+    for name, root_obj, http_obj in pairs:
+        if root_obj is not http_obj:
+            raise TestFailure(f"{name} shim != http implementation")
+        ok(name)
+
+    from flask import Flask
+
+    app = Flask(__name__)
+    app.register_blueprint(http_routes.hbm_bp)
+    rules = {r.rule for r in app.url_map.iter_rules() if r.rule != "/static/<path:filename>"}
+    expected = {
+        "/simulations/<sim_id>/session/start",
+        "/simulations/<sim_id>/session/reset",
+        "/simulations/<sim_id>/session",
+        "/simulations/<sim_id>/health",
+        "/simulations/<sim_id>/env-status",
+        "/simulations/<sim_id>/player-turn",
+        "/simulations/<sim_id>/action-result",
+        "/simulations/<sim_id>/debug-inject",
+    }
+    if rules != expected:
+        raise TestFailure(f"hbm_bp routes mismatch: {sorted(rules)}")
+    ok(f"hbm_bp registers {len(expected)} HTTP endpoints (F08)")
+
+
 def test_f05_routing_payload() -> None:
     section("T2 F05 剧情路由 payload 单元")
     from agent_world.hbm_demo.features.f05_story_routing.routing import (
@@ -296,6 +338,11 @@ def test_e2e_stack(base: str) -> None:
     if data.get("player_turn") != 1 or data.get("phase") != "Phase 1":
         raise TestFailure(f"session/start bad state: {data}")
     ok("POST /session/start → Turn 1 Phase 1")
+
+    code, snap, cookie = http_json("GET", f"{base}{BASE_PATH}/session", cookie=cookie)
+    if code != 200 or not (snap.get("data") or {}).get("initialized"):
+        raise TestFailure(f"GET /session failed: {snap}")
+    ok("GET /session → initialized")
 
     player_text = "您好，我来汇报 HBM 显存带宽优化方案，想约 Jensen 进一步沟通。"
     code, turn1, cookie = http_json(
@@ -467,7 +514,7 @@ def stop_stack(runner: subprocess.Popen[Any], flask: subprocess.Popen[Any]) -> N
 
 
 def main() -> int:
-    print("HBM Demo M0–M3 Acceptance Tests (dev_logs/26)")
+    print("HBM Demo M0–M4 Acceptance Tests (dev_logs/26)")
     failures: List[str] = []
 
     for fn in (
@@ -475,6 +522,7 @@ def main() -> int:
         test_m1_shared_shims,
         test_m2_game_service_shims,
         test_m3_runner_shims,
+        test_m4_http_shims,
         test_f05_routing_payload,
         test_runner_module_entry,
     ):
@@ -507,7 +555,7 @@ def main() -> int:
         for f in failures:
             print(f"  - {f}")
         return 1
-    print("ALL M0–M3 TESTS PASSED")
+    print("ALL M0–M4 TESTS PASSED")
     return 0
 
 

@@ -25,7 +25,7 @@ from agent_world.hbm_demo.features.f04_stats.deltas import apply_stat_deltas
 from agent_world.hbm_demo.features.f04_stats.scoring import generate_immediate_msg, score_player_turn
 from agent_world.hbm_demo.features.f05_story_routing import routing
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
-from agent_world.hbm_demo.ipc_helper import get_ipc_client, send_inject_batch
+from agent_world.hbm_demo.http.ipc_helper import get_ipc_client, send_inject_batch
 from agent_world.hbm_demo.shared.env_status import is_runner_ready, read_env_status
 from agent_world.hbm_demo.shared.errors import RunnerNotReadyError
 from agent_world.hbm_demo.shared.settings import DEFAULT_IPC_TIMEOUT

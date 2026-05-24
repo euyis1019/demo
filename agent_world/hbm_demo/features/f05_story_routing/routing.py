@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from openai import OpenAI
 
 from agent_world.hbm_demo.shared.config_loader import load_scenario
-from agent_world.hbm_demo.ipc_helper import send_inject_batch, send_move_agent
+from agent_world.hbm_demo.http.ipc_helper import send_inject_batch, send_move_agent
 from agent_world.hbm_demo.core.runner.kernel import resolve_api_key
 
 log = logging.getLogger("agent_world.hbm_demo.routing")

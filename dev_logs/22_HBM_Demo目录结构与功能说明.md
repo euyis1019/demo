@@ -53,7 +53,12 @@ agent_world/hbm_demo/
 │       ├── seed.py, ipc_handlers.py, broadcast_helper.py
 ├── routing.py             # shim → features/f05_story_routing/
 ├── world_reset.py         # shim → features/f01_session/
-├── routes.py … http_errors.py    # F08 HTTP（待 M4 迁入 http/）
+├── routes.py … http_errors.py    # F08 HTTP 根 shim（M4 ✅）
+├── http/                  # F08 HTTP 实现
+│   ├── routes.py
+│   ├── ipc_helper.py
+│   ├── health.py
+│   └── http_errors.py
 ├── env_status.py … config_loader.py  # shared/ 根 shim（M1 ✅）
 ├── shared/                # 跨 Feature 基础设施
 │   ├── env_status.py

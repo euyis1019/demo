@@ -68,9 +68,9 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
     },
     "F08": {
         "name": "HTTP 传输",
-        "status": "planned",
+        "status": "implemented",
         "path": "http/",
-        "note": "M4 迁移",
+        "modules": ["routes", "ipc_helper", "health", "http_errors"],
     },
     "F09": {
         "name": "前端三屏 UI",

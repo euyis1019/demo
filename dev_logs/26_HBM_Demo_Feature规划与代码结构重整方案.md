@@ -441,9 +441,16 @@ score (F04) → immediate_msg (F04) → build_inject (F05) → IPC inject (F08)
 | **M1** ✅ | `shared/*` 四文件迁入；根 shim | 低 | health + session/start |
 | **M2** ✅ | 拆 `game_service` → f01–f04、f06；根 `game_service` re-export | 中 | 完整 25 轮可玩 |
 | **M3** ✅ | `core/runner/*` 迁入；`run_hbm` shim | 中 | Runner IPC 全命令 |
-| **M4** | `http/*` 迁入；`routes` shim | 低 | 7 HTTP 端点 |
+| **M4** ✅ | `http/*` 迁入；`routes` shim | 低 | 7 HTTP 端点 |
 | **M5** | 实现 F07 ABCS Phase A→C | 中 | §24 验收清单 |
 | **M6** | 前端 `web/src/features/*` | 低 | UI 无回归 |
+
+### M4 已落地文件
+
+```
+http/routes.py, ipc_helper.py, health.py, http_errors.py
+routes.py, ipc_helper.py, health.py, http_errors.py   # 根 shim
+```
 
 ### M3 已落地文件
 
@@ -635,4 +642,23 @@ python agent_world/hbm_demo/scripts/test_m0_acceptance.py
 | T0–T6 全量回归 | M0–M2 无回归 | ✓ |
 
 **下一步**：M4 `http/` 迁移。
+
+---
+
+## 17. M4 验收测试记录
+
+**执行时间**：2026-05-24  
+**脚本**：`agent_world/hbm_demo/scripts/test_m0_acceptance.py`（含 T1e M4 http shim）  
+**结果**：**ALL M0–M4 TESTS PASSED**
+
+| 用例 | 覆盖 Feature | 结果 |
+|------|--------------|------|
+| T1e http shim | routes、ipc_helper、health、http_errors | ✓ |
+| T1e hbm_bp | 8 个 HTTP 端点注册 | ✓ |
+| T4 GET /session | F08 会话快照 | ✓ |
+| T0–T6 全量回归 | M0–M3 无回归 | ✓ |
+
+**修复**：`http/__init__.py` 不再 eager import `routes`，避免 `ipc_helper` → `routes` → `game_service` → `reset` 循环依赖。
+
+**下一步**：M5 实现 F07 ABCS。
 
