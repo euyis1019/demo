@@ -69,7 +69,7 @@ def _heuristic_stats(session: HbmSession, player_text: str) -> Dict[str, int]:
 
 def score_player_turn(session: HbmSession, player_text: str) -> Dict[str, int]:
     llm_cfg = get_scenario().get("llm", {}) or {}
-    model = llm_cfg.get("model", "deepseek-v4-flash")
+    model = llm_cfg.get("model", "deepseek-chat")
     system = (
         "你是《HBM 显存价格保卫战》的游戏裁判。"
         "根据玩家本回合发言与当前 Phase，输出四维属性增量 JSON。"
@@ -105,7 +105,7 @@ def score_player_turn(session: HbmSession, player_text: str) -> Dict[str, int]:
 
 def _call_immediate_llm(session: HbmSession, player_text: str) -> str:
     llm_cfg = get_scenario().get("llm", {}) or {}
-    model = llm_cfg.get("model", "deepseek-v4-flash")
+    model = llm_cfg.get("model", "deepseek-chat")
     resp = _llm_client().chat.completions.create(
         model=model,
         messages=[

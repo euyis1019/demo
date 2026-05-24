@@ -2,7 +2,7 @@
 
 **记录时间**：2026-05-24  
 **分支**：`jensen-hwang-demo`  
-**状态**：**已实现**（M5 · commit `jensen-hwang-demo`）  
+**状态**：**设计定稿**；**运行时实现已自 Demo 移除**（待按本文从头重建）  
 **关联文档**：
 - 目录与运行机制 → [`22_HBM_Demo目录结构与功能说明.md`](./22_HBM_Demo目录结构与功能说明.md)
 - 25 轮参考台词 → [`19_HBM_Demo_25轮参考台词.md`](./19_HBM_Demo_25轮参考台词.md)
@@ -362,7 +362,7 @@ game_service.handle_player_turn
 
 ---
 
-*本文档为 Agent 行为失控问题的整合设计；实现见 `features/f07_agent_control/` 与 `turn_control.yaml`。*
+*本文档为 Agent 行为失控问题的整合设计；**实现待重建**（原 `features/f07_agent_control/` 已自 Demo 移除）。*
 
 ---
 

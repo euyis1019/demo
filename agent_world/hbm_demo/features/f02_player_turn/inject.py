@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from agent_world.hbm_demo.features.f01_session.models import HbmSession
 from agent_world.hbm_demo.features.f05_story_routing import routing
@@ -13,7 +13,7 @@ def build_inject_events(
     player_text: str,
     *,
     task_id: str,
-) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]], Dict[str, Any]]:
+) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
     return routing.build_inject_payload(session, player_text, task_id=task_id)
 
 

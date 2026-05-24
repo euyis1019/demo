@@ -93,31 +93,19 @@ def poll_action_result(
     raise TestFailure(f"action-result timeout after {max_wait}s; last={last}")
 
 
-def abcs_enabled() -> bool:
-    from agent_world.hbm_demo.features.f07_agent_control.config import is_abcs_enabled
-
-    return is_abcs_enabled()
-
-
 def test_static_imports() -> None:
     section("T1 静态 import 与 FEATURE_REGISTRY")
     from agent_world.hbm_demo.features import FEATURE_REGISTRY
 
-    if len(FEATURE_REGISTRY) < 11:
-        raise TestFailure(f"FEATURE_REGISTRY expected >=11, got {len(FEATURE_REGISTRY)}")
+    if len(FEATURE_REGISTRY) < 10:
+        raise TestFailure(f"FEATURE_REGISTRY expected >=10, got {len(FEATURE_REGISTRY)}")
     ok(f"FEATURE_REGISTRY: {len(FEATURE_REGISTRY)} features")
 
     from agent_world.hbm_demo.features.f05_story_routing import routing
 
-    phase1_agents = routing.inject_agent_ids_for_phase("Phase 1")
-    if abcs_enabled():
-        if phase1_agents != [1]:
-            raise TestFailure("F05 Phase 1 inject agents != [1]")
-        ok("F05 inject_agent_ids_for_phase Phase 1 → [1]")
-    else:
-        if len(phase1_agents) < 7:
-            raise TestFailure(f"ABCS off: expected all agents inject, got {phase1_agents}")
-        ok(f"F05 inject_agent_ids_for_phase Phase 1 → all agents ({len(phase1_agents)})")
+    if routing.inject_agent_ids_for_phase("Phase 1") != [1]:
+        raise TestFailure("F05 Phase 1 inject agents != [1]")
+    ok("F05 inject_agent_ids_for_phase Phase 1 → [1]")
 
     from agent_world.hbm_demo import game_service as gs
 
@@ -258,67 +246,8 @@ def test_m4_http_modules() -> None:
     ok(f"hbm_bp registers {len(expected)} HTTP endpoints (F08)")
 
 
-def test_m5_f07_abcs() -> None:
-    section("T1f M5 F07 ABCS turn control")
-    from agent_world.demo.demo_agent import _ToolCall
-    from agent_world.hbm_demo.features.f07_agent_control.matrix import (
-        allowed_tools_for,
-        is_move_allowed,
-        resolve_active_agent_ids,
-    )
-    from agent_world.hbm_demo.features.f07_agent_control.tool_guard import filter_tool_calls
-    from agent_world.hbm_demo.features.f07_agent_control.turn_context import (
-        build_turn_context,
-        format_constraint_prefix,
-    )
-    class FakeSession:
-        phase = "Phase 1"
-        player_turn = 1
-        place_id = "nvidia_reception"
-        stats = {"vision": 0, "execution": 0, "trust": 10, "burnout": 0}
-
-    ctx = build_turn_context(FakeSession())
-    if abcs_enabled():
-        if not ctx.get("enabled"):
-            raise TestFailure("ABCS should be enabled when turn_control.enabled=true")
-        if ctx.get("active_agent_ids") != [1]:
-            raise TestFailure(f"Phase 1 active agents wrong: {ctx}")
-        ok("F07 build_turn_context Phase 1 → active=[1]")
-
-        prefix = format_constraint_prefix(ctx)
-        if "系统约束" not in prefix or "Phase 1" not in prefix:
-            raise TestFailure(f"constraint prefix missing: {prefix[:80]}")
-        ok("F07 L4 format_constraint_prefix")
-
-        blocked = filter_tool_calls(
-            [_ToolCall(tool_name="send_to_group", args={"group_id": 200, "content": "x"})],
-            agent_id=4,
-            ctx=ctx,
-        )
-        if not blocked or blocked[0].tool_name != "do_nothing":
-            raise TestFailure("send_to_group should be replaced with do_nothing")
-        ok("F07 L5 tool_guard blocks GRP for CEO Phase 1")
-    else:
-        if ctx.get("enabled"):
-            raise TestFailure("ABCS should be disabled when turn_control.enabled=false")
-        ok("F07 ABCS disabled — turn_context.enabled=false")
-        if format_constraint_prefix(ctx):
-            raise TestFailure("L4 prefix should be empty when ABCS disabled")
-        ok("F07 L4 format_constraint_prefix empty when ABCS off")
-
-    if resolve_active_agent_ids("Phase 3", 16) != [2, 3, 4, 5, 6, 7]:
-        raise TestFailure("Turn 16 should append Sam to Phase 3 active list")
-    ok("F07 Turn 16 Sam activation")
-
-    p1_tools = allowed_tools_for(4, "Phase 1", 1)
-    if p1_tools != {"do_nothing"}:
-        raise TestFailure(f"Phase 1 CEO tools should be do_nothing only: {p1_tools}")
-    ok("F07 L5 Phase 1 CEO tool whitelist")
-
-    if is_move_allowed(7, "Phase 1", 1):
-        raise TestFailure("Sam MOVE should be blocked before Turn 16")
-    ok("F07 L5 Sam MOVE blocked Turn 1 (matrix; inactive when ABCS off at runtime)")
-
+def test_f03_action_completion() -> None:
+    section("T1f F03 action-result 完成判定")
     from agent_world.hbm_demo.features.f02_player_turn.task import PendingTask
     from agent_world.hbm_demo.features.f03_action_result.completion import (
         check_action_complete,
@@ -427,6 +356,14 @@ def test_m7_legacy_cleanup() -> None:
         raise TestFailure(f"unexpected root .py files: {root_py}")
     ok(f"hbm_demo root has only {len(expected)} .py files")
 
+    if (HBM_DIR / "features" / "f07_agent_control").exists():
+        raise TestFailure("features/f07_agent_control/ should be removed")
+    ok("features/f07_agent_control/ removed (ABCS pending rebuild)")
+
+    if (HBM_DIR / "turn_control.yaml").exists():
+        raise TestFailure("turn_control.yaml should be removed")
+    ok("turn_control.yaml removed")
+
 
 def test_f05_routing_payload() -> None:
     section("T2 F05 剧情路由 payload 单元")
@@ -440,29 +377,18 @@ def test_f05_routing_payload() -> None:
         player_turn = 1
         stats = {"vision": 0, "execution": 0, "trust": 10, "burnout": 0}
 
-    events, broadcast, turn_ctx = build_inject_payload(FakeSession(), "你好", task_id="t1")
-    if abcs_enabled():
-        if len(events) != 1 or events[0]["effect"]["agent_id"] != 1:
-            raise TestFailure(f"Phase 1 Turn 1 inject wrong: {events}")
-        if "系统约束" not in events[0]["effect"]["text"]:
-            raise TestFailure("Phase 1 inject missing ABCS constraint prefix")
-        if not turn_ctx.get("enabled"):
-            raise TestFailure("Turn 1 missing turn_context")
-        ok("Phase 1 Turn 1 → single inject to Agent 1 + L4 prefix")
-    else:
-        if len(events) < 7:
-            raise TestFailure(f"ABCS off: expected inject to all agents, got {len(events)}")
-        if "系统约束" in (events[0]["effect"].get("text") or ""):
-            raise TestFailure("ABCS off: inject should not include L4 prefix")
-        if turn_ctx.get("enabled"):
-            raise TestFailure("ABCS off: turn_context should be disabled")
-        ok(f"Phase 1 Turn 1 → inject to all agents ({len(events)})")
+    events, broadcast = build_inject_payload(FakeSession(), "你好", task_id="t1")
+    if len(events) != 1 or events[0]["effect"]["agent_id"] != 1:
+        raise TestFailure(f"Phase 1 Turn 1 inject wrong: {events}")
+    if "系统约束" in (events[0]["effect"].get("text") or ""):
+        raise TestFailure("Phase 1 inject should not include ABCS constraint prefix")
+    ok("Phase 1 Turn 1 → single inject to Agent 1")
     if broadcast is not None:
         raise TestFailure("Turn 1 should not broadcast")
 
     FakeSession.player_turn = 16
     FakeSession.phase = "Phase 3"
-    events, broadcast, _ctx16 = build_inject_payload(FakeSession(), "谈判", task_id="t16")
+    events, broadcast = build_inject_payload(FakeSession(), "谈判", task_id="t16")
     if broadcast is None:
         raise TestFailure("Turn 16 missing broadcast")
     sam = [e for e in events if e["effect"]["agent_id"] == 7]
@@ -538,8 +464,6 @@ def test_e2e_stack(base: str) -> None:
     public = result.get("public_messages") or []
     observer = result.get("observer_messages") or []
     grp = result.get("group_messages") or []
-    if abcs_enabled() and len(grp) > 0:
-        raise TestFailure(f"F07 Phase 1 Turn 1 should have 0 GRP, got {len(grp)}: {grp}")
     ok(
         f"GET /action-result completed — F2F={len(public)} observer={len(observer)} "
         f"GRP={len(grp)} turn→{result.get('player_turn')}"
@@ -602,7 +526,7 @@ def start_stack() -> Tuple[subprocess.Popen[Any], subprocess.Popen[Any], str]:
     subprocess.run(["bash", str(stop)], check=False, capture_output=True)
     time.sleep(1)
 
-    # Fresh world.db so action-result GRP counts reflect this run only (F07 E2E).
+    # Fresh world.db so action-result counts reflect this run only.
     SIM_DIR.mkdir(parents=True, exist_ok=True)
     for stale in (SIM_DIR / "world.db", SIM_DIR / "env_status.json"):
         if stale.exists():
@@ -704,7 +628,7 @@ def main() -> int:
         test_m2_game_service_shims,
         test_m3_runner_modules,
         test_m4_http_modules,
-        test_m5_f07_abcs,
+        test_f03_action_completion,
         test_m6_frontend_features,
         test_m7_legacy_cleanup,
         test_f05_routing_payload,

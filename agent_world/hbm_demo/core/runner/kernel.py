@@ -341,7 +341,7 @@ async def build_kernel(
             wall_start_time=wall_start_time,
             minutes_per_tick=minutes_per_tick,
             client=client,
-            model=llm_cfg.get("model", "deepseek-v4-flash"),
+            model=llm_cfg.get("model", "deepseek-chat"),
             temperature=float(llm_cfg.get("temperature", 0.85)),
             max_tokens=int(llm_cfg.get("max_tokens", 500)),
             completion_extras=llm_request_extras(llm_cfg),

@@ -59,7 +59,6 @@ sim/hbm_memory_war/   world.db · ipc/ · env_status.json
 ```text
 agent_world/hbm_demo/
 ├── hbm_scenario.yaml      # L0 场景：地点、Agent soul、LLM、群聊
-├── turn_control.yaml      # L0 ABCS 开关与矩阵（当前 enabled: false）
 ├── .env / .env.example    # L0 API Key（.env 不提交）
 │
 ├── run_hbm.py             # 入口 shim → core/runner/run_hbm.py
@@ -68,7 +67,7 @@ agent_world/hbm_demo/
 │
 ├── shared/                # 跨 Feature 工具（配置加载、env_status、错误、超时）
 ├── core/runner/           # F00 平台 Runner（内核、Agent、IPC、tick）
-├── features/              # F01–F07 业务编排（见下表）
+├── features/              # F01–F06 业务编排（见下表）
 ├── http/                  # F08 HTTP 传输（Blueprint、health、IPC 客户端）
 │
 ├── web/                   # F09 前端（src/features/ 按屏拆分）
@@ -102,7 +101,6 @@ agent_world/hbm_demo/
 | **F04** | 数值与打分 | `features/f04_stats/` | LLM/heuristic 四维 Stats；`immediate_msg` 即时反应文案 |
 | **F05** | 剧情路由 | `features/f05_story_routing/` | Phase 节点 A/B/C/D；inject 目标；Turn 16 广播 + Sam；Turn 25 意图与结局 ID |
 | **F06** | 只读世界模型 | `features/f06_read_model/` | `ReadOnlyWorldDB`：Flask 侧只读 SQLite，查 F2F/RDC/GRP |
-| **F07** | Agent 行为控制 | `features/f07_agent_control/` + `turn_control.yaml` | ABCS：L3 活跃 Agent、L4 约束前缀、L5 工具白名单。**当前 `enabled: false`**，全部 Agent 可自由行动；定稿边界后改回 `true` |
 | **F08** | HTTP 传输 | `http/` | `hbm_bp` 八个端点；`ipc_helper`；`health`；统一错误映射 502/503/504 |
 | **F09** | 前端三屏 UI | `web/src/features/` | 见下节 |
 | **F10** | 运维 | `scripts/` | `start_demo.sh`、`stop_demo.sh`、`test_m0_acceptance.py` |
@@ -139,12 +137,14 @@ agent_world/hbm_demo/
 ### `hbm_scenario.yaml`
 
 - 7 个 Agent、4 个地点、2 个群聊
-- `llm`：`base_url`、`model`（当前 `deepseek-v4-flash`）、`thinking.type: disabled`
+- `llm`：`base_url`、`model`（当前 `deepseek-chat`）
 
-### `turn_control.yaml`
+### Agent 行为控制（ABCS）
 
-- `enabled: true` 时启用 ABCS（按 Phase 限制活跃 Agent 与工具）
-- **当前为 `false`**：每轮 inject 至全部 Agent，Runner 每 tick 调度全部 Agent
+**当前 Demo 未包含 ABCS 运行时实现**（原 `features/f07_agent_control/`、`turn_control.yaml` 已移除）。  
+设计与后续重建方案见 [`dev_logs/24_HBM_Demo_Agent行为控制整合方案.md`](../../dev_logs/24_HBM_Demo_Agent行为控制整合方案.md)。
+
+Inject 后每 tick 仍由引擎默认调度**全部 Agent**（`WorldStep.scheduler=None`）；阶段 inject 目标仍由 F05 `PHASE_INJECT_AGENTS` 按 Phase 限定。
 
 ---
 
@@ -174,7 +174,7 @@ agent_world/hbm_demo/
 | Phase 3 | 13–20 | 谈判室；Turn 16 AMD 广播 + Sam；Turn 20 节点 C → Phase 4 |
 | Phase 4 | 21–25 | 终局；Turn 25 返回结局 ID |
 
-单回合含多次 LLM 调用，墙钟约 **15–90 秒**（ABCS 关闭时更慢）。
+单回合含多次 LLM 调用，墙钟约 **15–90 秒**（7 Agent 并行 tick 时可能更慢）。
 
 ---
 
@@ -204,7 +204,7 @@ cd agent_world/hbm_demo/web && npm run dev
 | [`dev_logs/26`](../../dev_logs/26_HBM_Demo_Feature规划与代码结构重整方案.md) | Feature 规划与 M0–M7 迁移 |
 | [`dev_logs/22`](../../dev_logs/22_HBM_Demo目录结构与功能说明.md) | 历史目录说明（部分已过时，以本文为准） |
 | [`dev_logs/23`](../../dev_logs/23_HBM_Demo启动重置与运行指南.md) | 启动 / 重置 / 排错 |
-| [`dev_logs/24`](../../dev_logs/24_HBM_Demo_Agent行为控制整合方案.md) | ABCS 设计 |
+| [`dev_logs/24`](../../dev_logs/24_HBM_Demo_Agent行为控制整合方案.md) | ABCS 设计（待重建） |
 | [`dev_logs/19`](../../dev_logs/19_HBM_Demo_25轮参考台词.md) | 25 轮试玩台词 |
 
 ---
@@ -212,5 +212,5 @@ cd agent_world/hbm_demo/web && npm run dev
 ## 维护说明
 
 - **不要**在根目录新增业务 `.py`；新能力放入对应 `features/fXX_*` 或 `core/runner/`。
-- 修改 Agent 边界规则：编辑 `turn_control.yaml` + `features/f07_agent_control/`，并将 `enabled` 设为 `true`。
+- Agent 行为边界：按 [`dev_logs/24`](../../dev_logs/24_HBM_Demo_Agent行为控制整合方案.md) 重建 ABCS 后再接入。
 - 提交前运行 `python agent_world/hbm_demo/scripts/test_m0_acceptance.py` 与 `cd web && npm run build`。

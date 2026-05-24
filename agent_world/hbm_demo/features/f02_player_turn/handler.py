@@ -54,7 +54,7 @@ def run_debug_inject(
             "Runner not ready: start run_hbm first and wait for env_status.status=running"
         )
     task_id = f"task_{uuid.uuid4().hex[:12]}"
-    events, _broadcast, turn_ctx = build_inject_events(
+    events, _broadcast = build_inject_events(
         session, player_text, task_id=task_id
     )
     if not events:
@@ -63,7 +63,6 @@ def run_debug_inject(
     resp = send_inject_batch(
         get_ipc_client(str(sim)),
         events=events,
-        turn_context=turn_ctx,
         tick_count=tick_count,
         timeout=timeout,
     )
@@ -134,7 +133,7 @@ def handle_player_turn(
 
     immediate_msg = generate_immediate_msg(hbm, player_text)
 
-    events, broadcast, turn_ctx = build_inject_events(hbm, player_text, task_id=task_id)
+    events, broadcast = build_inject_events(hbm, player_text, task_id=task_id)
     if not events:
         raise RuntimeError(
             f"no inject events for phase={hbm.phase!r} turn={hbm.player_turn}"
@@ -145,7 +144,6 @@ def handle_player_turn(
         ipc_client,
         events=events,
         broadcast=broadcast,
-        turn_context=turn_ctx,
         tick_count=tick_count,
         timeout=ipc_timeout,
     )
