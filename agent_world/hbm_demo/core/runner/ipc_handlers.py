@@ -59,6 +59,7 @@ def wire_handlers(
             events = [payload["event"]]
 
         from agent_world.hbm_demo.features.f07_agent_control.config import (
+            is_experience_hardening,
             is_f07_enabled,
         )
         from agent_world.hbm_demo.features.f07_agent_control.inject_batch import (
@@ -101,6 +102,22 @@ def wire_handlers(
                 await world_step.run_one_tick()
                 write_env_status(sim_dir_str, get_current_tick())
         finally:
+            end_tick = int(world_state.clock.t)
+            if (
+                is_experience_hardening()
+                and turn_context
+                and hasattr(world_step, "apply_batch_f2f_fallback_at")
+            ):
+                try:
+                    emitted = await world_step.apply_batch_f2f_fallback_at(end_tick)
+                    if emitted:
+                        log.info(
+                            "F07-E1 scripted F2F fallback emitted=%s end_tick=%s",
+                            emitted,
+                            end_tick,
+                        )
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("F07-E1 batch F2F fallback failed: %s", exc)
             if hasattr(world_step, "clear_tick_context"):
                 world_step.clear_tick_context()
 

@@ -349,9 +349,11 @@ def test_f11_live_turn_sync() -> None:
 
     from agent_world.hbm_demo.features.f02_player_turn.task import INJECT_STATUS_DONE
     from agent_world.hbm_demo.features.f03_action_result.completion import (
+        RECEPTION_PLACE,
         check_action_complete,
     )
     from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_experience_hardening,
         is_f07_enabled,
     )
 
@@ -364,6 +366,10 @@ def test_f11_live_turn_sync() -> None:
 
         def has_grp_after(self, *a, **k):
             return False
+
+    class F2fReceptionDB(EmptyDB):
+        def has_f2f_after(self, place_id, *a, **k):
+            return place_id == RECEPTION_PLACE
 
     running = PendingTask(
         task_id="t-run",
@@ -388,10 +394,13 @@ def test_f11_live_turn_sync() -> None:
         inject_status=INJECT_STATUS_DONE,
         ipc_end_tick=done_tick,
     )
-    if not check_action_complete(done, done_tick, EmptyDB()):
+    done_db = F2fReceptionDB() if is_experience_hardening() else EmptyDB()
+    if not check_action_complete(done, done_tick, done_db):
         raise TestFailure(
             f"F11: done inject should complete at ipc_end_tick={done_tick}"
         )
+    if is_experience_hardening() and check_action_complete(done, done_tick, EmptyDB()):
+        raise TestFailure("F11 E5: done inject must not complete without F2F")
     ok(f"F11 inject_status=done + ipc_end_tick={done_tick} completes")
 
     from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import (
@@ -516,6 +525,7 @@ def test_f03_action_completion() -> None:
         check_action_complete,
     )
     from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_experience_hardening,
         is_f07_enabled,
     )
 
@@ -550,7 +560,15 @@ def test_f03_action_completion() -> None:
         ipc_end_tick=6,
         inject_status=INJECT_STATUS_DONE,
     )
-    if is_f07_enabled():
+    if is_experience_hardening():
+        if check_action_complete(task_p1, 6, RdcOnlyDB()):
+            raise TestFailure("E5 Phase 1 must not complete on RDC alone")
+        if check_action_complete(task_p1, 8, EmptyDB()):
+            raise TestFailure("E5 Phase 1 must not timeout-complete without F2F")
+        if not check_action_complete(task_p1, 5, F2fReceptionDB()):
+            raise TestFailure("E5 Phase 1 should complete on reception F2F")
+        ok("E5 Phase 1 F2F-only completion (experience_hardening)")
+    elif is_f07_enabled():
         if check_action_complete(task_p1, 6, RdcOnlyDB()):
             raise TestFailure("F07 Phase 1 must not complete on RDC alone (§13.2)")
         ok("F07 Phase 1 ignores RDC-only completion")
@@ -566,6 +584,10 @@ def test_f03_action_completion() -> None:
             raise TestFailure("F03 should complete when ipc_end_tick reached (6-tick inject)")
         ok("F03 completes after ipc_end_tick without hanging")
 
+    class F2fJensenDB(EmptyDB):
+        def has_f2f_after(self, place_id, *a, **k):
+            return place_id == "jensen_private_room"
+
     task_p2 = PendingTask(
         task_id="t2",
         start_tick=0,
@@ -574,11 +596,35 @@ def test_f03_action_completion() -> None:
         player_turn=5,
         ipc_end_tick=6,
     )
-    if not check_action_complete(task_p2, 6, EmptyDB()):
-        raise TestFailure("Phase 2 should still complete at ipc_end_tick")
-    ok("Phase 2 ipc_end_tick completion unchanged")
+    if is_experience_hardening():
+        if check_action_complete(task_p2, 8, EmptyDB()):
+            raise TestFailure("E5 Phase 2 must not timeout-complete without F2F")
+        if not check_action_complete(task_p2, 5, F2fJensenDB()):
+            raise TestFailure("E5 Phase 2 should complete on Jensen room F2F")
+        ok("E5 Phase 2 F2F-only completion (experience_hardening)")
+    else:
+        if not check_action_complete(task_p2, 6, EmptyDB()):
+            raise TestFailure("Phase 2 should still complete at ipc_end_tick")
+        ok("Phase 2 ipc_end_tick completion unchanged")
 
-    if is_f07_enabled():
+    if is_experience_hardening():
+        task_p4 = PendingTask(
+            task_id="t4",
+            start_tick=0,
+            place_id=NEGOTIATION_PLACE,
+            phase="Phase 4",
+            player_turn=21,
+            ipc_end_tick=8,
+            inject_status=INJECT_STATUS_DONE,
+        )
+        if check_action_complete(task_p4, 6, RdcOnlyDB()):
+            raise TestFailure("E5 Phase 4 must not complete on VP RDC alone")
+        if check_action_complete(task_p4, 8, EmptyDB()):
+            raise TestFailure("E5 Phase 4 must not timeout-complete without F2F")
+        if not check_action_complete(task_p4, 5, F2fNegotiationDB()):
+            raise TestFailure("E5 Phase 4 should complete on negotiation F2F")
+        ok("E5 Phase 4 F2F-only completion (experience_hardening)")
+    elif is_f07_enabled():
         task_p4 = PendingTask(
             task_id="t4",
             start_tick=0,
@@ -663,14 +709,24 @@ def test_f07_b_agent_control() -> None:
     ok("B2 world_step tick_context set/clear hooks")
 
     from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_experience_hardening,
         resolve_inject_tick_count,
     )
 
-    if resolve_inject_tick_count("Phase 1", 6) != 8:
-        raise TestFailure("F07 Phase 1 inject tick_count should floor at 8 (§13.2)")
-    if resolve_inject_tick_count("Phase 2", 6) != 6:
-        raise TestFailure("Phase 2 tick_count should stay unchanged")
-    ok("B5 Phase 1 inject tick_count ≥8 for completion timeout")
+    if is_experience_hardening():
+        if resolve_inject_tick_count("Phase 1", 6) != 12:
+            raise TestFailure("E5 Phase 1 inject tick_count should floor at 12")
+        if resolve_inject_tick_count("Phase 2", 6) != 12:
+            raise TestFailure("E5 Phase 2 inject tick_count should floor at 12")
+        if resolve_inject_tick_count("Phase 4", 6) != 12:
+            raise TestFailure("E5 Phase 4 inject tick_count should floor at 12")
+        ok("E5 experience_hardening inject tick_count ≥12")
+    else:
+        if resolve_inject_tick_count("Phase 1", 6) != 8:
+            raise TestFailure("F07 Phase 1 inject tick_count should floor at 8 (§13.2)")
+        if resolve_inject_tick_count("Phase 2", 6) != 6:
+            raise TestFailure("Phase 2 tick_count should stay unchanged")
+        ok("B5 Phase 1 inject tick_count ≥8 for completion timeout")
 
 
 def test_f07_c_agent_control() -> None:
@@ -1043,10 +1099,144 @@ def test_f07_e_step1_player_facing_f2f() -> None:
     ok("E6 clear_async_state removes F11 runtime overlay")
 
     ws_src = (HBM_DIR / "core" / "runner" / "world_step.py").read_text(encoding="utf-8")
-    if "_maybe_emit_player_facing_f2f" not in ws_src:
+    if "_handle_speak_to_local_f2f" not in ws_src:
         raise TestFailure("HbmWorldStep missing player-facing F2F hook")
     ok("E0 HbmWorldStep speak_to_local dispatch hook present")
 
+
+def test_f07_e_step2_guard_and_fallback() -> None:
+    """F07-E Step2 — E1 first-action guard + E5 completion + scripted fallback (dev_logs/29)."""
+    import asyncio
+    import tempfile
+
+    section("T2h F07-E Step2 E1 guard + E5 + f2f_fallback")
+    from agent_world.demo.demo_agent import _ToolCall
+    from agent_world.hbm_demo.features import FEATURE_REGISTRY
+    from agent_world.hbm_demo.features.f07_agent_control.batch_guard import (
+        BatchGuardState,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        first_f2f_required_agents,
+        is_experience_hardening,
+        is_f07_enabled,
+        load_turn_control,
+        scripted_f2f_fallback_enabled,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.f2f_fallback import (
+        apply_batch_f2f_fallback,
+        build_fallback_content,
+        extract_player_keyword,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.tool_guard import (
+        filter_tool_calls,
+    )
+    from agent_world.hbm_demo.features.f06_read_model.world_db import ReadOnlyWorldDB
+    from agent_world.persistence.world_db import WorldDB
+
+    phase = FEATURE_REGISTRY.get("F07", {}).get("phase", "")
+    if "F07-E Step2" not in phase:
+        raise TestFailure(f"F07 registry phase should mention F07-E Step2: {phase!r}")
+    ok(f"FEATURE_REGISTRY F07 phase: {phase}")
+
+    if not is_f07_enabled():
+        ok("F07-E Step2 tests skipped (F07 disabled)")
+        return
+
+    load_turn_control.cache_clear()
+    if not is_experience_hardening():
+        raise TestFailure("experience_hardening.enabled should be true")
+    if not scripted_f2f_fallback_enabled():
+        raise TestFailure("scripted_f2f_fallback should be enabled")
+    ok("E1/E5 experience_hardening config loaded")
+
+    if first_f2f_required_agents("Phase 1") != [1]:
+        raise TestFailure(f"Phase 1 first_f2f_required wrong: {first_f2f_required_agents('Phase 1')}")
+    ok("E1 first_f2f_required Phase 1 → [1]")
+
+    kw = extract_player_keyword("玩家说：我们能把显存占用压到 40% 吗？")
+    if "40%" not in kw and "显存" not in kw:
+        raise TestFailure(f"extract_player_keyword unexpected: {kw!r}")
+    content = build_fallback_content("Phase 1", "玩家说：我们能把显存占用压到 40% 吗？")
+    if "40%" not in content and "显存" not in content:
+        raise TestFailure(f"build_fallback_content unexpected: {content!r}")
+    ok("E1 fallback template uses player keyword")
+
+    ctx_p1 = {
+        "phase": "Phase 1",
+        "player_turn": 1,
+        "place_id": "nvidia_reception",
+        "player_text": "玩家说：我们能把显存占用压到 40% 吗？",
+        "inject_agent_ids": [1],
+    }
+    guard = BatchGuardState()
+    blocked = filter_tool_calls(
+        1,
+        ctx_p1,
+        [_ToolCall(tool_name="send_message", args={"target": 2, "content": "x"})],
+        batch_guard=guard,
+    )
+    if not blocked or blocked[0].tool_name != "do_nothing":
+        raise TestFailure(f"E1 should block send_message before F2F: {blocked}")
+    allowed = filter_tool_calls(
+        1,
+        ctx_p1,
+        [_ToolCall(tool_name="speak_to_local", args={"content": "hello"})],
+        batch_guard=guard,
+    )
+    if not allowed or allowed[0].tool_name != "speak_to_local":
+        raise TestFailure(f"E1 should allow speak_to_local before F2F: {allowed}")
+    guard.mark_f2f(1)
+    after_f2f = filter_tool_calls(
+        1,
+        ctx_p1,
+        [_ToolCall(tool_name="send_message", args={"target": 2, "content": "x"})],
+        batch_guard=guard,
+    )
+    if not after_f2f or after_f2f[0].tool_name != "send_message":
+        raise TestFailure(f"E1 should allow send_message after F2F marked: {after_f2f}")
+    ok("E1 first_action_guard blocks non-F2F until batch_guard.mark_f2f")
+
+    ipc_src = (HBM_DIR / "core" / "runner" / "ipc_handlers.py").read_text(encoding="utf-8")
+    if "apply_batch_f2f_fallback_at" not in ipc_src:
+        raise TestFailure("ipc_handlers should call apply_batch_f2f_fallback_at")
+    ok("E1 ipc_handlers batch-end fallback hook present")
+
+    async def _fallback_emit() -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "world.db"
+            wdb = WorldDB(str(db_path))
+            wdb.init_schema()
+            batch = BatchGuardState()
+            turn_ctx = {
+                "phase": "Phase 1",
+                "place_id": "nvidia_reception",
+                "player_text": "玩家说：KV cache 优化",
+            }
+            n = await apply_batch_f2f_fallback(
+                wdb,
+                turn_context=turn_ctx,
+                batch_guard=batch,
+                t=9,
+            )
+            if n != 1:
+                raise TestFailure(f"apply_batch_f2f_fallback expected 1 emit, got {n}")
+            if not batch.has_f2f(1):
+                raise TestFailure("fallback should mark_f2f(1)")
+            ro = ReadOnlyWorldDB(db_path)
+            rows = ro.fetch_f2f_history_at("nvidia_reception", 9, 0, limit=5)
+            if len(rows) < 1:
+                raise TestFailure("fallback F2F not visible in ReadOnlyWorldDB")
+            n2 = await apply_batch_f2f_fallback(
+                wdb,
+                turn_context=turn_ctx,
+                batch_guard=batch,
+                t=10,
+            )
+            if n2 != 0:
+                raise TestFailure("fallback should not double-emit")
+
+    asyncio.run(_fallback_emit())
+    ok("E1 apply_batch_f2f_fallback emits scripted F2F once per batch")
 
 def test_m6_frontend_features() -> None:
     section("T1g M6 web/src/features/ 前端 Feature 拆分")
@@ -1635,16 +1825,29 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
         )
     ok("Tier A: Phase 1 Turn 1 GRP=0")
     if llm_key:
-        if len(public) < 1 and len(observer) < 1:
+        from agent_world.hbm_demo.features.f07_agent_control.config import (
+            is_experience_hardening,
+        )
+
+        if is_experience_hardening():
+            if len(public) < 1:
+                raise TestFailure(
+                    "Tier B E5: experience_hardening requires F2F≥1 on Phase 1 Turn 1. "
+                    "Last runner log:\n"
+                    + runner_log_excerpt()
+                )
+            ok(f"Tier B E5: F2F≥1 hard assert — F2F={len(public)} observer={len(observer)}")
+        elif len(public) < 1 and len(observer) < 1:
             raise TestFailure(
                 "Tier B: DMXAPI_KEY set but no F2F and no observer RDC — "
                 "LLM pipeline may be broken. Last runner log:\n"
                 + runner_log_excerpt()
             )
-        ok(
-            f"Tier B: LLM produced player-visible traffic — "
-            f"F2F={len(public)} observer={len(observer)}"
-        )
+        else:
+            ok(
+                f"Tier B: LLM produced player-visible traffic — "
+                f"F2F={len(public)} observer={len(observer)}"
+            )
     else:
         if len(public) >= 1 or len(observer) >= 1:
             ok(
@@ -1829,6 +2032,7 @@ def main() -> int:
         test_f07_c_agent_control,
         test_f07_d_agent_control,
         test_f07_e_step1_player_facing_f2f,
+        test_f07_e_step2_guard_and_fallback,
         test_f05_routing_payload,
         test_f11_live_turn_sync,
         test_f11_c_frontend,

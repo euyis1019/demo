@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional, Sequence
 import yaml
 
 from agent_world.hbm_demo.features.f07_agent_control.config import (
+    first_f2f_required_agents,
+    is_experience_hardening,
     is_f07_enabled,
     load_turn_control,
 )
@@ -81,10 +83,34 @@ def filter_tool_calls(
     agent_id: int,
     turn_context: Optional[Dict[str, Any]],
     tool_calls: Sequence[Any],
+    *,
+    batch_guard: Optional[Any] = None,
 ) -> List[Any]:
     """Replace disallowed tool calls with ``do_nothing``."""
     if not is_f07_enabled() or not turn_context or not tool_calls:
         return list(tool_calls)
+
+    # E1 — before matrix guard: required agents must F2F before other tools.
+    if is_experience_hardening() and batch_guard is not None:
+        phase = str(turn_context.get("phase", "Phase 1"))
+        required = first_f2f_required_agents(phase)
+        if int(agent_id) in required and not batch_guard.has_f2f(int(agent_id)):
+            first_allowed = frozenset({"speak_to_local", "do_nothing"})
+            for tc in tool_calls:
+                name = str(
+                    getattr(tc, "tool_name", None) or getattr(tc, "name", "")
+                )
+                if name not in first_allowed:
+                    log.info(
+                        "F07-E1 first_action_guard: agent %s blocked %s "
+                        "before F2F (phase=%s)",
+                        agent_id,
+                        name,
+                        phase,
+                    )
+                    from agent_world.demo.demo_agent import _ToolCall
+
+                    return [_ToolCall(tool_name="do_nothing", args={})]
 
     out: List[Any] = []
     for tc in tool_calls:

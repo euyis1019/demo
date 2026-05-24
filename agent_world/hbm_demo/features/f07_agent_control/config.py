@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import yaml
 
@@ -35,12 +35,36 @@ def is_experience_hardening() -> bool:
     return bool(block.get("enabled", False))
 
 
+def experience_hardening_block() -> Dict[str, Any]:
+    if not is_experience_hardening():
+        return {}
+    block = load_turn_control().get("experience_hardening") or {}
+    return dict(block) if isinstance(block, dict) else {}
+
+
+def first_f2f_required_agents(phase: str) -> List[int]:
+    """Agents that must emit F2F before other tools (dev_logs/29 E1)."""
+    table = experience_hardening_block().get("first_f2f_required") or {}
+    raw = table.get(str(phase)) or []
+    return [int(x) for x in raw]
+
+
+def scripted_f2f_fallback_enabled() -> bool:
+    block = experience_hardening_block()
+    if not block:
+        return False
+    return block.get("scripted_f2f_fallback", True) is not False
+
+
 def resolve_inject_tick_count(phase: str, tick_count: int) -> int:
-    """Phase 1 + F07 needs inject batch ≥ start+8 for §13.2 timeout completion."""
+    """Floor inject batch length for F07 completion semantics (§13.2 / dev_logs/29 E5)."""
     n = int(tick_count)
     if not is_f07_enabled():
         return n
-    if str(phase) == "Phase 1":
+    phase_s = str(phase)
+    if is_experience_hardening() and phase_s in ("Phase 1", "Phase 2", "Phase 4"):
+        return max(n, 12)
+    if phase_s == "Phase 1":
         return max(n, 8)
     return n
 

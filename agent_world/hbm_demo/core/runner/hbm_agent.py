@@ -150,7 +150,12 @@ class HbmAgent(DemoAgent):
                 filter_tool_calls,
             )
 
-            tool_calls = filter_tool_calls(self.agent_id, turn_ctx, tool_calls)
+            tool_calls = filter_tool_calls(
+                self.agent_id,
+                turn_ctx,
+                tool_calls,
+                batch_guard=getattr(self, "_batch_guard_state", None),
+            )
 
         if not tool_calls:
             content = (msg.content or "").strip()

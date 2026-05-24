@@ -74,7 +74,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
             "inject_batch",
             "turn_control",
         ],
-        "phase": "F07-E Step1 (E0 player F2F + E6 session hygiene)",
+        "phase": "F07-E Step2 (E1 guard + E5 completion + fallback)",
     },
     "F08": {
         "name": "HTTP 传输",

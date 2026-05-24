@@ -18,14 +18,47 @@ class HbmWorldStep(WorldStep):
         super().__init__(*args, **kwargs)
         self._tick_context: Optional[Dict[str, Any]] = None
         self._passive_ticks_batch: int = 0
+        from agent_world.hbm_demo.features.f07_agent_control.batch_guard import (
+            BatchGuardState,
+        )
+
+        self._batch_guard = BatchGuardState()
 
     def set_tick_context(self, turn_context: Optional[Dict[str, Any]]) -> None:
+        from agent_world.hbm_demo.features.f07_agent_control.batch_guard import (
+            BatchGuardState,
+        )
+
         self._tick_context = dict(turn_context) if turn_context else None
         self._passive_ticks_batch = 0
+        self._batch_guard = BatchGuardState()
 
     def clear_tick_context(self) -> None:
+        from agent_world.hbm_demo.features.f07_agent_control.batch_guard import (
+            BatchGuardState,
+        )
+
         self._tick_context = None
         self._passive_ticks_batch = 0
+        self._batch_guard = BatchGuardState()
+
+    @property
+    def batch_guard(self) -> Any:
+        return self._batch_guard
+
+    async def apply_batch_f2f_fallback_at(self, t: int) -> int:
+        from agent_world.hbm_demo.features.f07_agent_control.f2f_fallback import (
+            apply_batch_f2f_fallback,
+        )
+
+        if not self._tick_context:
+            return 0
+        return await apply_batch_f2f_fallback(
+            self.world_db,
+            turn_context=self._tick_context,
+            batch_guard=self._batch_guard,
+            t=int(t),
+        )
 
     def _pick_active(self, t: int) -> List[int]:
         from agent_world.hbm_demo.features.f07_agent_control.config import (
@@ -59,6 +92,7 @@ class HbmWorldStep(WorldStep):
         ctx = self._tick_context
         if ctx:
             agent._batch_turn_context = ctx  # noqa: SLF001
+            agent._batch_guard_state = self._batch_guard  # noqa: SLF001
             llm = ctx.get("llm_params") or {}
             if llm:
                 agent._batch_temperature = llm.get("temperature")  # noqa: SLF001
@@ -69,6 +103,7 @@ class HbmWorldStep(WorldStep):
         finally:
             if ctx:
                 agent._batch_turn_context = None  # noqa: SLF001
+                agent._batch_guard_state = None  # noqa: SLF001
                 agent._batch_temperature = None  # noqa: SLF001
                 agent._batch_max_tokens = None  # noqa: SLF001
 
@@ -88,7 +123,7 @@ class HbmWorldStep(WorldStep):
                 dispatch_result = await self.dispatcher.dispatch(
                     agent_id, atype, t, **(akwargs or {})
                 )
-                await self._maybe_emit_player_facing_f2f(
+                await self._handle_speak_to_local_f2f(
                     agent_id=agent_id,
                     action_type=atype,
                     action_kwargs=akwargs or {},
@@ -103,7 +138,7 @@ class HbmWorldStep(WorldStep):
                     exc,
                 )
 
-    async def _maybe_emit_player_facing_f2f(
+    async def _handle_speak_to_local_f2f(
         self,
         *,
         agent_id: int,
@@ -125,6 +160,14 @@ class HbmWorldStep(WorldStep):
             return
         if not is_speak_to_local_action(action_type):
             return
+        if not dispatch_result or not dispatch_result.get("success"):
+            return
+
+        recipients = dispatch_result.get("recipients")
+        if isinstance(recipients, list) and len(recipients) > 0:
+            self._batch_guard.mark_f2f(int(agent_id))
+            return
+
         if not should_emit_player_facing_f2f(dispatch_result):
             return
         content = str(action_kwargs.get("content") or "").strip()
@@ -141,6 +184,7 @@ class HbmWorldStep(WorldStep):
                 content=content,
                 t=int(t),
             )
+            self._batch_guard.mark_f2f(int(agent_id))
             log.debug(
                 "F07-E0 player_facing_f2f agent=%s place=%s t=%s",
                 agent_id,

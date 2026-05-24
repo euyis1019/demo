@@ -3,6 +3,11 @@ enabled: true
 # F07-E experience hardening (dev_logs/29 Step 1+)
 experience_hardening:
   enabled: true
+  scripted_f2f_fallback: true
+  first_f2f_required:
+    Phase 1: [1]
+    Phase 2: [2]
+    Phase 4: [2]
 
 phases:
   Phase 1:

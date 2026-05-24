@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 from agent_world.hbm_demo.features.f01_session.constants import DEFAULT_PHASE
-from agent_world.hbm_demo.features.f07_agent_control.config import is_f07_enabled
+from agent_world.hbm_demo.features.f07_agent_control.config import (
+    is_experience_hardening,
+    is_f07_enabled,
+)
 from agent_world.hbm_demo.features.f02_player_turn.task import (
     INJECT_STATUS_DONE,
     INJECT_STATUS_FAILED,
@@ -45,7 +48,26 @@ def _inject_finished(task: PendingTask) -> bool:
 
 
 RECEPTION_PLACE = "nvidia_reception"
+JENSEN_PRIVATE_PLACE = "jensen_private_room"
 NEGOTIATION_PLACE = "negotiation_room"
+
+
+def _f2f_required_completion(
+    task: PendingTask,
+    current_tick: int,
+    db: ReadOnlyWorldDB,
+    *,
+    place_id: str,
+) -> bool:
+    """E5 — experience hardening: complete only on F2F (no pure timeout)."""
+    start = task.start_tick
+    if current_tick < start + 3:
+        return False
+    if db.has_f2f_after(place_id, start, current_tick):
+        return True
+    if task.inject_status == INJECT_STATUS_FAILED:
+        return True
+    return False
 
 
 def check_action_complete(
@@ -56,6 +78,18 @@ def check_action_complete(
     start = task.start_tick
     if current_tick < start + 3:
         return False
+
+    # E5 — F07-E: Phase 1/2/4 must have player-visible F2F; no timeout-only completion.
+    if is_experience_hardening() and task.phase == "Phase 1":
+        return _f2f_required_completion(
+            task, current_tick, db, place_id=RECEPTION_PLACE
+        )
+    if is_experience_hardening() and task.phase == "Phase 2":
+        place = task.place_id or JENSEN_PRIVATE_PLACE
+        return _f2f_required_completion(task, current_tick, db, place_id=place)
+    if is_experience_hardening() and task.phase == "Phase 4":
+        place = task.place_id or NEGOTIATION_PLACE
+        return _f2f_required_completion(task, current_tick, db, place_id=place)
 
     # §13.2 — Phase 1: only reception F2F (not RDC/GRP) completes early when F07 on.
     if is_f07_enabled() and task.phase == "Phase 1":
