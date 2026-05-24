@@ -440,10 +440,18 @@ score (F04) → immediate_msg (F04) → build_inject (F05) → IPC inject (F08)
 | **M0** ✅ | 建 `features/`、`shared/` 骨架；`routing`、`world_reset` 迁入 + 根 shim | 低 | import 正常；Turn 1 E2E |
 | **M1** ✅ | `shared/*` 四文件迁入；根 shim | 低 | health + session/start |
 | **M2** ✅ | 拆 `game_service` → f01–f04、f06；根 `game_service` re-export | 中 | 完整 25 轮可玩 |
-| **M3** | `core/runner/*` 迁入；`run_hbm` shim | 中 | Runner IPC 全命令 |
+| **M3** ✅ | `core/runner/*` 迁入；`run_hbm` shim | 中 | Runner IPC 全命令 |
 | **M4** | `http/*` 迁入；`routes` shim | 低 | 7 HTTP 端点 |
 | **M5** | 实现 F07 ABCS Phase A→C | 中 | §24 验收清单 |
 | **M6** | 前端 `web/src/features/*` | 低 | UI 无回归 |
+
+### M3 已落地文件
+
+```
+core/runner/run_hbm.py, kernel.py, hbm_agent.py, world_step.py
+core/runner/seed.py, ipc_handlers.py, broadcast_helper.py
+run_hbm.py, kernel.py, hbm_agent.py, …   # 根 shim
+```
 
 ### M2 已落地文件
 
@@ -609,5 +617,22 @@ python agent_world/hbm_demo/scripts/test_m0_acceptance.py
 | T4–T5 E2E | F02 handle_player_turn、F03 get_action_result、F01 reset | ✓ |
 | T0–T6 全量回归 | M0/M1 无回归 | ✓ |
 
-**下一步**：M3 `core/runner/` 迁移。
+**下一步**：M4 迁入 `http/`。
+
+---
+
+## 16. M3 验收测试记录
+
+**执行时间**：2026-05-24  
+**脚本**：`agent_world/hbm_demo/scripts/test_m0_acceptance.py`（含 T1d M3 runner shim）  
+**结果**：**ALL M0–M3 TESTS PASSED**
+
+| 用例 | 覆盖 Feature | 结果 |
+|------|--------------|------|
+| T1d core/runner shim | build_kernel、resolve_api_key、wire_handlers、HbmAgent、main | ✓ |
+| T1d IPC 命令 | INJECT、LIST_PLACES、MOVE、RESET_WORLD、CLOSE_ENV | ✓ |
+| T4–T5 E2E | 含 INJECT + RESET_WORLD IPC | ✓ |
+| T0–T6 全量回归 | M0–M2 无回归 | ✓ |
+
+**下一步**：M4 `http/` 迁移。
 

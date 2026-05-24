@@ -6,8 +6,8 @@ import logging
 from typing import Any, Dict, List, TYPE_CHECKING
 
 from agent_world.hbm_demo.shared.env_status import write_env_status
-from agent_world.hbm_demo.hbm_agent import HbmAgent
-from agent_world.hbm_demo.seed import seed_world
+from agent_world.hbm_demo.core.runner.hbm_agent import HbmAgent
+from agent_world.hbm_demo.core.runner.seed import seed_world
 
 if TYPE_CHECKING:
     from agent_world.memory.segment import SegmentStore

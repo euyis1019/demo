@@ -44,9 +44,13 @@ sim/hbm_memory_war/world.db + ipc/ + env_status.json
 ```text
 agent_world/hbm_demo/
 ├── hbm_scenario.yaml      # L0 场景 YAML
-├── run_hbm.py             # F00 Runner 入口（shim，M3 迁入 core/runner/）
-├── kernel.py … ipc_handlers.py   # F00 平台核心（待迁入 core/runner/）
+├── run_hbm.py             # F00 Runner 入口 shim（M3 ✅）
+├── kernel.py … broadcast_helper.py   # F00 根 shim → core/runner/
 ├── game_service.py        # shim → features/f01–f04、f06（M2 ✅）
+├── core/
+│   └── runner/            # F00 平台核心（M3 ✅）
+│       ├── run_hbm.py, kernel.py, hbm_agent.py, world_step.py
+│       ├── seed.py, ipc_handlers.py, broadcast_helper.py
 ├── routing.py             # shim → features/f05_story_routing/
 ├── world_reset.py         # shim → features/f01_session/
 ├── routes.py … http_errors.py    # F08 HTTP（待 M4 迁入 http/）

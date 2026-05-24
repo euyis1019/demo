@@ -14,7 +14,15 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "平台核心 Runner",
         "status": "implemented",
         "path": "core/runner/",
-        "note": "迁移目标；当前仍在 hbm_demo 根目录",
+        "modules": [
+            "run_hbm",
+            "kernel",
+            "hbm_agent",
+            "world_step",
+            "seed",
+            "ipc_handlers",
+            "broadcast_helper",
+        ],
     },
     "F01": {
         "name": "会话与重开",

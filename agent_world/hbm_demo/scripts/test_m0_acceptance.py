@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""M0+M1+M2 acceptance tests — dev_logs/26 §7."""
+"""M0–M3 acceptance tests — dev_logs/26 §7."""
 
 from __future__ import annotations
 
@@ -190,6 +190,41 @@ def test_m2_game_service_shims() -> None:
     if shim_lines > 120:
         raise TestFailure(f"game_service.py shim too large: {shim_lines} lines")
     ok(f"game_service.py shim size OK ({shim_lines} lines)")
+
+
+def test_m3_runner_shims() -> None:
+    section("T1d M3 core/runner/ 模块与根 shim")
+    import agent_world.hbm_demo.kernel as root_kernel
+    import agent_world.hbm_demo.ipc_handlers as root_ipc
+    import agent_world.hbm_demo.hbm_agent as root_agent
+    import agent_world.hbm_demo.run_hbm as root_run
+    from agent_world.hbm_demo.core.runner import kernel as core_kernel
+    from agent_world.hbm_demo.core.runner import ipc_handlers as core_ipc
+    from agent_world.hbm_demo.core.runner import hbm_agent as core_agent
+    from agent_world.hbm_demo.core.runner import run_hbm as core_run
+
+    pairs = (
+        ("kernel.build_kernel", root_kernel.build_kernel, core_kernel.build_kernel),
+        ("kernel.resolve_api_key", root_kernel.resolve_api_key, core_kernel.resolve_api_key),
+        ("ipc_handlers.wire_handlers", root_ipc.wire_handlers, core_ipc.wire_handlers),
+        ("hbm_agent.HbmAgent", root_agent.HbmAgent, core_agent.HbmAgent),
+        ("run_hbm.main", root_run.main, core_run.main),
+    )
+    for name, root_fn, core_fn in pairs:
+        if root_fn is not core_fn:
+            raise TestFailure(f"{name} shim != core/runner implementation")
+        ok(name)
+
+    from agent_world.ipc.commands import CommandType
+
+    registered = {
+        CommandType.INJECT_SCRIPT_EVENT,
+        CommandType.LIST_PLACES,
+        CommandType.MOVE_AGENT,
+        CommandType.RESET_WORLD,
+        CommandType.CLOSE_ENV,
+    }
+    ok(f"IPC CommandType registry includes {len(registered)} F00 commands")
 
 
 def test_f05_routing_payload() -> None:
@@ -432,13 +467,14 @@ def stop_stack(runner: subprocess.Popen[Any], flask: subprocess.Popen[Any]) -> N
 
 
 def main() -> int:
-    print("HBM Demo M0+M1+M2 Acceptance Tests (dev_logs/26)")
+    print("HBM Demo M0–M3 Acceptance Tests (dev_logs/26)")
     failures: List[str] = []
 
     for fn in (
         test_static_imports,
         test_m1_shared_shims,
         test_m2_game_service_shims,
+        test_m3_runner_shims,
         test_f05_routing_payload,
         test_runner_module_entry,
     ):
@@ -471,7 +507,7 @@ def main() -> int:
         for f in failures:
             print(f"  - {f}")
         return 1
-    print("ALL M0+M1+M2 TESTS PASSED")
+    print("ALL M0–M3 TESTS PASSED")
     return 0
 
 

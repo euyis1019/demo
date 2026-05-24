@@ -12,7 +12,7 @@ from openai import OpenAI
 
 from agent_world.hbm_demo.features.f01_session.models import HbmSession
 from agent_world.hbm_demo.features.f01_session.paths import get_scenario
-from agent_world.hbm_demo.kernel import resolve_api_key
+from agent_world.hbm_demo.core.runner.kernel import resolve_api_key
 from agent_world.hbm_demo.shared.settings import IMMEDIATE_MSG_TIMEOUT
 
 log = logging.getLogger("agent_world.hbm_demo.game_service")
