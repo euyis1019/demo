@@ -21,6 +21,7 @@ class CommandType(str, Enum):
     RELOAD_SCRIPTS = "RELOAD_SCRIPTS"  # C2: incremental scripts.yaml append
     LIST_PLACES = "LIST_PLACES"
     MOVE_AGENT = "MOVE_AGENT"
+    RESET_WORLD = "RESET_WORLD"  # HBM demo: restore world.db + tick to initial
 
 
 class CommandStatus(str, Enum):

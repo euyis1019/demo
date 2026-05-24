@@ -19,7 +19,7 @@ from agent_world.hbm_demo.config_loader import load_scenario
 from agent_world.hbm_demo.env_status import is_runner_ready, read_env_status
 from agent_world.hbm_demo.errors import DatabaseReadError, RunnerNotReadyError
 from agent_world.hbm_demo import routing
-from agent_world.hbm_demo.ipc_helper import get_ipc_client, send_inject_batch
+from agent_world.hbm_demo.ipc_helper import get_ipc_client, send_inject_batch, send_reset_world
 from agent_world.hbm_demo.kernel import resolve_api_key
 from agent_world.hbm_demo.settings import (
     DB_CONNECT_TIMEOUT,
@@ -426,6 +426,45 @@ def create_session(sim_dir: Path | None = None) -> HbmSession:
         player_turn=1,
         stats=initial_stats(),
     )
+
+
+def reset_demo(
+    flask_session: Any,
+    *,
+    sim_id: str = DEFAULT_SIM_ID,
+    sim_dir: Path | None = None,
+) -> Dict[str, Any]:
+    """Reset Runner world + Flask session for a fresh playthrough."""
+    sim = sim_dir or get_sim_dir()
+    if not is_runner_ready(sim):
+        raise RunnerNotReadyError(f"runner not ready: {sim}")
+
+    client = get_ipc_client(str(sim))
+    send_reset_world(client)
+
+    flask_session.clear()
+    hbm = create_session(sim)
+    save_session(flask_session, hbm, sim_id)
+    env = read_env_status(sim) or {}
+
+    log_turn_event(
+        event="demo_reset",
+        task_id=hbm.task_id,
+        phase=hbm.phase,
+        player_turn=hbm.player_turn,
+        start_tick=hbm.start_tick,
+        end_tick=int(env.get("current_tick", 0)),
+    )
+
+    return {
+        "task_id": hbm.task_id,
+        "start_tick": hbm.start_tick,
+        "place_id": hbm.place_id,
+        "phase": hbm.phase,
+        "player_turn": hbm.player_turn,
+        "stats": dict(hbm.stats),
+        "env_status": env,
+    }
 
 
 def save_session(flask_session: Any, hbm: HbmSession, sim_id: str = DEFAULT_SIM_ID) -> None:

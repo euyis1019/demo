@@ -8,6 +8,7 @@
 - 前端 + 一键启动规划 → [`21_HBM_Demo后续开发规划_PLAN2.md`](./21_HBM_Demo后续开发规划_PLAN2.md)
 - 完成度归档 → [`18_HBM_Demo后端Phase0-6完成与后续待办.md`](./18_HBM_Demo后端Phase0-6完成与后续待办.md)
 - **启动 / 重置 / 运行** → [`23_HBM_Demo启动重置与运行指南.md`](./23_HBM_Demo启动重置与运行指南.md)
+- **Agent 行为控制（设计）** → [`24_HBM_Demo_Agent行为控制整合方案.md`](./24_HBM_Demo_Agent行为控制整合方案.md)
 
 > 原位于 `agent_world/hbm_demo/PLAN.md`、`PLAN2.md` 的两份开发规划已迁入 `dev_logs/20`、`dev_logs/21`；应用目录仅保留可运行代码与 README。
 

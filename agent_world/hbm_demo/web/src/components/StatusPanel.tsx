@@ -8,6 +8,8 @@ export interface StatusPanelProps {
   maxTurns?: number;
   placeLabel: string;
   presentAgents?: string[];
+  onReset?: () => void;
+  resetDisabled?: boolean;
 }
 
 const STAT_ROWS: { key: keyof Stats; label: string }[] = [
@@ -25,6 +27,8 @@ export function StatusPanel({
   maxTurns = 25,
   placeLabel,
   presentAgents = [],
+  onReset,
+  resetDisabled = false,
 }: StatusPanelProps) {
   const prevStatsRef = useRef(stats);
   const [pulseKeys, setPulseKeys] = useState<Set<keyof Stats>>(new Set());
@@ -49,8 +53,9 @@ export function StatusPanel({
   return (
     <>
       <div className="panel__header">Status</div>
-      <div className="panel__body status-panel">
-        <section className="status-panel__section">
+      <div className="status-panel__wrap">
+        <div className="panel__body status-panel">
+          <section className="status-panel__section">
           <h2 className="status-panel__title">核心数值</h2>
           <ul className="stat-list">
             {STAT_ROWS.map(({ key, label }) => (
@@ -100,6 +105,19 @@ export function StatusPanel({
             </ul>
           ) : null}
         </section>
+        </div>
+        {onReset ? (
+          <div className="status-panel__footer">
+            <button
+              type="button"
+              className="status-panel__reset-btn"
+              onClick={onReset}
+              disabled={resetDisabled}
+            >
+              重开
+            </button>
+          </div>
+        ) : null}
       </div>
     </>
   );

@@ -57,6 +57,22 @@ def session_start(sim_id: str):
     )
 
 
+@hbm_bp.route("/simulations/<sim_id>/session/reset", methods=["POST"])
+def session_reset(sim_id: str):
+    """Reset Agent world (IPC) and Flask session for a full playthrough restart."""
+    err = _check_sim_id(sim_id)
+    if err:
+        return err
+
+    try:
+        data = gs.reset_demo(session, sim_id=sim_id)
+    except Exception as exc:  # noqa: BLE001
+        body, code = service_error_payload(exc)
+        return jsonify(body), code
+
+    return jsonify({"success": True, "data": data})
+
+
 @hbm_bp.route("/simulations/<sim_id>/session", methods=["GET"])
 def session_get(sim_id: str):
     """Return current game session snapshot (stats / phase / turn)."""

@@ -3,6 +3,7 @@ import {
   getActionResult,
   getSession,
   postPlayerTurn,
+  resetSession,
   startSession,
 } from "../api/hbm";
 import type { ActionResultCompleted } from "../api/types";
@@ -29,31 +30,62 @@ function isCompletedAction(data: unknown): data is ActionResultCompleted {
   );
 }
 
-/** F3-2 / F4-8 — start or restart via session/start（清空 messages）。 */
+/** F3-2 / F4-8 — start via session/start; full reset via session/reset. */
 export function useStartGame() {
   const { applySessionStart, setLoading, dispatch } = useGameStoreContext();
 
-  const startGame = useCallback(async () => {
-    setLoading(true);
-    dispatch({ type: "DISMISS_PHASE_TOAST" });
-    dispatch({ type: "SET_ERROR", message: undefined });
-    try {
-      const response = await startSession();
-      if (!response.data) {
-        throw new Error("session/start 未返回 data");
+  const beginSession = useCallback(
+    async (mode: "start" | "reset") => {
+      setLoading(true);
+      dispatch({ type: "DISMISS_PHASE_TOAST" });
+      dispatch({ type: "SET_ERROR", message: undefined });
+      try {
+        const response =
+          mode === "reset" ? await resetSession() : await startSession();
+        if (!response.data) {
+          throw new Error(
+            mode === "reset" ? "session/reset 未返回 data" : "session/start 未返回 data",
+          );
+        }
+        applySessionStart(response.data);
+      } catch (err) {
+        dispatch({
+          type: "SET_ERROR",
+          message: errorMessage(
+            err,
+            mode === "reset" ? "重开失败" : "开始游戏失败",
+          ),
+        });
+        if (isRunnerNotReadyError(err)) {
+          dispatch({ type: "SET_RUNNER_MODAL", open: true });
+        }
+      } finally {
+        setLoading(false);
       }
-      applySessionStart(response.data);
-    } catch (err) {
-      dispatch({ type: "SET_ERROR", message: errorMessage(err, "开始游戏失败") });
-      if (isRunnerNotReadyError(err)) {
-        dispatch({ type: "SET_RUNNER_MODAL", open: true });
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [applySessionStart, dispatch, setLoading]);
+    },
+    [applySessionStart, dispatch, setLoading],
+  );
 
-  return { startGame, restartGame: startGame };
+  const startGame = useCallback(async () => {
+    await beginSession("start");
+  }, [beginSession]);
+
+  const restartGame = useCallback(async () => {
+    await beginSession("reset");
+  }, [beginSession]);
+
+  const resetDemo = useCallback(async () => {
+    if (
+      !window.confirm(
+        "确定要重开吗？将重置 Agent 世界、清空所有对话与进度，并从 Turn 1 重新开始。",
+      )
+    ) {
+      return;
+    }
+    await beginSession("reset");
+  }, [beginSession]);
+
+  return { startGame, restartGame, resetDemo };
 }
 
 /** F3-3 + F5 — dual-stage turn loop with elapsed / poll timeout / 503 modal。 */

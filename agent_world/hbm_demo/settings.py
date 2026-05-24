@@ -22,6 +22,7 @@ def _int(name: str, default: int) -> int:
 # IPC
 DEFAULT_IPC_TIMEOUT = _float("HBM_IPC_TIMEOUT", 600.0)
 DEFAULT_MOVE_TIMEOUT = _float("HBM_MOVE_TIMEOUT", 30.0)
+DEFAULT_RESET_TIMEOUT = _float("HBM_RESET_TIMEOUT", 120.0)
 
 # SQLite read-side (Flask API 2)
 DB_CONNECT_TIMEOUT = _float("HBM_DB_TIMEOUT", 5.0)

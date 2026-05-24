@@ -30,7 +30,7 @@ import { placeDisplayName } from "./utils/places";
 function GameApp() {
   const { state, dispatch } = useGameStoreContext();
   const { retryHealth } = useHealthCheck();
-  const { startGame, restartGame } = useStartGame();
+  const { startGame, restartGame, resetDemo } = useStartGame();
   const { sendTurn } = useGameLoop();
   const loadingElapsed = useLoadingElapsed(state.loading);
   const envTick = useEnvStatus(state.sessionInitialized && state.view === "playing");
@@ -122,6 +122,8 @@ function GameApp() {
             playerTurn={playerTurn}
             maxTurns={MAX_TURNS}
             placeLabel={placeDisplayName(placeId)}
+            onReset={() => void resetDemo()}
+            resetDisabled={loading}
           />
         }
         main={

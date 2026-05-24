@@ -45,6 +45,15 @@ export async function startSession(): Promise<ApiResponse<SessionStartData>> {
   );
 }
 
+/** POST /session/reset — reset Runner world + Flask session. */
+export async function resetSession(): Promise<ApiResponse<SessionStartData>> {
+  return apiPost<SessionStartData>(
+    `${API_PREFIX}/session/reset`,
+    {},
+    { timeoutMs: READ_TIMEOUT_MS },
+  );
+}
+
 /** GET /session */
 export async function getSession(): Promise<ApiResponse<SessionSnapshot>> {
   return apiGet<SessionSnapshot>(`${API_PREFIX}/session`, undefined, {

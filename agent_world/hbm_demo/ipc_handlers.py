@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict
 
 from agent_world.hbm_demo import broadcast_helper
 from agent_world.hbm_demo.env_status import write_env_status
+from agent_world.hbm_demo.world_reset import reset_world_runtime
 from agent_world.ipc.commands import CommandType
 from agent_world.script.loader import ScriptLoader
 
@@ -20,8 +21,14 @@ def wire_handlers(
     world_db: Any,
     world_state: Any,
     place_store: Any,
+    relation_graph: Any,
+    capability_table: Any,
+    connectivity: Any,
     script_engine: Any,
     world_step: Any,
+    agents: Any,
+    scenario: Dict[str, Any],
+    segment_store: Any,
     sim_dir: str | Path,
     get_current_tick: Callable[[], int],
 ) -> None:
@@ -114,12 +121,30 @@ def wire_handlers(
         ipc_server.stop()
         return {}
 
+    async def handle_reset_world(payload: Dict[str, Any]) -> Dict[str, Any]:  # noqa: ARG001
+        end_tick = await reset_world_runtime(
+            world_db=world_db,
+            world_state=world_state,
+            place_store=place_store,
+            relation_graph=relation_graph,
+            capability_table=capability_table,
+            connectivity=connectivity,
+            script_engine=script_engine,
+            agents=agents,
+            scenario=scenario,
+            clock=world_state.clock,
+            segment_store=segment_store,
+            sim_dir=sim_dir_str,
+        )
+        return {"end_tick": end_tick, "world_t": end_tick}
+
     ipc_server.register_handler(
         CommandType.INJECT_SCRIPT_EVENT,
         handle_inject_script_event,
     )
     ipc_server.register_handler(CommandType.LIST_PLACES, handle_list_places)
     ipc_server.register_handler(CommandType.MOVE_AGENT, handle_move_agent)
+    ipc_server.register_handler(CommandType.RESET_WORLD, handle_reset_world)
     ipc_server.register_handler(CommandType.CLOSE_ENV, handle_close_env)
 
 

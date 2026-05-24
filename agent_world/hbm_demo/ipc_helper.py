@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from agent_world.app.services.simulation_ipc import IPCResponse, SimulationIPCClient
 from agent_world.hbm_demo.errors import IpcFailedError, IpcTimeoutError
-from agent_world.hbm_demo.settings import DEFAULT_IPC_TIMEOUT, DEFAULT_MOVE_TIMEOUT
+from agent_world.hbm_demo.settings import DEFAULT_IPC_TIMEOUT, DEFAULT_MOVE_TIMEOUT, DEFAULT_RESET_TIMEOUT
 from agent_world.ipc.commands import CommandType
 
 
@@ -61,3 +61,16 @@ def send_move_agent(
     except TimeoutError as exc:
         raise IpcTimeoutError(str(exc)) from exc
     return _ensure_ipc_completed(resp, operation="MOVE_AGENT")
+
+
+def send_reset_world(
+    client: SimulationIPCClient,
+    *,
+    timeout: float = DEFAULT_RESET_TIMEOUT,
+) -> IPCResponse:
+    """Reset Runner world state to scenario initial (messages, tick, locations)."""
+    try:
+        resp = client.send_command(CommandType.RESET_WORLD, {}, timeout=timeout)
+    except TimeoutError as exc:
+        raise IpcTimeoutError(str(exc)) from exc
+    return _ensure_ipc_completed(resp, operation="RESET_WORLD")
