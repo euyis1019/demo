@@ -689,10 +689,13 @@ python agent_world/hbm_demo/scripts/test_m0_acceptance.py
 | T1f F07 单元 | turn_context、matrix、tool_guard、根 shim | ✓ |
 | T2 L4 前缀 | inject payload 含「系统约束」 | ✓ |
 | T4 E2E GRP=0 | Phase 1 Turn 1 无 CEO 群聊（干净 world.db） | ✓ |
+| T1f F03 ipc_end | 6-tick inject 结束后 action-result 不卡 processing | ✓ |
 | T5 session/reset | 重开后 Turn 1 仍通过 | ✓ |
 | T0–T6 全量回归 | M0–M4 无回归 | ✓ |
 
 **ABCS 五层**：L1 soul 服从句 + L2 temperature 0.65 + L3 tick 白名单 + L4 约束前缀 + L5 工具/MOVE 拦截。回滚：`turn_control.yaml` → `enabled: false`。
+
+**复测修复（2026-05-24）**：F03 `check_action_complete` 在 `ipc_end_tick` 到达时完成轮询，避免 6-tick inject 后无 LLM 消息时永久 `processing`。
 
 **下一步**：M6 前端 features 目录。
 

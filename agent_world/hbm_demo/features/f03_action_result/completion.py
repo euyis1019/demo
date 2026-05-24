@@ -36,8 +36,6 @@ def check_action_complete(
     start = task.start_tick
     if current_tick < start + 3:
         return False
-    if current_tick >= start + 8:
-        return True
 
     if db.has_f2f_after(task.place_id, start, current_tick):
         return True
@@ -46,6 +44,13 @@ def check_action_complete(
     ):
         return True
     if db.has_grp_after({100, 200}, start, current_tick):
+        return True
+
+    # Inject batch finished — world tick won't advance until the next player-turn.
+    if task.ipc_end_tick is not None and current_tick >= task.ipc_end_tick:
+        return True
+
+    if current_tick >= start + 8:
         return True
     return False
 

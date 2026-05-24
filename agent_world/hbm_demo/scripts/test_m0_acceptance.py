@@ -329,6 +329,33 @@ def test_m5_f07_abcs() -> None:
         raise TestFailure("send_to_group should be replaced with do_nothing")
     ok("F07 L5 tool_guard blocks GRP for CEO Phase 1")
 
+    from agent_world.hbm_demo.features.f02_player_turn.task import PendingTask
+    from agent_world.hbm_demo.features.f03_action_result.completion import (
+        check_action_complete,
+    )
+
+    class EmptyDB:
+        def has_f2f_after(self, *a, **k):
+            return False
+
+        def has_rdc_pair_after(self, *a, **k):
+            return False
+
+        def has_grp_after(self, *a, **k):
+            return False
+
+    task = PendingTask(
+        task_id="t",
+        start_tick=0,
+        place_id="nvidia_reception",
+        phase="Phase 1",
+        player_turn=1,
+        ipc_end_tick=6,
+    )
+    if not check_action_complete(task, 6, EmptyDB()):
+        raise TestFailure("F03 should complete when ipc_end_tick reached (6-tick inject)")
+    ok("F03 completes after ipc_end_tick without hanging")
+
 
 def test_f05_routing_payload() -> None:
     section("T2 F05 剧情路由 payload 单元")
