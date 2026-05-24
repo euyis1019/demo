@@ -205,7 +205,21 @@ class HbmAgent(DemoAgent):
             )
 
         respond_rule = "1) 必须先回应玩家注入记忆中的原话（复述或引用关键词）。\n"
-        if phase == "Phase 2" and aid == 3:
+        from agent_world.hbm_demo.features.f07_agent_control.config import (
+            is_experience_hardening,
+        )
+
+        if (
+            is_experience_hardening()
+            and phase == "Phase 1"
+            and aid in (2, 3)
+            and not self.player_memory
+        ):
+            respond_rule = (
+                "1) 若本拍无新前台 RDC，选 do_nothing；"
+                "勿主动发起与当前访客无关的话题。\n"
+            )
+        elif phase == "Phase 2" and aid == 3:
             respond_rule = "1) 本拍仅回复 Jensen RDC，无需回应玩家（你看不到玩家原话）。\n"
         elif not self.player_memory and phase == "Phase 3" and aid in (4, 5, 6):
             respond_rule = "1) 本拍根据谈判室局势发言，攻击玩家方案或密谋压价。\n"

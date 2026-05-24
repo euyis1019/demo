@@ -94,6 +94,31 @@ class HbmWorldStep(WorldStep):
             self._passive_ticks_batch += 1
         return active
 
+    def _resolve_batch_llm_params(
+        self,
+        agent_id: int,
+        turn_context: Dict[str, Any],
+        llm: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        from agent_world.hbm_demo.features.f07_agent_control.config import (
+            is_experience_hardening,
+        )
+        from agent_world.hbm_demo.features.f07_agent_control.llm_params import (
+            resolve_passive_llm_params,
+        )
+
+        if not is_experience_hardening():
+            return llm
+        phase = str(turn_context.get("phase", "Phase 1"))
+        inject_ids = {int(x) for x in (turn_context.get("inject_agent_ids") or [])}
+        if phase == "Phase 1" and agent_id not in inject_ids and agent_id in (2, 3):
+            passive = resolve_passive_llm_params(phase)
+            if passive:
+                merged = dict(llm)
+                merged.update(passive)
+                return merged
+        return llm
+
     async def _run_single_agent(self, agent_id: int, t: int) -> None:
         agent = self._resolve_agent(agent_id)
         if agent is None:
@@ -103,7 +128,8 @@ class HbmWorldStep(WorldStep):
         if ctx:
             agent._batch_turn_context = ctx  # noqa: SLF001
             agent._batch_guard_state = self._batch_guard  # noqa: SLF001
-            llm = ctx.get("llm_params") or {}
+            llm = dict(ctx.get("llm_params") or {})
+            llm = self._resolve_batch_llm_params(int(agent_id), ctx, llm)
             if llm:
                 agent._batch_temperature = llm.get("temperature")  # noqa: SLF001
                 agent._batch_max_tokens = llm.get("max_tokens")  # noqa: SLF001

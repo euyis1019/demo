@@ -21,6 +21,7 @@ phase_overrides:
     response_checklist:
       - 先回应玩家原话中的技术/诉求关键词
       - 再 speak_to_local 或 send_message→2
+      - 闲聊/玩梗时仅 speak_to_local 礼貌回应，勿 RDC→Jensen
   Phase 2:
     role_goal: "冻结，不 tick。"
   Phase 3:

@@ -40,3 +40,28 @@ def notify_non_inject_active_agents(
         snippet = build_notification_snippet(session, aid)
         if snippet and hasattr(script_engine, "notify_agent"):
             script_engine.notify_agent(aid, snippet)
+
+
+def notify_jensen_player_summary(
+    script_engine: Any,
+    turn_context: Dict[str, Any],
+    player_text: str,
+) -> None:
+    """E3 — scripted Turn summary for Jensen (Phase 1 only, dev_logs/29 §3.3.2)."""
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_experience_hardening,
+    )
+
+    if not is_experience_hardening() or not turn_context:
+        return
+    if str(turn_context.get("phase", "")) != "Phase 1":
+        return
+    text = str(player_text or turn_context.get("player_text") or "").strip()
+    if not text:
+        return
+    snippet = (
+        f"【本 Turn 前台访客原话摘要】玩家说：「{text}」\n"
+        "请基于此句决定是否 RDC Tech VP；勿臆造未提及的情报（如三星 roadmap）。"
+    )
+    if hasattr(script_engine, "notify_agent"):
+        script_engine.notify_agent(2, snippet)

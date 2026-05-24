@@ -64,6 +64,7 @@ def wire_handlers(
             resolve_inject_tick_loops,
         )
         from agent_world.hbm_demo.features.f07_agent_control.inject_batch import (
+            notify_jensen_player_summary,
             notify_non_inject_active_agents,
         )
         from agent_world.hbm_demo.features.f07_agent_control.turn_context import (
@@ -84,6 +85,11 @@ def wire_handlers(
                     script_engine,
                     turn_context,
                     inject_ids,
+                )
+                notify_jensen_player_summary(
+                    script_engine,
+                    turn_context,
+                    str(turn_context.get("player_text") or ""),
                 )
 
         if events:

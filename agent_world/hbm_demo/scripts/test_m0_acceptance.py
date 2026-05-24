@@ -1266,8 +1266,8 @@ def test_f07_e_step3_rdc_quota_and_tick_order() -> None:
     )
 
     phase = FEATURE_REGISTRY.get("F07", {}).get("phase", "")
-    if "F07-E Step3" not in phase:
-        raise TestFailure(f"F07 registry phase should mention F07-E Step3: {phase!r}")
+    if "F07-E Step3" not in phase and "F07-E Step4" not in phase:
+        raise TestFailure(f"F07 registry phase should mention F07-E Step3+: {phase!r}")
     ok(f"FEATURE_REGISTRY F07 phase: {phase}")
 
     if not is_f07_enabled():
@@ -1343,6 +1343,126 @@ def test_f07_e_step3_rdc_quota_and_tick_order() -> None:
     if "_batch_tick_index" not in ws_src or "_mark_rdc_if_sent" not in ws_src:
         raise TestFailure("HbmWorldStep missing batch_tick_index / mark_rdc hooks")
     ok("E2 world_step batch_tick_index + mark_rdc_if_sent present")
+
+
+def test_f07_e_step4_turn_priority_and_offtopic() -> None:
+    """F07-E Step4 — E3 turn-scoped L6 + Jensen summary + E4 off-topic guard (dev_logs/29)."""
+    section("T2j F07-E Step4 E3 turn priority + E4 off-topic guard")
+    from types import SimpleNamespace
+
+    from agent_world.hbm_demo.features import FEATURE_REGISTRY
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_experience_hardening,
+        is_f07_enabled,
+        load_turn_control,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.inject_batch import (
+        notify_jensen_player_summary,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.knowledge import (
+        build_agent_knowledge,
+        load_agent_overlay,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.llm_params import (
+        resolve_passive_llm_params,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.player_response import (
+        format_l6_player_directive,
+        format_notification_directive,
+    )
+
+    phase = FEATURE_REGISTRY.get("F07", {}).get("phase", "")
+    if "F07-E Step4" not in phase:
+        raise TestFailure(f"F07 registry phase should mention F07-E Step4: {phase!r}")
+    ok(f"FEATURE_REGISTRY F07 phase: {phase}")
+
+    if not is_f07_enabled():
+        ok("F07-E Step4 tests skipped (F07 disabled)")
+        return
+
+    load_turn_control.cache_clear()
+    if not is_experience_hardening():
+        raise TestFailure("experience_hardening.enabled should be true")
+
+    l6 = format_l6_player_directive(
+        agent_id=1,
+        phase="Phase 1",
+        player_turn=2,
+        player_text="我给您带了杯咖啡，黄总在吗？",
+    )
+    if "本 Turn 唯一权威" not in l6:
+        raise TestFailure("E3 L6 missing turn-scoped authority line")
+    if "闲聊" not in l6 and "玩梗" not in l6:
+        raise TestFailure("E3 L6 missing small-talk diversion line")
+    ok("E3 Agent1 Phase1 L6 turn-scoped + small-talk diversion")
+
+    notif = format_notification_directive(
+        phase="Phase 1", player_turn=1, agent_id=2
+    )
+    if "roadmap" not in notif and "RDC" not in notif:
+        raise TestFailure(f"E4 notification missing off-topic guard: {notif[:80]}")
+    ok("E4 Phase1 Jensen notification narrowed")
+
+    class _ScriptEngine:
+        def __init__(self) -> None:
+            self.calls: list[tuple[int, str]] = []
+
+        def notify_agent(self, aid: int, snippet: str) -> None:
+            self.calls.append((int(aid), str(snippet)))
+
+    se = _ScriptEngine()
+    notify_jensen_player_summary(
+        se,
+        {"phase": "Phase 1", "player_text": "送杯咖啡"},
+        "送杯咖啡",
+    )
+    if not se.calls or se.calls[0][0] != 2:
+        raise TestFailure(f"E3 notify_jensen_player_summary bad target: {se.calls}")
+    if "送杯咖啡" not in se.calls[0][1]:
+        raise TestFailure(f"E3 Jensen summary missing player_text: {se.calls[0][1]}")
+    ok("E3 notify_jensen_player_summary → Agent 2")
+
+    passive = resolve_passive_llm_params("Phase 1")
+    if not passive or passive.get("temperature") != 0.35:
+        raise TestFailure(f"E4 Phase_1_passive params unexpected: {passive}")
+    ok("E4 resolve_passive_llm_params Phase_1_passive")
+
+    overlay = load_agent_overlay(1)
+    checklist = (
+        (overlay.get("phase_overrides") or {}).get("Phase 1") or {}
+    ).get("response_checklist") or []
+    if not any("闲聊" in str(x) for x in checklist):
+        raise TestFailure("agent_1.yaml missing small-talk checklist item")
+    ok("E3 agent_1.yaml response_checklist small-talk item")
+
+    ipc_src = (HBM_DIR / "core" / "runner" / "ipc_handlers.py").read_text(
+        encoding="utf-8"
+    )
+    if "notify_jensen_player_summary" not in ipc_src:
+        raise TestFailure("ipc_handlers should call notify_jensen_player_summary")
+    if "clear_player_memory_for_agents" not in ipc_src:
+        raise TestFailure("A6 clear_player_memory_for_agents regression")
+    ok("E3 ipc_handlers Jensen summary + A6 memory clear")
+
+    ws_src = (HBM_DIR / "core" / "runner" / "world_step.py").read_text(encoding="utf-8")
+    if "_resolve_batch_llm_params" not in ws_src:
+        raise TestFailure("world_step missing passive LLM param resolver")
+    ok("E4 world_step passive LLM cooling hook")
+
+    ha_src = (HBM_DIR / "core" / "runner" / "hbm_agent.py").read_text(encoding="utf-8")
+    if "do_nothing" not in ha_src or "无新前台 RDC" not in ha_src:
+        raise TestFailure("hbm_agent missing Phase1 passive do_nothing rule")
+    ok("E4 hbm_agent Phase1 passive short action rules")
+
+    session = SimpleNamespace(
+        phase="Phase 1", player_turn=1, place_id="nvidia_reception", stats={}
+    )
+    block = build_agent_knowledge(
+        session, 1, "80% 显存优化", channel="inject"
+    )
+    if "80%" not in block:
+        raise TestFailure("inject knowledge block should include player text")
+    ok("E3 build_agent_knowledge inject still includes player line")
 
 
 def test_m6_frontend_features() -> None:
@@ -1964,9 +2084,19 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
                 raise TestFailure(
                     f"Tier B E2: Phase 1 observer_messages must be ≤6; got {len(observer)}"
                 )
+            _offtopic_terms = ("三星", "roadmap", "Roadmap")
+            for m in observer:
+                body = str(m.get("content") or "")
+                sender = str(m.get("sender") or "")
+                for term in _offtopic_terms:
+                    if term in body and term not in player_text:
+                        raise TestFailure(
+                            f"Tier B E4: observer from {sender} contains "
+                            f"unmentioned {term!r}: {body[:160]}"
+                        )
             ok(
-                f"Tier B E5+E2: F2F={len(public)} reception→Jensen RDC={reception_jensen} "
-                f"observer={len(observer)}"
+                f"Tier B E5+E2+E4: F2F={len(public)} reception→Jensen RDC={reception_jensen} "
+                f"observer={len(observer)} (no 三星/roadmap hallucination)"
             )
         elif len(public) < 1 and len(observer) < 1:
             raise TestFailure(
@@ -2165,6 +2295,7 @@ def main() -> int:
         test_f07_e_step1_player_facing_f2f,
         test_f07_e_step2_guard_and_fallback,
         test_f07_e_step3_rdc_quota_and_tick_order,
+        test_f07_e_step4_turn_priority_and_offtopic,
         test_f05_routing_payload,
         test_f11_live_turn_sync,
         test_f11_c_frontend,
