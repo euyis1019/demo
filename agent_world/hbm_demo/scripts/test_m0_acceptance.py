@@ -1266,8 +1266,8 @@ def test_f07_e_step3_rdc_quota_and_tick_order() -> None:
     )
 
     phase = FEATURE_REGISTRY.get("F07", {}).get("phase", "")
-    if "F07-E Step3" not in phase and "F07-E Step4" not in phase:
-        raise TestFailure(f"F07 registry phase should mention F07-E Step3+: {phase!r}")
+    if "F07-E" not in phase:
+        raise TestFailure(f"F07 registry phase should mention F07-E: {phase!r}")
     ok(f"FEATURE_REGISTRY F07 phase: {phase}")
 
     if not is_f07_enabled():
@@ -1372,8 +1372,8 @@ def test_f07_e_step4_turn_priority_and_offtopic() -> None:
     )
 
     phase = FEATURE_REGISTRY.get("F07", {}).get("phase", "")
-    if "F07-E Step4" not in phase:
-        raise TestFailure(f"F07 registry phase should mention F07-E Step4: {phase!r}")
+    if "F07-E Step4" not in phase and "F07-E Step5" not in phase:
+        raise TestFailure(f"F07 registry phase should mention F07-E Step4+: {phase!r}")
     ok(f"FEATURE_REGISTRY F07 phase: {phase}")
 
     if not is_f07_enabled():
@@ -1463,6 +1463,63 @@ def test_f07_e_step4_turn_priority_and_offtopic() -> None:
     if "80%" not in block:
         raise TestFailure("inject knowledge block should include player text")
     ok("E3 build_agent_knowledge inject still includes player line")
+
+
+def test_f07_e_step5_final_acceptance() -> None:
+    """F07-E Step5 — final acceptance helpers (dev_logs/29 §10.8 Step 5)."""
+    section("T2k F07-E Step5 final acceptance helpers")
+    from agent_world.hbm_demo.features import FEATURE_REGISTRY
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_experience_hardening,
+        is_f07_enabled,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.phase4_smoke import (
+        Phase4SmokeResult,
+        run_phase4_ipc_smoke,
+    )
+    from agent_world.hbm_demo.shared.env_status import is_runner_ready
+
+    phase = FEATURE_REGISTRY.get("F07", {}).get("phase", "")
+    if "F07-E Step5" not in phase:
+        raise TestFailure(f"F07 registry phase should mention F07-E Step5: {phase!r}")
+    ok(f"FEATURE_REGISTRY F07 phase: {phase}")
+
+    if not is_f07_enabled():
+        ok("F07-E Step5 skipped (F07 disabled)")
+        return
+    if not is_experience_hardening():
+        raise TestFailure("experience_hardening should remain enabled for Step 5")
+
+    smoke_src = (
+        HBM_DIR / "features" / "f07_agent_control" / "phase4_smoke.py"
+    ).read_text(encoding="utf-8")
+    if "run_phase4_ipc_smoke" not in smoke_src:
+        raise TestFailure("phase4_smoke.py missing run_phase4_ipc_smoke")
+    ok("E6 phase4_smoke module present")
+
+    ipc_src = (HBM_DIR / "core" / "runner" / "ipc_handlers.py").read_text(
+        encoding="utf-8"
+    )
+    if "notify_jensen_player_summary" not in ipc_src:
+        raise TestFailure("Step5 regression: notify_jensen_player_summary missing")
+    ok("E3/E6 ipc_handlers Jensen summary hook (regression)")
+
+    if is_runner_ready(str(SIM_DIR)):
+        result = run_phase4_ipc_smoke(SIM_DIR, ipc_timeout=120.0)
+        if not isinstance(result, Phase4SmokeResult):
+            raise TestFailure("run_phase4_ipc_smoke return type")
+        if not result.ok:
+            raise TestFailure(
+                f"Phase4 IPC smoke failed: inject={result.inject_agent_ids} "
+                f"jensen_f2f={result.jensen_f2f_count} vp={result.vp_public_count} "
+                f"ceo_in_room={result.ceo_in_negotiation}"
+            )
+        ok(
+            f"E6 Phase4 IPC smoke (unit) — Jensen F2F={result.jensen_f2f_count} "
+            f"end_tick={result.end_tick}"
+        )
+    else:
+        ok("E6 Phase4 IPC smoke skipped (runner not ready in unit pass)")
 
 
 def test_m6_frontend_features() -> None:
@@ -1858,6 +1915,44 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
         raise TestFailure(f"GET /session failed: {snap}")
     ok("GET /session → initialized")
 
+    section("T4e-pre F07-E6 double session/start hygiene (dev_logs/29 §3.6.2)")
+    from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import (
+        async_state_path,
+        save_task_runtime,
+    )
+
+    save_task_runtime(
+        SIM_DIR,
+        {
+            "task_id": "stale_overlay",
+            "start_tick": 99,
+            "place_id": "nvidia_reception",
+            "phase": "Phase 1",
+            "player_turn": 4,
+        },
+        session_dict={
+            "task_id": "stale_overlay",
+            "start_tick": 99,
+            "place_id": "nvidia_reception",
+            "phase": "Phase 1",
+            "player_turn": 4,
+            "stats": {"vision": 8, "execution": 5, "trust": 12, "burnout": 3},
+        },
+    )
+    code, start_again, cookie = http_json(
+        "POST", f"{base}{BASE_PATH}/session/start", cookie=cookie
+    )
+    if code != 200 or not start_again.get("success"):
+        raise TestFailure(f"second session/start failed: {start_again}")
+    again_data = start_again.get("data") or {}
+    if int(again_data.get("player_turn", 0)) != 1:
+        raise TestFailure(f"E6 second session/start player_turn != 1: {again_data}")
+    if again_data.get("phase") != "Phase 1":
+        raise TestFailure(f"E6 second session/start bad phase: {again_data}")
+    if async_state_path(SIM_DIR).exists():
+        raise TestFailure("E6 session/start should remove stale async_state/runtime.json")
+    ok("E6 double session/start clears stale overlay → Turn 1 Phase 1")
+
     # dev_logs/19 Turn 1 — 高密度技术词，利于前台 F2F / Jensen RDC（Tier B）
     player_text = (
         "我要见黄仁勋。我有一套推理侧稀疏注意力方案，能把大模型 KV Cache "
@@ -2120,6 +2215,68 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
                 "Tier B skipped: no DMXAPI_KEY — F2F=0 observer=0 acceptable"
             )
 
+    section("T4e F07-E Step5 Turn 2 玩梗分流 (dev_logs/29 §3.3.4 · E3)")
+    code, sess_turn2, cookie = http_json(
+        "GET", f"{base}{BASE_PATH}/session", cookie=cookie
+    )
+    sess_data = (sess_turn2.get("data") or {})
+    if int(sess_data.get("player_turn", 0)) < 2:
+        raise TestFailure(
+            f"Turn 1 should advance session to player_turn≥2: {sess_data}"
+        )
+    ok(f"session player_turn={sess_data.get('player_turn')} after Turn 1")
+
+    turn2_text = (
+        "我给您带了杯热咖啡，黄总还在忙吗？他今天还穿着那件黑色皮衣吗？"
+    )
+    code, turn2_post, cookie = http_json(
+        "POST",
+        f"{base}{BASE_PATH}/player-turn",
+        body={"player_text": turn2_text},
+        cookie=cookie,
+        timeout=120.0,
+    )
+    if code != 200 or not turn2_post.get("success"):
+        raise TestFailure(f"Turn 2 player-turn failed: {turn2_post}")
+    task2_id = (turn2_post.get("data") or {}).get("task_id")
+    if not task2_id:
+        raise TestFailure(f"Turn 2 missing task_id: {turn2_post}")
+    result2, cookie = poll_action_result(base, task2_id, cookie, max_wait=240.0)
+    if result2.get("status") != "completed":
+        raise TestFailure(f"Turn 2 not completed: {result2}")
+    public2 = result2.get("public_messages") or []
+    observer2 = result2.get("observer_messages") or []
+
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_experience_hardening,
+    )
+
+    if is_experience_hardening() and len(public2) < 1:
+        raise TestFailure(
+            "E3 Turn 2: experience_hardening requires F2F≥1 (fallback or LLM)"
+        )
+    if is_experience_hardening():
+        f2f_blob = " ".join(str(m.get("content") or "") for m in public2)
+        turn2_hints = ("咖啡", "皮衣", "等", "打扰", "稍等", "通报", "技术方案", "黄总")
+        if llm_key and not any(h in f2f_blob for h in turn2_hints):
+            raise TestFailure(
+                f"E3 Turn 2 Tier B: F2F should respond to small-talk; got: {f2f_blob[:200]}"
+            )
+        for m in observer2:
+            if m.get("sender") != "接待前台":
+                continue
+            body = str(m.get("content") or "")
+            if ("80%" in body or "显存" in body) and "80%" not in turn2_text:
+                raise TestFailure(
+                    f"E3 Turn 2: reception should not re-RDC Turn1 topic: {body[:160]}"
+                )
+        ok(
+            f"E3 Turn 2 — F2F={len(public2)} observer={len(observer2)} "
+            f"(small-talk / no Turn1 RDC repeat)"
+        )
+    else:
+        ok(f"Turn 2 completed — F2F={len(public2)} observer={len(observer2)}")
+
     section("T5 F01 会话重开 (session/reset)")
     code, reset, cookie = http_json(
         "POST",
@@ -2139,6 +2296,31 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
     if tick_after != 0:
         raise TestFailure(f"reset后 tick 应为 0，实际 {tick_after}")
     ok("F01 reset → env tick=0")
+
+    section("T4f F07-E6 Phase 4 IPC smoke (dev_logs/29 §3.6.4)")
+    from agent_world.hbm_demo.features.f07_agent_control.phase4_smoke import (
+        run_phase4_ipc_smoke,
+    )
+
+    p4 = run_phase4_ipc_smoke(SIM_DIR, ipc_timeout=180.0)
+    if p4.inject_agent_ids != [2]:
+        raise TestFailure(f"E6 Phase 4 inject must target Agent 2 only: {p4.inject_agent_ids}")
+    if p4.jensen_f2f_count < 1:
+        raise TestFailure(
+            f"E6 Phase 4 negotiation_room Jensen F2F must be ≥1; got {p4.jensen_f2f_count}"
+        )
+    if p4.vp_public_count != 0:
+        raise TestFailure(
+            f"E6 Phase 4 VP must not emit F2F (present_silent); got {p4.vp_public_count}"
+        )
+    if p4.ceo_in_negotiation:
+        raise TestFailure(
+            f"E6 Phase 4 CEOs must leave negotiation_room; still present: {p4.ceo_in_negotiation}"
+        )
+    ok(
+        f"E6 Phase 4 IPC smoke — inject=[2] Jensen F2F={p4.jensen_f2f_count} "
+        f"VP F2F=0 CEOs moved tick={p4.end_tick}"
+    )
 
     code, turn2, cookie = http_json(
         "POST",
@@ -2296,6 +2478,7 @@ def main() -> int:
         test_f07_e_step2_guard_and_fallback,
         test_f07_e_step3_rdc_quota_and_tick_order,
         test_f07_e_step4_turn_priority_and_offtopic,
+        test_f07_e_step5_final_acceptance,
         test_f05_routing_payload,
         test_f11_live_turn_sync,
         test_f11_c_frontend,

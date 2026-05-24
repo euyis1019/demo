@@ -74,7 +74,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
             "inject_batch",
             "turn_control",
         ],
-        "phase": "F07-E Step4 (E3 turn priority + E4 off-topic guard)",
+        "phase": "F07-E Step5 (final acceptance + Phase4 smoke)",
     },
     "F08": {
         "name": "HTTP 传输",
