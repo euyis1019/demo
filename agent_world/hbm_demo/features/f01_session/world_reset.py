@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, TYPE_CHECKING
 
-from agent_world.hbm_demo.env_status import write_env_status
+from agent_world.hbm_demo.shared.env_status import write_env_status
 from agent_world.hbm_demo.hbm_agent import HbmAgent
 from agent_world.hbm_demo.seed import seed_world
 

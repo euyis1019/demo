@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""M0 acceptance tests — dev_logs/26 §7 (import + Turn 1 E2E + F01 reset + F05 routing)."""
+"""M0+M1 acceptance tests — dev_logs/26 §7 (shared shims, Turn 1 E2E, F01 reset)."""
 
 from __future__ import annotations
 
@@ -129,6 +129,40 @@ def test_static_imports() -> None:
     from agent_world.hbm_demo.ipc_handlers import wire_handlers  # noqa: F401
 
     ok("ipc_handlers imports (uses world_reset shim)")
+
+
+def test_m1_shared_shims() -> None:
+    section("T1b M1 shared/ 模块与根 shim")
+    import agent_world.hbm_demo.env_status as root_es
+    import agent_world.hbm_demo.settings as root_st
+    import agent_world.hbm_demo.errors as root_er
+    import agent_world.hbm_demo.config_loader as root_cl
+    from agent_world.hbm_demo import shared
+    from agent_world.hbm_demo.shared import env_status as shared_es
+    from agent_world.hbm_demo.shared import settings as shared_st
+    from agent_world.hbm_demo.shared import errors as shared_er
+    from agent_world.hbm_demo.shared import config_loader as shared_cl
+
+    pairs = (
+        ("env_status.is_runner_ready", root_es.is_runner_ready, shared_es.is_runner_ready),
+        ("env_status.write_env_status", root_es.write_env_status, shared_es.write_env_status),
+        ("settings.DEFAULT_IPC_TIMEOUT", root_st.DEFAULT_IPC_TIMEOUT, shared_st.DEFAULT_IPC_TIMEOUT),
+        ("errors.RunnerNotReadyError", root_er.RunnerNotReadyError, shared_er.RunnerNotReadyError),
+        ("config_loader.load_scenario", root_cl.load_scenario, shared_cl.load_scenario),
+    )
+    for name, root_fn, shared_fn in pairs:
+        if root_fn is not shared_fn:
+            raise TestFailure(f"{name} shim != shared implementation")
+        ok(f"{name}")
+
+    scenario = shared.load_scenario(HBM_DIR / "hbm_scenario.yaml")
+    if scenario.get("simulation_id") != SIM_ID:
+        raise TestFailure(f"load_scenario simulation_id != {SIM_ID}")
+    ok(f"shared.load_scenario → {SIM_ID}")
+
+    if "DEFAULT_IPC_TIMEOUT" not in shared.__all__:
+        raise TestFailure("shared.__all__ missing DEFAULT_IPC_TIMEOUT")
+    ok("shared/__init__.py re-exports")
 
 
 def test_f05_routing_payload() -> None:
@@ -371,10 +405,15 @@ def stop_stack(runner: subprocess.Popen[Any], flask: subprocess.Popen[Any]) -> N
 
 
 def main() -> int:
-    print("HBM Demo M0 Acceptance Tests (dev_logs/26)")
+    print("HBM Demo M0+M1 Acceptance Tests (dev_logs/26)")
     failures: List[str] = []
 
-    for fn in (test_static_imports, test_f05_routing_payload, test_runner_module_entry):
+    for fn in (
+        test_static_imports,
+        test_m1_shared_shims,
+        test_f05_routing_payload,
+        test_runner_module_entry,
+    ):
         try:
             fn()
         except Exception as exc:  # noqa: BLE001
@@ -404,7 +443,7 @@ def main() -> int:
         for f in failures:
             print(f"  - {f}")
         return 1
-    print("ALL M0 TESTS PASSED")
+    print("ALL M0+M1 TESTS PASSED")
     return 0
 
 

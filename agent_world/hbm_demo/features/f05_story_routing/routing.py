@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from openai import OpenAI
 
-from agent_world.hbm_demo.config_loader import load_scenario
+from agent_world.hbm_demo.shared.config_loader import load_scenario
 from agent_world.hbm_demo.ipc_helper import send_inject_batch, send_move_agent
 from agent_world.hbm_demo.kernel import resolve_api_key
 

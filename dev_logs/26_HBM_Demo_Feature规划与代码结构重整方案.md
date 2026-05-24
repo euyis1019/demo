@@ -438,12 +438,23 @@ score (F04) → immediate_msg (F04) → build_inject (F05) → IPC inject (F08)
 | 阶段 | 内容 | 风险 | 验收 |
 |------|------|------|------|
 | **M0** ✅ | 建 `features/`、`shared/` 骨架；`routing`、`world_reset` 迁入 + 根 shim | 低 | import 正常；Turn 1 E2E |
-| **M1** | `shared/*` 四文件迁入；根 shim | 低 | health + session/start |
+| **M1** ✅ | `shared/*` 四文件迁入；根 shim | 低 | health + session/start |
 | **M2** | 拆 `game_service` → f01–f04、f06；根 `game_service` re-export | 中 | 完整 25 轮可玩 |
 | **M3** | `core/runner/*` 迁入；`run_hbm` shim | 中 | Runner IPC 全命令 |
 | **M4** | `http/*` 迁入；`routes` shim | 低 | 7 HTTP 端点 |
 | **M5** | 实现 F07 ABCS Phase A→C | 中 | §24 验收清单 |
 | **M6** | 前端 `web/src/features/*` | 低 | UI 无回归 |
+
+### M1 已落地文件
+
+```
+shared/env_status.py
+shared/settings.py
+shared/errors.py
+shared/config_loader.py
+shared/__init__.py              # 统一 re-export
+env_status.py / settings.py / errors.py / config_loader.py  # 根 shim
+```
 
 ### M0 已落地文件
 
@@ -554,4 +565,21 @@ python agent_world/hbm_demo/scripts/test_m0_acceptance.py
 ```
 
 脚本会自动启动 Runner + Flask（不启动 Vite），跑完 E2E 后清理进程。
+
+---
+
+## 14. M1 验收测试记录
+
+**执行时间**：2026-05-24  
+**脚本**：`agent_world/hbm_demo/scripts/test_m0_acceptance.py`（含 T1b M1 shared shim）  
+**结果**：**ALL M0+M1 TESTS PASSED**
+
+| 用例 | 覆盖 | 结果 |
+|------|------|------|
+| T1b shared 四模块 shim | env_status / settings / errors / config_loader | ✓ |
+| T1b shared.load_scenario | config_loader 读 hbm_scenario.yaml | ✓ |
+| T4 health + session/start | 依赖 shared.env_status、shared.errors | ✓ |
+| T0–T6 全量回归 | M0 用例无回归 | ✓ |
+
+**下一步**：M2 拆分 `game_service.py` → features/f01–f04、f06。
 
