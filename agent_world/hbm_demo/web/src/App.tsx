@@ -3,6 +3,7 @@
  */
 
 import "./styles/global.css";
+import { MAX_TURNS } from "./constants/gameLoop";
 import {
   BootScreen,
   EndingScreen,
@@ -15,15 +16,12 @@ import {
   RunnerNotReadyModal,
   StatusPanel,
   ThreeColumnLayout,
-} from "./components";
-import { MAX_TURNS } from "./constants/gameLoop";
-import {
   useEnvStatus,
   useGameLoop,
   useHealthCheck,
   useLoadingElapsed,
   useStartGame,
-} from "./hooks";
+} from "./features";
 import { GameStoreProvider, useGameStoreContext } from "./store";
 import { placeDisplayName } from "./utils/places";
 

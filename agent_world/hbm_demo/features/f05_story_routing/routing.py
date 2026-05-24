@@ -5,23 +5,21 @@ from __future__ import annotations
 import json
 import logging
 import re
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from openai import OpenAI
 
+from agent_world.hbm_demo.features.f01_session.constants import DEFAULT_CONFIG
 from agent_world.hbm_demo.shared.config_loader import load_scenario
 from agent_world.hbm_demo.http.ipc_helper import send_inject_batch, send_move_agent
-from agent_world.hbm_demo.core.runner.kernel import resolve_api_key
+from agent_world.hbm_demo.core.runner.kernel import llm_request_extras, resolve_api_key
+from agent_world.hbm_demo.features.f07_agent_control.config import is_abcs_enabled
 from agent_world.hbm_demo.features.f07_agent_control.turn_context import (
     build_turn_context,
     format_constraint_prefix,
 )
 
 log = logging.getLogger("agent_world.hbm_demo.routing")
-
-_HBM_DEMO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CONFIG = _HBM_DEMO_ROOT / "hbm_scenario.yaml"
 
 PLACE_RECEPTION = "nvidia_reception"
 PLACE_JENSEN_ROOM = "jensen_private_room"
@@ -61,6 +59,9 @@ NODE_B_BEHAVIOR_HINT = (
 
 def inject_agent_ids_for_phase(phase: str) -> List[int]:
     """Return DialogueInjection targets for the given session phase."""
+    if not is_abcs_enabled():
+        scenario = load_scenario(DEFAULT_CONFIG)
+        return sorted(int(a["agent_id"]) for a in scenario.get("agents", []))
     return list(PHASE_INJECT_AGENTS.get(phase, PHASE_INJECT_AGENTS["Phase 1"]))
 
 
@@ -191,7 +192,7 @@ def classify_turn25_intent(player_text: str) -> str:
     """DeepSeek intent classification for node D (§4.3)."""
     scenario = load_scenario(DEFAULT_CONFIG)
     llm_cfg = scenario.get("llm", {}) or {}
-    model = llm_cfg.get("model", "deepseek-chat")
+    model = llm_cfg.get("model", "deepseek-v4-flash")
     system = (
         "你是《HBM 显存价格保卫战》结局裁判。"
         "根据玩家最后一轮发言，判断其倾向。"
@@ -206,6 +207,7 @@ def classify_turn25_intent(player_text: str) -> str:
             ],
             temperature=0.2,
             max_tokens=80,
+            **llm_request_extras(llm_cfg),
         )
         raw = (resp.choices[0].message.content or "").strip()
         match = re.search(r"\{[\s\S]*\}", raw)

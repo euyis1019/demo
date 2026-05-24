@@ -111,7 +111,7 @@ scope: f01_session | f05_routing | f07_abcs | web | runner | ipc
 | **F04** | 数值与打分 | ✅ 已实现 | `features/f04_stats/` | LLM/heuristic 打分、Stats 更新、immediate_msg |
 | **F05** | 剧情路由 | ✅ 已实现 | `features/f05_story_routing/` | Phase 节点 A/B/C/D、inject 目标、Turn 16/25 |
 | **F06** | 只读世界模型 | ✅ 已实现 | `features/f06_read_model/` | `ReadOnlyWorldDB`、F2F/RDC/GRP 查询 |
-| **F07** | Agent 行为控制 ABCS | 📋 设计稿 | `features/f07_agent_control/` | turn_control、turn_context、L3/L5 |
+| **F07** | Agent 行为控制 ABCS | ✅ 已实现（默认关闭） | `features/f07_agent_control/` | turn_control、turn_context、L3/L5 |
 | **F08** | HTTP 传输 | ✅ 已实现 | `http/` | Blueprint、health、ipc 客户端、错误映射 |
 | **F09** | 前端三屏 UI | ✅ 已实现 | `web/src/features/` | 按屏/流程拆子 Feature（见 §4.3） |
 | **F10** | 运维与启动 | ✅ 已实现 | `scripts/` | 一行启动、端口、stop |

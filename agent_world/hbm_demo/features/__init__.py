@@ -1,8 +1,7 @@
 """HBM Demo business features (L2 orchestration layer).
 
 Each subdirectory is one mergeable Feature; see dev_logs/26 for specs.
-Root-level modules (routing.py, game_service.py, …) remain compatibility shims
-until migration phase M2+ completes.
+Public entrypoints: run_hbm.py, routes.py, game_service.py (see dev_logs/26 §5.1).
 """
 
 from __future__ import annotations

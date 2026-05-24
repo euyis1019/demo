@@ -1,189 +1,216 @@
 # HBM 显存价格保卫战 — Web Demo
 
-《HBM 显存价格保卫战》双进程 Demo：`run_hbm`（Runner + LLM Agent）与 Flask（Stats / 路由 / API）。
+《HBM 显存价格保卫战》本地可玩 Demo：**Runner**（LLM Agent + 世界仿真）+ **Flask**（回合编排 + HTTP API）+ **React 前端**（三栏 UI）。
 
-技术规范见仓库根目录 `dev_docs/`。开发规划与目录说明见 `dev_logs/20`（后端）、`dev_logs/21`（前端 + 一键启动）、`dev_logs/22`（文件结构与功能）、**`dev_logs/23`（启动 / 重置 / 运行）**。
+详细产品/剧情规范见仓库 `dev_docs/`；Feature 化架构见 [`dev_logs/26_HBM_Demo_Feature规划与代码结构重整方案.md`](../../dev_logs/26_HBM_Demo_Feature规划与代码结构重整方案.md)。
 
-## 一行命令启动（推荐）
+---
 
-在**仓库根目录**执行：
+## 快速开始
+
+在**仓库根目录**：
 
 ```bash
+# 1. Python 依赖（首次）
+pip install -e .
+
+# 2. API Key
+cp agent_world/hbm_demo/.env.example agent_world/hbm_demo/.env
+# 编辑 .env：DMXAPI_KEY=sk-...
+
+# 3. 一行启动 Runner + Flask + Vite
 ./agent_world/hbm_demo/scripts/start_demo.sh
 ```
 
-脚本将依次启动 Runner → Flask（默认 **5050**，避开 macOS 5000）→ 前端 dev server，并提示访问 `http://localhost:5173`。按 **Ctrl+C** 停止全部进程。
+浏览器打开 **http://localhost:5173**。按 **Ctrl+C** 停止；或执行 `./agent_world/hbm_demo/scripts/stop_demo.sh`。
 
-**环境前提**（需事先安装）：
-
-| 依赖 | 说明 |
-|------|------|
-| Python 3.10+ | 仓库根目录 `pip install -e .` 或 `uv sync` |
-| Node.js 18+ | 前端 `npm install`（脚本可自动执行） |
-| `DMXAPI_KEY` | 见下方「配置 API Key」 |
-
-停止后台进程（脚本异常退出时也可手动执行）：
+**验收测试**（不启动长期 dev server，自动起停 Runner/Flask）：
 
 ```bash
-./agent_world/hbm_demo/scripts/stop_demo.sh
+python agent_world/hbm_demo/scripts/test_m0_acceptance.py
 ```
 
-## 架构
+25 轮参考台词：[`dev_logs/19_HBM_Demo_25轮参考台词.md`](../../dev_logs/19_HBM_Demo_25轮参考台词.md)
+
+---
+
+## 运行时架构
 
 ```text
-[ 前端 / curl ]
-       │  POST player-turn / GET action-result
-       ▼
-[ Flask — game_service + routes ]  ← 只读 world.db + IPC
-       │
-       ▼
-[ run_hbm.py 子进程 ]  ← 写 world.db、推进 tick
+浏览器 (Vite :5173)
+    │  POST player-turn / GET action-result / GET session …
+    ▼
+Flask  (agent_world.app + hbm_bp)     ← L3：HTTP、Flask Session、只读 world.db
+    │  IPC: inject_batch / MOVE / RESET_WORLD
+    ▼
+Runner (python -m agent_world.hbm_demo.run_hbm)   ← L1：写 world.db、推进 tick、Agent LLM
+    │
+    ▼
+sim/hbm_memory_war/   world.db · ipc/ · env_status.json
 ```
 
-**必须先启动 Runner，再启动 Flask**，且两者共用同一 `sim_dir`。
+- 玩家每发一条台词 → **API 1**（打分 + DialogueInjection + 若干 world tick）→ **API 2** 轮询直到本回合 NPC 动作完成。
+- **必须先有 Runner**，Flask 与 Runner 共用同一 `HBM_SIM_DIR`。
 
-## 环境要求
+---
 
-- Python 3.10+
-- 依赖：见仓库根目录 `pyproject.toml`（`uv sync` 或 `pip install -e .`）
-- LLM API Key（Runner Agent + Flask 打分 / immediate_msg）
+## 代码结构（四层 + Feature）
 
-## 环境变量
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `HBM_SIM_DIR` | `agent_world/hbm_demo/sim/hbm_memory_war/` | 仿真目录（`world.db`、IPC、env_status） |
-| `DMXAPI_KEY` | — | LLM API Key（也可写在 `hbm_demo/.env` 或 `demo/.env`） |
-| `HBM_IPC_TIMEOUT` | `600` | IPC inject 超时（秒），超时返回 HTTP 504 |
-| `HBM_MOVE_TIMEOUT` | `30` | IPC MOVE 超时（秒） |
-| `HBM_DB_TIMEOUT` | `5.0` | Flask 只读 SQLite 连接超时 |
-| `HBM_DB_READ_RETRIES` | `6` | API 2 读库 locked 时重试次数 |
-| `HBM_IMMEDIATE_MSG_TIMEOUT` | `1.0` | immediate_msg LLM 超时（秒） |
-| `FLASK_RUN_PORT` | `5050`（5050–5059 自动选取） | HBM Demo Flask 端口（专用，避开系统 5000） |
-| `VITE_PORT` | `5173` | 前端 dev server 端口 |
-| `FLASK_APP` | `agent_world.app:create_app` | Flask 入口 |
-
-## 启动步骤
-
-### 1. 配置 API Key
-
-```bash
-export DMXAPI_KEY=sk-your-key
-# 或复制示例并编辑：
-# cp agent_world/hbm_demo/.env.example agent_world/hbm_demo/.env
-# 也可写入 agent_world/demo/.env
+```text
+agent_world/hbm_demo/
+├── hbm_scenario.yaml      # L0 场景：地点、Agent soul、LLM、群聊
+├── turn_control.yaml      # L0 ABCS 开关与矩阵（当前 enabled: false）
+├── .env / .env.example    # L0 API Key（.env 不提交）
+│
+├── run_hbm.py             # 入口 shim → core/runner/run_hbm.py
+├── routes.py              # 入口 shim → http/routes.py (hbm_bp)
+├── game_service.py        # 入口 shim → re-export features/f01–f04、f06
+│
+├── shared/                # 跨 Feature 工具（配置加载、env_status、错误、超时）
+├── core/runner/           # F00 平台 Runner（内核、Agent、IPC、tick）
+├── features/              # F01–F07 业务编排（见下表）
+├── http/                  # F08 HTTP 传输（Blueprint、health、IPC 客户端）
+│
+├── web/                   # F09 前端（src/features/ 按屏拆分）
+├── scripts/               # F10 启动、停止、验收测试
+└── sim/hbm_memory_war/    # 运行时产物（gitignore）
 ```
 
-### 2. 手动分进程启动（脚本失败时的 fallback）
+### 根目录三个 shim 为何保留
 
-#### 终端 1 — Runner
+| 文件 | 指向 | 用途 |
+|------|------|------|
+| `run_hbm.py` | `core/runner/run_hbm.py` | `python -m agent_world.hbm_demo.run_hbm` |
+| `routes.py` | `http/routes.hbm_bp` | `agent_world.app` 注册 Blueprint |
+| `game_service.py` | `features/*` 聚合 export | 历史 import 路径、HTTP 层委托 |
 
-```bash
-python -m agent_world.hbm_demo.run_hbm \
-  --config agent_world/hbm_demo/hbm_scenario.yaml \
-  --sim-dir agent_world/hbm_demo/sim/hbm_memory_war/
-```
+业务逻辑均在 `features/`、`core/`、`http/`；根目录不再放置重复实现。
 
-等待日志出现 `HBM runner ready`，且 `sim/hbm_memory_war/env_status.json` 中 `status` 为 `running`。
+---
 
-#### 终端 2 — Flask
+## Feature 说明（F00–F10）
 
-```bash
-export HBM_SIM_DIR=agent_world/hbm_demo/sim/hbm_memory_war/
-export FLASK_APP=agent_world.app:create_app
-flask run --host 127.0.0.1 --port 5050
-```
+后端注册表：`features/__init__.py` → `FEATURE_REGISTRY`。  
+前端注册表：`web/src/features/index.ts`。
 
-#### 终端 3 — 前端
+| ID | 名称 | 目录 | 职责 |
+|----|------|------|------|
+| **F00** | 平台 Runner | `core/runner/` | `build_kernel` 装配世界；`HbmAgent` LLM 决策；`HbmWorldStep` 并行 tick；`ipc_handlers` 处理 INJECT/MOVE/RESET；`seed` 初始化场景 |
+| **F01** | 会话与重开 | `features/f01_session/` | `HbmSession`（stats/phase/turn/place）；Flask session CRUD；`reset_demo` + IPC `RESET_WORLD` |
+| **F02** | 玩家回合 API1 | `features/f02_player_turn/` | `handle_player_turn`：打分 → inject → IPC tick → F05 路由副作用；`PendingTask` 供 API2 轮询 |
+| **F03** | 动作结果 API2 | `features/f03_action_result/` | `get_action_result`：完成判定（F2F/RDC/GRP/tick 超时）；格式化中屏 F2F 与 Observer RDC/GRP |
+| **F04** | 数值与打分 | `features/f04_stats/` | LLM/heuristic 四维 Stats；`immediate_msg` 即时反应文案 |
+| **F05** | 剧情路由 | `features/f05_story_routing/` | Phase 节点 A/B/C/D；inject 目标；Turn 16 广播 + Sam；Turn 25 意图与结局 ID |
+| **F06** | 只读世界模型 | `features/f06_read_model/` | `ReadOnlyWorldDB`：Flask 侧只读 SQLite，查 F2F/RDC/GRP |
+| **F07** | Agent 行为控制 | `features/f07_agent_control/` + `turn_control.yaml` | ABCS：L3 活跃 Agent、L4 约束前缀、L5 工具白名单。**当前 `enabled: false`**，全部 Agent 可自由行动；定稿边界后改回 `true` |
+| **F08** | HTTP 传输 | `http/` | `hbm_bp` 八个端点；`ipc_helper`；`health`；统一错误映射 502/503/504 |
+| **F09** | 前端三屏 UI | `web/src/features/` | 见下节 |
+| **F10** | 运维 | `scripts/` | `start_demo.sh`、`stop_demo.sh`、`test_m0_acceptance.py` |
 
-```bash
-cd agent_world/hbm_demo/web && npm run dev
-# http://localhost:5173
-```
+### 前端子 Feature（F09a–h）
 
-## API 速查
+| ID | 目录 | 说明 |
+|----|------|------|
+| F09a | `features/boot/` | 启动屏、健康检查、Runner 503 弹窗 |
+| F09b | `features/game-loop/` | 双阶段回合（player-turn → poll action-result）、Loading |
+| F09c | `features/layout/` | 三栏布局、左侧 Stats / 进度 |
+| F09d | `features/main-chat/` | 中屏 F2F 公开对话、玩家输入 |
+| F09e | `features/observer/` | 右栏 RDC / GRP 私聊与群聊 |
+| F09f | `features/endings/` | Bad End、Turn 25 结局、Phase 切换 Toast |
+| F09g | `api/` | HTTP 客户端与类型 |
+| F09h | `store/` | `gameStore` reducer + Context |
+
+---
+
+## 配置
+
+### 环境变量
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `DMXAPI_KEY` | — | DeepSeek 官方 Key（见 `hbm_scenario.yaml` 中 `llm.model`） |
+| `HBM_SIM_DIR` | `sim/hbm_memory_war/` | 仿真目录 |
+| `FLASK_RUN_PORT` | 5050–5059 自动选取 | Flask 端口 |
+| `VITE_PORT` | 5173 | 前端 dev 端口 |
+| `HBM_IPC_TIMEOUT` | 600 | IPC inject 超时（秒） |
+
+完整列表见 `.env.example`。
+
+### `hbm_scenario.yaml`
+
+- 7 个 Agent、4 个地点、2 个群聊
+- `llm`：`base_url`、`model`（当前 `deepseek-v4-flash`）、`thinking.type: disabled`
+
+### `turn_control.yaml`
+
+- `enabled: true` 时启用 ABCS（按 Phase 限制活跃 Agent 与工具）
+- **当前为 `false`**：每轮 inject 至全部 Agent，Runner 每 tick 调度全部 Agent
+
+---
+
+## HTTP API
 
 前缀：`/api/hbm/simulations/hbm_memory_war/`
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `session/start` | 初始化 session（stats / phase / place_id） |
-| GET | `session` | 查询当前 session 快照（Phase 6） |
-| GET | `health` | 双进程就绪探针（Runner + world.db） |
-| GET | `env-status` | 读取 Runner `env_status.json` |
-| POST | `player-turn` | API 1：打分 + inject + 路由 |
-| GET | `action-result?task_id=...` | API 2：轮询 NPC 消息 |
+| POST | `session/start` | 初始化 Flask session |
+| GET | `session` | 当前 stats / phase / turn |
+| POST | `session/reset` | 重开（IPC RESET + session 清零） |
+| GET | `health` | Runner + world.db 就绪探针 |
+| GET | `env-status` | Runner tick / status |
+| POST | `player-turn` | API 1 |
+| GET | `action-result?task_id=` | API 2 轮询 |
 | POST | `debug-inject` | 调试 inject（跳过完整游戏逻辑） |
 
-### 示例：Turn 1
+---
+
+## 游戏流程（可玩范围）
+
+| 阶段 | Turn | 说明 |
+|------|------|------|
+| Phase 1 | 1–4 | 前台接待；Turn 4 需 vision+execution≥15，否则 Bad End |
+| Phase 2 | 5–12 | Jensen 私密审查；Turn 12 节点 B → Phase 3 |
+| Phase 3 | 13–20 | 谈判室；Turn 16 AMD 广播 + Sam；Turn 20 节点 C → Phase 4 |
+| Phase 4 | 21–25 | 终局；Turn 25 返回结局 ID |
+
+单回合含多次 LLM 调用，墙钟约 **15–90 秒**（ABCS 关闭时更慢）。
+
+---
+
+## 手动分进程启动
 
 ```bash
-# 初始化
-curl -s -X POST http://127.0.0.1:5050/api/hbm/simulations/hbm_memory_war/session/start \
-  -c cookies.txt
+# 终端 1 — Runner
+python -m agent_world.hbm_demo.run_hbm \
+  --config agent_world/hbm_demo/hbm_scenario.yaml \
+  --sim-dir agent_world/hbm_demo/sim/hbm_memory_war/
 
-# 健康检查（Runner 须已启动）
-curl -s http://127.0.0.1:5050/api/hbm/simulations/hbm_memory_war/health
+# 终端 2 — Flask
+export HBM_SIM_DIR=agent_world/hbm_demo/sim/hbm_memory_war/
+export FLASK_APP=agent_world.app:create_app
+flask run --host 127.0.0.1 --port 5050
 
-# 查询 session 状态
-curl -s http://127.0.0.1:5050/api/hbm/simulations/hbm_memory_war/session -b cookies.txt
-
-# API 1
-curl -s -X POST http://127.0.0.1:5050/api/hbm/simulations/hbm_memory_war/player-turn \
-  -b cookies.txt -H 'Content-Type: application/json' \
-  -d '{"player_text":"我的算法能把显存消耗降低80%。"}'
-
-# API 2（替换 task_id）
-curl -s "http://127.0.0.1:5050/api/hbm/simulations/hbm_memory_war/action-result?task_id=task_xxx" \
-  -b cookies.txt
+# 终端 3 — 前端
+cd agent_world/hbm_demo/web && npm run dev
 ```
 
-## HTTP 错误码（Phase 5）
+---
 
-| 状态码 | 场景 |
-|--------|------|
-| 503 | Runner 未就绪、SQLite 读库持续 locked |
-| 504 | IPC inject / MOVE 超时 |
-| 502 | IPC 返回 failed |
-| 404 | 未知 `task_id` |
+## 相关文档
 
-## 日志
+| 文档 | 内容 |
+|------|------|
+| [`dev_logs/26`](../../dev_logs/26_HBM_Demo_Feature规划与代码结构重整方案.md) | Feature 规划与 M0–M7 迁移 |
+| [`dev_logs/22`](../../dev_logs/22_HBM_Demo目录结构与功能说明.md) | 历史目录说明（部分已过时，以本文为准） |
+| [`dev_logs/23`](../../dev_logs/23_HBM_Demo启动重置与运行指南.md) | 启动 / 重置 / 排错 |
+| [`dev_logs/24`](../../dev_logs/24_HBM_Demo_Agent行为控制整合方案.md) | ABCS 设计 |
+| [`dev_logs/19`](../../dev_logs/19_HBM_Demo_25轮参考台词.md) | 25 轮试玩台词 |
 
-结构化日志前缀 `hbm`，包含 `task_id`、`phase`、`player_turn`、`start_tick`、`end_tick` 等字段，便于联调排查。
+---
 
-## 人工试玩建议（Phase 1→4）
+## 维护说明
 
-1. Turn 1–3：前台接待（Phase 1，`nvidia_reception`）
-2. Turn 4：累计 vision+execution≥15 进入 Phase 2，否则 Bad End
-3. Turn 5–12：私密审查（Phase 2，仅 Jensen）；Turn 12 需 execution≥20 且 Tech VP 正面 RDC
-4. Turn 13–20：谈判室群战（Phase 3）；Turn 16 触发 AMD 广播 + Sam 搅局
-5. Turn 20：burnout<80 且 vision≥30 进入 Phase 4
-6. Turn 25：结局（API 1 直接返回 `completed` + `ending_id`）
-
-单回合 inject 含 LLM 决策，墙钟约 15–60 秒，属正常现象。
-
-**25 轮参考台词**：见 [`dev_logs/19_HBM_Demo_25轮参考台词.md`](../../dev_logs/19_HBM_Demo_25轮参考台词.md)
-
-## 目录结构
-
-```text
-hbm_demo/
-  scripts/
-    start_demo.sh     一行启动（F6）
-    stop_demo.sh      清理 Runner / Flask / Vite
-  web/                React + Vite 前端（F0–F5）
-  run_hbm.py          Runner 入口
-  kernel.py           内核装配 + PlaceMutation 桥接
-  hbm_agent.py        LLM Agent
-  game_service.py     Stats / 路由 / API 逻辑
-  routing.py          节点 A/B/C/D
-  routes.py           Flask Blueprint
-  ipc_helper.py       IPC 封装
-  errors.py / settings.py / http_errors.py
-  health.py           Phase 6 栈健康检查
-  hbm_scenario.yaml   场景配置
-  sim/                运行时产物（world.db 等）
-```
-
-详细目录树与各文件职责见 [`dev_logs/22_HBM_Demo目录结构与功能说明.md`](../../dev_logs/22_HBM_Demo目录结构与功能说明.md)。  
-启动、重置与运行步骤见 [`dev_logs/23_HBM_Demo启动重置与运行指南.md`](../../dev_logs/23_HBM_Demo启动重置与运行指南.md)。
+- **不要**在根目录新增业务 `.py`；新能力放入对应 `features/fXX_*` 或 `core/runner/`。
+- 修改 Agent 边界规则：编辑 `turn_control.yaml` + `features/f07_agent_control/`，并将 `enabled` 设为 `true`。
+- 提交前运行 `python agent_world/hbm_demo/scripts/test_m0_acceptance.py` 与 `cd web && npm run build`。

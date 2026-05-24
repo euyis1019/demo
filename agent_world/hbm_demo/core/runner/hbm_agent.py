@@ -64,6 +64,7 @@ class HbmAgent(DemoAgent):
     """HBM scenario agent with DialogueInjection memory + relation_change tool."""
 
     player_memory: List[Dict[str, str]] = field(default_factory=list)
+    completion_extras: Dict[str, Any] = field(default_factory=dict)
 
     async def update_memory(
         self,
@@ -111,6 +112,7 @@ class HbmAgent(DemoAgent):
                 tool_choice="auto",
                 temperature=temperature,
                 max_tokens=max_tokens,
+                **self.completion_extras,
             )
         except Exception as exc:  # noqa: BLE001
             log.error("agent %s LLM call failed: %s", self.agent_id, exc)

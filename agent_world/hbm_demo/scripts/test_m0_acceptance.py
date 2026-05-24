@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""M0–M6 acceptance tests — dev_logs/26 §7."""
+"""M0–M7 acceptance tests — dev_logs/26 §7 (M7: legacy shim cleanup)."""
 
 from __future__ import annotations
 
@@ -93,6 +93,12 @@ def poll_action_result(
     raise TestFailure(f"action-result timeout after {max_wait}s; last={last}")
 
 
+def abcs_enabled() -> bool:
+    from agent_world.hbm_demo.features.f07_agent_control.config import is_abcs_enabled
+
+    return is_abcs_enabled()
+
+
 def test_static_imports() -> None:
     section("T1 静态 import 与 FEATURE_REGISTRY")
     from agent_world.hbm_demo.features import FEATURE_REGISTRY
@@ -101,61 +107,52 @@ def test_static_imports() -> None:
         raise TestFailure(f"FEATURE_REGISTRY expected >=11, got {len(FEATURE_REGISTRY)}")
     ok(f"FEATURE_REGISTRY: {len(FEATURE_REGISTRY)} features")
 
-    import agent_world.hbm_demo.routing as root_routing
-    from agent_world.hbm_demo.features.f05_story_routing import routing as feat_routing
+    from agent_world.hbm_demo.features.f05_story_routing import routing
 
-    if root_routing.apply_routing is not feat_routing.apply_routing:
-        raise TestFailure("routing shim does not re-export f05.apply_routing")
-    ok("routing.py shim → features/f05_story_routing")
-
-    import agent_world.hbm_demo.world_reset as root_wr
-    from agent_world.hbm_demo.features.f01_session import world_reset as feat_wr
-
-    if root_wr.reset_world_runtime is not feat_wr.reset_world_runtime:
-        raise TestFailure("world_reset shim does not re-export f01.reset_world_runtime")
-    ok("world_reset.py shim → features/f01_session")
+    phase1_agents = routing.inject_agent_ids_for_phase("Phase 1")
+    if abcs_enabled():
+        if phase1_agents != [1]:
+            raise TestFailure("F05 Phase 1 inject agents != [1]")
+        ok("F05 inject_agent_ids_for_phase Phase 1 → [1]")
+    else:
+        if len(phase1_agents) < 7:
+            raise TestFailure(f"ABCS off: expected all agents inject, got {phase1_agents}")
+        ok(f"F05 inject_agent_ids_for_phase Phase 1 → all agents ({len(phase1_agents)})")
 
     from agent_world.hbm_demo import game_service as gs
-    from agent_world.hbm_demo import routing
-
-    if routing.inject_agent_ids_for_phase("Phase 1") != [1]:
-        raise TestFailure("F05 Phase 1 inject agents != [1]")
-    ok("F05 inject_agent_ids_for_phase Phase 1 → [1]")
 
     if not hasattr(gs, "handle_player_turn") or not hasattr(gs, "reset_demo"):
         raise TestFailure("game_service missing handle_player_turn or reset_demo")
     ok("game_service orchestration entrypoints present")
 
-    from agent_world.hbm_demo.ipc_handlers import wire_handlers  # noqa: F401
+    from agent_world.hbm_demo.core.runner.ipc_handlers import wire_handlers  # noqa: F401
 
-    ok("ipc_handlers imports (uses world_reset shim)")
+    ok("core.runner.ipc_handlers imports")
 
 
-def test_m1_shared_shims() -> None:
-    section("T1b M1 shared/ 模块与根 shim")
-    import agent_world.hbm_demo.env_status as root_es
-    import agent_world.hbm_demo.settings as root_st
-    import agent_world.hbm_demo.errors as root_er
-    import agent_world.hbm_demo.config_loader as root_cl
+def test_m1_shared_modules() -> None:
+    section("T1b M1 shared/ 模块")
     from agent_world.hbm_demo import shared
-    from agent_world.hbm_demo.shared import env_status as shared_es
-    from agent_world.hbm_demo.shared import settings as shared_st
-    from agent_world.hbm_demo.shared import errors as shared_er
-    from agent_world.hbm_demo.shared import config_loader as shared_cl
-
-    pairs = (
-        ("env_status.is_runner_ready", root_es.is_runner_ready, shared_es.is_runner_ready),
-        ("env_status.write_env_status", root_es.write_env_status, shared_es.write_env_status),
-        ("settings.DEFAULT_IPC_TIMEOUT", root_st.DEFAULT_IPC_TIMEOUT, shared_st.DEFAULT_IPC_TIMEOUT),
-        ("errors.RunnerNotReadyError", root_er.RunnerNotReadyError, shared_er.RunnerNotReadyError),
-        ("config_loader.load_scenario", root_cl.load_scenario, shared_cl.load_scenario),
+    from agent_world.hbm_demo.shared import (
+        config_loader,
+        env_status,
+        errors,
+        settings,
     )
-    for name, root_fn, shared_fn in pairs:
-        if root_fn is not shared_fn:
-            raise TestFailure(f"{name} shim != shared implementation")
-        ok(f"{name}")
 
-    scenario = shared.load_scenario(HBM_DIR / "hbm_scenario.yaml")
+    if not callable(env_status.is_runner_ready):
+        raise TestFailure("shared.env_status.is_runner_ready missing")
+    ok("shared.env_status.is_runner_ready")
+
+    if not hasattr(settings, "DEFAULT_IPC_TIMEOUT"):
+        raise TestFailure("shared.settings.DEFAULT_IPC_TIMEOUT missing")
+    ok("shared.settings.DEFAULT_IPC_TIMEOUT")
+
+    if not hasattr(errors, "RunnerNotReadyError"):
+        raise TestFailure("shared.errors.RunnerNotReadyError missing")
+    ok("shared.errors.RunnerNotReadyError")
+
+    scenario = config_loader.load_scenario(HBM_DIR / "hbm_scenario.yaml")
     if scenario.get("simulation_id") != SIM_ID:
         raise TestFailure(f"load_scenario simulation_id != {SIM_ID}")
     ok(f"shared.load_scenario → {SIM_ID}")
@@ -192,27 +189,23 @@ def test_m2_game_service_shims() -> None:
     ok(f"game_service.py shim size OK ({shim_lines} lines)")
 
 
-def test_m3_runner_shims() -> None:
-    section("T1d M3 core/runner/ 模块与根 shim")
-    import agent_world.hbm_demo.kernel as root_kernel
-    import agent_world.hbm_demo.ipc_handlers as root_ipc
-    import agent_world.hbm_demo.hbm_agent as root_agent
+def test_m3_runner_modules() -> None:
+    section("T1d M3 core/runner/ 模块与 run_hbm 入口 shim")
     import agent_world.hbm_demo.run_hbm as root_run
-    from agent_world.hbm_demo.core.runner import kernel as core_kernel
-    from agent_world.hbm_demo.core.runner import ipc_handlers as core_ipc
-    from agent_world.hbm_demo.core.runner import hbm_agent as core_agent
-    from agent_world.hbm_demo.core.runner import run_hbm as core_run
+    from agent_world.hbm_demo.core.runner import hbm_agent, ipc_handlers, kernel, run_hbm
 
-    pairs = (
-        ("kernel.build_kernel", root_kernel.build_kernel, core_kernel.build_kernel),
-        ("kernel.resolve_api_key", root_kernel.resolve_api_key, core_kernel.resolve_api_key),
-        ("ipc_handlers.wire_handlers", root_ipc.wire_handlers, core_ipc.wire_handlers),
-        ("hbm_agent.HbmAgent", root_agent.HbmAgent, core_agent.HbmAgent),
-        ("run_hbm.main", root_run.main, core_run.main),
-    )
-    for name, root_fn, core_fn in pairs:
-        if root_fn is not core_fn:
-            raise TestFailure(f"{name} shim != core/runner implementation")
+    if root_run.main is not run_hbm.main:
+        raise TestFailure("run_hbm.py shim != core.runner.run_hbm.main")
+    ok("run_hbm.py shim → core.runner.run_hbm.main")
+
+    for name, obj in (
+        ("kernel.build_kernel", kernel.build_kernel),
+        ("kernel.resolve_api_key", kernel.resolve_api_key),
+        ("ipc_handlers.wire_handlers", ipc_handlers.wire_handlers),
+        ("hbm_agent.HbmAgent", hbm_agent.HbmAgent),
+    ):
+        if not callable(obj) and not isinstance(obj, type):
+            raise TestFailure(f"{name} missing")
         ok(name)
 
     from agent_world.ipc.commands import CommandType
@@ -227,26 +220,22 @@ def test_m3_runner_shims() -> None:
     ok(f"IPC CommandType registry includes {len(registered)} F00 commands")
 
 
-def test_m4_http_shims() -> None:
-    section("T1e M4 http/ 模块与根 shim")
+def test_m4_http_modules() -> None:
+    section("T1e M4 http/ 模块与 routes 入口 shim")
     import agent_world.hbm_demo.routes as root_routes
-    import agent_world.hbm_demo.ipc_helper as root_ipc
-    import agent_world.hbm_demo.health as root_health
-    import agent_world.hbm_demo.http_errors as root_errors
-    from agent_world.hbm_demo.http import routes as http_routes
-    from agent_world.hbm_demo.http import ipc_helper as http_ipc
-    from agent_world.hbm_demo.http import health as http_health
-    from agent_world.hbm_demo.http import http_errors as http_err
+    from agent_world.hbm_demo.http import health, http_errors, ipc_helper, routes as http_routes
 
-    pairs = (
-        ("routes.hbm_bp", root_routes.hbm_bp, http_routes.hbm_bp),
-        ("ipc_helper.send_inject_batch", root_ipc.send_inject_batch, http_ipc.send_inject_batch),
-        ("health.check_stack_health", root_health.check_stack_health, http_health.check_stack_health),
-        ("http_errors.service_error_payload", root_errors.service_error_payload, http_err.service_error_payload),
-    )
-    for name, root_obj, http_obj in pairs:
-        if root_obj is not http_obj:
-            raise TestFailure(f"{name} shim != http implementation")
+    if root_routes.hbm_bp is not http_routes.hbm_bp:
+        raise TestFailure("routes.py shim != http.routes.hbm_bp")
+    ok("routes.py shim → http.routes.hbm_bp")
+
+    for name, obj in (
+        ("ipc_helper.send_inject_batch", ipc_helper.send_inject_batch),
+        ("health.check_stack_health", health.check_stack_health),
+        ("http_errors.service_error_payload", http_errors.service_error_payload),
+    ):
+        if not callable(obj):
+            raise TestFailure(f"{name} missing")
         ok(name)
 
     from flask import Flask
@@ -282,13 +271,6 @@ def test_m5_f07_abcs() -> None:
         build_turn_context,
         format_constraint_prefix,
     )
-    import agent_world.hbm_demo.turn_context as root_tc
-    from agent_world.hbm_demo.features.f07_agent_control import turn_context as feat_tc
-
-    if root_tc.build_turn_context is not feat_tc.build_turn_context:
-        raise TestFailure("turn_context.py shim != f07 implementation")
-    ok("turn_context.py shim → features/f07_agent_control")
-
     class FakeSession:
         phase = "Phase 1"
         player_turn = 1
@@ -296,16 +278,33 @@ def test_m5_f07_abcs() -> None:
         stats = {"vision": 0, "execution": 0, "trust": 10, "burnout": 0}
 
     ctx = build_turn_context(FakeSession())
-    if not ctx.get("enabled"):
-        raise TestFailure("ABCS should be enabled by default")
-    if ctx.get("active_agent_ids") != [1]:
-        raise TestFailure(f"Phase 1 active agents wrong: {ctx}")
-    ok("F07 build_turn_context Phase 1 → active=[1]")
+    if abcs_enabled():
+        if not ctx.get("enabled"):
+            raise TestFailure("ABCS should be enabled when turn_control.enabled=true")
+        if ctx.get("active_agent_ids") != [1]:
+            raise TestFailure(f"Phase 1 active agents wrong: {ctx}")
+        ok("F07 build_turn_context Phase 1 → active=[1]")
 
-    prefix = format_constraint_prefix(ctx)
-    if "系统约束" not in prefix or "Phase 1" not in prefix:
-        raise TestFailure(f"constraint prefix missing: {prefix[:80]}")
-    ok("F07 L4 format_constraint_prefix")
+        prefix = format_constraint_prefix(ctx)
+        if "系统约束" not in prefix or "Phase 1" not in prefix:
+            raise TestFailure(f"constraint prefix missing: {prefix[:80]}")
+        ok("F07 L4 format_constraint_prefix")
+
+        blocked = filter_tool_calls(
+            [_ToolCall(tool_name="send_to_group", args={"group_id": 200, "content": "x"})],
+            agent_id=4,
+            ctx=ctx,
+        )
+        if not blocked or blocked[0].tool_name != "do_nothing":
+            raise TestFailure("send_to_group should be replaced with do_nothing")
+        ok("F07 L5 tool_guard blocks GRP for CEO Phase 1")
+    else:
+        if ctx.get("enabled"):
+            raise TestFailure("ABCS should be disabled when turn_control.enabled=false")
+        ok("F07 ABCS disabled — turn_context.enabled=false")
+        if format_constraint_prefix(ctx):
+            raise TestFailure("L4 prefix should be empty when ABCS disabled")
+        ok("F07 L4 format_constraint_prefix empty when ABCS off")
 
     if resolve_active_agent_ids("Phase 3", 16) != [2, 3, 4, 5, 6, 7]:
         raise TestFailure("Turn 16 should append Sam to Phase 3 active list")
@@ -318,16 +317,7 @@ def test_m5_f07_abcs() -> None:
 
     if is_move_allowed(7, "Phase 1", 1):
         raise TestFailure("Sam MOVE should be blocked before Turn 16")
-    ok("F07 L5 Sam MOVE blocked Turn 1")
-
-    blocked = filter_tool_calls(
-        [_ToolCall(tool_name="send_to_group", args={"group_id": 200, "content": "x"})],
-        agent_id=4,
-        ctx=ctx,
-    )
-    if not blocked or blocked[0].tool_name != "do_nothing":
-        raise TestFailure("send_to_group should be replaced with do_nothing")
-    ok("F07 L5 tool_guard blocks GRP for CEO Phase 1")
+    ok("F07 L5 Sam MOVE blocked Turn 1 (matrix; inactive when ABCS off at runtime)")
 
     from agent_world.hbm_demo.features.f02_player_turn.task import PendingTask
     from agent_world.hbm_demo.features.f03_action_result.completion import (
@@ -380,15 +370,15 @@ def test_m6_frontend_features() -> None:
         raise TestFailure("features/index.ts missing FEATURE_REGISTRY")
     ok("features/index.ts FEATURE_REGISTRY (F09a–h)")
 
-    boot_shim = (web_src / "components" / "BootScreen.tsx").read_text(encoding="utf-8")
-    if "features/boot/BootScreen" not in boot_shim:
-        raise TestFailure("components/BootScreen.tsx is not a features/boot shim")
-    ok("components/BootScreen.tsx shim → features/boot")
+    app_src = (web_src / "App.tsx").read_text(encoding="utf-8")
+    if 'from "./features"' not in app_src:
+        raise TestFailure("App.tsx should import from ./features directly")
+    ok("App.tsx imports from ./features")
 
-    loop_shim = (web_src / "hooks" / "useGameLoop.ts").read_text(encoding="utf-8")
-    if "features/game-loop/useGameLoop" not in loop_shim:
-        raise TestFailure("hooks/useGameLoop.ts is not a features/game-loop shim")
-    ok("hooks/useGameLoop.ts shim → features/game-loop")
+    for removed in ("components", "hooks"):
+        if (web_src / removed).exists():
+            raise TestFailure(f"legacy web/src/{removed}/ should be removed (M7)")
+    ok("web/src/components and hooks removed (M7)")
 
     layout_impl = (web_src / "features" / "layout" / "ThreeColumnLayout.tsx").read_text(
         encoding="utf-8"
@@ -396,6 +386,46 @@ def test_m6_frontend_features() -> None:
     if "ThreeColumnLayout" not in layout_impl or "app-shell" not in layout_impl:
         raise TestFailure("features/layout/ThreeColumnLayout implementation missing")
     ok("F09c ThreeColumnLayout in features/layout")
+
+
+def test_m7_legacy_cleanup() -> None:
+    section("T1h M7 旧 shim / 废弃文件已清除")
+    removed_backend = (
+        "broadcast_helper.py",
+        "config_loader.py",
+        "env_status.py",
+        "errors.py",
+        "health.py",
+        "hbm_agent.py",
+        "http_errors.py",
+        "ipc_handlers.py",
+        "ipc_helper.py",
+        "kernel.py",
+        "routing.py",
+        "seed.py",
+        "settings.py",
+        "turn_context.py",
+        "world_reset.py",
+        "world_step.py",
+    )
+    for name in removed_backend:
+        path = HBM_DIR / name
+        if path.exists():
+            raise TestFailure(f"legacy shim still present: {name}")
+        ok(f"removed {name}")
+
+    kept = ("run_hbm.py", "routes.py", "game_service.py")
+    for name in kept:
+        path = HBM_DIR / name
+        if not path.is_file():
+            raise TestFailure(f"required entry shim missing: {name}")
+        ok(f"kept {name}")
+
+    root_py = sorted(p.name for p in HBM_DIR.glob("*.py"))
+    expected = sorted(["__init__.py", *kept])
+    if root_py != expected:
+        raise TestFailure(f"unexpected root .py files: {root_py}")
+    ok(f"hbm_demo root has only {len(expected)} .py files")
 
 
 def test_f05_routing_payload() -> None:
@@ -411,13 +441,22 @@ def test_f05_routing_payload() -> None:
         stats = {"vision": 0, "execution": 0, "trust": 10, "burnout": 0}
 
     events, broadcast, turn_ctx = build_inject_payload(FakeSession(), "你好", task_id="t1")
-    if len(events) != 1 or events[0]["effect"]["agent_id"] != 1:
-        raise TestFailure(f"Phase 1 Turn 1 inject wrong: {events}")
-    if "系统约束" not in events[0]["effect"]["text"]:
-        raise TestFailure("Phase 1 inject missing ABCS constraint prefix")
-    if not turn_ctx.get("enabled"):
-        raise TestFailure("Turn 1 missing turn_context")
-    ok("Phase 1 Turn 1 → single inject to Agent 1 + L4 prefix")
+    if abcs_enabled():
+        if len(events) != 1 or events[0]["effect"]["agent_id"] != 1:
+            raise TestFailure(f"Phase 1 Turn 1 inject wrong: {events}")
+        if "系统约束" not in events[0]["effect"]["text"]:
+            raise TestFailure("Phase 1 inject missing ABCS constraint prefix")
+        if not turn_ctx.get("enabled"):
+            raise TestFailure("Turn 1 missing turn_context")
+        ok("Phase 1 Turn 1 → single inject to Agent 1 + L4 prefix")
+    else:
+        if len(events) < 7:
+            raise TestFailure(f"ABCS off: expected inject to all agents, got {len(events)}")
+        if "系统约束" in (events[0]["effect"].get("text") or ""):
+            raise TestFailure("ABCS off: inject should not include L4 prefix")
+        if turn_ctx.get("enabled"):
+            raise TestFailure("ABCS off: turn_context should be disabled")
+        ok(f"Phase 1 Turn 1 → inject to all agents ({len(events)})")
     if broadcast is not None:
         raise TestFailure("Turn 1 should not broadcast")
 
@@ -499,7 +538,7 @@ def test_e2e_stack(base: str) -> None:
     public = result.get("public_messages") or []
     observer = result.get("observer_messages") or []
     grp = result.get("group_messages") or []
-    if len(grp) > 0:
+    if abcs_enabled() and len(grp) > 0:
         raise TestFailure(f"F07 Phase 1 Turn 1 should have 0 GRP, got {len(grp)}: {grp}")
     ok(
         f"GET /action-result completed — F2F={len(public)} observer={len(observer)} "
@@ -601,7 +640,7 @@ def start_stack() -> Tuple[subprocess.Popen[Any], subprocess.Popen[Any], str]:
     )
 
     for _ in range(120):
-        from agent_world.hbm_demo.env_status import is_runner_ready
+        from agent_world.hbm_demo.shared.env_status import is_runner_ready
 
         if is_runner_ready(str(SIM_DIR)):
             break
@@ -656,17 +695,18 @@ def stop_stack(runner: subprocess.Popen[Any], flask: subprocess.Popen[Any]) -> N
 
 
 def main() -> int:
-    print("HBM Demo M0–M6 Acceptance Tests (dev_logs/26)")
+    print("HBM Demo M0–M7 Acceptance Tests (dev_logs/26)")
     failures: List[str] = []
 
     for fn in (
         test_static_imports,
-        test_m1_shared_shims,
+        test_m1_shared_modules,
         test_m2_game_service_shims,
-        test_m3_runner_shims,
-        test_m4_http_shims,
+        test_m3_runner_modules,
+        test_m4_http_modules,
         test_m5_f07_abcs,
         test_m6_frontend_features,
+        test_m7_legacy_cleanup,
         test_f05_routing_payload,
         test_runner_module_entry,
     ):
@@ -699,7 +739,7 @@ def main() -> int:
         for f in failures:
             print(f"  - {f}")
         return 1
-    print("ALL M0–M6 TESTS PASSED")
+    print("ALL M0–M7 TESTS PASSED")
     return 0
 
 

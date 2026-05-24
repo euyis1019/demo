@@ -102,6 +102,18 @@ def resolve_api_key(llm_cfg: Dict[str, Any]) -> str:
     )
 
 
+def llm_request_extras(llm_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Extra OpenAI SDK kwargs (e.g. DeepSeek V4 thinking control via extra_body)."""
+    thinking = llm_cfg.get("thinking")
+    if thinking is None:
+        return {}
+    if isinstance(thinking, str):
+        thinking = {"type": thinking}
+    if not isinstance(thinking, dict):
+        return {}
+    return {"extra_body": {"thinking": thinking}}
+
+
 def _wire_place_mutation_patch(place_store: PlaceStore) -> None:
     def patch_attrs(place_id: str, attrs_patch: Dict[str, Any]) -> None:
         rec = place_store.places.get(str(place_id))
@@ -329,9 +341,10 @@ async def build_kernel(
             wall_start_time=wall_start_time,
             minutes_per_tick=minutes_per_tick,
             client=client,
-            model=llm_cfg.get("model", "deepseek-chat"),
+            model=llm_cfg.get("model", "deepseek-v4-flash"),
             temperature=float(llm_cfg.get("temperature", 0.85)),
             max_tokens=int(llm_cfg.get("max_tokens", 500)),
+            completion_extras=llm_request_extras(llm_cfg),
         )
         world_state.register_agent(aid, agent)
         agents.append(agent)

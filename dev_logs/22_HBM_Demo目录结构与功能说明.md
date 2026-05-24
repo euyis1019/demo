@@ -11,6 +11,8 @@
 - **Agent 行为控制（设计）** → [`24_HBM_Demo_Agent行为控制整合方案.md`](./24_HBM_Demo_Agent行为控制整合方案.md)
 - **Feature 规划与代码结构重整** → [`26_HBM_Demo_Feature规划与代码结构重整方案.md`](./26_HBM_Demo_Feature规划与代码结构重整方案.md)
 
+> **2026-05 更新**：M0–M7 Feature 化迁移已完成。根目录 shim 仅保留 `run_hbm.py`、`routes.py`、`game_service.py`。**最新目录与 Feature 说明以 [`agent_world/hbm_demo/README.md`](../agent_world/hbm_demo/README.md) 为准。**
+
 > 原位于 `agent_world/hbm_demo/PLAN.md`、`PLAN2.md` 的两份开发规划已迁入 `dev_logs/20`、`dev_logs/21`；应用目录仅保留可运行代码与 README。
 
 ---

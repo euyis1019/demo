@@ -149,7 +149,7 @@ RUNNER_PID=$!
 
 runner_ready=0
 for _ in $(seq 1 120); do
-  if "$PYTHON" -c "from agent_world.hbm_demo.env_status import is_runner_ready; import sys; sys.exit(0 if is_runner_ready('${HBM_SIM_DIR}') else 1)"; then
+  if "$PYTHON" -c "from agent_world.hbm_demo.shared.env_status import is_runner_ready; import sys; sys.exit(0 if is_runner_ready('${HBM_SIM_DIR}') else 1)"; then
     runner_ready=1
     break
   fi

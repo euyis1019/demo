@@ -1,7 +1,4 @@
-/**
- * F09 frontend feature registry — dev_logs/26 §4.3.
- * Root `components/` and `hooks/` remain compatibility shims.
- */
+/** F09 frontend feature registry — dev_logs/26 §4.3. */
 
 export const FEATURE_REGISTRY = {
   F09a: { name: "启动与恢复", path: "features/boot/" },

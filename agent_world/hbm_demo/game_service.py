@@ -30,10 +30,7 @@ from agent_world.hbm_demo.features.f02_player_turn.handler import (
     handle_player_turn,
     run_debug_inject,
 )
-from agent_world.hbm_demo.features.f02_player_turn.inject import (
-    build_dialogue_injection_events,
-    build_inject_events,
-)
+from agent_world.hbm_demo.features.f02_player_turn.inject import build_inject_events
 from agent_world.hbm_demo.features.f02_player_turn.task import PendingTask, load_task, save_task
 from agent_world.hbm_demo.features.f03_action_result.completion import (
     PHASE_RDC_PAIRS,
@@ -72,7 +69,6 @@ __all__ = [
     "PendingTask",
     "ReadOnlyWorldDB",
     "apply_stat_deltas",
-    "build_dialogue_injection_events",
     "build_inject_events",
     "check_action_complete",
     "create_session",

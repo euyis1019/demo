@@ -1,5 +1,0 @@
-"""Compatibility shim — implementation lives in features/f01_session."""
-
-from agent_world.hbm_demo.features.f01_session.world_reset import reset_world_runtime
-
-__all__ = ["reset_world_runtime"]
