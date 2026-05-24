@@ -458,7 +458,10 @@ game_service.handle_player_turn
 
 ## 14. Feature 开发分支与模块结构
 
-**Git 分支**（自 `jensen-hwang-demo` 拉出，非 `main`）：
+**前置 Feature**：**F11 Live Turn Sync**（回合内增量同步）须先合并，见 [`28_HBM_Demo_F11_回合内增量同步方案.md`](./28_HBM_Demo_F11_回合内增量同步方案.md)。  
+开发分支：`feature/f11-live-turn-sync`。
+
+**Git 分支**（ABCS，自 F11 合并后的 `jensen-hwang-demo` 拉出，非 `main`）：
 
 ```text
 feature/f07-agent-behavior-control
@@ -483,7 +486,7 @@ agent_world/hbm_demo/
 
 ---
 
-*本文档为 Agent 行为失控问题的整合设计；**v1.0 运行时曾落地后移除**（M5）；**v1.1 起在 `feature/f07-agent-behavior-control` 按 §13–14 重建。*
+*本文档为 Agent 行为失控问题的整合设计；**v1.0 运行时曾落地后移除**（M5）；**v1.1 起在 F11 完成后于 `feature/f07-agent-behavior-control` 按 §13–14 重建。*
 
 ---
 
@@ -504,6 +507,7 @@ agent_world/hbm_demo/
 | Phase | 项 | 状态 |
 |-------|-----|------|
 | 文档 | §13 方案补全、§14 分支与模块结构 | ✅ v1.1 |
-| A–C | 按 §7 + §13 在 `feature/f07-agent-behavior-control` 实施 | 🔄 待开发 |
+| 前置 | F11 Live Turn Sync（`feature/f11-live-turn-sync`） | 🔄 进行中，见 dev_log/28 |
+| A–C | 按 §7 + §13 在 `feature/f07-agent-behavior-control` 实施 | ⏸ 待 F11 合并后 |
 
 回滚：`turn_control.yaml` 设 `enabled: false`。
