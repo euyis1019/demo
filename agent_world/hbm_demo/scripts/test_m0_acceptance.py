@@ -19,9 +19,46 @@ SIM_DIR = HBM_DIR / "sim" / "hbm_memory_war"
 SIM_ID = "hbm_memory_war"
 BASE_PATH = f"/api/hbm/simulations/{SIM_ID}"
 
+_LLM_KEY_PLACEHOLDERS = frozenset({"", "sk-your-key-here", "sk-..."})
+
 
 class TestFailure(Exception):
     pass
+
+
+def load_env_file_into(env: Dict[str, str], path: Path) -> None:
+    """Mirror start_demo.sh load_env_file — do not override existing keys."""
+    if not path.is_file():
+        return
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip().strip('"').strip("'")
+        if key and key not in env:
+            env[key] = val
+
+
+def apply_hbm_demo_env(env: Dict[str, str]) -> Dict[str, str]:
+    """Load hbm_demo/.env and agent_world/demo/.env into subprocess env."""
+    load_env_file_into(env, HBM_DIR / ".env")
+    load_env_file_into(env, ROOT / "agent_world" / "demo" / ".env")
+    return env
+
+
+def llm_api_key_configured(env: Dict[str, str] | None = None) -> bool:
+    val = str((env or os.environ).get("DMXAPI_KEY") or "").strip()
+    return bool(val) and val not in _LLM_KEY_PLACEHOLDERS
+
+
+def runner_log_excerpt(max_lines: int = 30) -> str:
+    log_path = HBM_DIR / "scripts" / ".run" / "m0_runner.log"
+    if not log_path.is_file():
+        return "(no m0_runner.log)"
+    lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    return "\n".join(lines[-max_lines:])
 
 
 def ok(msg: str) -> None:
@@ -758,6 +795,13 @@ def test_f07_c_agent_control() -> None:
         raise TestFailure("C4 node C must require burnout<80")
     ok("C4 node C threshold logic")
 
+    probe_env: Dict[str, str] = {}
+    apply_hbm_demo_env(probe_env)
+    if llm_api_key_configured(probe_env):
+        ok("Tier B: DMXAPI_KEY loaded from hbm_demo/.env for E2E")
+    else:
+        ok("Tier B: no DMXAPI_KEY — E2E will use Tier A only")
+
 
 def test_m6_frontend_features() -> None:
     section("T1g M6 web/src/features/ 前端 Feature 拆分")
@@ -1101,8 +1145,12 @@ def test_runner_module_entry() -> None:
     ok("python -m agent_world.hbm_demo.run_hbm entry intact")
 
 
-def test_e2e_stack(base: str) -> None:
+def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
     section(f"T4 E2E HTTP @ {base}")
+    if llm_key:
+        ok("Tier B: DMXAPI_KEY configured — LLM smoke assertions enabled")
+    else:
+        ok("Tier B skipped: no DMXAPI_KEY — code-path assertions only (Tier A)")
 
     code, health, _ = http_json("GET", f"{base}{BASE_PATH}/health")
     if code != 200:
@@ -1129,7 +1177,11 @@ def test_e2e_stack(base: str) -> None:
         raise TestFailure(f"GET /session failed: {snap}")
     ok("GET /session → initialized")
 
-    player_text = "您好，我来汇报 HBM 显存带宽优化方案，想约 Jensen 进一步沟通。"
+    # dev_logs/19 Turn 1 — 高密度技术词，利于前台 F2F / Jensen RDC（Tier B）
+    player_text = (
+        "我要见黄仁勋。我有一套推理侧稀疏注意力方案，能把大模型 KV Cache "
+        "显存占用降低 80%，不是 PPT，是已 repro 的 kernel。"
+    )
     t0 = time.time()
     code, turn1, cookie = http_json(
         "POST",
@@ -1306,30 +1358,39 @@ def test_e2e_stack(base: str) -> None:
         f"GRP={len(grp)} turn→{result.get('player_turn')}"
     )
 
-    section("T4d F07-B Phase 1 运行时验收 (dev_logs/24 §12.1)")
+    section("T4d F07 Phase 1 运行时验收 (dev_logs/24 §12.1 · Tier A/B)")
     ipc_end = int(task_runtime.get("ipc_end_tick") or 0)
     if ipc_end < 8:
         raise TestFailure(
-            f"F07-B Phase 1 inject must reach tick≥8 (§13.2); ipc_end_tick={ipc_end}"
+            f"F07 Phase 1 inject must reach tick≥8 (§13.2); ipc_end_tick={ipc_end}"
         )
-    ok(f"F07-B Phase 1 ipc_end_tick={ipc_end} (≥8, no processing deadlock)")
+    ok(f"Tier A: ipc_end_tick={ipc_end} (≥8, no processing deadlock)")
     if len(grp) != 0:
         raise TestFailure(
-            f"F07-B Phase 1 Turn 1 GRP must be 0 (L3/L5); got GRP={len(grp)}"
+            f"F07 Phase 1 Turn 1 GRP must be 0 (L3/L5); got GRP={len(grp)}"
         )
-    ok("F07-B Phase 1 Turn 1 GRP=0")
-    if len(observer) >= 1:
-        ok(f"F07 Phase 1 observer_messages={len(observer)} (RDC path alive)")
-    else:
+    ok("Tier A: Phase 1 Turn 1 GRP=0")
+    if llm_key:
+        if len(public) < 1 and len(observer) < 1:
+            raise TestFailure(
+                "Tier B: DMXAPI_KEY set but no F2F and no observer RDC — "
+                "LLM pipeline may be broken. Last runner log:\n"
+                + runner_log_excerpt()
+            )
         ok(
-            "F07 Phase 1 observer=0 (no LLM RDC this run; §12.2 manual/API key check)"
+            f"Tier B: LLM produced player-visible traffic — "
+            f"F2F={len(public)} observer={len(observer)}"
         )
-    if len(public) >= 1:
-        ok(f"F07-B Phase 1 F2F={len(public)} (LLM responded at reception)")
     else:
-        ok(
-            "F07-B Phase 1 F2F=0 (no LLM F2F this run; §12.2 manual check with API key)"
-        )
+        if len(public) >= 1 or len(observer) >= 1:
+            ok(
+                f"Tier B (optional): F2F={len(public)} observer={len(observer)} "
+                "(no key gate)"
+            )
+        else:
+            ok(
+                "Tier B skipped: no DMXAPI_KEY — F2F=0 observer=0 acceptable"
+            )
 
     section("T5 F01 会话重开 (session/reset)")
     code, reset, cookie = http_json(
@@ -1383,7 +1444,7 @@ def test_frontend_build() -> None:
     ok("npm run build succeeded")
 
 
-def start_stack() -> Tuple[subprocess.Popen[Any], subprocess.Popen[Any], str]:
+def start_stack() -> Tuple[subprocess.Popen[Any], subprocess.Popen[Any], str, bool]:
     stop = ROOT / "agent_world" / "hbm_demo" / "scripts" / "stop_demo.sh"
     subprocess.run(["bash", str(stop)], check=False, capture_output=True)
     time.sleep(1)
@@ -1394,7 +1455,7 @@ def start_stack() -> Tuple[subprocess.Popen[Any], subprocess.Popen[Any], str]:
         if stale.exists():
             stale.unlink()
 
-    env = os.environ.copy()
+    env = apply_hbm_demo_env(os.environ.copy())
     env["HBM_SIM_DIR"] = str(SIM_DIR)
     env.setdefault("FLASK_RUN_PORT", "5050")
     flask_port = env["FLASK_RUN_PORT"]
@@ -1461,7 +1522,7 @@ def start_stack() -> Tuple[subprocess.Popen[Any], subprocess.Popen[Any], str]:
         try:
             code, payload, _ = http_json("GET", health_url, timeout=5.0)
             if code == 200 and (payload.get("data") or {}).get("ready"):
-                return runner, flask, base
+                return runner, flask, base, llm_api_key_configured(env)
         except (TimeoutError, ConnectionResetError, OSError):
             pass
         if flask.poll() is not None:
@@ -1509,9 +1570,10 @@ def main() -> int:
             print(f"  ✗ {exc}")
 
     runner = flask = None
+    llm_key = False
     try:
-        runner, flask, base = start_stack()
-        test_e2e_stack(base)
+        runner, flask, base, llm_key = start_stack()
+        test_e2e_stack(base, llm_key=llm_key)
     except Exception as exc:  # noqa: BLE001
         failures.append(f"e2e: {exc}")
         print(f"  ✗ {exc}")
