@@ -9,6 +9,7 @@
 - 完成度归档 → [`18_HBM_Demo后端Phase0-6完成与后续待办.md`](./18_HBM_Demo后端Phase0-6完成与后续待办.md)
 - **启动 / 重置 / 运行** → [`23_HBM_Demo启动重置与运行指南.md`](./23_HBM_Demo启动重置与运行指南.md)
 - **Agent 行为控制（设计）** → [`24_HBM_Demo_Agent行为控制整合方案.md`](./24_HBM_Demo_Agent行为控制整合方案.md)
+- **Feature 规划与代码结构重整** → [`26_HBM_Demo_Feature规划与代码结构重整方案.md`](./26_HBM_Demo_Feature规划与代码结构重整方案.md)
 
 > 原位于 `agent_world/hbm_demo/PLAN.md`、`PLAN2.md` 的两份开发规划已迁入 `dev_logs/20`、`dev_logs/21`；应用目录仅保留可运行代码与 README。
 
@@ -37,36 +38,27 @@ sim/hbm_memory_war/world.db + ipc/ + env_status.json
 
 ## 2. 后端目录树与职责
 
+> **Feature 化重整**进行中：详见 [`26_HBM_Demo_Feature规划与代码结构重整方案.md`](./26_HBM_Demo_Feature规划与代码结构重整方案.md)。  
+> 根目录 `routing.py`、`world_reset.py` 等为**兼容 shim**；实现已迁入 `features/`。
+
 ```text
 agent_world/hbm_demo/
-├── hbm_scenario.yaml      # 场景 YAML：地点、7 个 Agent、群、能力、prompt soul
-├── run_hbm.py             # Runner 入口：argparse、IPCServer、信号处理
-├── kernel.py              # 装配 WorldEngine、三总线、HbmAgent、inject handler
-├── seed.py                # 首次启动写入 world.db 初始状态
-├── config_loader.py       # 加载并校验 hbm_scenario.yaml
-├── hbm_agent.py           # LLM Agent（继承 DemoAgent，扩展 update_state / 关系工具）
-├── world_step.py          # HbmWorldStep：同地点 Agent 并行 LLM
-├── ipc_handlers.py        # Runner 侧 IPC 命令注册（inject、MOVE 等）
-├── ipc_helper.py          # Flask 侧 IPC 客户端封装
-├── broadcast_helper.py    # Runner 内系统广播（insert_message）
-├── game_service.py        # 核心游戏逻辑：Session、Stats、API 1/2、WorldDB 查询、路由调用
-├── routing.py             # 四 Phase 剧情节点 A/B/C/D、inject 目标、Turn 16 广播
-├── routes.py              # Flask Blueprint `/api/hbm/simulations/<sim_id>/...`
-├── env_status.py          # 读写 merge `env_status.json`（current_tick、status）
-├── health.py              # GET /health：Runner + world.db 就绪探针
-├── errors.py              # 自定义异常（RunnerNotReady、DatabaseReadError 等）
-├── settings.py            # 超时、重试、默认 sim_dir 等常量
-├── http_errors.py         # Flask 错误响应格式化
-├── __init__.py            # 包说明
-├── README.md              # 启动说明、API 速查、环境变量
-├── .env.example           # API Key 示例
-├── scripts/
-│   ├── start_demo.sh      # 一行启动 Runner + Flask + Vite
-│   ├── stop_demo.sh       # 清理三进程
-│   └── demo_ports.sh      # 端口探测（5050–5059、5173）
-├── sim/
-│   └── hbm_memory_war/    # 运行时产物（world.db、ipc、env_status.json，gitignore）
-└── web/                   # 前端（见 §3）
+├── hbm_scenario.yaml      # L0 场景 YAML
+├── run_hbm.py             # F00 Runner 入口（shim，M3 迁入 core/runner/）
+├── kernel.py … ipc_handlers.py   # F00 平台核心（待迁入 core/runner/）
+├── game_service.py        # F01–F04/F06 编排（待 M2 拆入 features/）
+├── routing.py             # shim → features/f05_story_routing/
+├── world_reset.py         # shim → features/f01_session/
+├── routes.py … http_errors.py    # F08 HTTP（待 M4 迁入 http/）
+├── env_status.py … config_loader.py  # shared/（待 M1 迁入）
+├── features/              # L2 业务 Feature（见 dev_logs/26 §4）
+│   ├── f01_session/       # 会话与重开（world_reset 已迁入）
+│   ├── f05_story_routing/ # 剧情节点 A/B/C/D（routing 已迁入）
+│   └── f07_agent_control/ # ABCS 待建
+├── shared/                # 跨 Feature 基础设施（M1）
+├── scripts/               # F10 一行启动
+├── sim/hbm_memory_war/    # 运行时产物
+└── web/                   # F09 前端
 ```
 
 ### 2.1 核心文件功能详解
@@ -193,7 +185,9 @@ agent_world/hbm_demo/web/
 | Agent 工具行为 | `hbm_agent.py` + 引擎 `demo/demo_agent.py` |
 | API 接口 / HTTP 路由 | `routes.py` |
 | 打分、Stats、完成判定 | `game_service.py` |
-| Turn 4/12/20/25 分支 | `routing.py` |
+| Turn 4/12/20/25 分支 | `features/f05_story_routing/routing.py`（根 `routing.py` 为 shim） |
+| 一键重开 world 清空 | `features/f01_session/world_reset.py` |
+| Feature 规划与目录 | `dev_logs/26` · `features/__init__.py` FEATURE_REGISTRY |
 | inject tick 数量 / 并行 | `kernel.py`、`ipc_handlers.py` |
 | 三屏 UI / 轮询 | `web/src/hooks/useGameLoop.ts`、`gameStore.ts` |
 | 一键启动 / 端口 | `scripts/start_demo.sh`、`demo_ports.sh` |
