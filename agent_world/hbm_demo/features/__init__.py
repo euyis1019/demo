@@ -61,7 +61,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
     },
     "F07": {
         "name": "Agent 行为控制栈（ABCS）",
-        "status": "in_progress",
+        "status": "implemented",
         "path": "features/f07_agent_control/",
         "modules": [
             "turn_context",
@@ -73,7 +73,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
             "inject_batch",
             "turn_control",
         ],
-        "phase": "F07-C done (Phase 2–3 polish + nodes B/C)",
+        "phase": "F07-D done (Phase 4 + full regression)",
     },
     "F08": {
         "name": "HTTP 传输",

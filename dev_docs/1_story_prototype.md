@@ -90,9 +90,10 @@
     *   *未达标分支*：继续 Phase 3 舌战（`phase` 不变；`player_turn` 仍可递增到 21+，见 Phase/Turn 解耦说明）。
 
 ### Phase 4：胜利的果实 (Turn 21 - 25)
-*   **剧情背景**：玩家、Jensen、Tech VP 留在 `negotiation_room`。
+*   **剧情背景**：玩家、Jensen、Tech VP 留在 `negotiation_room`（Tech VP **present_silent**：留室旁听，F07 L3 不 tick、不 inject、不发言）。
 *   **预期交互流**：
     *   **Jensen** 大加赞赏，抛出加入 NVIDIA 或拿种子轮两个选择。
+    *   **Tech VP** 物理在场但**不参与**任何 F2F/RDC/GRP（终局戏仅 Jensen↔玩家 1v1）。
     *   **玩家** 最后讨价还价。
 *   **【终极路由节点 D】 (Turn 25 结束)**：
     *   本 Turn 仍 inject 玩家台词并跑 Tick（Jensen 最后一轮反应），但 API 1 **直接返回** `completed` + `ending_id`，**无需** API 2 轮询。

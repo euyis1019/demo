@@ -45,6 +45,7 @@ def _inject_finished(task: PendingTask) -> bool:
 
 
 RECEPTION_PLACE = "nvidia_reception"
+NEGOTIATION_PLACE = "negotiation_room"
 
 
 def check_action_complete(
@@ -64,6 +65,19 @@ def check_action_complete(
             return True
         if not _inject_finished(task):
             return current_tick >= start + 8
+        return current_tick >= start + 8
+
+    # §13.5 — Phase 4: only negotiation_room F2F (Jensen↔玩家); not VP RDC/GRP.
+    if is_f07_enabled() and task.phase == "Phase 4":
+        place = task.place_id or NEGOTIATION_PLACE
+        if db.has_f2f_after(place, start, current_tick):
+            return True
+        if task.inject_status == INJECT_STATUS_FAILED:
+            return True
+        if not _inject_finished(task):
+            return current_tick >= start + 8
+        if task.ipc_end_tick is not None and current_tick >= task.ipc_end_tick:
+            return True
         return current_tick >= start + 8
 
     if db.has_f2f_after(task.place_id, start, current_tick):

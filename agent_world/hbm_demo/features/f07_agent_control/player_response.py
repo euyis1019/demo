@@ -75,6 +75,12 @@ def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
             "Jensen/VP 应帮玩家把 AMD 新闻转译为 NVIDIA 需要降 HBM 方案的理由。"
         )
 
+    if phase == "Phase 4" and aid == 2:
+        lines.append(
+            "★ 终局 1v1：先回应玩家每句（复述或引用关键词），再谈 offer；"
+            "禁止开场长篇独白；Tech VP 在室旁听但不出声。"
+        )
+
     return "\n".join(lines)
 
 

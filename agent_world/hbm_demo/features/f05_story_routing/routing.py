@@ -54,6 +54,10 @@ NODE_B_BEHAVIOR_HINT = (
 
 def inject_agent_ids_for_phase(phase: str) -> List[int]:
     """Return DialogueInjection targets for the given session phase."""
+    from agent_world.hbm_demo.features.f07_agent_control.config import is_f07_enabled
+
+    if phase == "Phase 4" and is_f07_enabled():
+        return [JENSEN_ID]
     return list(PHASE_INJECT_AGENTS.get(phase, PHASE_INJECT_AGENTS["Phase 1"]))
 
 

@@ -511,6 +511,7 @@ def test_f03_action_completion() -> None:
         PendingTask,
     )
     from agent_world.hbm_demo.features.f03_action_result.completion import (
+        NEGOTIATION_PLACE,
         RECEPTION_PLACE,
         check_action_complete,
     )
@@ -535,6 +536,10 @@ def test_f03_action_completion() -> None:
     class F2fReceptionDB(EmptyDB):
         def has_f2f_after(self, place_id, *a, **k):
             return place_id == RECEPTION_PLACE
+
+    class F2fNegotiationDB(EmptyDB):
+        def has_f2f_after(self, place_id, *a, **k):
+            return place_id == NEGOTIATION_PLACE
 
     task_p1 = PendingTask(
         task_id="t1",
@@ -572,6 +577,24 @@ def test_f03_action_completion() -> None:
     if not check_action_complete(task_p2, 6, EmptyDB()):
         raise TestFailure("Phase 2 should still complete at ipc_end_tick")
     ok("Phase 2 ipc_end_tick completion unchanged")
+
+    if is_f07_enabled():
+        task_p4 = PendingTask(
+            task_id="t4",
+            start_tick=0,
+            place_id=NEGOTIATION_PLACE,
+            phase="Phase 4",
+            player_turn=21,
+            ipc_end_tick=8,
+            inject_status=INJECT_STATUS_DONE,
+        )
+        if check_action_complete(task_p4, 6, RdcOnlyDB()):
+            raise TestFailure("F07 Phase 4 must not complete on VP RDC alone (§13.5)")
+        if not check_action_complete(task_p4, 5, F2fNegotiationDB()):
+            raise TestFailure("F07 Phase 4 should complete on negotiation F2F")
+        if not check_action_complete(task_p4, 8, EmptyDB()):
+            raise TestFailure("F07 Phase 4 should timeout-complete at tick 8")
+        ok("F07 Phase 4 F2F-priority completion (§13.5)")
 
 
 def test_f07_b_agent_control() -> None:
@@ -801,6 +824,104 @@ def test_f07_c_agent_control() -> None:
         ok("Tier B: DMXAPI_KEY loaded from hbm_demo/.env for E2E")
     else:
         ok("Tier B: no DMXAPI_KEY — E2E will use Tier A only")
+
+
+def test_f07_d_agent_control() -> None:
+    """F07-D Phase 4专规 + 节点 C (dev_logs/24 §11 D1–D5)."""
+    section("T2f F07-D Phase 4 inject / L3 / F03")
+    from types import SimpleNamespace
+
+    from agent_world.hbm_demo.features import FEATURE_REGISTRY
+    from agent_world.hbm_demo.features.f05_story_routing.routing import (
+        CEO_IDS,
+        TECH_VP_ID,
+        build_inject_payload,
+        inject_agent_ids_for_phase,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.config import is_f07_enabled
+    from agent_world.hbm_demo.features.f07_agent_control.knowledge import (
+        build_agent_knowledge,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.pick_active import (
+        pick_active_ids,
+        primary_active_ids,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.tool_guard import (
+        allowed_tools_for,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.player_response import (
+        format_l6_player_directive,
+    )
+
+    if FEATURE_REGISTRY.get("F07", {}).get("status") != "implemented":
+        raise TestFailure("F07 should be status=implemented after F07-D")
+    ok("D3 FEATURE_REGISTRY F07 implemented")
+
+    if not is_f07_enabled():
+        ok("F07-D inject/L3 tests skipped (F07 disabled)")
+        return
+
+    if inject_agent_ids_for_phase("Phase 4") != [2]:
+        raise TestFailure(
+            f"D1 Phase 4 inject must be [2] only: {inject_agent_ids_for_phase('Phase 4')}"
+        )
+    ok("D1 Phase 4 inject_agent_ids [2]")
+
+    class FakeSession:
+        phase = "Phase 4"
+        player_turn = 21
+        place_id = "negotiation_room"
+        stats = {"vision": 35, "execution": 25, "trust": 40, "burnout": 30}
+
+    events, _, _ = build_inject_payload(FakeSession(), "加入 NVIDIA", task_id="t21")
+    inject_aids = [e["effect"]["agent_id"] for e in events]
+    if inject_aids != [2]:
+        raise TestFailure(f"D1 Phase 4 build_inject_payload agents wrong: {inject_aids}")
+    ok("D1 Phase 4 single inject event → Agent 2")
+
+    ctx_p4 = {
+        "phase": "Phase 4",
+        "player_turn": 21,
+        "place_id": "negotiation_room",
+        "llm_params": {"temperature": 0.48, "max_tokens": 200},
+    }
+    if primary_active_ids(ctx_p4) != [2]:
+        raise TestFailure(f"D1 primary_active Phase 4 must be [2]: {primary_active_ids(ctx_p4)}")
+    world = SimpleNamespace(agents={2: object(), 3: object()})
+    active = pick_active_ids(ctx_p4, world, t=10)
+    if 3 in active:
+        raise TestFailure(f"D1 Agent 3 present_silent must not tick: {active}")
+    if active != [2]:
+        raise TestFailure(f"D1 Phase 4 active should be [2]: {active}")
+    ok("D1 Phase 4 L3 primary [2], Agent 3 present_silent (no tick)")
+
+    vp_tools = allowed_tools_for(3, ctx_p4)
+    if vp_tools:
+        raise TestFailure(f"D1 Agent 3 Phase 4 tools must be empty: {vp_tools}")
+    ok("D1 Agent 3 Phase 4 tool matrix empty")
+
+    if TECH_VP_ID in CEO_IDS:
+        raise TestFailure("D1 node C must not include Tech VP in CEO_IDS")
+    ok(f"D1 node C MOVE targets CEO_IDS={list(CEO_IDS)} only (Agent 3 stays)")
+
+    l6 = format_l6_player_directive(
+        agent_id=2, phase="Phase 4", player_turn=21, player_text="我想加入团队"
+    )
+    if "终局 1v1" not in l6:
+        raise TestFailure("D2 Phase 4 L6 missing 终局 1v1 directive")
+    block = build_agent_knowledge(
+        FakeSession(), 2, "加入 NVIDIA", channel="inject"
+    )
+    if "终局 1v1" not in block:
+        raise TestFailure("D2 inject knowledge missing Phase 4 1v1 block")
+    ok("D2 Phase 4 L6 / knowledge 1v1 Jensen")
+
+    proto = (ROOT / "dev_docs" / "1_story_prototype.md").read_text(encoding="utf-8")
+    if "Agent 2 | batch" not in proto and "Agent 2" not in proto:
+        raise TestFailure("D5 dev_docs/1 missing Phase 4 inject table")
+    if "present_silent" not in proto:
+        raise TestFailure("D5 dev_docs/1 missing present_silent note")
+    ok("D5 dev_docs/1 Phase 4 inject Agent 2 + present_silent")
 
 
 def test_m6_frontend_features() -> None:
@@ -1126,6 +1247,25 @@ def test_f05_routing_payload() -> None:
     if not sam:
         raise TestFailure("Turn 16 missing Sam inject")
     ok("Turn 16 → AMD broadcast + Sam nudge")
+
+    FakeSession.phase = "Phase 4"
+    FakeSession.player_turn = 21
+    FakeSession.place_id = "negotiation_room"
+    events_p4, bc4, ctx4 = build_inject_payload(
+        FakeSession(), "终局谈判", task_id="t21"
+    )
+    if load_turn_control().get("enabled"):
+        aids = [e["effect"]["agent_id"] for e in events_p4]
+        if aids != [2]:
+            raise TestFailure(f"F07 Phase 4 inject must target Agent 2 only: {aids}")
+        if bc4 is not None:
+            raise TestFailure("Phase 4 Turn 21 should not broadcast")
+        if ctx4 is None:
+            raise TestFailure("F07 Phase 4 turn_context missing")
+        ok("F07-D Phase 4 inject → Agent 2 only")
+    else:
+        if len(events_p4) < 1:
+            raise TestFailure("Phase 4 inject events missing")
 
     class NodeA:
         player_turn = 4
@@ -1558,6 +1698,7 @@ def main() -> int:
         test_f07_a_extended,
         test_f07_b_agent_control,
         test_f07_c_agent_control,
+        test_f07_d_agent_control,
         test_f05_routing_payload,
         test_f11_live_turn_sync,
         test_f11_c_frontend,

@@ -193,6 +193,11 @@ class HbmAgent(DemoAgent):
             )
         elif phase == "Phase 3" and aid == 7 and player_turn >= 16:
             reception_extra = "3) Sam 搅局：仅 RDC，短句煽风，禁止 MOVE。\n"
+        elif phase == "Phase 4" and aid == 2:
+            reception_extra = (
+                "3) 终局 1v1：先 speak_to_local 回应玩家，再 update_state 或短句 offer；"
+                "一句一句来，禁止演讲开场。\n"
+            )
 
         respond_rule = "1) 必须先回应玩家注入记忆中的原话（复述或引用关键词）。\n"
         if phase == "Phase 2" and aid == 3:
@@ -205,6 +210,8 @@ class HbmAgent(DemoAgent):
             length_rule = (
                 "2) 说出口 2–5 句，可略长但必须引用玩家观点；禁止演讲腔。\n"
             )
+        elif phase == "Phase 4" and aid == 2:
+            length_rule = "2) 终局 1–3 句口语，一句一句回应玩家；禁止长篇独白。\n"
 
         return (
             "【本回合行动要求（HBM Demo · F07）】\n"
