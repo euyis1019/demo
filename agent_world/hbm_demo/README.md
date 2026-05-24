@@ -2,7 +2,7 @@
 
 《HBM 显存价格保卫战》双进程 Demo：`run_hbm`（Runner + LLM Agent）与 Flask（Stats / 路由 / API）。
 
-技术规范见仓库根目录 `dev_docs/`，开发规划见本目录 `PLAN.md`（后端）与 `PLAN2.md`（前端 + 一键启动）。
+技术规范见仓库根目录 `dev_docs/`。开发规划与目录说明见 `dev_logs/20`（后端）、`dev_logs/21`（前端 + 一键启动）、`dev_logs/22`（文件结构与功能）、**`dev_logs/23`（启动 / 重置 / 运行）**。
 
 ## 一行命令启动（推荐）
 
@@ -184,3 +184,6 @@ hbm_demo/
   hbm_scenario.yaml   场景配置
   sim/                运行时产物（world.db 等）
 ```
+
+详细目录树与各文件职责见 [`dev_logs/22_HBM_Demo目录结构与功能说明.md`](../../dev_logs/22_HBM_Demo目录结构与功能说明.md)。  
+启动、重置与运行步骤见 [`dev_logs/23_HBM_Demo启动重置与运行指南.md`](../../dev_logs/23_HBM_Demo启动重置与运行指南.md)。

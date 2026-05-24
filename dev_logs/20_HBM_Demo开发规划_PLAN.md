@@ -1,10 +1,11 @@
 # HBM Demo 开发规划
 
 **项目**：《HBM 显存价格保卫战》Web Demo  
+**归档位置**：`dev_logs/20_HBM_Demo开发规划_PLAN.md`（原 `agent_world/hbm_demo/PLAN.md`）  
 **应用目录**：`agent_world/hbm_demo/`  
 **技术规范**：`dev_docs/1_story_prototype.md`、`dev_docs/2_architecture.md`、`dev_docs/3_prompt_management.md`  
 **实现注意**：`dev_logs/17_HBM_Demo实现注意事项.md`  
-**约束**：不修改 `agent_world/demo/` 与引擎核心（`world/*`、`script/effects/*`、`dispatcher.py` 等）
+**目录说明**：`dev_logs/22_HBM_Demo目录结构与功能说明.md`
 
 ---
 

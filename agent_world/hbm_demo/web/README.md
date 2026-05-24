@@ -1,6 +1,6 @@
 # HBM Demo 前端（`web/`）
 
-《HBM 显存价格保卫战》React + Vite 前端。开发规划见上级目录 [`PLAN2.md`](../PLAN2.md)。
+《HBM 显存价格保卫战》React + Vite 前端。开发规划见 [`dev_logs/21_HBM_Demo后续开发规划_PLAN2.md`](../../../dev_logs/21_HBM_Demo后续开发规划_PLAN2.md)。
 
 ## 环境
 

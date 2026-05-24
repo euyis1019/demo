@@ -158,7 +158,7 @@ Jensen，我选加入 NVIDIA。请给我 Distinguished Engineer title、CUDA cor
 |------|------|
 | `dev_docs/1_story_prototype.md` | 剧情与路由节点 |
 | `dev_docs/2_architecture.md` | Stats 规则与 API 契约 |
-| `agent_world/hbm_demo/PLAN2.md` §附录 D | Turn 1 自动化验收（非 25 轮） |
+| `dev_logs/21_HBM_Demo后续开发规划_PLAN2.md` §附录 D | Turn 1 自动化验收（非 25 轮） |
 | `dev_logs/18_*` | MVP 完成摘要、已知限制与 F7+ 待办 |
 
 ---

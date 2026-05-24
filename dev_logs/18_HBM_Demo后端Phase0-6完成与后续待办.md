@@ -3,7 +3,8 @@
 **记录时间**：2026-05-23（F6 完成 · 限制项归档）  
 **分支**：`jensen-hwang-demo`（最新提交 `92e4f8d`）  
 **应用目录**：`agent_world/hbm_demo/`  
-**详细规划**：后端 `PLAN.md` · 前端 + 一键启动 `PLAN2.md`
+**详细规划**：[`dev_logs/20_HBM_Demo开发规划_PLAN.md`](./20_HBM_Demo开发规划_PLAN.md) · [`dev_logs/21_HBM_Demo后续开发规划_PLAN2.md`](./21_HBM_Demo后续开发规划_PLAN2.md)  
+**目录结构**：[`dev_logs/22_HBM_Demo目录结构与功能说明.md`](./22_HBM_Demo目录结构与功能说明.md)
 
 ---
 
@@ -44,7 +45,7 @@
 
 即可启动 Runner + Flask + 前端，浏览器访问 `http://localhost:5173` 完成 Turn 1 双段式游玩（immediate_msg → action-result 轮询）。
 
-**结论（2026-05-23 核查）**：PLAN.md + PLAN2 **MVP 范围内开发已全部完成**；Demo 可正常本地游玩 Turn 1 及后续回合（需 `DMXAPI_KEY` 与 LLM 网络）。
+**结论（2026-05-23 核查）**：`dev_logs/20` + `dev_logs/21` **MVP 范围内开发已全部完成**；Demo 可正常本地游玩 Turn 1 及后续回合（需 `DMXAPI_KEY` 与 LLM 网络）。
 
 ### 1.4 验收测试（2026-05-23）
 
@@ -192,8 +193,9 @@ PLAN2 §〇 DoD 第四条写明：Stats / Phase / Turn 正常更新；**Turn 4 B
 | `dev_logs/17_*` | Tick 并发、Session 权威；后端已实现 |
 | `dev_docs/1_story_prototype.md` | Phase/Turn 剧情 |
 | `dev_docs/2_architecture.md` | API 契约与 Stats 规则 |
-| `PLAN.md` | 后端 Phase 0–6（**已完成**） |
-| `PLAN2.md` | 前端 F0–F6（**已完成**） |
+| `dev_logs/20_HBM_Demo开发规划_PLAN.md` | 后端 Phase 0–6（**已完成**） |
+| `dev_logs/21_HBM_Demo后续开发规划_PLAN2.md` | 前端 F0–F6（**已完成**） |
+| `dev_logs/22_HBM_Demo目录结构与功能说明.md` | 目录树与功能说明 |
 | `dev_logs/19_*` | 25 轮参考台词（F8 PLAYTHROUGH） |
 
 ---
@@ -202,7 +204,7 @@ PLAN2 §〇 DoD 第四条写明：Stats / Phase / Turn 正常更新；**Turn 4 B
 
 1. **人工试玩**：按 `dev_logs/19_HBM_Demo_25轮参考台词.md` 走通 25 Turn + Bad End / 三结局验证  
 2. ~~**F8**~~：参考台词见 `dev_logs/19_HBM_Demo_25轮参考台词.md`  
-3. **文档**：更新 `PLAN2.md` §1.1 状态为 ✅  
+3. **文档**：规划已归档至 `dev_logs/20`、`dev_logs/21`；目录说明见 `dev_logs/22`  
 4. **可选**：F9 聊天缓存、F7 内心 OS、F10 测试入库、B-2/B-3 后端双保险  
 
 ---

@@ -1,9 +1,11 @@
 # HBM Demo 后续开发规划（PLAN2 · 本地可玩版）
 
 **项目**：《HBM 显存价格保卫战》Web Demo — **前端 + 本地一键启动 + 联调**  
-**前置条件**：后端 Phase 0–6 已完成（见 `PLAN.md`、`dev_logs/18_*`）  
-**应用目录**：`agent_world/hbm_demo/`（后端）+ 新建 `agent_world/hbm_demo/web/`（前端）  
+**归档位置**：`dev_logs/21_HBM_Demo后续开发规划_PLAN2.md`（原 `agent_world/hbm_demo/PLAN2.md`）  
+**前置条件**：后端 Phase 0–6 已完成（见 `dev_logs/20_HBM_Demo开发规划_PLAN.md`、`dev_logs/18_*`）  
+**应用目录**：`agent_world/hbm_demo/`（后端）+ `agent_world/hbm_demo/web/`（前端）  
 **设计参照**：`dev_logs/03_Web端Demo游玩形式与UI设计方案.md`、`dev_docs/1_story_prototype.md`、`dev_docs/2_architecture.md`  
+**目录说明**：`dev_logs/22_HBM_Demo目录结构与功能说明.md`  
 **本版范围**：**仅本地开发可玩**；不含 Docker、Nginx、生产部署、CI、PR/Tag  
 
 ---
@@ -99,8 +101,12 @@ agent_world/hbm_demo/
     start_demo.sh               # F6 核心 — 一行启动
     stop_demo.sh                # F6 可选 — 清理后台进程
   .env.example                  # DMXAPI_KEY 示例
-  PLAN2.md
   README.md                     # F6 更新启动说明
+
+dev_logs/
+  20_HBM_Demo开发规划_PLAN.md      # 后端 Phase 0–6（已归档）
+  21_HBM_Demo后续开发规划_PLAN2.md # 本文档（已归档）
+  22_HBM_Demo目录结构与功能说明.md # 目录树与职责
 ```
 
 **不包含** `docker/` 目录。
@@ -561,7 +567,7 @@ HBM Demo 已启动
 
 | 文档 | 用途 |
 |------|------|
-| `PLAN.md` | 后端 Phase 0–6（已完成） |
+| `dev_logs/20_HBM_Demo开发规划_PLAN.md` | 后端 Phase 0–6（已完成） |
 | `README.md` | 手动分进程启动（脚本失败时 fallback） |
 | `dev_logs/18_*` | 待办与已知问题 |
 | `dev_logs/03_*` | 三屏 UI 设计 |
