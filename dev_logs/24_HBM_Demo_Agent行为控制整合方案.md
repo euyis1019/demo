@@ -7,6 +7,7 @@
 - 目录与运行机制 → [`22_HBM_Demo目录结构与功能说明.md`](./22_HBM_Demo目录结构与功能说明.md)
 - 25 轮参考台词 → [`19_HBM_Demo_25轮参考台词.md`](./19_HBM_Demo_25轮参考台词.md)
 - 启动 / 重置 → [`23_HBM_Demo启动重置与运行指南.md`](./23_HBM_Demo启动重置与运行指南.md)
+- 引擎与玩家干预全景 → [`27_agent_world引擎与HBM_Demo_Agent行为与玩家干预机制全景.md`](./27_agent_world引擎与HBM_Demo_Agent行为与玩家干预机制全景.md)
 
 ---
 
@@ -238,6 +239,11 @@ game_service.handle_player_turn
 
 - L3 白名单即最强硬约束；L5 工具过滤作为 **双保险**（防止白名单配置遗漏）。
 
+**5.5.4 Phase 1 中屏 F2F 策略（v1.1 增补，见 §13.1）**
+
+- ABCS 默认矩阵 Phase 1 允许 `send_message`，但 **中屏 UI 只展示 `nvidia_reception` 的 F2F**（见 dev_logs/27 §5.2、§7）。
+- 仅 L3+L5 **不能**保证前台对玩家「当面说话」；须在 L4 与（可选）L5 收紧 Phase 1 工具集（§13.1）。
+
 ---
 
 ## 6. 与现有剧情节点的兼容性
@@ -248,7 +254,7 @@ game_service.handle_player_turn
 | 节点 B Turn 12 | Tech VP 正面 RDC：Phase 2 末允许 Agent 3 **仅 RDC 回复** 被动 tick（L3 例外列表） |
 | Turn 16 广播 | 保持 `broadcast_helper` + Sam inject；Turn 16 将 Sam 加入 L3 白名单 + 放开 RDC/MOVE |
 | 节点 C / D | Phase 4 白名单 `[2,3]`；Turn 25 结局分类不变 |
-| `check_action_complete` | 不变；Phase 1 仍 RDC(1→2) 或 F2F 或 tick 超时完成 |
+| `check_action_complete` | **v1.1 调整**（§13.2）：Phase 1 优先 F2F 完成；Phase 2+ 保留 RDC/GRP 完成信号 |
 | 重开 `session/reset` | 重置后 TurnContext 回到 Phase 1 Turn 1 默认矩阵 |
 
 ---
@@ -274,22 +280,26 @@ game_service.handle_player_turn
 | B2 | L5：工具白名单过滤 | `hbm_agent.py` |
 | B3 | L5：MOVE 硬规则拦截 | `hbm_agent.py` |
 | B4 | dev_logs/19 → Turn hint 字典 | `turn_context.py` |
+| B5 | **Phase 1 中屏 F2F**：L4 强制前缀 + L5 工具集收紧（§13.1） | `routing.py`, `turn_control.yaml`, `hbm_agent.py` |
+| B6 | **F03 完成语义**：Phase 1 优先 F2F（§13.2） | `features/f03_action_result/completion.py` |
 
 **验收**：
 
 - Phase 1 Turn 1：Runner 日志 **仅 Agent 1** 有 DeepSeek 请求；
 - 右栏 **0 条 GRP**（或仅历史残留为 0）；
 - Sam **无 MOVE** 记录；
-- 中屏有前台 F2F 或 RDC(1→2)。
+- 中屏 **至少 1 条** 前台 F2F（`public_messages` 非空）；RDC(1→2) 可在右栏 Observer 出现；
+- `action-result` 在 Phase 1 **不得**在「零 F2F 且仅 ipc_end_tick 到达」时 completed（§13.2）。
 
 ### Phase C — 打磨（约 0.5–1 天）
 
 | 项 | 内容 |
 |----|------|
-| C1 | Phase 2 Tech VP 被动 RDC tick 例外 |
+| C1 | Phase 2 Tech VP 被动 RDC tick 例外（§13.3 专项验收） |
 | C2 | Phase 3 略调高 temperature / max_tokens |
 | C3 | 结构化日志：`turn_context` 写入 `hbm` 日志前缀 |
-| C4 | 可选：Turn 1–3 自动化回归脚本（curl E2E + 断言 GRP 数量） |
+| C4 | 自动化回归：Turn 1–3 断言 GRP=0 + Phase 1 F2F≥1 + F03 语义 |
+| C5 | Phase 2 节点 B 回归：Tech VP 被动 tick + 正面 RDC 关键词（§13.3） |
 
 **验收**：按 dev_logs/19 人工试玩 Turn 1–4、Turn 16 无严重抢戏；节点 A Bad End 仍触发。
 
@@ -302,8 +312,10 @@ game_service.handle_player_turn
 ```text
 1. session/start → player-turn (Phase 1 台词) → action-result completed
 2. 断言 observer_messages 中 GRP 数量 == 0
-3. 断言 world.db 无 agent 7 的 location 变更（Turn 1）
-4. session/reset → 重复上述
+3. 断言 public_messages（中屏 F2F）数量 >= 1
+4. 断言 world.db 无 agent 7 的 location 变更（Turn 1）
+5. session/reset → 重复上述
+6. （Phase C）模拟 Turn 12 前 Tech VP→Jensen RDC 含「可行」→ 节点 B 仍触发（§13.3）
 ```
 
 ### 8.2 人工（必做）
@@ -320,7 +332,8 @@ game_service.handle_player_turn
 
 - Phase 1 出现 **SK/Micron/Samsung GRP** → L3 未生效或白名单配置错误；
 - Sam 出现在 `nvidia_reception` 且 Turn < 16 → L5 MOVE 规则未生效；
-- 前台从不 F2F → 与 API 欠费 / prompt 冲突，需单独排查（见 dev_logs/23）。
+- Phase 1 **action-result completed 但 public_messages 为空** → F03 完成语义或 L4/L5 Phase 1 F2F 策略未生效（§13.1–13.2）；
+- 前台从不 F2F → 排查 API / L4 前缀 / Phase 1 工具集（见 dev_logs/23、27）。
 
 ---
 
@@ -328,8 +341,10 @@ game_service.handle_player_turn
 
 | 风险 | 缓解 |
 |------|------|
-| 约束过严，NPC 完全不说话 | L3 白名单内 Agent 保留完整工具；L5 只禁 MOVE/GRP 不禁 F2F/RDC |
+| 约束过严，NPC 完全不说话 | L3 白名单内 Agent 保留完整工具；L5 只禁 MOVE/GRP；Phase 1 仍允许 `speak_to_local`（§13.1） |
+| Phase 1 强制 F2F 后仍无中屏回复 | LLM/API 失败 → `do_nothing`；与 ABCS 正交，见 dev_logs/27、23 |
 | Turn 16 Sam 无法搅局 | Turn 16 使用 **Turn 覆盖表** 显式加入 Agent 7 + 放开工具 |
+| 节点 B 永不触发（Tech VP 无 RDC） | L3 过严 → 按 §13.3 实现被动 tick 例外并单独回归 |
 | 双进程 phase 不同步 | TurnContext 仅信 Flask inject 快照，Runner 不读 session cookie |
 | 回滚 | `turn_control.yaml` 设 `enabled: false` 开关；或 Git revert Phase B 提交 |
 
@@ -349,29 +364,146 @@ game_service.handle_player_turn
 | `ipc_handlers.py` | L3 | 修改 |
 | `ipc_helper.py` | L3 | 修改（payload 类型） |
 | `kernel.py` | L2 | 可选（按 phase 读温度） |
+| `features/f03_action_result/completion.py` | F03 | **修改**（§13.2 Phase 1 完成语义） |
+| `features/f07_agent_control/` | L3–L5 | **新建**（Feature 模块，见 §14） |
+| `scripts/test_m0_acceptance.py` | 测试 | 扩展 GRP=0、F2F≥1、节点 B 用例 |
 
 **不修改**：`agent_world/demo/`、引擎核心 `world/dispatcher.py`（除非 L5 选择在 dispatcher 包装层做 MOVE 拦截，优先 hbm_demo 内完成）。
+
+**关联文档**：引擎与玩家干预全景 → [`27_agent_world引擎与HBM_Demo_Agent行为与玩家干预机制全景.md`](./27_agent_world引擎与HBM_Demo_Agent行为与玩家干预机制全景.md)
 
 ---
 
 ## 11. 方案命名与状态
 
 - **方案代号**：**ABCS**（Agent Behavior Control Stack，五层控制栈）
-- **本文档版本**：v1.0 · 2026-05-24
-- **下一步**：评审本方案 → 按 Phase A → B → C 实施 → 更新 dev_logs/18 待办
+- **Feature 代号**：**F07** — Agent 边界行为控制（`features/f07_agent_control/`）
+- **本文档版本**：v1.1 · 2026-05-24（增补 §13 方案补全、§14 开发分支）
+- **下一步**：在 `feature/f07-agent-behavior-control` 分支按 Phase A → B → C 重建实现
 
 ---
 
-*本文档为 Agent 行为失控问题的整合设计；**实现待重建**（原 `features/f07_agent_control/` 已自 Demo 移除）。*
+## 13. 方案补全（v1.1 · 对照 dev_logs/27 评审结论）
+
+> 依据 [`27_agent_world引擎与HBM_Demo_Agent行为与玩家干预机制全景.md`](./27_agent_world引擎与HBM_Demo_Agent行为与玩家干预机制全景.md) 对 ABCS 的评审：**L3+L5 可有效抑制「抢戏」类怪行为；L1/L2/L4  alone 不够。** 下列三项为 v1.0 缺口补全，纳入本方案正式范围。
+
+### 13.1 Phase 1 中屏 F2F 策略（L4 + L5）
+
+**问题**：Phase 1 默认允许 `send_message`；前台 soul 鼓励「革命性算法 → RDC 汇报 Jensen」。中屏只读 `nvidia_reception` 的 F2F，故会出现 **Observer 有 RDC、中屏空白**（dev_logs/27 §7、§8）。
+
+**策略（二选一，推荐 A）**：
+
+| 选项 | L4 | L5（Phase 1 / Agent 1） | 说明 |
+|------|-----|-------------------------|------|
+| **A（推荐）** | inject 前缀增加：**「本回合必须先使用 speak_to_local 当面回应玩家，再视情况 RDC」** | 允许 `speak_to_local`, `send_message`, `do_nothing`, `update_state`；禁止 GRP/MOVE/relation_change | 保留 RDC 汇报剧情；L4 强引导 |
+| **B（更严）** | 同上 + 「本回合禁止 send_message」 | 仅 `speak_to_local`, `do_nothing`, `update_state` | 节点 A 进入 Phase 2 后再在矩阵中开放 RDC |
+
+**L4 前缀示例（Phase 1 Turn N）**：
+
+```text
+【系统约束·Phase 1 Turn N】
+地点：nvidia_reception。Jensen 与 CEO 在 negotiation_room，未出场。
+允许：speak_to_local, send_message, do_nothing, update_state。
+禁止：request_move、群聊、替 Jensen 做决定、描写 Jensen 已来前台。
+★ 必须先 speak_to_local 回应玩家，再考虑 RDC 汇报。
+玩家说：……
+```
+
+**验收**：Phase 1 每轮 `action-result.public_messages.length >= 1`（见 §8.1 第 3 条）。
+
+### 13.2 F03 完成语义与 ABCS 对齐
+
+**问题**：`check_action_complete` 可在 **无 F2F** 时因 `ipc_end_tick` 或 GRP 而 `completed`（dev_logs/27 §6.2、§7），前端 loading 结束但中屏仍空。
+
+**调整**（`features/f03_action_result/completion.py`）：
+
+| Phase | 完成条件优先级（在满足 `start_tick+3` 之后） |
+|-------|---------------------------------------------|
+| **Phase 1** | ① `task.place_id` 有 F2F → completed；② 否则 **不**因单独 `ipc_end_tick` 完成；③ 超时 `start_tick+8` 仍 completed（避免永久 polling） |
+| Phase 2–4 | 保持现有：F2F / 阶段 RDC 对 / GRP(100,200) / `ipc_end_tick` / 超时 |
+
+**说明**：
+
+- Phase 1 仍允许 RDC 写入 world.db 与 Observer 展示，但 **API2 状态** 以中屏 F2F 为主信号，与 Demo 产品定义一致。
+- `ipc_end_tick` 在 Phase 1 降为兜底前的**非充分条件**，避免「tick 跑完即 completed、中屏 0 条」。
+
+### 13.3 Phase 2 Tech VP 被动 RDC tick（L3 例外）
+
+**问题**：L3 若 Phase 2 仅 `[2]`，Tech VP 不 tick → 无法 RDC 回复 Jensen → **节点 B**（Turn 12，需 Tech VP 正面 RDC 关键词）可能永不触发。
+
+**规格**：
+
+1. **主动 tick**：Phase 2 默认 `active_agent_ids = [2]`（Jensen）。
+2. **被动 tick 例外**：若 Agent 3 在本批 tick 窗口内 **收到** 来自 Agent 2 的、尚未处理的 RDC（`incoming_messages` 含 sender=2），则 **将该 tick 的 `_pick_active` 并集加入 Agent 3**。
+3. **L5 约束**：被动 tick 的 Agent 3 **仅允许** `send_message`（recipient 限 2）、`do_nothing`（与 §4.2 一致）。
+
+**专项验收**（Phase C / §8.1 第 6 条）：
+
+- 模拟或人工：Phase 2 中 Jensen RDC 求证 → Tech VP 回复含「可行」→ Turn 12 节点 B 仍触发；
+- Runner 日志：Phase 2 绝大多数 tick 仅 Agent 2；仅在有 Jensen→VP 未读 RDC 时出现 Agent 3 请求。
+
+### 13.4 分层有效性（评审摘要）
+
+| 层级 | 抑制「抢戏/怪 MOVE/乱 GRP」 | 保证「中屏 F2F」 | 优先级 |
+|------|---------------------------|-----------------|--------|
+| L3 | ★★★★★ | ★★★☆☆ | P0 |
+| L5 | ★★★★★ | ★★☆☆☆ | P0 |
+| L4 | ★★★☆☆ | ★★★★☆ | P1 |
+| F03（§13.2） | — | ★★★★★ | P1 |
+| L2 / L1 | ★★☆☆☆ | ★★☆☆☆ | P2 |
+
+**不在 ABCS 范围**：LLM/API 超时、挂起、Key 失效 → 见 dev_logs/23、27；需独立运维与（可选）Runner 超时策略，**不**纳入本 Feature 首期。
 
 ---
 
-## 12. 实施记录（M5 · 2026-05-24）
+## 14. Feature 开发分支与模块结构
+
+**Git 分支**（自 `jensen-hwang-demo` 拉出，非 `main`）：
+
+```text
+feature/f07-agent-behavior-control
+```
+
+**建议目录**（与 dev_logs/26 Feature 规划对齐）：
+
+```text
+agent_world/hbm_demo/
+├── turn_control.yaml              # L3–L5 矩阵 + enabled 开关
+├── features/f07_agent_control/    # ABCS Feature 模块
+│   ├── __init__.py
+│   ├── turn_context.py            # build_turn_context, format_constraint_prefix
+│   ├── tool_guard.py              # L5 白名单 / MOVE 拦截
+│   └── pick_active.py             # L3 白名单 + Phase 2 被动 tick（§13.3）
+├── features/f05_story_routing/    # 调用 f07 组装 inject + turn_context
+├── core/runner/world_step.py      # 集成 pick_active
+└── core/runner/hbm_agent.py       # 集成 tool_guard
+```
+
+**实施顺序**：Phase A（L1/L2/L4 骨架）→ Phase B（L3/L5 + §13.1/13.2）→ Phase C（§13.3 + 自动化）。
+
+---
+
+*本文档为 Agent 行为失控问题的整合设计；**v1.0 运行时曾落地后移除**（M5）；**v1.1 起在 `feature/f07-agent-behavior-control` 按 §13–14 重建。*
+
+---
+
+## 12. 实施记录
+
+### 12.1 M5 首次实现（2026-05-24 · 已回滚）
 
 | Phase | 项 | 状态 |
 |-------|-----|------|
-| A | temperature 0.65、`turn_control.yaml`、`turn_context.py`、L4 约束前缀 | ✅ |
-| B | L3 `HbmWorldStep._pick_active`、IPC `turn_context`、L5 tool/MOVE 拦截 | ✅ |
-| C | Turn hint 字典、E2E GRP=0 断言、结构化 ABCS 日志 | ✅ |
+| A | temperature 0.65、`turn_control.yaml`、`turn_context.py`、L4 约束前缀 | ✅ 曾落地 |
+| B | L3 `HbmWorldStep._pick_active`、IPC `turn_context`、L5 tool/MOVE 拦截 | ✅ 曾落地 |
+| C | Turn hint 字典、E2E GRP=0 断言、结构化 ABCS 日志 | ✅ 曾落地 |
+
+后续在 M7 清理中 **移除运行时**（`features/f07_agent_control/`、`turn_control.yaml`），设计保留于本文档。
+
+### 12.2 v1.1 重建（进行中）
+
+| Phase | 项 | 状态 |
+|-------|-----|------|
+| 文档 | §13 方案补全、§14 分支与模块结构 | ✅ v1.1 |
+| A–C | 按 §7 + §13 在 `feature/f07-agent-behavior-control` 实施 | 🔄 待开发 |
 
 回滚：`turn_control.yaml` 设 `enabled: false`。
