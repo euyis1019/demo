@@ -218,6 +218,11 @@ def handle_player_turn(
     sync_runtime_state(flask_session, sim_id, sim_dir=sim)
 
     hbm = get_or_create_session(flask_session, sim_id, sim_dir=sim)
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        resolve_inject_tick_count,
+    )
+
+    tick_count = resolve_inject_tick_count(hbm.phase, tick_count)
     if request_place_id and request_place_id != hbm.place_id:
         log.debug(
             "ignoring request place_id=%s; session authority=%s",

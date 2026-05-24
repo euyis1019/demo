@@ -114,8 +114,16 @@ class HbmAgent(DemoAgent):
                 messages=messages,
                 tools=HBM_TOOLS,
                 tool_choice="auto",
-                temperature=float(self.temperature),
-                max_tokens=int(self.max_tokens),
+                temperature=float(
+                    getattr(self, "_batch_temperature", None)
+                    if getattr(self, "_batch_temperature", None) is not None
+                    else self.temperature
+                ),
+                max_tokens=int(
+                    getattr(self, "_batch_max_tokens", None)
+                    if getattr(self, "_batch_max_tokens", None) is not None
+                    else self.max_tokens
+                ),
                 **self.completion_extras,
             )
         except Exception as exc:  # noqa: BLE001
@@ -135,6 +143,14 @@ class HbmAgent(DemoAgent):
             if name == "relation_change":
                 args = _adapt_relation_change_args(args)
             tool_calls.append(_ToolCall(tool_name=name, args=args))
+
+        turn_ctx = getattr(self, "_batch_turn_context", None)
+        if turn_ctx:
+            from agent_world.hbm_demo.features.f07_agent_control.tool_guard import (
+                filter_tool_calls,
+            )
+
+            tool_calls = filter_tool_calls(self.agent_id, turn_ctx, tool_calls)
 
         if not tool_calls:
             content = (msg.content or "").strip()

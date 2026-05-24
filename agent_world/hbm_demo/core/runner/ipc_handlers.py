@@ -58,16 +58,31 @@ def wire_handlers(
         if payload.get("event"):
             events = [payload["event"]]
 
+        from agent_world.hbm_demo.features.f07_agent_control.config import (
+            is_f07_enabled,
+        )
+        from agent_world.hbm_demo.features.f07_agent_control.inject_batch import (
+            notify_non_inject_active_agents,
+        )
         from agent_world.hbm_demo.features.f07_agent_control.turn_context import (
             clear_player_memory_for_agents,
             extract_inject_agent_ids,
-            is_f07_enabled,
         )
+
+        turn_context = payload.get("turn_context") or {}
+        if hasattr(world_step, "set_tick_context"):
+            world_step.set_tick_context(turn_context if is_f07_enabled() else None)
 
         if events and is_f07_enabled():
             inject_ids = extract_inject_agent_ids(events)
             if inject_ids:
                 clear_player_memory_for_agents(agents, inject_ids)
+            if turn_context:
+                notify_non_inject_active_agents(
+                    script_engine,
+                    turn_context,
+                    inject_ids,
+                )
 
         if events:
             result = ScriptLoader.load_dict(
@@ -81,9 +96,13 @@ def wire_handlers(
         n = int(payload.get("tick_count", 6))
         tick_loops = max(3, min(n, 8))
 
-        for _ in range(tick_loops):
-            await world_step.run_one_tick()
-            write_env_status(sim_dir_str, get_current_tick())
+        try:
+            for _ in range(tick_loops):
+                await world_step.run_one_tick()
+                write_env_status(sim_dir_str, get_current_tick())
+        finally:
+            if hasattr(world_step, "clear_tick_context"):
+                world_step.clear_tick_context()
 
         end_tick = int(world_state.clock.t)
         return {

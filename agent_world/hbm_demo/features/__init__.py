@@ -68,9 +68,12 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
             "knowledge",
             "llm_params",
             "player_response",
+            "pick_active",
+            "tool_guard",
+            "inject_batch",
             "turn_control",
         ],
-        "phase": "F07-A done (L1/L2/L4/L6 skeleton)",
+        "phase": "F07-B done (L3/L5 + F03 Phase 1)",
     },
     "F08": {
         "name": "HTTP 传输",

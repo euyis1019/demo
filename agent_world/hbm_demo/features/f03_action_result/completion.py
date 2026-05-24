@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 from agent_world.hbm_demo.features.f01_session.constants import DEFAULT_PHASE
+from agent_world.hbm_demo.features.f07_agent_control.config import is_f07_enabled
 from agent_world.hbm_demo.features.f02_player_turn.task import (
     INJECT_STATUS_DONE,
     INJECT_STATUS_FAILED,
@@ -43,6 +44,9 @@ def _inject_finished(task: PendingTask) -> bool:
     return False
 
 
+RECEPTION_PLACE = "nvidia_reception"
+
+
 def check_action_complete(
     task: PendingTask,
     current_tick: int,
@@ -51,6 +55,16 @@ def check_action_complete(
     start = task.start_tick
     if current_tick < start + 3:
         return False
+
+    # §13.2 — Phase 1: only reception F2F (not RDC/GRP) completes early when F07 on.
+    if is_f07_enabled() and task.phase == "Phase 1":
+        if db.has_f2f_after(RECEPTION_PLACE, start, current_tick):
+            return True
+        if task.inject_status == INJECT_STATUS_FAILED:
+            return True
+        if not _inject_finished(task):
+            return current_tick >= start + 8
+        return current_tick >= start + 8
 
     if db.has_f2f_after(task.place_id, start, current_tick):
         return True

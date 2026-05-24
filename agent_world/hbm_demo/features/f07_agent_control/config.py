@@ -27,5 +27,15 @@ def is_f07_enabled() -> bool:
     return bool(load_turn_control().get("enabled", False))
 
 
+def resolve_inject_tick_count(phase: str, tick_count: int) -> int:
+    """Phase 1 + F07 needs inject batch ≥ start+8 for §13.2 timeout completion."""
+    n = int(tick_count)
+    if not is_f07_enabled():
+        return n
+    if str(phase) == "Phase 1":
+        return max(n, 8)
+    return n
+
+
 def story_knowledge_dir() -> Path:
     return _FEATURE_DIR / "story_knowledge"

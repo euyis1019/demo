@@ -20,6 +20,7 @@ def build_turn_context(session: Any, player_text: str) -> Dict[str, Any]:
     """Build IPC turn_context payload (Flask-side)."""
     phase = str(getattr(session, "phase", "Phase 1"))
     player_turn = int(getattr(session, "player_turn", 1))
+    stats = getattr(session, "stats", None) or {}
     inject_ids = inject_agent_ids_for_phase(phase)
     return {
         "enabled": True,
@@ -28,6 +29,7 @@ def build_turn_context(session: Any, player_text: str) -> Dict[str, Any]:
         "place_id": str(getattr(session, "place_id", "")),
         "inject_agent_ids": list(inject_ids),
         "player_text": player_text.strip(),
+        "stats": dict(stats) if isinstance(stats, dict) else {},
         "llm_params": resolve_llm_params(phase, player_turn),
     }
 

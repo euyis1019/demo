@@ -1,0 +1,51 @@
+# L5 tool whitelist — phase × agent (dev_logs/24 §9.2)
+# Tool names match DemoAgent function names.
+
+defaults:
+  deny: [request_move, send_to_group, relation_change, update_short_term_goal]
+
+phases:
+  Phase 1:
+    agents:
+      1: [speak_to_local, send_message, do_nothing, update_state]
+      2: [send_message, do_nothing, update_state]
+      3: [send_message, do_nothing, update_state]
+      4: [speak_to_local, do_nothing]
+      5: [speak_to_local, do_nothing]
+      6: [speak_to_local, do_nothing]
+      7: [do_nothing]
+    move_allowed: false
+  Phase 2:
+    agents:
+      1: [do_nothing]
+      2: [speak_to_local, send_message, do_nothing, update_state]
+      3: [send_message, do_nothing]
+      4: [speak_to_local, do_nothing]
+      5: [speak_to_local, do_nothing]
+      6: [speak_to_local, do_nothing]
+      7: [do_nothing]
+    move_allowed: false
+  Phase 3:
+    agents:
+      1: [do_nothing]
+      2: [speak_to_local, send_message, send_to_group, do_nothing, update_state, relation_change]
+      3: [speak_to_local, send_message, send_to_group, do_nothing, update_state, relation_change]
+      4: [speak_to_local, send_message, send_to_group, do_nothing, update_state, relation_change]
+      5: [speak_to_local, send_message, send_to_group, do_nothing, update_state, relation_change]
+      6: [speak_to_local, send_message, send_to_group, do_nothing, update_state, relation_change]
+      7: [send_message, do_nothing]
+    move_allowed: true
+  Phase 4:
+    agents:
+      1: [do_nothing]
+      2: [speak_to_local, do_nothing, update_state]
+      3: []
+      4: [do_nothing]
+      5: [do_nothing]
+      6: [do_nothing]
+      7: [do_nothing]
+    move_allowed: false
+
+global_rules:
+  agent_1_never_move: true
+  agent_7_move_min_turn: 16

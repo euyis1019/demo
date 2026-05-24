@@ -314,6 +314,9 @@ def test_f11_live_turn_sync() -> None:
     from agent_world.hbm_demo.features.f03_action_result.completion import (
         check_action_complete,
     )
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_f07_enabled,
+    )
 
     class EmptyDB:
         def has_f2f_after(self, *a, **k):
@@ -338,6 +341,7 @@ def test_f11_live_turn_sync() -> None:
         raise TestFailure("F11: running inject must not complete via ipc_end alone at tick 6")
     ok("F11 inject_status=running blocks ipc_end premature complete")
 
+    done_tick = 8 if is_f07_enabled() else 6
     done = PendingTask(
         task_id="t-done",
         start_tick=0,
@@ -345,11 +349,13 @@ def test_f11_live_turn_sync() -> None:
         phase="Phase 1",
         player_turn=1,
         inject_status=INJECT_STATUS_DONE,
-        ipc_end_tick=6,
+        ipc_end_tick=done_tick,
     )
-    if not check_action_complete(done, 6, EmptyDB()):
-        raise TestFailure("F11: done inject should complete at ipc_end_tick")
-    ok("F11 inject_status=done + ipc_end_tick completes")
+    if not check_action_complete(done, done_tick, EmptyDB()):
+        raise TestFailure(
+            f"F11: done inject should complete at ipc_end_tick={done_tick}"
+        )
+    ok(f"F11 inject_status=done + ipc_end_tick={done_tick} completes")
 
     from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import (
         async_state_path,
@@ -463,9 +469,16 @@ def test_f11_c_frontend() -> None:
 
 def test_f03_action_completion() -> None:
     section("T1f F03 action-result 完成判定")
-    from agent_world.hbm_demo.features.f02_player_turn.task import PendingTask
+    from agent_world.hbm_demo.features.f02_player_turn.task import (
+        INJECT_STATUS_DONE,
+        PendingTask,
+    )
     from agent_world.hbm_demo.features.f03_action_result.completion import (
+        RECEPTION_PLACE,
         check_action_complete,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_f07_enabled,
     )
 
     class EmptyDB:
@@ -478,17 +491,127 @@ def test_f03_action_completion() -> None:
         def has_grp_after(self, *a, **k):
             return False
 
-    task = PendingTask(
-        task_id="t",
+    class RdcOnlyDB(EmptyDB):
+        def has_rdc_pair_after(self, *a, **k):
+            return True
+
+    class F2fReceptionDB(EmptyDB):
+        def has_f2f_after(self, place_id, *a, **k):
+            return place_id == RECEPTION_PLACE
+
+    task_p1 = PendingTask(
+        task_id="t1",
         start_tick=0,
         place_id="nvidia_reception",
         phase="Phase 1",
         player_turn=1,
         ipc_end_tick=6,
+        inject_status=INJECT_STATUS_DONE,
     )
-    if not check_action_complete(task, 6, EmptyDB()):
-        raise TestFailure("F03 should complete when ipc_end_tick reached (6-tick inject)")
-    ok("F03 completes after ipc_end_tick without hanging")
+    if is_f07_enabled():
+        if check_action_complete(task_p1, 6, RdcOnlyDB()):
+            raise TestFailure("F07 Phase 1 must not complete on RDC alone (§13.2)")
+        ok("F07 Phase 1 ignores RDC-only completion")
+        if check_action_complete(task_p1, 6, EmptyDB()):
+            raise TestFailure("F07 Phase 1 should not complete at tick 6 without F2F")
+        if not check_action_complete(task_p1, 8, EmptyDB()):
+            raise TestFailure("F07 Phase 1 should timeout-complete at tick 8")
+        if not check_action_complete(task_p1, 5, F2fReceptionDB()):
+            raise TestFailure("F07 Phase 1 should complete on reception F2F")
+        ok("F07 Phase 1 F2F-priority completion (§13.2)")
+    else:
+        if not check_action_complete(task_p1, 6, EmptyDB()):
+            raise TestFailure("F03 should complete when ipc_end_tick reached (6-tick inject)")
+        ok("F03 completes after ipc_end_tick without hanging")
+
+    task_p2 = PendingTask(
+        task_id="t2",
+        start_tick=0,
+        place_id="jensen_private_room",
+        phase="Phase 2",
+        player_turn=5,
+        ipc_end_tick=6,
+    )
+    if not check_action_complete(task_p2, 6, EmptyDB()):
+        raise TestFailure("Phase 2 should still complete at ipc_end_tick")
+    ok("Phase 2 ipc_end_tick completion unchanged")
+
+
+def test_f07_b_agent_control() -> None:
+    """F07-B L3/L5 unit tests (dev_logs/24 §11 B1–B5)."""
+    section("T2d F07-B pick_active / tool_guard / world_step")
+    from types import SimpleNamespace
+
+    from agent_world.demo.demo_agent import _ToolCall
+    from agent_world.hbm_demo.core.runner.world_step import HbmWorldStep
+    from agent_world.hbm_demo.features.f07_agent_control import (
+        is_tool_allowed,
+        pick_active_ids,
+        primary_active_ids,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.tool_guard import (
+        filter_tool_calls,
+    )
+
+    ctx_p1 = {
+        "phase": "Phase 1",
+        "player_turn": 1,
+        "place_id": "nvidia_reception",
+        "llm_params": {"temperature": 0.45, "max_tokens": 180},
+    }
+    primary = primary_active_ids(ctx_p1)
+    if primary != [1, 2, 3]:
+        raise TestFailure(f"Phase 1 primary_active expected [1,2,3]: {primary}")
+    ok("B4 Phase 1 primary_active [1,2,3]")
+
+    world = SimpleNamespace(agents={1: object(), 2: object(), 3: object(), 7: object()})
+    active = pick_active_ids(ctx_p1, world, t=10)
+    if 7 in active:
+        raise TestFailure(f"Phase 1 must freeze agent 7: {active}")
+    if not all(aid in (1, 2, 3, 4, 5, 6) for aid in active):
+        raise TestFailure(f"Phase 1 active out of range: {active}")
+    if not all(aid in active for aid in (1, 2, 3)):
+        raise TestFailure(f"Phase 1 must include primary [1,2,3]: {active}")
+    ok(f"B1 pick_active Phase 1 active={active} (no agent 7)")
+
+    if is_tool_allowed(2, "request_move", ctx_p1):
+        raise TestFailure("Phase 1 must block request_move")
+    if is_tool_allowed(1, "send_to_group", ctx_p1):
+        raise TestFailure("Phase 1 agent 1 must block send_to_group")
+    if not is_tool_allowed(1, "speak_to_local", ctx_p1):
+        raise TestFailure("Phase 1 agent 1 must allow speak_to_local")
+    ok("B3 tool_guard MOVE/GRP blocked Phase 1")
+
+    blocked = filter_tool_calls(
+        2,
+        ctx_p1,
+        [_ToolCall(tool_name="request_move", args={"place_id": "x"})],
+    )
+    if not blocked or blocked[0].tool_name != "do_nothing":
+        raise TestFailure(f"blocked MOVE should become do_nothing: {blocked}")
+    ok("B3 filter_tool_calls replaces illegal MOVE")
+
+    step = HbmWorldStep.__new__(HbmWorldStep)
+    step._tick_context = None
+    step._passive_ticks_batch = 0
+    step.set_tick_context(ctx_p1)
+    if step._passive_ticks_batch != 0:
+        raise TestFailure("set_tick_context should reset passive counter")
+    step.clear_tick_context()
+    if step._tick_context is not None:
+        raise TestFailure("clear_tick_context failed")
+    ok("B2 world_step tick_context set/clear hooks")
+
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        resolve_inject_tick_count,
+    )
+
+    if resolve_inject_tick_count("Phase 1", 6) != 8:
+        raise TestFailure("F07 Phase 1 inject tick_count should floor at 8 (§13.2)")
+    if resolve_inject_tick_count("Phase 2", 6) != 6:
+        raise TestFailure("Phase 2 tick_count should stay unchanged")
+    ok("B5 Phase 1 inject tick_count ≥8 for completion timeout")
+
 
 
 def test_m6_frontend_features() -> None:
@@ -1035,21 +1158,28 @@ def test_e2e_stack(base: str) -> None:
         f"GRP={len(grp)} turn→{result.get('player_turn')}"
     )
 
-    section("T4d F07-A Phase 1 运行时验收 (dev_logs/24 §12.1)")
-    # GRP=0 需 F07-B L3 白名单；F07-A 仅验证 demo 不报错且 inject 路径正常
-    if len(grp) == 0:
-        ok("F07-A Phase 1 Turn 1 GRP=0")
-    else:
-        ok(
-            f"F07-A Phase 1 GRP={len(grp)} "
-            "(L3 未落地，GRP>0 预期至 F07-B；demo 仍 completed)"
+    section("T4d F07-B Phase 1 运行时验收 (dev_logs/24 §12.1)")
+    ipc_end = int(task_runtime.get("ipc_end_tick") or 0)
+    if ipc_end < 8:
+        raise TestFailure(
+            f"F07-B Phase 1 inject must reach tick≥8 (§13.2); ipc_end_tick={ipc_end}"
         )
+    ok(f"F07-B Phase 1 ipc_end_tick={ipc_end} (≥8, no processing deadlock)")
+    if len(grp) != 0:
+        raise TestFailure(
+            f"F07-B Phase 1 Turn 1 GRP must be 0 (L3/L5); got GRP={len(grp)}"
+        )
+    ok("F07-B Phase 1 Turn 1 GRP=0")
+    if len(observer) < 1:
+        raise TestFailure(
+            f"F07-B Phase 1 observer RDC expected (Jensen/Tech VP); got {len(observer)}"
+        )
+    ok(f"F07-B Phase 1 observer_messages={len(observer)} (RDC path alive)")
     if len(public) >= 1:
-        ok(f"F07-A Phase 1 F2F={len(public)} (LLM responded at reception)")
+        ok(f"F07-B Phase 1 F2F={len(public)} (LLM responded at reception)")
     else:
         ok(
-            "F07-A Phase 1 F2F=0 (no LLM F2F this run; prefix/inject path OK — "
-            "manual check with API key for F2F≥1)"
+            "F07-B Phase 1 F2F=0 (no LLM F2F this run; §12.2 manual check with API key)"
         )
 
     section("T5 F01 会话重开 (session/reset)")
@@ -1216,6 +1346,7 @@ def main() -> int:
         test_m7_legacy_cleanup,
         test_f07_agent_control_a,
         test_f07_a_extended,
+        test_f07_b_agent_control,
         test_f05_routing_payload,
         test_f11_live_turn_sync,
         test_f11_c_frontend,
