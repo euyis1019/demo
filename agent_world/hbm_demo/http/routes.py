@@ -150,12 +150,21 @@ def action_result(sim_id: str):
     if not task_id:
         return _bad_request("task_id query parameter is required")
 
+    since_tick_raw = request.args.get("since_tick")
+    since_tick: int | None = None
+    if since_tick_raw is not None and str(since_tick_raw).strip() != "":
+        try:
+            since_tick = int(since_tick_raw)
+        except ValueError:
+            return _bad_request("since_tick must be an integer")
+
     try:
         result = gs.get_action_result(
             session,
             sim_id=sim_id,
             task_id=task_id,
             request_place_id=request.args.get("place_id"),
+            since_tick=since_tick,
         )
     except Exception as exc:  # noqa: BLE001
         body, code = service_error_payload(exc)

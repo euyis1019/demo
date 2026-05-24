@@ -90,6 +90,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "status": "in_progress",
         "path": "features/f11_live_turn_sync/",
         "modules": ["handler", "async_inject", "task_state", "delta"],
+        "phase": "F11-B done (delta API); F11-C pending (frontend merge)",
     },
 }
 

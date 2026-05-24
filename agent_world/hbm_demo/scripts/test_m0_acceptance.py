@@ -331,6 +331,71 @@ def test_f11_live_turn_sync() -> None:
         raise TestFailure("clear_async_state should remove runtime.json")
     ok("F11 clear_async_state")
 
+    from agent_world.hbm_demo.features.f11_live_turn_sync.delta import (
+        build_turn_delta,
+        empty_delta,
+    )
+
+    ed = empty_delta(3)
+    if ed.get("through_tick") != 3 or ed.get("public_messages") != []:
+        raise TestFailure(f"empty_delta wrong: {ed}")
+    ok("F11-B empty_delta")
+
+    class _Row(dict):
+        def __getitem__(self, key):  # noqa: ANN001
+            return dict.__getitem__(self, key)
+
+    class FakeDB:
+        def fetch_f2f_history_at(self, place_id, t_now, since_t):  # noqa: ANN001
+            return [(2, 1, 1, "前台你好"), (4, 1, 2, "请稍等")]
+
+        def fetch_messages_since(self, *, channel_type, since_t, t_now):  # noqa: ANN001
+            if channel_type == "RDC" and since_t < 3:
+                return [
+                    _Row(
+                        channel_type="RDC",
+                        sender_id=2,
+                        recipient_id=3,
+                        group_id=None,
+                        content="内参",
+                        place_id="",
+                        attempted_at=3,
+                    )
+                ]
+            if channel_type == "GRP":
+                return [
+                    _Row(
+                        channel_type="GRP",
+                        sender_id=4,
+                        recipient_id=None,
+                        group_id=100,
+                        content="群消息",
+                        place_id="negotiation_room",
+                        attempted_at=5,
+                    )
+                ]
+            return []
+
+    task = PendingTask(
+        task_id="t-delta",
+        start_tick=0,
+        place_id="nvidia_reception",
+        phase="Phase 1",
+        player_turn=1,
+        inject_status=INJECT_STATUS_RUNNING,
+    )
+    name_map = {1: "接待前台", 2: "Jensen", 3: "Tech VP", 4: "AMD"}
+    delta = build_turn_delta(task, since_tick=1, effective_tick=6, db=FakeDB(), name_map=name_map)
+    if delta.get("through_tick") != 6:
+        raise TestFailure(f"delta through_tick != 6: {delta}")
+    if len(delta.get("public_messages") or []) != 2:
+        raise TestFailure(f"expected 2 F2F after since_tick=1: {delta}")
+    if len(delta.get("observer_messages") or []) != 1:
+        raise TestFailure(f"expected 1 RDC: {delta}")
+    if len(delta.get("group_messages") or []) != 1:
+        raise TestFailure(f"expected 1 GRP: {delta}")
+    ok("F11-B build_turn_delta filters since_tick")
+
 
 def test_f03_action_completion() -> None:
     section("T1f F03 action-result 完成判定")
@@ -555,13 +620,15 @@ def test_e2e_stack(base: str) -> None:
         f"({post_elapsed:.2f}s early return)"
     )
 
-    section("T4b F11-A async inject 运行时验收 (dev_logs/28 §8)")
+    section("T4b F11-A/B async inject + delta 运行时验收 (dev_logs/28 §8)")
     start_tick = int(tdata.get("start_tick") or 0)
     saw_tick_advance = False
     saw_processing = False
     saw_inject_running = False
+    saw_delta = False
+    client_since = start_tick
+    last_through = start_tick - 1
     deadline = time.time() + 180.0
-    poll_url = f"{base}{BASE_PATH}/action-result?task_id={task_id}"
     env_url = f"{base}{BASE_PATH}/env-status"
     last_result: Dict[str, Any] = {}
 
@@ -571,19 +638,34 @@ def test_e2e_stack(base: str) -> None:
         if env_tick > start_tick:
             saw_tick_advance = True
 
+        poll_url = (
+            f"{base}{BASE_PATH}/action-result"
+            f"?task_id={task_id}&since_tick={client_since}"
+        )
         code, poll, cookie = http_json("GET", poll_url, cookie=cookie, timeout=30.0)
         if code != 200:
-            raise TestFailure(f"F11-A action-result poll HTTP {code}: {poll}")
+            raise TestFailure(f"F11 action-result poll HTTP {code}: {poll}")
         last_result = poll.get("data") or {}
         st = last_result.get("status")
         if st == "processing":
             saw_processing = True
             if last_result.get("inject_status") == "running":
                 saw_inject_running = True
+            delta = last_result.get("delta")
+            if delta is None:
+                raise TestFailure("F11-B: processing response missing delta")
+            saw_delta = True
+            through = int(delta.get("through_tick", start_tick - 1))
+            if through < last_through:
+                raise TestFailure(
+                    f"F11-B: through_tick regressed {last_through} → {through}"
+                )
+            last_through = through
+            client_since = through
         if st == "completed":
             break
         if st == "error":
-            raise TestFailure(f"F11-A inject failed: {last_result}")
+            raise TestFailure(f"F11 inject failed: {last_result}")
         time.sleep(0.5)
 
     if not saw_tick_advance:
@@ -598,6 +680,10 @@ def test_e2e_stack(base: str) -> None:
 
     if saw_inject_running:
         ok("F11-A observed inject_status=running during processing poll")
+
+    if not saw_delta:
+        raise TestFailure("F11-B: never received delta on processing poll")
+    ok(f"F11-B delta on processing (through_tick reached {last_through})")
 
     result = last_result
     if result.get("status") != "completed":

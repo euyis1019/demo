@@ -97,13 +97,22 @@ export type PlayerTurnData =
   | PlayerTurnGameOver
   | PlayerTurnCompleted;
 
+export interface TurnDelta {
+  public_messages: GameMessage[];
+  observer_messages: GameMessage[];
+  group_messages: GameMessage[];
+  through_tick: number;
+}
+
 export interface ActionResultProcessing {
   status: "processing";
   task_id: string;
   current_tick?: number;
   effective_tick?: number;
   start_tick?: number;
-  ipc_end_tick?: number;
+  ipc_end_tick?: number | null;
+  inject_status?: string;
+  delta?: TurnDelta;
 }
 
 export interface ActionResultCompleted {

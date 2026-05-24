@@ -24,6 +24,10 @@ from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import (
     load_task_resolved,
     sync_runtime_state,
 )
+from agent_world.hbm_demo.features.f11_live_turn_sync.delta import (
+    build_turn_delta,
+    empty_delta,
+)
 from agent_world.hbm_demo.shared.env_status import read_env_status
 
 log = logging.getLogger("agent_world.hbm_demo.game_service")
@@ -35,6 +39,7 @@ def get_action_result(
     sim_id: str,
     task_id: str,
     request_place_id: Optional[str] = None,
+    since_tick: Optional[int] = None,
     sim_dir: Path | None = None,
 ) -> Dict[str, Any]:
     sim = sim_dir or get_sim_dir()
@@ -72,17 +77,22 @@ def get_action_result(
         )
 
     env = read_env_status(sim)
+    client_since = int(since_tick) if since_tick is not None else task.start_tick
+
     if not env or "current_tick" not in env:
         return {
             "status": "processing",
             "task_id": task_id,
             "inject_status": task.inject_status,
+            "start_tick": task.start_tick,
+            "delta": empty_delta(task.start_tick),
         }
 
     env_tick = int(env["current_tick"])
     effective_tick = effective_tick_for_task(task, env_tick)
     db = make_readonly_db(sim)
     name_map = get_name_map()
+    delta = build_turn_delta(task, client_since, effective_tick, db, name_map)
 
     if not check_action_complete(task, effective_tick, db):
         return {
@@ -93,6 +103,7 @@ def get_action_result(
             "start_tick": task.start_tick,
             "ipc_end_tick": task.ipc_end_tick,
             "inject_status": task.inject_status,
+            "delta": delta,
         }
 
     since_t = task.start_tick
