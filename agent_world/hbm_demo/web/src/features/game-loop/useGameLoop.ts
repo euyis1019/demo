@@ -6,7 +6,7 @@ import {
   resetSession,
   startSession,
 } from "../../api/hbm";
-import type { ActionResultCompleted } from "../../api/types";
+import type { ActionResultCompleted, ActionResultProcessing } from "../../api/types";
 import { POLL_TIMEOUT_MESSAGE } from "../../constants/runner";
 import {
   MAX_POLL_ATTEMPTS,
@@ -27,6 +27,17 @@ function isCompletedAction(data: unknown): data is ActionResultCompleted {
     typeof data === "object" &&
     data !== null &&
     (data as ActionResultCompleted).status === "completed"
+  );
+}
+
+function isProcessingWithDelta(
+  data: unknown,
+): data is ActionResultProcessing & { delta: NonNullable<ActionResultProcessing["delta"]> } {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    (data as ActionResultProcessing).status === "processing" &&
+    (data as ActionResultProcessing).delta !== undefined
   );
 }
 
@@ -88,7 +99,7 @@ export function useStartGame() {
   return { startGame, restartGame, resetDemo };
 }
 
-/** F3-3 + F5 — dual-stage turn loop with elapsed / poll timeout / 503 modal。 */
+/** F3-3 + F5 + F11-C — incremental delta poll during processing. */
 export function useGameLoop() {
   const { state, dispatch, setLoading } = useGameStoreContext();
 
@@ -156,17 +167,40 @@ export function useGameLoop() {
 
         const taskId = data.task_id;
         const placeId = state.placeId;
+        let sinceTick = data.start_tick ?? 0;
         let pollCompleted = false;
 
         for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt += 1) {
-          await sleep(POLL_INTERVAL_MS);
-          const poll = await getActionResult(taskId, { place_id: placeId });
+          if (attempt > 0) {
+            await sleep(POLL_INTERVAL_MS);
+          }
+
+          const poll = await getActionResult(taskId, {
+            place_id: placeId,
+            since_tick: sinceTick,
+          });
           const pollData = poll.data;
+
           if (pollData?.status === "game_over") {
             pollCompleted = true;
             dispatch({ type: "SET_GAME_OVER", data: pollData });
             break;
           }
+
+          if (pollData?.status === "error") {
+            dispatch({
+              type: "SET_ERROR",
+              message: pollData.error ?? "后台 inject 失败",
+            });
+            break;
+          }
+
+          if (isProcessingWithDelta(pollData)) {
+            const { delta } = pollData;
+            dispatch({ type: "APPEND_TURN_DELTA", delta });
+            sinceTick = delta.through_tick;
+          }
+
           if (isCompletedAction(pollData)) {
             pollCompleted = true;
             dispatch({ type: "APPEND_ACTION_RESULT", data: pollData });

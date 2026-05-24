@@ -135,10 +135,18 @@ export interface ActionResultGameOver {
   current_phase: string;
 }
 
+export interface ActionResultError {
+  status: "error";
+  task_id: string;
+  inject_status?: string;
+  error?: string;
+}
+
 export type ActionResultData =
   | ActionResultProcessing
   | ActionResultCompleted
-  | ActionResultGameOver;
+  | ActionResultGameOver
+  | ActionResultError;
 
 export interface PlayerTurnRequest {
   player_text: string;

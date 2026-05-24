@@ -6,6 +6,7 @@ import type {
   SessionSnapshot,
   SessionStartData,
   Stats,
+  TurnDelta,
 } from "../api/types";
 import { getPhaseTransitionMessage } from "../constants/phaseTransitions";
 import { MAX_TURNS } from "../constants/gameLoop";
@@ -70,6 +71,7 @@ export type GameAction =
   | { type: "SET_IMMEDIATE"; message?: string }
   | { type: "APPLY_PLAYER_TURN_PROCESSING"; stats: Stats; phase: string; playerTurn: number }
   | { type: "PUSH_PLAYER_BUBBLE"; message: GameMessage }
+  | { type: "APPEND_TURN_DELTA"; delta: TurnDelta }
   | { type: "APPEND_ACTION_RESULT"; data: ActionResultCompleted }
   | { type: "SET_GAME_OVER"; data: PlayerTurnGameOver }
   | { type: "SET_ENDING"; data: PlayerTurnCompleted }
@@ -161,6 +163,22 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         f2fMessages: mergeMessageLists(state.f2fMessages, [
           stampPlayerBubble(state.f2fMessages, action.message),
         ]),
+      };
+    case "APPEND_TURN_DELTA":
+      return {
+        ...state,
+        f2fMessages: mergeMessageLists(
+          state.f2fMessages,
+          action.delta.public_messages,
+        ),
+        rdcMessages: mergeMessageLists(
+          state.rdcMessages,
+          action.delta.observer_messages,
+        ),
+        grpMessages: mergeMessageLists(
+          state.grpMessages,
+          action.delta.group_messages,
+        ),
       };
     case "APPEND_ACTION_RESULT": {
       const phaseUpdate = applyPhaseChange(state, action.data.current_phase);

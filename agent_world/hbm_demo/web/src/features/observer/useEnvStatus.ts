@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getEnvStatus } from "../../api/hbm";
 
-const ENV_POLL_MS = 5000;
+const ENV_POLL_MS = 1000;
 
 /** F5-5 — Observer 底栏轮询 env-status.current_tick。 */
 export function useEnvStatus(enabled: boolean): number | null {

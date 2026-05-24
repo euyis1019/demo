@@ -87,10 +87,10 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
     },
     "F11": {
         "name": "回合内增量同步",
-        "status": "in_progress",
+        "status": "implemented",
         "path": "features/f11_live_turn_sync/",
         "modules": ["handler", "async_inject", "task_state", "delta"],
-        "phase": "F11-B done (delta API); F11-C pending (frontend merge)",
+        "phase": "F11-C done (frontend delta merge); feature complete",
     },
 }
 

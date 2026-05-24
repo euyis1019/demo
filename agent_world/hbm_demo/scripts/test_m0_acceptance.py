@@ -28,6 +28,36 @@ def ok(msg: str) -> None:
     print(f"  ✓ {msg}")
 
 
+def _message_key(message: Dict[str, Any]) -> str:
+    """Mirror web/src/utils/messages.ts messageKey for F11-C dedupe tests."""
+    return "|".join(
+        [
+            str(message.get("type") or ""),
+            str(message.get("sender") or ""),
+            str(message.get("recipient") or ""),
+            str(message.get("group_id") or ""),
+            str(message.get("attempted_at") or ""),
+            str(message.get("content") or ""),
+        ]
+    )
+
+
+def merge_message_lists(
+    existing: List[Dict[str, Any]],
+    incoming: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Mirror web mergeMessages — used to verify F11-C delta+completed dedupe."""
+    seen = {_message_key(m) for m in existing}
+    merged = list(existing)
+    for message in incoming:
+        key = _message_key(message)
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(message)
+    return merged
+
+
 def section(title: str) -> None:
     print(f"\n=== {title} ===")
 
@@ -397,6 +427,40 @@ def test_f11_live_turn_sync() -> None:
     ok("F11-B build_turn_delta filters since_tick")
 
 
+def test_f11_c_frontend() -> None:
+    section("T1j F11-C 前端增量合并")
+    web_src = HBM_DIR / "web" / "src"
+
+    game_loop = (web_src / "features" / "game-loop" / "useGameLoop.ts").read_text(
+        encoding="utf-8"
+    )
+    if "APPEND_TURN_DELTA" not in game_loop or "since_tick" not in game_loop:
+        raise TestFailure("useGameLoop missing F11-C delta poll merge")
+    ok("useGameLoop APPEND_TURN_DELTA + since_tick poll")
+
+    store = (web_src / "store" / "gameStore.ts").read_text(encoding="utf-8")
+    if "APPEND_TURN_DELTA" not in store:
+        raise TestFailure("gameStore missing APPEND_TURN_DELTA reducer")
+    ok("gameStore APPEND_TURN_DELTA reducer")
+
+    hbm_api = (web_src / "api" / "hbm.ts").read_text(encoding="utf-8")
+    if "since_tick" not in hbm_api:
+        raise TestFailure("hbm.ts getActionResult missing since_tick")
+    ok("api/hbm.ts since_tick query param")
+
+    import re
+
+    game_loop_const = (web_src / "constants" / "gameLoop.ts").read_text(encoding="utf-8")
+    if not re.search(r"POLL_INTERVAL_MS\s*=\s*800", game_loop_const):
+        raise TestFailure("gameLoop POLL_INTERVAL_MS should be 800 for F11-C")
+    ok("POLL_INTERVAL_MS = 800ms")
+
+    messages = (web_src / "utils" / "messages.ts").read_text(encoding="utf-8")
+    if "messageKey" not in messages or "mergeMessages" not in messages:
+        raise TestFailure("utils/messages dedupe helpers missing")
+    ok("messageKey dedupe for delta merge")
+
+
 def test_f03_action_completion() -> None:
     section("T1f F03 action-result 完成判定")
     from agent_world.hbm_demo.features.f02_player_turn.task import PendingTask
@@ -631,6 +695,9 @@ def test_e2e_stack(base: str) -> None:
     deadline = time.time() + 180.0
     env_url = f"{base}{BASE_PATH}/env-status"
     last_result: Dict[str, Any] = {}
+    acc_f2f: List[Dict[str, Any]] = []
+    acc_obs: List[Dict[str, Any]] = []
+    acc_grp: List[Dict[str, Any]] = []
 
     while time.time() < deadline:
         _, env_now, cookie = http_json("GET", env_url, cookie=cookie, timeout=15.0)
@@ -662,6 +729,15 @@ def test_e2e_stack(base: str) -> None:
                 )
             last_through = through
             client_since = through
+            acc_f2f = merge_message_lists(
+                acc_f2f, delta.get("public_messages") or []
+            )
+            acc_obs = merge_message_lists(
+                acc_obs, delta.get("observer_messages") or []
+            )
+            acc_grp = merge_message_lists(
+                acc_grp, delta.get("group_messages") or []
+            )
         if st == "completed":
             break
         if st == "error":
@@ -688,6 +764,31 @@ def test_e2e_stack(base: str) -> None:
     result = last_result
     if result.get("status") != "completed":
         result, cookie = poll_action_result(base, task_id, cookie)
+
+    section("T4c F11-C 增量合并去重 (dev_logs/28 §8 F11-C)")
+    final_f2f = merge_message_lists(acc_f2f, result.get("public_messages") or [])
+    final_obs = merge_message_lists(acc_obs, result.get("observer_messages") or [])
+    final_grp = merge_message_lists(acc_grp, result.get("group_messages") or [])
+    baseline_f2f = merge_message_lists([], result.get("public_messages") or [])
+    baseline_obs = merge_message_lists([], result.get("observer_messages") or [])
+    baseline_grp = merge_message_lists([], result.get("group_messages") or [])
+    if len(final_f2f) != len(baseline_f2f):
+        raise TestFailure(
+            f"F11-C dedupe: F2F count {len(final_f2f)} != completed-only {len(baseline_f2f)}"
+        )
+    if len(final_obs) != len(baseline_obs):
+        raise TestFailure(
+            f"F11-C dedupe: observer count {len(final_obs)} != completed-only {len(baseline_obs)}"
+        )
+    if len(final_grp) != len(baseline_grp):
+        raise TestFailure(
+            f"F11-C dedupe: GRP count {len(final_grp)} != completed-only {len(baseline_grp)}"
+        )
+    ok(
+        f"F11-C delta+completed dedupe — F2F={len(final_f2f)} observer={len(final_obs)} "
+        f"GRP={len(final_grp)} (accumulated during processing: "
+        f"{len(acc_f2f)}/{len(acc_obs)}/{len(acc_grp)})"
+    )
 
     runtime_path = SIM_DIR / "async_state" / "runtime.json"
     task_runtime: Dict[str, Any] = {}
@@ -897,6 +998,7 @@ def main() -> int:
         test_m7_legacy_cleanup,
         test_f05_routing_payload,
         test_f11_live_turn_sync,
+        test_f11_c_frontend,
         test_runner_module_entry,
     ):
         try:

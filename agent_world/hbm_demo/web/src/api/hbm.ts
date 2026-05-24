@@ -74,16 +74,21 @@ export async function postPlayerTurn(
   });
 }
 
-/** GET /action-result */
+/** GET /action-result — optional since_tick for F11 incremental delta. */
 export async function getActionResult(
   taskId: string,
-  options?: { place_id?: string },
+  options?: { place_id?: string; since_tick?: number },
 ): Promise<ApiResponse<ActionResultData>> {
-  return apiGet<ActionResultData>(
-    `${API_PREFIX}/action-result`,
-    { task_id: taskId, place_id: options?.place_id },
-    { timeoutMs: ACTION_RESULT_TIMEOUT_MS },
-  );
+  const query: Record<string, string | undefined> = {
+    task_id: taskId,
+    place_id: options?.place_id,
+  };
+  if (options?.since_tick !== undefined) {
+    query.since_tick = String(options.since_tick);
+  }
+  return apiGet<ActionResultData>(`${API_PREFIX}/action-result`, query, {
+    timeoutMs: ACTION_RESULT_TIMEOUT_MS,
+  });
 }
 
 /** GET /env-status — optional debug (PLAN2 F5-5). */
