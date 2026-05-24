@@ -85,6 +85,12 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "status": "implemented",
         "path": "scripts/",
     },
+    "F11": {
+        "name": "回合内增量同步",
+        "status": "in_progress",
+        "path": "features/f11_live_turn_sync/",
+        "modules": ["handler", "async_inject", "task_state", "delta"],
+    },
 }
 
 __all__ = ["FEATURE_REGISTRY"]

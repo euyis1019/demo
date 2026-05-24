@@ -5,7 +5,13 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 from agent_world.hbm_demo.features.f01_session.constants import DEFAULT_PHASE
-from agent_world.hbm_demo.features.f02_player_turn.task import PendingTask
+from agent_world.hbm_demo.features.f02_player_turn.task import (
+    INJECT_STATUS_DONE,
+    INJECT_STATUS_FAILED,
+    INJECT_STATUS_PENDING,
+    INJECT_STATUS_RUNNING,
+    PendingTask,
+)
 from agent_world.hbm_demo.features.f06_read_model.world_db import (
     ReadOnlyWorldDB,
     sender_display_name,
@@ -28,6 +34,15 @@ def _rdc_pairs_for_phase(phase: str) -> List[Tuple[int, int]]:
     return list(PHASE_RDC_PAIRS.get(phase, PHASE_RDC_PAIRS[DEFAULT_PHASE]))
 
 
+def _inject_finished(task: PendingTask) -> bool:
+    if task.inject_status == INJECT_STATUS_DONE:
+        return True
+    # Legacy sync path: task saved with ipc_end_tick after inline inject.
+    if task.inject_status == INJECT_STATUS_PENDING and task.ipc_end_tick is not None:
+        return True
+    return False
+
+
 def check_action_complete(
     task: PendingTask,
     current_tick: int,
@@ -45,6 +60,14 @@ def check_action_complete(
         return True
     if db.has_grp_after({100, 200}, start, current_tick):
         return True
+
+    if task.inject_status == INJECT_STATUS_FAILED:
+        return True
+
+    if not _inject_finished(task):
+        if current_tick >= start + 8:
+            return True
+        return False
 
     # Inject batch finished — world tick won't advance until the next player-turn.
     if task.ipc_end_tick is not None and current_tick >= task.ipc_end_tick:

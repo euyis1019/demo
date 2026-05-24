@@ -246,6 +246,92 @@ def test_m4_http_modules() -> None:
     ok(f"hbm_bp registers {len(expected)} HTTP endpoints (F08)")
 
 
+def test_f11_live_turn_sync() -> None:
+    section("T1i F11 Live Turn Sync (F11-A)")
+    from agent_world.hbm_demo.features import FEATURE_REGISTRY
+    from agent_world.hbm_demo.features.f02_player_turn.task import (
+        INJECT_STATUS_RUNNING,
+        PendingTask,
+    )
+    from agent_world.hbm_demo.features.f11_live_turn_sync.handler import (
+        start_background_turn,
+    )
+    from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import (
+        sync_runtime_state,
+    )
+
+    if "F11" not in FEATURE_REGISTRY:
+        raise TestFailure("FEATURE_REGISTRY missing F11")
+    ok("FEATURE_REGISTRY includes F11")
+
+    task = PendingTask(
+        task_id="t",
+        start_tick=0,
+        place_id="nvidia_reception",
+        phase="Phase 1",
+        player_turn=1,
+        inject_status=INJECT_STATUS_RUNNING,
+    )
+    if task.to_dict().get("inject_status") != INJECT_STATUS_RUNNING:
+        raise TestFailure("PendingTask inject_status not serialized")
+    ok("PendingTask inject_status field")
+
+    if not callable(start_background_turn) or not callable(sync_runtime_state):
+        raise TestFailure("F11 entrypoints missing")
+    ok("F11 start_background_turn + sync_runtime_state")
+
+    from agent_world.hbm_demo.features.f02_player_turn.task import INJECT_STATUS_DONE
+    from agent_world.hbm_demo.features.f03_action_result.completion import (
+        check_action_complete,
+    )
+
+    class EmptyDB:
+        def has_f2f_after(self, *a, **k):
+            return False
+
+        def has_rdc_pair_after(self, *a, **k):
+            return False
+
+        def has_grp_after(self, *a, **k):
+            return False
+
+    running = PendingTask(
+        task_id="t-run",
+        start_tick=0,
+        place_id="nvidia_reception",
+        phase="Phase 1",
+        player_turn=1,
+        inject_status=INJECT_STATUS_RUNNING,
+        ipc_end_tick=None,
+    )
+    if check_action_complete(running, 6, EmptyDB()):
+        raise TestFailure("F11: running inject must not complete via ipc_end alone at tick 6")
+    ok("F11 inject_status=running blocks ipc_end premature complete")
+
+    done = PendingTask(
+        task_id="t-done",
+        start_tick=0,
+        place_id="nvidia_reception",
+        phase="Phase 1",
+        player_turn=1,
+        inject_status=INJECT_STATUS_DONE,
+        ipc_end_tick=6,
+    )
+    if not check_action_complete(done, 6, EmptyDB()):
+        raise TestFailure("F11: done inject should complete at ipc_end_tick")
+    ok("F11 inject_status=done + ipc_end_tick completes")
+
+    from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import (
+        async_state_path,
+        clear_async_state,
+    )
+
+    clear_async_state(SIM_DIR)
+    if async_state_path(SIM_DIR).exists():
+        raise TestFailure("clear_async_state should remove runtime.json")
+    ok("F11 clear_async_state")
+
+
 def test_f03_action_completion() -> None:
     section("T1f F03 action-result 完成判定")
     from agent_world.hbm_demo.features.f02_player_turn.task import PendingTask
@@ -443,6 +529,7 @@ def test_e2e_stack(base: str) -> None:
     ok("GET /session → initialized")
 
     player_text = "您好，我来汇报 HBM 显存带宽优化方案，想约 Jensen 进一步沟通。"
+    t0 = time.time()
     code, turn1, cookie = http_json(
         "POST",
         f"{base}{BASE_PATH}/player-turn",
@@ -450,15 +537,107 @@ def test_e2e_stack(base: str) -> None:
         cookie=cookie,
         timeout=120.0,
     )
+    post_elapsed = time.time() - t0
     if code != 200 or not turn1.get("success"):
         raise TestFailure(f"player-turn failed HTTP {code}: {turn1}")
     tdata = turn1.get("data") or {}
     task_id = tdata.get("task_id")
     if not task_id:
         raise TestFailure(f"player-turn missing task_id: {tdata}")
-    ok(f"POST /player-turn → task_id={task_id[:8]}…")
+    if tdata.get("inject_status") != "running":
+        raise TestFailure(f"F11-A: expected inject_status=running, got {tdata}")
+    # F04 打分 + immediate_msg 仍为同步 LLM（~3–8s）；F11-A 仅保证 inject 不阻塞 POST。
+    if post_elapsed > 15.0:
+        raise TestFailure(
+            f"F11-A: player-turn took {post_elapsed:.1f}s; inject may still be blocking POST"
+        )
+    ok(
+        f"POST /player-turn → task_id={task_id[:8]}… inject_status=running "
+        f"({post_elapsed:.2f}s, scoring sync + inject async)"
+    )
 
-    result, cookie = poll_action_result(base, task_id, cookie)
+    section("T4b F11-A async inject 运行时验收 (dev_logs/28 §8)")
+    start_tick = int(tdata.get("start_tick") or 0)
+    saw_tick_advance = False
+    saw_processing = False
+    saw_inject_running = False
+    deadline = time.time() + 180.0
+    poll_url = f"{base}{BASE_PATH}/action-result?task_id={task_id}"
+    env_url = f"{base}{BASE_PATH}/env-status"
+    last_result: Dict[str, Any] = {}
+
+    while time.time() < deadline:
+        _, env_now, cookie = http_json("GET", env_url, cookie=cookie, timeout=15.0)
+        env_tick = int((env_now.get("data") or {}).get("current_tick", 0))
+        if env_tick > start_tick:
+            saw_tick_advance = True
+
+        code, poll, cookie = http_json("GET", poll_url, cookie=cookie, timeout=30.0)
+        if code != 200:
+            raise TestFailure(f"F11-A action-result poll HTTP {code}: {poll}")
+        last_result = poll.get("data") or {}
+        st = last_result.get("status")
+        if st == "processing":
+            saw_processing = True
+            if last_result.get("inject_status") == "running":
+                saw_inject_running = True
+        if st == "completed":
+            break
+        if st == "error":
+            raise TestFailure(f"F11-A inject failed: {last_result}")
+        time.sleep(0.5)
+
+    if not saw_tick_advance:
+        raise TestFailure(
+            f"F11-A: env-status tick did not advance above start_tick={start_tick}"
+        )
+    ok(f"F11-A env-status tick advanced above start_tick={start_tick}")
+
+    if not saw_processing:
+        raise TestFailure("F11-A: never observed action-result status=processing")
+    ok("F11-A action-result processing phase observed")
+
+    if saw_inject_running:
+        ok("F11-A observed inject_status=running during processing poll")
+
+    result = last_result
+    if result.get("status") != "completed":
+        result, cookie = poll_action_result(base, task_id, cookie)
+
+    runtime_path = SIM_DIR / "async_state" / "runtime.json"
+    task_runtime: Dict[str, Any] = {}
+    for _ in range(240):
+        if runtime_path.is_file():
+            runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
+            task_runtime = (runtime.get("tasks") or {}).get(task_id) or {}
+            if task_runtime.get("inject_status") == "done":
+                break
+        time.sleep(0.5)
+    else:
+        raise TestFailure(
+            "F11-A: async_state/runtime.json not written with inject_status=done "
+            f"within 120s (last poll result={result.get('status')})"
+        )
+    if task_runtime.get("ipc_end_tick") is None:
+        raise TestFailure("F11-A: runtime ipc_end_tick not set")
+    ok(
+        f"F11-A runtime.json inject_status=done ipc_end_tick="
+        f"{task_runtime.get('ipc_end_tick')}"
+    )
+
+    session_overlay = runtime.get("session") or {}
+    if int(session_overlay.get("player_turn", 0)) < 2:
+        raise TestFailure(
+            f"F11-A: session overlay player_turn not incremented: {session_overlay}"
+        )
+    ok(f"F11-A session overlay player_turn={session_overlay.get('player_turn')}")
+
+    code, sess_after, cookie = http_json("GET", f"{base}{BASE_PATH}/session", cookie=cookie)
+    sess_turn = int((sess_after.get("data") or {}).get("player_turn") or 0)
+    if sess_turn < 2:
+        raise TestFailure(f"F11-A: GET /session player_turn still {sess_turn}")
+    ok(f"F11-A GET /session player_turn={sess_turn} after async inject")
+
     if result.get("status") != "completed":
         raise TestFailure(f"Turn 1 not completed: {result}")
     public = result.get("public_messages") or []
@@ -632,6 +811,7 @@ def main() -> int:
         test_m6_frontend_features,
         test_m7_legacy_cleanup,
         test_f05_routing_payload,
+        test_f11_live_turn_sync,
         test_runner_module_entry,
     ):
         try:

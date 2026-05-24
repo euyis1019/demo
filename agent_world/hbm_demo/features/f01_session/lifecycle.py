@@ -70,6 +70,9 @@ def get_session_snapshot(
     sim_dir: Path | None = None,
 ) -> Dict[str, Any]:
     sim = sim_dir or get_sim_dir()
+    from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import sync_runtime_state
+
+    sync_runtime_state(flask_session, sim_id, sim_dir=sim)
     env = read_env_status(sim) or {}
     runner_ready = is_runner_ready(sim)
     hbm = load_session(flask_session, sim_id)

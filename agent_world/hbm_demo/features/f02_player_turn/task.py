@@ -7,6 +7,11 @@ from typing import Any, Dict, Optional
 
 from agent_world.hbm_demo.features.f01_session.constants import DEFAULT_SIM_ID, TASKS_KEY
 
+INJECT_STATUS_PENDING = "pending"
+INJECT_STATUS_RUNNING = "running"
+INJECT_STATUS_DONE = "done"
+INJECT_STATUS_FAILED = "failed"
+
 
 @dataclass
 class PendingTask:
@@ -16,17 +21,22 @@ class PendingTask:
     phase: str
     player_turn: int
     ipc_end_tick: Optional[int] = None
+    inject_status: str = INJECT_STATUS_PENDING
+    inject_error: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        out = {
+        out: Dict[str, Any] = {
             "task_id": self.task_id,
             "start_tick": self.start_tick,
             "place_id": self.place_id,
             "phase": self.phase,
             "player_turn": self.player_turn,
+            "inject_status": self.inject_status,
         }
         if self.ipc_end_tick is not None:
             out["ipc_end_tick"] = self.ipc_end_tick
+        if self.inject_error is not None:
+            out["inject_error"] = self.inject_error
         return out
 
     @classmethod
@@ -39,6 +49,8 @@ class PendingTask:
             phase=str(data["phase"]),
             player_turn=int(data["player_turn"]),
             ipc_end_tick=int(ipc_end) if ipc_end is not None else None,
+            inject_status=str(data.get("inject_status") or INJECT_STATUS_PENDING),
+            inject_error=data.get("inject_error"),
         )
 
 
