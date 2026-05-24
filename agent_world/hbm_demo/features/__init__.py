@@ -59,6 +59,19 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "path": "features/f06_read_model/",
         "modules": ["world_db"],
     },
+    "F07": {
+        "name": "Agent 行为控制栈（ABCS）",
+        "status": "in_progress",
+        "path": "features/f07_agent_control/",
+        "modules": [
+            "turn_context",
+            "knowledge",
+            "llm_params",
+            "player_response",
+            "turn_control",
+        ],
+        "phase": "F07-A done (L1/L2/L4/L6 skeleton)",
+    },
     "F08": {
         "name": "HTTP 传输",
         "status": "implemented",

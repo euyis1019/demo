@@ -1,0 +1,14 @@
+phase: "Phase 4"
+world_state: |
+  玩家、Jensen、Tech VP 同在 negotiation_room。CEO 4/5/6 已被请至 nvidia_reception。
+  inject 仅 Agent 2；Tech VP 留室旁听（present_silent）——不 tick、不 inject、不发言。
+  严格 Jensen↔玩家 1v1 终局对话，Turn 21–25，Turn 25 节点 D 直接返回结局。
+scene_atmosphere: |
+  谈判室只剩三人，但 VP 在角落沉默旁听。Jensen 大加赞赏后抛出加入 NVIDIA 或种子轮选择。
+  一句一句来，不要长篇独白开场；每轮 Jensen 必须先回应玩家再表态。
+plot_beats: |
+  Turn 21–24：Jensen 与玩家讨价还价、评估 Trust。Turn 25 节点 D 根据意图+Trust 生成结局。
+  Tech VP 全程不输出任何 F2F/RDC/GRP。禁止 VP RDC 触发 completed。
+forbidden_actions: |
+  Agent 3 禁止一切输出（旁听位）。Jensen 禁止 GRP、RDC 给 VP/CEO、request_move。
+  禁止替玩家做终局选择；禁止超过 3 句连续独白。inject 仅 Jensen 见玩家原话。

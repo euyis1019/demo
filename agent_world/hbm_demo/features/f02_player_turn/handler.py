@@ -57,7 +57,7 @@ def run_debug_inject(
             "Runner not ready: start run_hbm first and wait for env_status.status=running"
         )
     task_id = f"task_{uuid.uuid4().hex[:12]}"
-    events, _broadcast = build_inject_events(
+    events, _broadcast, turn_context = build_inject_events(
         session, player_text, task_id=task_id
     )
     if not events:
@@ -67,6 +67,7 @@ def run_debug_inject(
         get_ipc_client(str(sim)),
         events=events,
         tick_count=tick_count,
+        turn_context=turn_context,
         timeout=timeout,
     )
 
@@ -89,6 +90,7 @@ def _handle_sync_inject(
     immediate_msg: str,
     events: list,
     broadcast: Optional[dict],
+    turn_context: Optional[dict],
     tick_count: int,
     ipc_timeout: float,
     is_final_turn: bool,
@@ -100,6 +102,7 @@ def _handle_sync_inject(
         ipc_client,
         events=events,
         broadcast=broadcast,
+        turn_context=turn_context,
         tick_count=tick_count,
         timeout=ipc_timeout,
     )
@@ -254,7 +257,9 @@ def handle_player_turn(
             }
 
         immediate_msg = generate_immediate_msg(hbm, player_text)
-        events, broadcast = build_inject_events(hbm, player_text, task_id=task_id)
+        events, broadcast, turn_context = build_inject_events(
+            hbm, player_text, task_id=task_id
+        )
         if not events:
             raise RuntimeError(
                 f"no inject events for phase={hbm.phase!r} turn={hbm.player_turn}"
@@ -269,6 +274,7 @@ def handle_player_turn(
             immediate_msg=immediate_msg,
             events=events,
             broadcast=broadcast,
+            turn_context=turn_context,
             tick_count=tick_count,
             ipc_timeout=ipc_timeout,
             is_final_turn=True,

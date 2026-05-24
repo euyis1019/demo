@@ -1,0 +1,32 @@
+enabled: true
+
+phases:
+  Phase 1:
+    primary_active: [1, 2, 3]
+    passive_low_freq: [4, 5, 6]
+    present_silent: []
+    frozen: [7]
+    passive_max_per_batch: 1
+    passive_tick_probability: medium
+  Phase 2:
+    primary_active: [2]
+    passive_rdc_reply: [3]
+    passive_low_freq: [4, 5, 6]
+    frozen: [1, 7]
+    passive_max_per_batch: 1
+    passive_tick_probability: low
+  Phase 3:
+    primary_active: [2, 3, 4, 5, 6]
+    frozen: [1]
+    sam_rdc_from_turn: 16
+  Phase 4:
+    primary_active: [2]
+    present_silent: [3]
+    frozen: [1, 4, 5, 6, 7]
+
+llm_params:
+  Phase 1: { temperature: 0.45, max_tokens: 180 }
+  Phase 2: { temperature: 0.50, max_tokens: 220 }
+  Phase 3: { temperature: 0.62, max_tokens: 350 }
+  Phase 3_turn16: { temperature: 0.68, max_tokens: 400 }
+  Phase 4: { temperature: 0.48, max_tokens: 200 }

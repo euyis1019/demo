@@ -88,14 +88,33 @@ def build_inject_payload(
     player_text: str,
     *,
     task_id: str,
-) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
-    """Build DialogueInjection events and optional Turn 16 broadcast."""
-    dialogue = format_player_dialogue(player_text)
+) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """Build DialogueInjection events, optional Turn 16 broadcast, optional turn_context."""
+    from agent_world.hbm_demo.features.f07_agent_control.turn_context import (
+        build_turn_context,
+        format_inject_dialogue,
+        is_f07_enabled,
+    )
+
     agent_ids = inject_agent_ids_for_phase(session.phase)
-    events = [
-        build_dialogue_event(task_id=task_id, agent_id=aid, text=dialogue)
-        for aid in agent_ids
-    ]
+    turn_context: Optional[Dict[str, Any]] = None
+
+    if is_f07_enabled():
+        turn_context = build_turn_context(session, player_text)
+        events = [
+            build_dialogue_event(
+                task_id=task_id,
+                agent_id=aid,
+                text=format_inject_dialogue(session, aid, player_text, turn_context),
+            )
+            for aid in agent_ids
+        ]
+    else:
+        dialogue = format_player_dialogue(player_text)
+        events = [
+            build_dialogue_event(task_id=task_id, agent_id=aid, text=dialogue)
+            for aid in agent_ids
+        ]
 
     broadcast: Optional[Dict[str, Any]] = None
     if session.player_turn == 16 and session.phase == "Phase 3":
@@ -112,7 +131,7 @@ def build_inject_payload(
             )
         )
 
-    return events, broadcast
+    return events, broadcast, turn_context
 
 
 def has_positive_tech_vp_rdc(db: Any, *, since_tick: int, t_now: int) -> bool:

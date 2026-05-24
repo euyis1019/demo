@@ -1,0 +1,61 @@
+# Turn→剧本片段（dev_logs/19 对齐；每 Turn 80–200 字）
+turns:
+  1: |
+    玩家首次到前台。预期：前台判断玩家是闲聊还是有价值的技术突破；
+    若玩家提到显存/HBM/算法优化，前台应短句回应并准备 RDC 向 Jensen 简报。
+  2: |
+    深化价值判断。玩家可能补充技术细节或愿景；前台仍不懂深技术但应捕捉关键词。
+    Jensen 在谈判室可收到 RDC 后开始与 VP 低频交流是否值得见面。
+  3: |
+    临近节点 A（Turn 4）。前台/Jensen 知识库提示「评估是否值得转场」；
+    Jensen 若认可应通过 RDC 让前台准备带玩家去私人会议室。
+  4: |
+    节点 A Turn：Vision+Execution≥15 则 F05 MOVE Jensen→私人室、玩家 place 变更；
+    未达标 Bad End。前台最后一轮须 F2F 回应玩家并配合 RDC 节奏。
+  5: |
+    Phase 2 开局。Jensen 推门而入，急躁开场——「只有几分钟，凭什么省 80% 显存？」
+    必须先回应玩家再追问技术或 update_state。
+  6: |
+    玩家展开技术方案（稀疏注意力/KV Cache 等）。Jensen 边听边评估，可 RDC→VP 求证。
+  7: |
+    继续 1v1 审查。玩梗/故事/愿景均可，Jensen 须先回应再行动。时间压力持续。
+  8: |
+    中期私密审查。Jensen 可能 update_state 记录内心 OS，再 F2F 或 RDC。
+  9: |
+    推进至节点 B 前。Tech VP 应出现对 Jensen 的正面/负面 RDC 回复（节点 B 依赖正面 RDC）。
+  10: |
+    节点 B 前夜。Execution 需≥20；Jensen 与玩家互动应体现对方案信心的变化。
+  11: |
+    Turn 12 前最后一轮 Phase 2。确保 Tech VP 已有「可行/核武器/理论上成立」类正面 RDC。
+  12: |
+    节点 B Turn：Execution≥20 + 正面 VP RDC → MOVE Jensen 回谈判室、Phase 3、place mutation。
+  13: |
+    Phase 3 舌战开幕。Jensen 霸气开场，NVIDIA 帮玩家；CEO 轮番攻击。引用玩家 batch 观点。
+  14: |
+    谈判升级。CEO group 200 密谋；Jensen/VP group 100 协调支援玩家。
+  15: |
+    高压对峙。Burnout/Vision 影响节点 C；NVIDIA 帮玩家圆场但保持短句。
+    CEO 在 group 200 密谋压价；Jensen 须在高管群与 VP 协调技术口径支援玩家。
+  16: |
+    彭博 AMD 快讯广播 + Sam inject 搅局。Samsung 可能 relation_change 背刺。温度略升。
+  17: |
+    广播后余波。Jensen 危机感上升；CEO 与 Sam 因素交织。仍须引用玩家观点。
+  18: |
+    临近节点 C（Turn 20）。Vision≥30、Burnout<80 条件；舌战持续。
+  19: |
+    节点 C 前最后一轮 Phase 3。CEO 仍攻击；NVIDIA 阵营护玩家。
+  20: |
+    节点 C：CEO 4/5/6 IPC MOVE→前台，Phase 4 开始。Agent 3 留室旁听。
+  21: |
+    Phase 4 终局开幕。仅 Jensen↔玩家 1v1；Jensen 大加赞赏，抛出 join/融资选择。
+  22: |
+    讨价还价。每句先回应玩家；Trust 影响终局。VP 旁听不发言。
+    Jensen 可抛出具体 offer 数字或股权比例，但不得替玩家做终局选择。
+  23: |
+    终局深入。玩家可谈条件；Jensen 短句回应，引用玩家刚才的诉求关键词。
+    保持 1v1 节奏，禁止长篇独白；Trust 与 Vision 影响语气软硬。
+  24: |
+    Turn 25 前最后一轮。Jensen 总结倾向，不替玩家做决定。
+    可追问玩家最终意向（加入/融资/条件），为节点 D 结局分类铺垫。
+  25: |
+    节点 D：API 1 直接返回 completed+ending_id；Jensen 最后一轮反应后结局判定。

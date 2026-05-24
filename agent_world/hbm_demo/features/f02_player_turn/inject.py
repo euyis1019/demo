@@ -13,7 +13,7 @@ def build_inject_events(
     player_text: str,
     *,
     task_id: str,
-) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
     return routing.build_inject_payload(session, player_text, task_id=task_id)
 
 

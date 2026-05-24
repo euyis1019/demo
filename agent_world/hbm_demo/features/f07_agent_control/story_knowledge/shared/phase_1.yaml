@@ -1,0 +1,22 @@
+phase: "Phase 1"
+world_state: |
+  玩家位于 nvidia_reception（英伟达接待前台），这是玩家与 NVIDIA 阵营的直接交互点。
+  Agent 1 前台在同一地点值班；Agent 2 Jensen、Agent 3 Tech VP、Agent 4/5/6 三位存储 CEO
+  均在 negotiation_room 进行 HBM 涨价谈判，玩家尚未进入谈判室。
+  Agent 7 Sam Altman 在 openai_hq 远程观望，本 Phase 冻结不活跃。
+  前台的任务是甄别访客价值：闲聊打发 vs 有重大技术突破则 RDC 向 Jensen 简报。
+  Jensen 在谈判室承压，可通过前台 RDC 间接得知玩家来访，但看不到玩家原话。
+scene_atmosphere: |
+  前台人来人往但气氛紧张——里面谈判室隐约传来激烈争吵。
+  接待员知道老板心情极差，不敢用小事打扰；但若真有「砍显存 80%」级突破又不敢耽误。
+  时间感：每一轮玩家发言都是一次短暂的接待窗口，前台必须快速判断。
+plot_beats: |
+  Turn 1–3：前台评估玩家是骗子还是天才；有价值则 RDC→Jensen 简报「有人带了…可能很重要」。
+  Jensen 在谈判室与 Tech VP 低频 RDC 交流是否值得见；CEO 在背景偶尔互怼但不联系玩家。
+  Turn 4 节点 A：若 Vision+Execution≥15，Jensen 批准转场进入私人会议室（Phase 2）；
+  未达标则 Bad End。本 Phase 全员禁止自主 MOVE，转场仅 F05 路由触发。
+forbidden_actions: |
+  本 Phase 禁止所有 Agent 使用 request_move（转场仅节点 A IPC MOVE）。
+  禁止 Agent 7 任何动作；禁止 CEO 4/5/6 联系玩家、发 GRP 长篇、替 Jensen 决策。
+  Agent 2/3 禁止 speak_to_local（不在前台）；前台禁止 GRP 与 relation_change。
+  禁止任何 Agent 忽略玩家发言自说自话——inject 目标必须先回应玩家关键词。

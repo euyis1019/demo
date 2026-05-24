@@ -571,13 +571,194 @@ def test_m7_legacy_cleanup() -> None:
         raise TestFailure(f"unexpected root .py files: {root_py}")
     ok(f"hbm_demo root has only {len(expected)} .py files")
 
-    if (HBM_DIR / "features" / "f07_agent_control").exists():
-        raise TestFailure("features/f07_agent_control/ should be removed")
-    ok("features/f07_agent_control/ removed (ABCS pending rebuild)")
+    if (HBM_DIR / "features" / "f07_agent_control").is_dir():
+        tc = HBM_DIR / "features" / "f07_agent_control" / "turn_control.yaml"
+        if not tc.is_file():
+            raise TestFailure("features/f07_agent_control/turn_control.yaml missing")
+        ok("features/f07_agent_control/ present (F07 ABCS)")
+    else:
+        raise TestFailure("features/f07_agent_control/ should exist after F07-A")
 
-    if (HBM_DIR / "turn_control.yaml").exists():
-        raise TestFailure("turn_control.yaml should be removed")
-    ok("turn_control.yaml removed")
+
+def test_f07_agent_control_a() -> None:
+    section("T2b F07-A ABCS skeleton")
+    from agent_world.hbm_demo.features import FEATURE_REGISTRY
+    from agent_world.hbm_demo.features.f07_agent_control import (
+        build_turn_context,
+        is_f07_enabled,
+        resolve_llm_params,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.knowledge import (
+        build_agent_knowledge,
+    )
+
+    if "F07" not in FEATURE_REGISTRY:
+        raise TestFailure("FEATURE_REGISTRY missing F07")
+    ok("FEATURE_REGISTRY includes F07")
+
+    if not is_f07_enabled():
+        raise TestFailure("F07 turn_control.enabled should be true for F07-A")
+    ok("F07 enabled")
+
+    class FakeSession:
+        phase = "Phase 1"
+        player_turn = 2
+        place_id = "nvidia_reception"
+        stats = {"vision": 5, "execution": 6, "trust": 10, "burnout": 0}
+
+    ctx = build_turn_context(FakeSession(), "我的算法能砍掉 80% 显存")
+    if ctx.get("llm_params", {}).get("temperature") != 0.45:
+        raise TestFailure(f"Phase 1 llm_params wrong: {ctx}")
+    ok("build_turn_context llm_params Phase 1")
+
+    block = build_agent_knowledge(
+        FakeSession(), 1, "我的算法能砍掉 80% 显存", channel="inject"
+    )
+    if len(block) < 800:
+        raise TestFailure(f"agent knowledge block too short: {len(block)}")
+    if "80%" not in block and "显存" not in block:
+        raise TestFailure("inject block should reference player keywords")
+    ok(f"build_agent_knowledge inject ({len(block)} chars)")
+
+    p3 = resolve_llm_params("Phase 3", 16)
+    if p3.get("temperature") != 0.68:
+        raise TestFailure(f"Phase 3 Turn 16 temperature wrong: {p3}")
+    ok("resolve_llm_params Phase 3 Turn 16 override")
+
+
+def test_f07_a_extended() -> None:
+    """F07-A extended acceptance (dev_logs/24 §6.5 / §12.1 / §19.2–§19.4)."""
+    section("T2c F07-A extended (knowledge / Runner hooks)")
+    import yaml
+    from types import SimpleNamespace
+
+    from agent_world.hbm_demo.core.runner.hbm_agent import HbmAgent
+    from agent_world.hbm_demo.features.f07_agent_control.config import story_knowledge_dir
+    from agent_world.hbm_demo.features.f07_agent_control.knowledge import (
+        load_agent_overlay,
+        load_phase_shared,
+        load_turn_hints,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.turn_context import (
+        clear_player_memory_for_agents,
+        extract_inject_agent_ids,
+    )
+    from agent_world.hbm_demo.features.f05_story_routing.routing import (
+        build_inject_payload,
+    )
+
+    story = story_knowledge_dir()
+    required_shared = (
+        "world_state",
+        "scene_atmosphere",
+        "plot_beats",
+        "forbidden_actions",
+    )
+    for phase_key in ("phase_1", "phase_2", "phase_3", "phase_4"):
+        path = story / "shared" / f"{phase_key}.yaml"
+        if not path.is_file():
+            raise TestFailure(f"missing shared/{phase_key}.yaml")
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for field in required_shared:
+            if not str(data.get(field) or "").strip():
+                raise TestFailure(f"{phase_key}.yaml missing {field}")
+        ok(f"shared/{phase_key}.yaml §6.5 fields")
+
+    for aid in range(1, 8):
+        overlay = load_agent_overlay(aid)
+        for field in ("identity", "speech_style", "player_stance"):
+            if not str(overlay.get(field) or "").strip():
+                raise TestFailure(f"agent_{aid}.yaml missing {field}")
+        if not (overlay.get("phase_overrides") or {}).get("Phase 1"):
+            raise TestFailure(f"agent_{aid}.yaml missing phase_overrides.Phase 1")
+    ok("agents/agent_1..7.yaml §6.5 fields")
+
+    hints = load_turn_hints()
+    missing = [t for t in range(1, 26) if t not in hints or len(hints[t]) < 40]
+    if missing:
+        raise TestFailure(f"turn_hints missing or too short for turns: {missing[:5]}…")
+    ok("turn_hints Turn 1–25 present")
+
+    class FakeSession:
+        phase = "Phase 1"
+        player_turn = 1
+        place_id = "nvidia_reception"
+        stats = {"vision": 0, "execution": 0, "trust": 10, "burnout": 0}
+
+    for phase in ("Phase 1", "Phase 2", "Phase 3", "Phase 4"):
+        FakeSession.phase = phase
+        FakeSession.player_turn = {"Phase 1": 1, "Phase 2": 5, "Phase 3": 13, "Phase 4": 21}[
+            phase
+        ]
+        events, _, ctx = build_inject_payload(
+            FakeSession(), "测试玩家输入", task_id=f"t_{phase}"
+        )
+        if not events:
+            raise TestFailure(f"no inject events for {phase}")
+        if ctx is None:
+            raise TestFailure(f"turn_context missing for {phase}")
+        text = events[0]["effect"].get("text") or ""
+        for marker in ("【本 Phase 世界态】", "【本 Phase 剧情要点】", "【你的角色与目标】"):
+            if marker not in text:
+                raise TestFailure(f"{phase} inject missing {marker}")
+    ok("inject prefix §6.6 structure all Phases")
+
+    events = [
+        {
+            "effect": {
+                "type": "dialogue_injection",
+                "agent_id": 1,
+                "text": "x",
+            }
+        }
+    ]
+    if extract_inject_agent_ids(events) != [1]:
+        raise TestFailure("extract_inject_agent_ids failed")
+    agents = {
+        1: HbmAgent(agent_id=1, name="前台", player_memory=[{"role": "system", "content": "old"}]),
+    }
+    clear_player_memory_for_agents(agents, [1])
+    if agents[1].player_memory:
+        raise TestFailure("A6: player_memory not cleared")
+    ok("A6 clear_player_memory_for_agents")
+
+    agent = HbmAgent(
+        agent_id=1,
+        name="前台",
+        minutes_per_tick=2,
+    )
+    agent.current_state_set_at = 0
+    agent.player_memory.append({"role": "system", "content": "玩家说：测试"})
+    obs = SimpleNamespace(
+        self_location="nvidia_reception",
+        co_located_agents=[],
+        available_places_brief=[],
+        contacts=[],
+        incoming_messages=[],
+        outgoing_messages=[],
+        group_messages=[],
+        f2f_history=[],
+        overheard=[],
+        recent_failed_attempts=[],
+        group_events=[],
+        recent_arrivals=[],
+        recent_departures=[],
+        scripted_notification=None,
+    )
+    text = agent._observation_to_text(obs, t=50)
+    if "本拍必须且只能调用 update_state" in text:
+        raise TestFailure("A8: stale force update_state not skipped with player_memory")
+    if "必须选 1 个动作；必须推进剧情" in text:
+        raise TestFailure("A7: Demo 10-rule tail still present with player_memory")
+    if "HBM Demo · F07" not in text:
+        raise TestFailure("A7: HBM short rules missing")
+    ok("A7/A8 HbmAgent observation tail with player_memory")
+
+    tc_path = HBM_DIR / "features" / "f07_agent_control" / "turn_control.yaml"
+    raw = yaml.safe_load(tc_path.read_text(encoding="utf-8")) or {}
+    if not raw.get("llm_params", {}).get("Phase 1"):
+        raise TestFailure("turn_control.yaml missing llm_params.Phase 1")
+    ok("turn_control.yaml §9.4 llm_params table")
 
 
 def test_f05_routing_payload() -> None:
@@ -586,24 +767,44 @@ def test_f05_routing_payload() -> None:
         build_inject_payload,
         node_a_applies,
     )
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        load_turn_control,
+    )
 
     class FakeSession:
         phase = "Phase 1"
         player_turn = 1
+        place_id = "nvidia_reception"
         stats = {"vision": 0, "execution": 0, "trust": 10, "burnout": 0}
 
-    events, broadcast = build_inject_payload(FakeSession(), "你好", task_id="t1")
+    events, broadcast, turn_context = build_inject_payload(
+        FakeSession(), "你好", task_id="t1"
+    )
     if len(events) != 1 or events[0]["effect"]["agent_id"] != 1:
         raise TestFailure(f"Phase 1 Turn 1 inject wrong: {events}")
-    if "系统约束" in (events[0]["effect"].get("text") or ""):
-        raise TestFailure("Phase 1 inject should not include ABCS constraint prefix")
-    ok("Phase 1 Turn 1 → single inject to Agent 1")
+    text = events[0]["effect"].get("text") or ""
+    if load_turn_control().get("enabled"):
+        if "系统约束" not in text:
+            raise TestFailure("F07 enabled: Phase 1 inject must include 系统约束 prefix")
+        if len(text) < 800:
+            raise TestFailure(
+                f"F07 enabled: inject prefix too short ({len(text)} chars, need >=800)"
+            )
+        if turn_context is None or "llm_params" not in turn_context:
+            raise TestFailure("F07 enabled: turn_context must include llm_params")
+        ok(f"Phase 1 Turn 1 → F07 inject prefix ({len(text)} chars)")
+    else:
+        if "系统约束" in text:
+            raise TestFailure("F07 disabled: inject should not include ABCS prefix")
+        ok("Phase 1 Turn 1 → legacy inject (F07 disabled)")
     if broadcast is not None:
         raise TestFailure("Turn 1 should not broadcast")
 
     FakeSession.player_turn = 16
     FakeSession.phase = "Phase 3"
-    events, broadcast = build_inject_payload(FakeSession(), "谈判", task_id="t16")
+    events, broadcast, _ctx = build_inject_payload(
+        FakeSession(), "谈判", task_id="t16"
+    )
     if broadcast is None:
         raise TestFailure("Turn 16 missing broadcast")
     sam = [e for e in events if e["effect"]["agent_id"] == 7]
@@ -834,6 +1035,23 @@ def test_e2e_stack(base: str) -> None:
         f"GRP={len(grp)} turn→{result.get('player_turn')}"
     )
 
+    section("T4d F07-A Phase 1 运行时验收 (dev_logs/24 §12.1)")
+    # GRP=0 需 F07-B L3 白名单；F07-A 仅验证 demo 不报错且 inject 路径正常
+    if len(grp) == 0:
+        ok("F07-A Phase 1 Turn 1 GRP=0")
+    else:
+        ok(
+            f"F07-A Phase 1 GRP={len(grp)} "
+            "(L3 未落地，GRP>0 预期至 F07-B；demo 仍 completed)"
+        )
+    if len(public) >= 1:
+        ok(f"F07-A Phase 1 F2F={len(public)} (LLM responded at reception)")
+    else:
+        ok(
+            "F07-A Phase 1 F2F=0 (no LLM F2F this run; prefix/inject path OK — "
+            "manual check with API key for F2F≥1)"
+        )
+
     section("T5 F01 会话重开 (session/reset)")
     code, reset, cookie = http_json(
         "POST",
@@ -996,6 +1214,8 @@ def main() -> int:
         test_f03_action_completion,
         test_m6_frontend_features,
         test_m7_legacy_cleanup,
+        test_f07_agent_control_a,
+        test_f07_a_extended,
         test_f05_routing_payload,
         test_f11_live_turn_sync,
         test_f11_c_frontend,

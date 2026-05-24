@@ -46,6 +46,17 @@ RELATION_CHANGE_TOOL: Dict[str, Any] = {
 
 HBM_TOOLS: List[Dict[str, Any]] = list(DEMO_TOOLS) + [RELATION_CHANGE_TOOL]
 
+_DEMO_TAIL_MARKER = "【本拍硬性要求】"
+
+_HBM_TOOLS_LIST = (
+    "  • speak_to_local           —— 当面说话（只对同地点的人有效）\n"
+    "  • send_message             —— 私信某个 agent_id（1 拍后到达）\n"
+    "  • send_to_group            —— 在群里说话（你必须是群成员）\n"
+    "  • update_state             —— 改写自己的当前内心状态\n"
+    "  • do_nothing               —— 真的无话可说时才用\n"
+    "  • relation_change          —— 建立/断绝关系（仅剧情允许时）"
+)
+
 
 def _adapt_relation_change_args(kwargs: Dict[str, Any]) -> Dict[str, Any]:
     out = dict(kwargs)
@@ -133,6 +144,29 @@ class HbmAgent(DemoAgent):
 
         return _Response(info={"tool_calls": tool_calls})
 
+    def _hbm_short_action_rules(self) -> str:
+        reception_extra = ""
+        if int(self.agent_id) == 1:
+            reception_extra = (
+                "3) 你在前台：必须优先 speak_to_local 回应玩家，再 send_message RDC→Jensen。\n"
+            )
+        return (
+            "【本回合行动要求（HBM Demo · F07）】\n"
+            "1) 必须先回应玩家注入记忆中的原话（复述或引用关键词）。\n"
+            "2) 说出口的内容：短句口语（1–4 句），禁止演讲腔；上下文详 ≠ 长篇大论。\n"
+            f"{reception_extra}"
+            "4) 遵守系统约束中的阶段禁止项（MOVE/GRP 等）；违规将被引擎拒绝。\n"
+            "5) 每一拍只调用一个工具，参数严格符合 schema。\n"
+            "\n可选工具：\n"
+            f"{_HBM_TOOLS_LIST}\n"
+            "保持人物性格——输入上下文可长，实际发言必须短。"
+        )
+
+    def _replace_demo_tail(self, text: str) -> str:
+        idx = text.find(_DEMO_TAIL_MARKER)
+        head = text[:idx].rstrip() if idx >= 0 else text.rstrip()
+        return head + "\n\n" + self._hbm_short_action_rules()
+
     def _observation_to_text(self, obs: Any, t: int) -> str:
         prefix: List[str] = []
 
@@ -150,7 +184,18 @@ class HbmAgent(DemoAgent):
             else:
                 prefix.append(f"  - {scripted}")
 
-        base = super()._observation_to_text(obs, t)
+        if self.player_memory:
+            # A8: skip stale-state force update_state while responding to player.
+            saved_set_at = int(getattr(self, "current_state_set_at", 0) or 0)
+            self.current_state_set_at = int(t)
+            try:
+                base = super()._observation_to_text(obs, t)
+            finally:
+                self.current_state_set_at = saved_set_at
+            base = self._replace_demo_tail(base)
+        else:
+            base = super()._observation_to_text(obs, t)
+
         if prefix:
             return "\n".join(prefix) + "\n\n" + base
         return base

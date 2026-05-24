@@ -58,6 +58,17 @@ def wire_handlers(
         if payload.get("event"):
             events = [payload["event"]]
 
+        from agent_world.hbm_demo.features.f07_agent_control.turn_context import (
+            clear_player_memory_for_agents,
+            extract_inject_agent_ids,
+            is_f07_enabled,
+        )
+
+        if events and is_f07_enabled():
+            inject_ids = extract_inject_agent_ids(events)
+            if inject_ids:
+                clear_player_memory_for_agents(agents, inject_ids)
+
         if events:
             result = ScriptLoader.load_dict(
                 {"events": events},

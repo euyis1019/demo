@@ -81,7 +81,9 @@ def run_background_turn(
             )
             return
 
-        events, broadcast = build_inject_events(hbm, player_text, task_id=task_id)
+        events, broadcast, turn_context = build_inject_events(
+            hbm, player_text, task_id=task_id
+        )
         if not events:
             raise RuntimeError(
                 f"no inject events for phase={hbm.phase!r} turn={hbm.player_turn}"
@@ -92,6 +94,7 @@ def run_background_turn(
             ipc_client,
             events=events,
             broadcast=broadcast,
+            turn_context=turn_context,
             tick_count=tick_count,
             timeout=ipc_timeout,
         )
