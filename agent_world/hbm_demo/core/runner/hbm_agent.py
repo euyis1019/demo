@@ -161,15 +161,55 @@ class HbmAgent(DemoAgent):
         return _Response(info={"tool_calls": tool_calls})
 
     def _hbm_short_action_rules(self) -> str:
+        ctx = getattr(self, "_batch_turn_context", None) or {}
+        phase = str(ctx.get("phase", ""))
+        player_turn = int(ctx.get("player_turn", 0))
+        aid = int(self.agent_id)
+
         reception_extra = ""
-        if int(self.agent_id) == 1:
+        if aid == 1:
             reception_extra = (
-                "3) 你在前台：必须优先 speak_to_local 回应玩家，再 send_message RDC→Jensen。\n"
+                "3) 你在前台：必须优先 speak_to_local 回应玩家，"
+                "再 send_message RDC→Jensen。\n"
             )
+        elif phase == "Phase 2" and aid == 2:
+            reception_extra = (
+                "3) 私密审查：先 speak_to_local 回应玩家，再 RDC→Tech VP 或 update_state。\n"
+            )
+        elif phase == "Phase 2" and aid == 3:
+            reception_extra = (
+                "3) 仅回复 Jensen 未读 RDC：send_message→2，1–3 句；"
+                "正面用「可行/核武器/理论上成立」。\n"
+            )
+        elif phase == "Phase 3" and aid in (2, 3):
+            reception_extra = (
+                "3) Phase 3 帮玩家圆场：引用玩家 inject 关键词，压 CEO 价，"
+                "禁止帮 CEO 攻击玩家。\n"
+            )
+        elif phase == "Phase 3" and aid in (4, 5, 6):
+            reception_extra = (
+                "3) Phase 3 CEO 进攻：攻击玩家方案；可 GRP→200，"
+                "禁止帮 NVIDIA 说话。\n"
+            )
+        elif phase == "Phase 3" and aid == 7 and player_turn >= 16:
+            reception_extra = "3) Sam 搅局：仅 RDC，短句煽风，禁止 MOVE。\n"
+
+        respond_rule = "1) 必须先回应玩家注入记忆中的原话（复述或引用关键词）。\n"
+        if phase == "Phase 2" and aid == 3:
+            respond_rule = "1) 本拍仅回复 Jensen RDC，无需回应玩家（你看不到玩家原话）。\n"
+        elif not self.player_memory and phase == "Phase 3" and aid in (4, 5, 6):
+            respond_rule = "1) 本拍根据谈判室局势发言，攻击玩家方案或密谋压价。\n"
+
+        length_rule = "2) 说出口的内容：短句口语（1–4 句），禁止演讲腔；上下文详 ≠ 长篇大论。\n"
+        if phase == "Phase 3" and aid in (2, 3):
+            length_rule = (
+                "2) 说出口 2–5 句，可略长但必须引用玩家观点；禁止演讲腔。\n"
+            )
+
         return (
             "【本回合行动要求（HBM Demo · F07）】\n"
-            "1) 必须先回应玩家注入记忆中的原话（复述或引用关键词）。\n"
-            "2) 说出口的内容：短句口语（1–4 句），禁止演讲腔；上下文详 ≠ 长篇大论。\n"
+            f"{respond_rule}"
+            f"{length_rule}"
             f"{reception_extra}"
             "4) 遵守系统约束中的阶段禁止项（MOVE/GRP 等）；违规将被引擎拒绝。\n"
             "5) 每一拍只调用一个工具，参数严格符合 schema。\n"
@@ -211,6 +251,11 @@ class HbmAgent(DemoAgent):
             base = self._replace_demo_tail(base)
         else:
             base = super()._observation_to_text(obs, t)
+            if (
+                getattr(obs, "scripted_notification", None)
+                or getattr(self, "_batch_turn_context", None)
+            ):
+                base = self._replace_demo_tail(base)
 
         if prefix:
             return "\n".join(prefix) + "\n\n" + base

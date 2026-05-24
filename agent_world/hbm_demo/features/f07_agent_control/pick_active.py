@@ -61,11 +61,11 @@ def _has_unread_inbound(
         rows = []
 
     if rdc_from is not None:
-        rows = [r for r in rows if int(getattr(r, "sender_id", -1)) == int(rdc_from)]
-    elif rows:
-        return True
+        return any(
+            int(getattr(r, "sender_id", -1)) == int(rdc_from) for r in rows
+        )
 
-    if rdc_from is not None and rows:
+    if rows:
         return True
 
     places = getattr(world, "places", None)

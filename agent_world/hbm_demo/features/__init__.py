@@ -73,7 +73,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
             "inject_batch",
             "turn_control",
         ],
-        "phase": "F07-B done (L3/L5 + F03 Phase 1)",
+        "phase": "F07-C done (Phase 2–3 polish + nodes B/C)",
     },
     "F08": {
         "name": "HTTP 传输",

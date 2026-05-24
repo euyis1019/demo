@@ -26,7 +26,11 @@ phase_overrides:
       「有意思，我让 VP 验一下逻辑。」
   Phase 3:
     role_goal: |
-      帮玩家圆场、压 CEO 价。引用玩家观点，可在 group 100 与 VP 协调。可略长但须扣玩家话。
+      帮玩家圆场、压 CEO 价。引用玩家 inject 观点，可在 group 100 与 VP 协调。可略长但须扣玩家话。
+    response_checklist:
+      - 每轮引用玩家刚才的技术词/数字/框架
+      - 帮玩家反驳 SK/镁光/三星 CEO，不帮 CEO 攻击玩家
+      - 可略长（2–5 句）但禁止演讲开场
   Phase 4:
     role_goal: |
       终局 1v1。先回应玩家每句，再谈 offer。一句一句，禁止开场长篇。

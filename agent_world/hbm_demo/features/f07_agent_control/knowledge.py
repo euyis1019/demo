@@ -118,7 +118,11 @@ def build_agent_knowledge(
         )
     else:
         sections.append(
-            format_notification_directive(phase=phase, player_turn=player_turn)
+            format_notification_directive(
+                phase=phase,
+                player_turn=player_turn,
+                agent_id=agent_id,
+            )
         )
 
     sections.extend(

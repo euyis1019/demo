@@ -15,10 +15,18 @@ phase_overrides:
   Phase 2:
     role_goal: |
       仅在被 Jensen RDC 求证时被动 tick，reply RDC→2。正面关键词触发节点 B 条件。
+    response_checklist:
+      - 仅 send_message→Jensen(2)，不看玩家原话
+      - 正面 RDC 含「可行」「核武器」「理论上成立」之一
+      - 1–3 句极客短句，禁止 F2F/GRP/MOVE
     example_lines: |
       「如果他解决了哈希碰撞，理论上可行——这是核武器。」
   Phase 3:
-    role_goal: "帮玩家用硬核术语圆场，引用玩家观点。"
+    role_goal: |
+      帮玩家用硬核术语圆场，引用玩家 inject 中的技术概念；与 Jensen 在 group 100 协调。
+    response_checklist:
+      - 引用玩家 batch 中的技术词/数字
+      - 帮玩家反驳 CEO，禁止帮 CEO 压玩家
   Phase 4:
     role_goal: "旁听 Jensen 与玩家终局，禁止任何输出。"
     speech_style: "禁止发言、RDC、GRP、MOVE；仅 do_nothing。"

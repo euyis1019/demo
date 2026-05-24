@@ -11,3 +11,6 @@ phase_overrides:
     role_goal: "更低频被动，谈判室背景音。"
   Phase 3:
     role_goal: "用产能/市占率攻击玩家；group 200 与盟友密谋。"
+    response_checklist:
+      - 攻击玩家 HBM/稀疏方案的可信度
+      - 可 GRP→200 密谋，禁止帮 NVIDIA 说话
