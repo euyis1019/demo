@@ -110,7 +110,7 @@
 | 1 | 1–4 | `nvidia_reception` | Agent 1 | 单条 event |
 | 2 | 5–12（可延长，见节点 B 未达标） | `jensen_private_room` | Agent 2 | 单条 event |
 | 3 | 13–20（可延长，见节点 C 未达标） | `negotiation_room` | Agent 2, 3, 4, 5, 6 | **batch** `events[]` |
-| 4 | 21–25 | `negotiation_room` | Agent 2, 3 | batch `events[]` |
+| 4 | 21–25 | `negotiation_room` | Agent 2 | batch `events[]`（**仅 Agent 2**；Tech VP 留室旁听，见 F07 §5.4） |
 
 *Turn 列为剧情规划区间；**实际 Phase 以 session 为准**，路由未触发时可超出区间仍停留在上一 Phase。*
 
