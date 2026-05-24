@@ -443,7 +443,23 @@ score (F04) → immediate_msg (F04) → build_inject (F05) → IPC inject (F08)
 | **M3** ✅ | `core/runner/*` 迁入；`run_hbm` shim | 中 | Runner IPC 全命令 |
 | **M4** ✅ | `http/*` 迁入；`routes` shim | 低 | 7 HTTP 端点 |
 | **M5** ✅ | 实现 F07 ABCS Phase A→C | 中 | §24 验收清单 |
-| **M6** | 前端 `web/src/features/*` | 低 | UI 无回归 |
+| **M6** ✅ | 前端 `web/src/features/*` | 低 | UI 无回归 |
+
+### M6 已落地文件
+
+```
+web/src/features/
+├── index.ts              # FEATURE_REGISTRY F09a–h
+├── boot/                 # F09a BootScreen, useHealthCheck, RunnerNotReadyModal
+├── game-loop/            # F09b useGameLoop, LoadingOverlay, useLoadingElapsed
+├── layout/               # F09c ThreeColumnLayout, StatusPanel
+├── main-chat/            # F09d MainChat, PlayerInput, MessageBubble
+├── observer/             # F09e ObserverPanel, useEnvStatus
+├── endings/              # F09f GameOverScreen, EndingScreen, PhaseToast
+└── shared/               # useAutoScroll
+web/src/components/*.tsx  # 根 shim → features/*
+web/src/hooks/*.ts        # 根 shim → features/*
+```
 
 ### M5 已落地文件
 
@@ -698,4 +714,23 @@ python agent_world/hbm_demo/scripts/test_m0_acceptance.py
 **复测修复（2026-05-24）**：F03 `check_action_complete` 在 `ipc_end_tick` 到达时完成轮询，避免 6-tick inject 后无 LLM 消息时永久 `processing`。
 
 **下一步**：M6 前端 features 目录。
+
+---
+
+## 19. M6 验收测试记录
+
+**执行时间**：2026-05-24  
+**脚本**：`agent_world/hbm_demo/scripts/test_m0_acceptance.py`（含 T1g M6 前端 features）  
+**结果**：**ALL M0–M6 TESTS PASSED**
+
+| 用例 | 覆盖 Feature | 结果 |
+|------|--------------|------|
+| T1g features 目录 | F09a–f + shared 七目录 | ✓ |
+| T1g shim | components/BootScreen、hooks/useGameLoop → features | ✓ |
+| T6 npm run build | TypeScript + Vite 无回归 | ✓ |
+| T4–T5 E2E | 后端全链路无回归 | ✓ |
+
+**结构**：Strangler Fig — `App.tsx` 仍从 `./components` / `./hooks` 导入，实现位于 `web/src/features/`。
+
+**里程碑**：M0–M6 Feature 化重整全部完成。
 

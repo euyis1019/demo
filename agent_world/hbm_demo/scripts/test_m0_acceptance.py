@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""M0–M5 acceptance tests — dev_logs/26 §7."""
+"""M0–M6 acceptance tests — dev_logs/26 §7."""
 
 from __future__ import annotations
 
@@ -357,6 +357,47 @@ def test_m5_f07_abcs() -> None:
     ok("F03 completes after ipc_end_tick without hanging")
 
 
+def test_m6_frontend_features() -> None:
+    section("T1g M6 web/src/features/ 前端 Feature 拆分")
+    web_src = HBM_DIR / "web" / "src"
+    feature_dirs = (
+        "boot",
+        "game-loop",
+        "layout",
+        "main-chat",
+        "observer",
+        "endings",
+        "shared",
+    )
+    for name in feature_dirs:
+        path = web_src / "features" / name
+        if not path.is_dir():
+            raise TestFailure(f"missing features/{name}/")
+        ok(f"features/{name}/ exists")
+
+    registry = (web_src / "features" / "index.ts").read_text(encoding="utf-8")
+    if "FEATURE_REGISTRY" not in registry or "F09a" not in registry:
+        raise TestFailure("features/index.ts missing FEATURE_REGISTRY")
+    ok("features/index.ts FEATURE_REGISTRY (F09a–h)")
+
+    boot_shim = (web_src / "components" / "BootScreen.tsx").read_text(encoding="utf-8")
+    if "features/boot/BootScreen" not in boot_shim:
+        raise TestFailure("components/BootScreen.tsx is not a features/boot shim")
+    ok("components/BootScreen.tsx shim → features/boot")
+
+    loop_shim = (web_src / "hooks" / "useGameLoop.ts").read_text(encoding="utf-8")
+    if "features/game-loop/useGameLoop" not in loop_shim:
+        raise TestFailure("hooks/useGameLoop.ts is not a features/game-loop shim")
+    ok("hooks/useGameLoop.ts shim → features/game-loop")
+
+    layout_impl = (web_src / "features" / "layout" / "ThreeColumnLayout.tsx").read_text(
+        encoding="utf-8"
+    )
+    if "ThreeColumnLayout" not in layout_impl or "app-shell" not in layout_impl:
+        raise TestFailure("features/layout/ThreeColumnLayout implementation missing")
+    ok("F09c ThreeColumnLayout in features/layout")
+
+
 def test_f05_routing_payload() -> None:
     section("T2 F05 剧情路由 payload 单元")
     from agent_world.hbm_demo.features.f05_story_routing.routing import (
@@ -615,7 +656,7 @@ def stop_stack(runner: subprocess.Popen[Any], flask: subprocess.Popen[Any]) -> N
 
 
 def main() -> int:
-    print("HBM Demo M0–M5 Acceptance Tests (dev_logs/26)")
+    print("HBM Demo M0–M6 Acceptance Tests (dev_logs/26)")
     failures: List[str] = []
 
     for fn in (
@@ -625,6 +666,7 @@ def main() -> int:
         test_m3_runner_shims,
         test_m4_http_shims,
         test_m5_f07_abcs,
+        test_m6_frontend_features,
         test_f05_routing_payload,
         test_runner_module_entry,
     ):
@@ -657,7 +699,7 @@ def main() -> int:
         for f in failures:
             print(f"  - {f}")
         return 1
-    print("ALL M0–M5 TESTS PASSED")
+    print("ALL M0–M6 TESTS PASSED")
     return 0
 
 

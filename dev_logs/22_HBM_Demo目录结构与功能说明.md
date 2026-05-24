@@ -129,20 +129,16 @@ agent_world/hbm_demo/web/
 │   ├── store/
 │   │   ├── gameStore.ts     # 全局状态：messages、stats、phase、轮询 task_id
 │   │   └── GameStoreProvider.tsx
-│   ├── hooks/
-│   │   ├── useGameLoop.ts   # API 1 → 轮询 API 2 主循环
-│   │   ├── useEnvStatus.ts  # 底栏 World Tick 轮询
-│   │   └── useHealthCheck.ts
-│   ├── components/
-│   │   ├── layout/ThreeColumnLayout.tsx   # 左 Stats / 中 Chat / 右 Observer
-│   │   ├── MainChat.tsx       # 中屏 F2F + 玩家输入
-│   │   ├── ObserverPanel.tsx  # RDC + GRP 分 Tab
-│   │   ├── StatusPanel.tsx    # Vision / Execution / Trust / Burnout
-│   │   ├── PlayerInput.tsx
-│   │   ├── MessageBubble.tsx / MessageLine.tsx
-│   │   ├── PhaseToast.tsx     # Phase 切换提示
-│   │   ├── GameOverScreen.tsx / EndingScreen.tsx / BootScreen.tsx
-│   │   └── RunnerNotReadyModal.tsx
+│   ├── hooks/               # 兼容 shim → features/*
+│   ├── components/          # 兼容 shim → features/*
+│   ├── features/            # F09a–f 实现（M6 ✅）
+│   │   ├── boot/            # BootScreen, useHealthCheck
+│   │   ├── game-loop/       # useGameLoop, LoadingOverlay
+│   │   ├── layout/          # ThreeColumnLayout, StatusPanel
+│   │   ├── main-chat/       # MainChat, PlayerInput, MessageBubble
+│   │   ├── observer/        # ObserverPanel, useEnvStatus
+│   │   ├── endings/         # GameOverScreen, EndingScreen, PhaseToast
+│   │   └── shared/          # useAutoScroll
 │   ├── constants/           # phaseTransitions、gameLoop 轮询间隔、端口
 │   └── utils/
 │       ├── messages.ts      # 玩家气泡 attempted_at 排序（stampPlayerBubble）

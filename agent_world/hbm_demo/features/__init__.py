@@ -82,7 +82,17 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
     "F09": {
         "name": "前端三屏 UI",
         "status": "implemented",
-        "path": "web/src/",
+        "path": "web/src/features/",
+        "modules": [
+            "boot",
+            "game-loop",
+            "layout",
+            "main-chat",
+            "observer",
+            "endings",
+            "api",
+            "store",
+        ],
     },
     "F10": {
         "name": "运维与启动",
