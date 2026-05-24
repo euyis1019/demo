@@ -18,27 +18,27 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
     },
     "F01": {
         "name": "会话与重开",
-        "status": "partial",
+        "status": "implemented",
         "path": "features/f01_session/",
-        "modules": ["world_reset"],
+        "modules": ["models", "lifecycle", "reset", "world_reset", "paths"],
     },
     "F02": {
         "name": "玩家回合 API1",
-        "status": "planned",
+        "status": "implemented",
         "path": "features/f02_player_turn/",
-        "note": "逻辑仍在 game_service.py，M2 迁移",
+        "modules": ["handler", "task", "inject"],
     },
     "F03": {
         "name": "动作结果 API2",
-        "status": "planned",
+        "status": "implemented",
         "path": "features/f03_action_result/",
-        "note": "逻辑仍在 game_service.py，M2 迁移",
+        "modules": ["handler", "completion"],
     },
     "F04": {
         "name": "数值与打分",
-        "status": "planned",
+        "status": "implemented",
         "path": "features/f04_stats/",
-        "note": "逻辑仍在 game_service.py，M2 迁移",
+        "modules": ["scoring", "deltas"],
     },
     "F05": {
         "name": "剧情路由",
@@ -48,9 +48,9 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
     },
     "F06": {
         "name": "只读世界模型",
-        "status": "planned",
+        "status": "implemented",
         "path": "features/f06_read_model/",
-        "note": "ReadOnlyWorldDB 仍在 game_service.py，M2 迁移",
+        "modules": ["world_db"],
     },
     "F07": {
         "name": "Agent 行为控制 ABCS",

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""M0+M1 acceptance tests — dev_logs/26 §7 (shared shims, Turn 1 E2E, F01 reset)."""
+"""M0+M1+M2 acceptance tests — dev_logs/26 §7."""
 
 from __future__ import annotations
 
@@ -163,6 +163,33 @@ def test_m1_shared_shims() -> None:
     if "DEFAULT_IPC_TIMEOUT" not in shared.__all__:
         raise TestFailure("shared.__all__ missing DEFAULT_IPC_TIMEOUT")
     ok("shared/__init__.py re-exports")
+
+
+def test_m2_game_service_shims() -> None:
+    section("T1c M2 game_service 拆分与根 shim")
+    import agent_world.hbm_demo.game_service as root_gs
+    from agent_world.hbm_demo.features.f01_session.models import HbmSession
+    from agent_world.hbm_demo.features.f02_player_turn.handler import handle_player_turn
+    from agent_world.hbm_demo.features.f03_action_result.handler import get_action_result
+    from agent_world.hbm_demo.features.f04_stats.scoring import score_player_turn
+    from agent_world.hbm_demo.features.f06_read_model.world_db import ReadOnlyWorldDB
+
+    pairs = (
+        ("HbmSession", root_gs.HbmSession, HbmSession),
+        ("handle_player_turn", root_gs.handle_player_turn, handle_player_turn),
+        ("get_action_result", root_gs.get_action_result, get_action_result),
+        ("score_player_turn", root_gs.score_player_turn, score_player_turn),
+        ("ReadOnlyWorldDB", root_gs.ReadOnlyWorldDB, ReadOnlyWorldDB),
+    )
+    for name, root_obj, feat_obj in pairs:
+        if root_obj is not feat_obj:
+            raise TestFailure(f"game_service.{name} shim != feature implementation")
+        ok(f"game_service.{name}")
+
+    shim_lines = (HBM_DIR / "game_service.py").read_text(encoding="utf-8").count("\n")
+    if shim_lines > 120:
+        raise TestFailure(f"game_service.py shim too large: {shim_lines} lines")
+    ok(f"game_service.py shim size OK ({shim_lines} lines)")
 
 
 def test_f05_routing_payload() -> None:
@@ -405,12 +432,13 @@ def stop_stack(runner: subprocess.Popen[Any], flask: subprocess.Popen[Any]) -> N
 
 
 def main() -> int:
-    print("HBM Demo M0+M1 Acceptance Tests (dev_logs/26)")
+    print("HBM Demo M0+M1+M2 Acceptance Tests (dev_logs/26)")
     failures: List[str] = []
 
     for fn in (
         test_static_imports,
         test_m1_shared_shims,
+        test_m2_game_service_shims,
         test_f05_routing_payload,
         test_runner_module_entry,
     ):
@@ -443,7 +471,7 @@ def main() -> int:
         for f in failures:
             print(f"  - {f}")
         return 1
-    print("ALL M0+M1 TESTS PASSED")
+    print("ALL M0+M1+M2 TESTS PASSED")
     return 0
 
 

@@ -439,11 +439,22 @@ score (F04) → immediate_msg (F04) → build_inject (F05) → IPC inject (F08)
 |------|------|------|------|
 | **M0** ✅ | 建 `features/`、`shared/` 骨架；`routing`、`world_reset` 迁入 + 根 shim | 低 | import 正常；Turn 1 E2E |
 | **M1** ✅ | `shared/*` 四文件迁入；根 shim | 低 | health + session/start |
-| **M2** | 拆 `game_service` → f01–f04、f06；根 `game_service` re-export | 中 | 完整 25 轮可玩 |
+| **M2** ✅ | 拆 `game_service` → f01–f04、f06；根 `game_service` re-export | 中 | 完整 25 轮可玩 |
 | **M3** | `core/runner/*` 迁入；`run_hbm` shim | 中 | Runner IPC 全命令 |
 | **M4** | `http/*` 迁入；`routes` shim | 低 | 7 HTTP 端点 |
 | **M5** | 实现 F07 ABCS Phase A→C | 中 | §24 验收清单 |
 | **M6** | 前端 `web/src/features/*` | 低 | UI 无回归 |
+
+### M2 已落地文件
+
+```
+features/f01_session/models.py, paths.py, lifecycle.py, reset.py, logging.py, constants.py
+features/f02_player_turn/handler.py, task.py, inject.py
+features/f03_action_result/handler.py, completion.py
+features/f04_stats/scoring.py, deltas.py
+features/f06_read_model/world_db.py
+game_service.py                 # 根 shim (~100 行 re-export)
+```
 
 ### M1 已落地文件
 
@@ -581,5 +592,22 @@ python agent_world/hbm_demo/scripts/test_m0_acceptance.py
 | T4 health + session/start | 依赖 shared.env_status、shared.errors | ✓ |
 | T0–T6 全量回归 | M0 用例无回归 | ✓ |
 
-**下一步**：M2 拆分 `game_service.py` → features/f01–f04、f06。
+**下一步**：M3 迁入 `core/runner/`。
+
+---
+
+## 15. M2 验收测试记录
+
+**执行时间**：2026-05-24  
+**脚本**：`agent_world/hbm_demo/scripts/test_m0_acceptance.py`（含 T1c M2 game_service shim）  
+**结果**：**ALL M0+M1+M2 TESTS PASSED**
+
+| 用例 | 覆盖 Feature | 结果 |
+|------|--------------|------|
+| T1c game_service shim | F01–F04、F06 与 features 同一实现 | ✓ |
+| T1c shim 体积 | `game_service.py` ≤120 行 | ✓ |
+| T4–T5 E2E | F02 handle_player_turn、F03 get_action_result、F01 reset | ✓ |
+| T0–T6 全量回归 | M0/M1 无回归 | ✓ |
+
+**下一步**：M3 `core/runner/` 迁移。
 

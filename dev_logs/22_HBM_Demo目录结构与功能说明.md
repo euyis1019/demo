@@ -46,7 +46,7 @@ agent_world/hbm_demo/
 ├── hbm_scenario.yaml      # L0 场景 YAML
 ├── run_hbm.py             # F00 Runner 入口（shim，M3 迁入 core/runner/）
 ├── kernel.py … ipc_handlers.py   # F00 平台核心（待迁入 core/runner/）
-├── game_service.py        # F01–F04/F06 编排（待 M2 拆入 features/）
+├── game_service.py        # shim → features/f01–f04、f06（M2 ✅）
 ├── routing.py             # shim → features/f05_story_routing/
 ├── world_reset.py         # shim → features/f01_session/
 ├── routes.py … http_errors.py    # F08 HTTP（待 M4 迁入 http/）
@@ -57,8 +57,12 @@ agent_world/hbm_demo/
 │   ├── errors.py
 │   └── config_loader.py
 ├── features/              # L2 业务 Feature（见 dev_logs/26 §4）
-│   ├── f01_session/       # 会话与重开（world_reset 已迁入）
+│   ├── f01_session/       # 会话、重开、paths（M2 ✅）
+│   ├── f02_player_turn/   # API1 handle_player_turn（M2 ✅）
+│   ├── f03_action_result/ # API2 get_action_result（M2 ✅）
+│   ├── f04_stats/         # 打分与 Stats（M2 ✅）
 │   ├── f05_story_routing/ # 剧情节点 A/B/C/D（routing 已迁入）
+│   ├── f06_read_model/    # ReadOnlyWorldDB（M2 ✅）
 │   └── f07_agent_control/ # ABCS 待建
 ├── shared/                # 跨 Feature 基础设施（M1）
 ├── scripts/               # F10 一行启动
@@ -189,7 +193,8 @@ agent_world/hbm_demo/web/
 | NPC 性格 / 强制规则 | `hbm_scenario.yaml` |
 | Agent 工具行为 | `hbm_agent.py` + 引擎 `demo/demo_agent.py` |
 | API 接口 / HTTP 路由 | `routes.py` |
-| 打分、Stats、完成判定 | `game_service.py` |
+| 打分、Stats、完成判定 | `features/f04_stats/`、`features/f03_action_result/` |
+| game_service 入口 | `game_service.py`（shim）→ `features/f02` / `f03` |
 | Turn 4/12/20/25 分支 | `features/f05_story_routing/routing.py`（根 `routing.py` 为 shim） |
 | 一键重开 world 清空 | `features/f01_session/world_reset.py` |
 | Feature 规划与目录 | `dev_logs/26` · `features/__init__.py` FEATURE_REGISTRY |
