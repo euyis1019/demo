@@ -161,9 +161,15 @@ export function useGameLoop() {
         for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt += 1) {
           await sleep(POLL_INTERVAL_MS);
           const poll = await getActionResult(taskId, { place_id: placeId });
-          if (isCompletedAction(poll.data)) {
+          const pollData = poll.data;
+          if (pollData?.status === "game_over") {
             pollCompleted = true;
-            dispatch({ type: "APPEND_ACTION_RESULT", data: poll.data });
+            dispatch({ type: "SET_GAME_OVER", data: pollData });
+            break;
+          }
+          if (isCompletedAction(pollData)) {
+            pollCompleted = true;
+            dispatch({ type: "APPEND_ACTION_RESULT", data: pollData });
             await refreshSession();
             break;
           }

@@ -546,14 +546,13 @@ def test_e2e_stack(base: str) -> None:
         raise TestFailure(f"player-turn missing task_id: {tdata}")
     if tdata.get("inject_status") != "running":
         raise TestFailure(f"F11-A: expected inject_status=running, got {tdata}")
-    # F04 打分 + immediate_msg 仍为同步 LLM（~3–8s）；F11-A 仅保证 inject 不阻塞 POST。
-    if post_elapsed > 15.0:
+    if post_elapsed > 2.0:
         raise TestFailure(
-            f"F11-A: player-turn took {post_elapsed:.1f}s; inject may still be blocking POST"
+            f"F11-A: player-turn took {post_elapsed:.1f}s, expected <2s (async F04+F11)"
         )
     ok(
         f"POST /player-turn → task_id={task_id[:8]}… inject_status=running "
-        f"({post_elapsed:.2f}s, scoring sync + inject async)"
+        f"({post_elapsed:.2f}s early return)"
     )
 
     section("T4b F11-A async inject 运行时验收 (dev_logs/28 §8)")

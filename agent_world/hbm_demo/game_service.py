@@ -26,10 +26,10 @@ from agent_world.hbm_demo.features.f01_session.paths import (
 )
 from agent_world.hbm_demo.features.f01_session.reset import reset_demo
 from agent_world.hbm_demo.features.f02_player_turn.handler import (
-    BAD_END_PUBLIC_MESSAGES,
     handle_player_turn,
     run_debug_inject,
 )
+from agent_world.hbm_demo.features.f02_player_turn.inject import BAD_END_PUBLIC_MESSAGES
 from agent_world.hbm_demo.features.f02_player_turn.inject import build_inject_events
 from agent_world.hbm_demo.features.f02_player_turn.task import PendingTask, load_task, save_task
 from agent_world.hbm_demo.features.f03_action_result.completion import (

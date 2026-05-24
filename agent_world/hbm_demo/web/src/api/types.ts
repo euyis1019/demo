@@ -117,7 +117,19 @@ export interface ActionResultCompleted {
   current_phase: string;
 }
 
-export type ActionResultData = ActionResultProcessing | ActionResultCompleted;
+export interface ActionResultGameOver {
+  status: "game_over";
+  task_id: string;
+  ending_id: "bad_reject";
+  public_messages: GameMessage[];
+  stats_update: Stats;
+  current_phase: string;
+}
+
+export type ActionResultData =
+  | ActionResultProcessing
+  | ActionResultCompleted
+  | ActionResultGameOver;
 
 export interface PlayerTurnRequest {
   player_text: string;

@@ -20,6 +20,7 @@ from agent_world.hbm_demo.features.f04_stats.deltas import initial_stats
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
 from agent_world.hbm_demo.features.f02_player_turn.task import INJECT_STATUS_FAILED
 from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import (
+    get_turn_outcome,
     load_task_resolved,
     sync_runtime_state,
 )
@@ -43,6 +44,17 @@ def get_action_result(
     task = load_task_resolved(flask_session, task_id, sim_id, sim_dir=sim)
     if task is None:
         raise KeyError(f"unknown task_id: {task_id}")
+
+    outcome = get_turn_outcome(sim, task_id)
+    if outcome and outcome.get("status") == "game_over":
+        return {
+            "status": "game_over",
+            "task_id": task_id,
+            "ending_id": outcome.get("ending_id", "bad_reject"),
+            "public_messages": outcome.get("public_messages") or [],
+            "stats_update": outcome.get("stats_update") or initial_stats(),
+            "current_phase": outcome.get("current_phase") or task.phase,
+        }
 
     if task.inject_status == INJECT_STATUS_FAILED:
         return {

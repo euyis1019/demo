@@ -1,11 +1,13 @@
 """F02 — Player turn API 1."""
 
 from agent_world.hbm_demo.features.f02_player_turn.handler import (
-    BAD_END_PUBLIC_MESSAGES,
     handle_player_turn,
     run_debug_inject,
 )
-from agent_world.hbm_demo.features.f02_player_turn.inject import build_inject_events
+from agent_world.hbm_demo.features.f02_player_turn.inject import (
+    BAD_END_PUBLIC_MESSAGES,
+    build_inject_events,
+)
 from agent_world.hbm_demo.features.f02_player_turn.task import (
     PendingTask,
     load_task,

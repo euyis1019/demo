@@ -97,6 +97,7 @@ def save_task_runtime(
     task_dict: Dict[str, Any],
     *,
     session_dict: Optional[Dict[str, Any]] = None,
+    turn_outcome: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Persist task (and optional session) updates from the background thread."""
     task_id = str(task_dict["task_id"])
@@ -108,7 +109,16 @@ def save_task_runtime(
         runtime["latest_task_id"] = task_id
         if session_dict is not None:
             runtime["session"] = session_dict
+        if turn_outcome is not None:
+            outcomes = dict(runtime.get("turn_outcomes") or {})
+            outcomes[task_id] = turn_outcome
+            runtime["turn_outcomes"] = outcomes
         _write_runtime(sim_dir, runtime)
+
+
+def get_turn_outcome(sim_dir: Path, task_id: str) -> Optional[Dict[str, Any]]:
+    runtime = _read_runtime(sim_dir)
+    return (runtime.get("turn_outcomes") or {}).get(task_id)
 
 
 def load_task_resolved(

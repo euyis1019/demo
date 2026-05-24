@@ -22,3 +22,12 @@ def check_turn4_bad_end(session: HbmSession) -> bool:
         session.player_turn == 4
         and session.stats["vision"] + session.stats["execution"] < 15
     )
+
+
+BAD_END_PUBLIC_MESSAGES = [
+    {
+        "sender": "接待前台",
+        "content": "保安，请这位先生离开。",
+        "type": "F2F",
+    }
+]

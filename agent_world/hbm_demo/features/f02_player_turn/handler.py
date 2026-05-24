@@ -16,6 +16,7 @@ from agent_world.hbm_demo.features.f01_session.logging import log_turn_event
 from agent_world.hbm_demo.features.f01_session.models import HbmSession
 from agent_world.hbm_demo.features.f01_session.paths import get_sim_dir
 from agent_world.hbm_demo.features.f02_player_turn.inject import (
+    BAD_END_PUBLIC_MESSAGES,
     build_inject_events,
     check_turn4_bad_end,
 )
@@ -25,7 +26,11 @@ from agent_world.hbm_demo.features.f02_player_turn.task import (
     save_task,
 )
 from agent_world.hbm_demo.features.f04_stats.deltas import apply_stat_deltas
-from agent_world.hbm_demo.features.f04_stats.scoring import generate_immediate_msg, score_player_turn
+from agent_world.hbm_demo.features.f04_stats.scoring import (
+    IMMEDIATE_MSG_PLACEHOLDER,
+    generate_immediate_msg,
+    score_player_turn,
+)
 from agent_world.hbm_demo.features.f05_story_routing import routing
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
 from agent_world.hbm_demo.features.f11_live_turn_sync.handler import start_background_turn
@@ -36,14 +41,6 @@ from agent_world.hbm_demo.shared.errors import RunnerNotReadyError
 from agent_world.hbm_demo.shared.settings import DEFAULT_IPC_TIMEOUT
 
 log = logging.getLogger("agent_world.hbm_demo.game_service")
-
-BAD_END_PUBLIC_MESSAGES = [
-    {
-        "sender": "接待前台",
-        "content": "保安，请这位先生离开。",
-        "type": "F2F",
-    }
-]
 
 
 def run_debug_inject(
@@ -242,28 +239,26 @@ def handle_player_turn(
     task_id = f"task_{uuid.uuid4().hex[:12]}"
     is_final_turn = hbm.player_turn == 25
 
-    deltas = score_player_turn(hbm, player_text)
-    apply_stat_deltas(hbm, deltas)
-
-    if check_turn4_bad_end(hbm):
-        save_session(flask_session, hbm, sim_id)
-        return {
-            "status": "game_over",
-            "ending_id": "bad_reject",
-            "public_messages": list(BAD_END_PUBLIC_MESSAGES),
-            "stats_update": dict(hbm.stats),
-            "current_phase": hbm.phase,
-        }
-
-    immediate_msg = generate_immediate_msg(hbm, player_text)
-
-    events, broadcast = build_inject_events(hbm, player_text, task_id=task_id)
-    if not events:
-        raise RuntimeError(
-            f"no inject events for phase={hbm.phase!r} turn={hbm.player_turn}"
-        )
-
     if is_final_turn:
+        deltas = score_player_turn(hbm, player_text)
+        apply_stat_deltas(hbm, deltas)
+
+        if check_turn4_bad_end(hbm):
+            save_session(flask_session, hbm, sim_id)
+            return {
+                "status": "game_over",
+                "ending_id": "bad_reject",
+                "public_messages": list(BAD_END_PUBLIC_MESSAGES),
+                "stats_update": dict(hbm.stats),
+                "current_phase": hbm.phase,
+            }
+
+        immediate_msg = generate_immediate_msg(hbm, player_text)
+        events, broadcast = build_inject_events(hbm, player_text, task_id=task_id)
+        if not events:
+            raise RuntimeError(
+                f"no inject events for phase={hbm.phase!r} turn={hbm.player_turn}"
+            )
         return _handle_sync_inject(
             flask_session,
             hbm,
@@ -280,7 +275,7 @@ def handle_player_turn(
             player_text=player_text,
         )
 
-    # F11-A: async inject for Turn 1–24 — return before IPC batch completes.
+    # F11-A + async F04: score/inject on background thread; POST returns immediately.
     save_session(flask_session, hbm, sim_id)
 
     task_place_id = hbm.place_id
@@ -302,8 +297,7 @@ def handle_player_turn(
         sim_id=sim_id,
         task_id=task_id,
         hbm=hbm,
-        events=events,
-        broadcast=broadcast,
+        player_text=player_text,
         start_tick=start_tick,
         task_place_id=task_place_id,
         task_phase=task_phase,
@@ -323,7 +317,7 @@ def handle_player_turn(
 
     return {
         "task_id": task_id,
-        "immediate_msg": immediate_msg,
+        "immediate_msg": IMMEDIATE_MSG_PLACEHOLDER,
         "status": "processing",
         "stats_update": dict(hbm.stats),
         "current_phase": hbm.phase,

@@ -1,19 +1,26 @@
-"""F11 background inject + routing (runs off the HTTP request thread)."""
+"""F11 background turn pipeline: F04 scoring + inject + routing."""
 
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from agent_world.hbm_demo.features.f01_session.logging import log_turn_event
 from agent_world.hbm_demo.features.f01_session.models import HbmSession
+from agent_world.hbm_demo.features.f02_player_turn.inject import (
+    BAD_END_PUBLIC_MESSAGES,
+    build_inject_events,
+    check_turn4_bad_end,
+)
 from agent_world.hbm_demo.features.f02_player_turn.task import (
     INJECT_STATUS_DONE,
     INJECT_STATUS_FAILED,
     INJECT_STATUS_RUNNING,
     PendingTask,
 )
+from agent_world.hbm_demo.features.f04_stats.deltas import apply_stat_deltas
+from agent_world.hbm_demo.features.f04_stats.scoring import score_player_turn
 from agent_world.hbm_demo.features.f05_story_routing import routing
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
 from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import save_task_runtime
@@ -23,14 +30,13 @@ from agent_world.hbm_demo.shared.env_status import read_env_status
 log = logging.getLogger("agent_world.hbm_demo.f11")
 
 
-def run_background_inject(
+def run_background_turn(
     *,
     sim_dir: Path,
     sim_id: str,
     task_id: str,
     hbm: HbmSession,
-    events: List[Dict[str, Any]],
-    broadcast: Optional[Dict[str, Any]],
+    player_text: str,
     start_tick: int,
     task_place_id: str,
     task_phase: str,
@@ -38,6 +44,7 @@ def run_background_inject(
     tick_count: int,
     ipc_timeout: float,
 ) -> None:
+    """Score (F04), inject, route — all off the HTTP request thread."""
     task = PendingTask(
         task_id=task_id,
         start_tick=start_tick,
@@ -47,6 +54,39 @@ def run_background_inject(
         inject_status=INJECT_STATUS_RUNNING,
     )
     try:
+        deltas = score_player_turn(hbm, player_text)
+        apply_stat_deltas(hbm, deltas)
+
+        if check_turn4_bad_end(hbm):
+            task.inject_status = INJECT_STATUS_DONE
+            save_task_runtime(
+                sim_dir,
+                task.to_dict(),
+                session_dict=hbm.to_dict(),
+                turn_outcome={
+                    "status": "game_over",
+                    "ending_id": "bad_reject",
+                    "public_messages": list(BAD_END_PUBLIC_MESSAGES),
+                    "stats_update": dict(hbm.stats),
+                    "current_phase": hbm.phase,
+                },
+            )
+            log_turn_event(
+                event="player_turn_async_bad_end",
+                task_id=task_id,
+                phase=hbm.phase,
+                player_turn=task_player_turn,
+                start_tick=start_tick,
+                end_tick=start_tick,
+            )
+            return
+
+        events, broadcast = build_inject_events(hbm, player_text, task_id=task_id)
+        if not events:
+            raise RuntimeError(
+                f"no inject events for phase={hbm.phase!r} turn={hbm.player_turn}"
+            )
+
         ipc_client = get_ipc_client(str(sim_dir))
         resp = send_inject_batch(
             ipc_client,
@@ -102,7 +142,7 @@ def run_background_inject(
             extra={"inject_status": INJECT_STATUS_DONE},
         )
     except Exception as exc:  # noqa: BLE001
-        log.exception("F11 async inject failed task_id=%s", task_id)
+        log.exception("F11 async turn failed task_id=%s", task_id)
         task.inject_status = INJECT_STATUS_FAILED
         task.inject_error = str(exc)
         save_task_runtime(sim_dir, task.to_dict())
@@ -115,3 +155,7 @@ def run_background_inject(
             end_tick=start_tick,
             extra={"error": str(exc)},
         )
+
+
+# Backward-compatible alias for imports/tests.
+run_background_inject = run_background_turn
