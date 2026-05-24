@@ -61,6 +61,7 @@ def wire_handlers(
         from agent_world.hbm_demo.features.f07_agent_control.config import (
             is_experience_hardening,
             is_f07_enabled,
+            resolve_inject_tick_loops,
         )
         from agent_world.hbm_demo.features.f07_agent_control.inject_batch import (
             notify_non_inject_active_agents,
@@ -95,7 +96,13 @@ def wire_handlers(
                 script_engine.loaded_event_ids.add(ev.id)
 
         n = int(payload.get("tick_count", 6))
-        tick_loops = max(3, min(n, 8))
+        tick_loops = resolve_inject_tick_loops(n)
+        log.info(
+            "INJECT tick_loops=%s (requested=%s experience_hardening=%s)",
+            tick_loops,
+            n,
+            is_experience_hardening(),
+        )
 
         try:
             for _ in range(tick_loops):

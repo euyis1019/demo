@@ -7,6 +7,8 @@ import random
 from typing import Any, Dict, List, Optional, Set
 
 from agent_world.hbm_demo.features.f07_agent_control.config import (
+    inject_exclusive_ticks_for,
+    is_experience_hardening,
     is_f07_enabled,
     load_turn_control,
 )
@@ -137,6 +139,7 @@ def pick_active_ids(
     t: int,
     *,
     passive_ticks_so_far: int = 0,
+    batch_tick_index: int = 0,
 ) -> List[int]:
     """Return agent ids allowed to run LLM this tick."""
     if not is_f07_enabled():
@@ -146,6 +149,24 @@ def pick_active_ids(
     phase = str(turn_context.get("phase", "Phase 1"))
     player_turn = int(turn_context.get("player_turn", 1))
     frozen = _frozen_ids(phase)
+
+    # E2 — early batch ticks: inject targets only (F2F + first RDC priority).
+    if is_experience_hardening():
+        exclusive = inject_exclusive_ticks_for(phase)
+        inject_ids = turn_context.get("inject_agent_ids") or []
+        if exclusive > batch_tick_index and inject_ids:
+            inject_set = {int(x) for x in inject_ids}
+            primary = _primary_ids(phase, player_turn)
+            active = [
+                aid for aid in primary if aid in inject_set and aid not in frozen
+            ]
+            log.debug(
+                "F07-E2 inject_exclusive phase=%s batch_tick=%s active=%s",
+                phase,
+                batch_tick_index,
+                active,
+            )
+            return active
 
     active: List[int] = []
     seen: Set[int] = set()

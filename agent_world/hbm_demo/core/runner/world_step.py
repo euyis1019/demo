@@ -18,6 +18,7 @@ class HbmWorldStep(WorldStep):
         super().__init__(*args, **kwargs)
         self._tick_context: Optional[Dict[str, Any]] = None
         self._passive_ticks_batch: int = 0
+        self._batch_tick_index: int = 0
         from agent_world.hbm_demo.features.f07_agent_control.batch_guard import (
             BatchGuardState,
         )
@@ -31,6 +32,7 @@ class HbmWorldStep(WorldStep):
 
         self._tick_context = dict(turn_context) if turn_context else None
         self._passive_ticks_batch = 0
+        self._batch_tick_index = 0
         self._batch_guard = BatchGuardState()
 
     def clear_tick_context(self) -> None:
@@ -40,6 +42,7 @@ class HbmWorldStep(WorldStep):
 
         self._tick_context = None
         self._passive_ticks_batch = 0
+        self._batch_tick_index = 0
         self._batch_guard = BatchGuardState()
 
     @property
@@ -60,6 +63,12 @@ class HbmWorldStep(WorldStep):
             t=int(t),
         )
 
+    async def run_one_tick(self) -> Dict[str, Any]:
+        result = await super().run_one_tick()
+        if self._tick_context is not None:
+            self._batch_tick_index += 1
+        return result
+
     def _pick_active(self, t: int) -> List[int]:
         from agent_world.hbm_demo.features.f07_agent_control.config import (
             is_f07_enabled,
@@ -78,6 +87,7 @@ class HbmWorldStep(WorldStep):
             self.world,
             t,
             passive_ticks_so_far=self._passive_ticks_batch,
+            batch_tick_index=self._batch_tick_index,
         )
         passive_added = [aid for aid in active if aid not in primary]
         if passive_added:
@@ -129,6 +139,12 @@ class HbmWorldStep(WorldStep):
                     action_kwargs=akwargs or {},
                     dispatch_result=dispatch_result,
                     t=t,
+                )
+                self._mark_rdc_if_sent(
+                    agent_id=agent_id,
+                    action_type=atype,
+                    action_kwargs=akwargs or {},
+                    dispatch_result=dispatch_result,
                 )
             except Exception as exc:  # noqa: BLE001
                 log.warning(
@@ -197,6 +213,40 @@ class HbmWorldStep(WorldStep):
                 agent_id,
                 exc,
             )
+
+    def _mark_rdc_if_sent(
+        self,
+        *,
+        agent_id: int,
+        action_type: Any,
+        action_kwargs: Dict[str, Any],
+        dispatch_result: Any,
+    ) -> None:
+        from agent_world.hbm_demo.features.f07_agent_control.config import (
+            is_experience_hardening,
+        )
+        from agent_world.hbm_demo.features.f07_agent_control.player_facing_f2f import (
+            is_speak_to_local_action,
+        )
+
+        if not is_experience_hardening():
+            return
+        if is_speak_to_local_action(action_type):
+            return
+        name = str(
+            getattr(action_type, "value", None)
+            or getattr(action_type, "name", None)
+            or action_type
+            or ""
+        )
+        if name.lower().replace("-", "_") != "send_message":
+            return
+        if not dispatch_result or not dispatch_result.get("success"):
+            return
+        target = action_kwargs.get("target")
+        if target is None:
+            return
+        self._batch_guard.mark_rdc(int(agent_id), int(target))
 
     async def _run_place(
         self, place_id: str, agent_ids: List[int], t: int

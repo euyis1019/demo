@@ -1134,8 +1134,8 @@ def test_f07_e_step2_guard_and_fallback() -> None:
     from agent_world.persistence.world_db import WorldDB
 
     phase = FEATURE_REGISTRY.get("F07", {}).get("phase", "")
-    if "F07-E Step2" not in phase:
-        raise TestFailure(f"F07 registry phase should mention F07-E Step2: {phase!r}")
+    if "F07-E" not in phase:
+        raise TestFailure(f"F07 registry phase should mention F07-E: {phase!r}")
     ok(f"FEATURE_REGISTRY F07 phase: {phase}")
 
     if not is_f07_enabled():
@@ -1237,6 +1237,113 @@ def test_f07_e_step2_guard_and_fallback() -> None:
 
     asyncio.run(_fallback_emit())
     ok("E1 apply_batch_f2f_fallback emits scripted F2F once per batch")
+
+
+def test_f07_e_step3_rdc_quota_and_tick_order() -> None:
+    """F07-E Step3 — E2 RDC quota + inject_exclusive_ticks + 12-tick IPC (dev_logs/29)."""
+    from types import SimpleNamespace
+
+    section("T2i F07-E Step3 E2 RDC quota + inject tick order")
+    from agent_world.demo.demo_agent import _ToolCall
+    from agent_world.hbm_demo.features import FEATURE_REGISTRY
+    from agent_world.hbm_demo.features.f07_agent_control.batch_guard import (
+        BatchGuardState,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        inject_exclusive_ticks_for,
+        is_experience_hardening,
+        is_f07_enabled,
+        load_turn_control,
+        max_inject_tick_loops,
+        rdc_quota_for,
+        resolve_inject_tick_loops,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.pick_active import (
+        pick_active_ids,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.tool_guard import (
+        filter_tool_calls,
+    )
+
+    phase = FEATURE_REGISTRY.get("F07", {}).get("phase", "")
+    if "F07-E Step3" not in phase:
+        raise TestFailure(f"F07 registry phase should mention F07-E Step3: {phase!r}")
+    ok(f"FEATURE_REGISTRY F07 phase: {phase}")
+
+    if not is_f07_enabled():
+        ok("F07-E Step3 tests skipped (F07 disabled)")
+        return
+
+    load_turn_control.cache_clear()
+    if not is_experience_hardening():
+        raise TestFailure("experience_hardening.enabled should be true")
+
+    if rdc_quota_for(1, "Phase 1") != 1:
+        raise TestFailure(f"Phase 1 agent 1 RDC quota expected 1: {rdc_quota_for(1, 'Phase 1')}")
+    if rdc_quota_for(2, "Phase 1") != 2:
+        raise TestFailure(f"Phase 1 agent 2 RDC quota expected 2: {rdc_quota_for(2, 'Phase 1')}")
+    if inject_exclusive_ticks_for("Phase 1") != 2:
+        raise TestFailure(f"Phase 1 inject_exclusive_ticks expected 2: {inject_exclusive_ticks_for('Phase 1')}")
+    ok("E2 turn_control rdc_quota + inject_exclusive_ticks")
+
+    if max_inject_tick_loops() != 12:
+        raise TestFailure(f"max_inject_tick_loops should be 12: {max_inject_tick_loops()}")
+    if resolve_inject_tick_loops(12) != 12:
+        raise TestFailure("resolve_inject_tick_loops(12) should run 12 ticks")
+    if resolve_inject_tick_loops(6) != 6:
+        raise TestFailure("resolve_inject_tick_loops(6) should respect requested count")
+    if resolve_inject_tick_loops(20) != 12:
+        raise TestFailure("resolve_inject_tick_loops should cap at 12")
+    ok("E2 resolve_inject_tick_loops cap=12")
+
+    ipc_src = (HBM_DIR / "core" / "runner" / "ipc_handlers.py").read_text(encoding="utf-8")
+    if "resolve_inject_tick_loops" not in ipc_src:
+        raise TestFailure("ipc_handlers should use resolve_inject_tick_loops")
+    ok("E2 ipc_handlers 12-tick loop cap wired")
+
+    ctx_p1 = {
+        "phase": "Phase 1",
+        "player_turn": 1,
+        "place_id": "nvidia_reception",
+        "inject_agent_ids": [1],
+    }
+    world = SimpleNamespace(agents={1: object(), 2: object(), 3: object()})
+
+    exclusive_tick0 = pick_active_ids(
+        ctx_p1, world, t=1, batch_tick_index=0
+    )
+    if exclusive_tick0 != [1]:
+        raise TestFailure(f"inject_exclusive tick0 expected [1]: {exclusive_tick0}")
+    exclusive_tick1 = pick_active_ids(
+        ctx_p1, world, t=2, batch_tick_index=1
+    )
+    if exclusive_tick1 != [1]:
+        raise TestFailure(f"inject_exclusive tick1 expected [1]: {exclusive_tick1}")
+    normal_tick2 = pick_active_ids(
+        ctx_p1, world, t=3, batch_tick_index=2
+    )
+    if not all(aid in normal_tick2 for aid in (1, 2, 3)):
+        raise TestFailure(f"tick2+ should restore primary [1,2,3]: {normal_tick2}")
+    ok("E2 inject_exclusive_ticks Phase 1 tick0-1 → [1] only")
+
+    guard = BatchGuardState()
+    guard.mark_f2f(1)
+    guard.mark_rdc(1, 2)
+    blocked_rdc = filter_tool_calls(
+        1,
+        ctx_p1,
+        [_ToolCall(tool_name="send_message", args={"target": 2, "content": "dup"})],
+        batch_guard=guard,
+    )
+    if not blocked_rdc or blocked_rdc[0].tool_name != "do_nothing":
+        raise TestFailure(f"E2 should block 2nd RDC for agent 1: {blocked_rdc}")
+    ok("E2 rdc_quota blocks send_message after quota exhausted")
+
+    ws_src = (HBM_DIR / "core" / "runner" / "world_step.py").read_text(encoding="utf-8")
+    if "_batch_tick_index" not in ws_src or "_mark_rdc_if_sent" not in ws_src:
+        raise TestFailure("HbmWorldStep missing batch_tick_index / mark_rdc hooks")
+    ok("E2 world_step batch_tick_index + mark_rdc_if_sent present")
+
 
 def test_m6_frontend_features() -> None:
     section("T1g M6 web/src/features/ 前端 Feature 拆分")
@@ -1814,11 +1921,17 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
 
     section("T4d F07 Phase 1 运行时验收 (dev_logs/24 §12.1 · Tier A/B)")
     ipc_end = int(task_runtime.get("ipc_end_tick") or 0)
-    if ipc_end < 8:
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_experience_hardening,
+        max_inject_tick_loops,
+    )
+
+    min_ipc_end = max_inject_tick_loops() if is_experience_hardening() else 8
+    if ipc_end < min_ipc_end:
         raise TestFailure(
-            f"F07 Phase 1 inject must reach tick≥8 (§13.2); ipc_end_tick={ipc_end}"
+            f"F07 Phase 1 inject must reach tick≥{min_ipc_end}; ipc_end_tick={ipc_end}"
         )
-    ok(f"Tier A: ipc_end_tick={ipc_end} (≥8, no processing deadlock)")
+    ok(f"Tier A: ipc_end_tick={ipc_end} (≥{min_ipc_end}, no processing deadlock)")
     if len(grp) != 0:
         raise TestFailure(
             f"F07 Phase 1 Turn 1 GRP must be 0 (L3/L5); got GRP={len(grp)}"
@@ -1836,7 +1949,25 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
                     "Last runner log:\n"
                     + runner_log_excerpt()
                 )
-            ok(f"Tier B E5: F2F≥1 hard assert — F2F={len(public)} observer={len(observer)}")
+            reception_jensen = sum(
+                1
+                for m in observer
+                if m.get("type") == "RDC"
+                and m.get("sender") == "接待前台"
+                and m.get("recipient") == "Jensen"
+            )
+            if reception_jensen > 2:
+                raise TestFailure(
+                    f"Tier B E2: reception→Jensen RDC must be ≤2; got {reception_jensen}"
+                )
+            if len(observer) > 6:
+                raise TestFailure(
+                    f"Tier B E2: Phase 1 observer_messages must be ≤6; got {len(observer)}"
+                )
+            ok(
+                f"Tier B E5+E2: F2F={len(public)} reception→Jensen RDC={reception_jensen} "
+                f"observer={len(observer)}"
+            )
         elif len(public) < 1 and len(observer) < 1:
             raise TestFailure(
                 "Tier B: DMXAPI_KEY set but no F2F and no observer RDC — "
@@ -2033,6 +2164,7 @@ def main() -> int:
         test_f07_d_agent_control,
         test_f07_e_step1_player_facing_f2f,
         test_f07_e_step2_guard_and_fallback,
+        test_f07_e_step3_rdc_quota_and_tick_order,
         test_f05_routing_payload,
         test_f11_live_turn_sync,
         test_f11_c_frontend,

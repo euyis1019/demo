@@ -56,6 +56,45 @@ def scripted_f2f_fallback_enabled() -> bool:
     return block.get("scripted_f2f_fallback", True) is not False
 
 
+def rdc_quota_for(agent_id: int, phase: str) -> int | None:
+    """Max RDC sends per agent per inject batch (dev_logs/29 E2). None = no quota."""
+    if not is_experience_hardening():
+        return None
+    block = experience_hardening_block().get("rdc_quota_per_batch") or {}
+    phase_table = block.get(str(phase))
+    if isinstance(phase_table, dict):
+        raw = phase_table.get(int(agent_id))
+        if raw is None:
+            raw = phase_table.get(str(agent_id))
+        if raw is not None:
+            return int(raw)
+    default = block.get("default")
+    if default is not None:
+        return int(default)
+    return None
+
+
+def inject_exclusive_ticks_for(phase: str) -> int:
+    """First N batch ticks only run inject targets (dev_logs/29 E2)."""
+    if not is_experience_hardening():
+        return 0
+    table = experience_hardening_block().get("inject_exclusive_ticks") or {}
+    raw = table.get(str(phase))
+    if raw is None:
+        return 0
+    return max(0, int(raw))
+
+
+def max_inject_tick_loops() -> int:
+    """IPC inject batch tick cap (sync with resolve_inject_tick_count floor)."""
+    return 12 if is_experience_hardening() else 8
+
+
+def resolve_inject_tick_loops(tick_count: int) -> int:
+    n = int(tick_count)
+    return max(3, min(n, max_inject_tick_loops()))
+
+
 def resolve_inject_tick_count(phase: str, tick_count: int) -> int:
     """Floor inject batch length for F07 completion semantics (§13.2 / dev_logs/29 E5)."""
     n = int(tick_count)

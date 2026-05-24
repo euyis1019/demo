@@ -14,6 +14,7 @@ from agent_world.hbm_demo.features.f07_agent_control.config import (
     is_experience_hardening,
     is_f07_enabled,
     load_turn_control,
+    rdc_quota_for,
 )
 
 log = logging.getLogger("agent_world.hbm_demo.f07.tool_guard")
@@ -114,8 +115,31 @@ def filter_tool_calls(
 
     out: List[Any] = []
     for tc in tool_calls:
-        name = getattr(tc, "tool_name", None) or getattr(tc, "name", "")
-        if is_tool_allowed(agent_id, str(name), turn_context):
+        name = str(
+            getattr(tc, "tool_name", None) or getattr(tc, "name", "")
+        )
+        # E2 — after first-action guard, before matrix guard.
+        if (
+            is_experience_hardening()
+            and batch_guard is not None
+            and name == "send_message"
+        ):
+            phase = str(turn_context.get("phase", "Phase 1"))
+            quota = rdc_quota_for(int(agent_id), phase)
+            if quota is not None and batch_guard.rdc_count(int(agent_id)) >= quota:
+                log.info(
+                    "F07-E2 rdc_quota: agent %s blocked send_message "
+                    "(count=%s quota=%s phase=%s)",
+                    agent_id,
+                    batch_guard.rdc_count(int(agent_id)),
+                    quota,
+                    phase,
+                )
+                from agent_world.demo.demo_agent import _ToolCall
+
+                return [_ToolCall(tool_name="do_nothing", args={})]
+
+        if is_tool_allowed(agent_id, name, turn_context):
             out.append(tc)
         else:
             log.info(
