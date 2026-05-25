@@ -25,15 +25,21 @@ class HbmWorldStep(WorldStep):
 
         self._batch_guard = BatchGuardState()
 
-    def set_tick_context(self, turn_context: Optional[Dict[str, Any]]) -> None:
+    def set_tick_context(
+        self,
+        turn_context: Optional[Dict[str, Any]],
+        *,
+        reset_l3_window: bool = False,
+    ) -> None:
         from agent_world.hbm_demo.features.f07_agent_control.batch_guard import (
             BatchGuardState,
         )
 
         self._tick_context = dict(turn_context) if turn_context else None
-        self._passive_ticks_batch = 0
-        self._batch_tick_index = 0
-        self._batch_guard = BatchGuardState()
+        if reset_l3_window:
+            self._passive_ticks_batch = 0
+            self._batch_tick_index = 0
+            self._batch_guard = BatchGuardState()
 
     def clear_tick_context(self) -> None:
         from agent_world.hbm_demo.features.f07_agent_control.batch_guard import (
@@ -65,29 +71,43 @@ class HbmWorldStep(WorldStep):
 
     async def run_one_tick(self) -> Dict[str, Any]:
         result = await super().run_one_tick()
-        if self._tick_context is not None:
+        if self._tick_context is not None and self._tick_context.get("player_inject_tick") is None:
             self._batch_tick_index += 1
         return result
 
     def _pick_active(self, t: int) -> List[int]:
         from agent_world.hbm_demo.features.f07_agent_control.config import (
             is_f07_enabled,
+            is_world_loop_enabled,
         )
         from agent_world.hbm_demo.features.f07_agent_control.pick_active import (
             pick_active_ids,
             primary_active_ids,
         )
+        from agent_world.hbm_demo.features.f07_agent_control.session_mirror import (
+            bootstrap_mirror,
+        )
 
         if not is_f07_enabled() or not self._tick_context:
+            if is_world_loop_enabled():
+                ctx = bootstrap_mirror()
+                primary = primary_active_ids(ctx)
+                return list(primary)
             return super()._pick_active(t)
 
-        primary = set(primary_active_ids(self._tick_context))
+        ctx = self._tick_context
+        batch_tick_index = self._batch_tick_index
+        inject_tick = ctx.get("player_inject_tick")
+        if inject_tick is not None:
+            batch_tick_index = max(0, int(t) - int(inject_tick))
+
+        primary = set(primary_active_ids(ctx))
         active = pick_active_ids(
-            self._tick_context,
+            ctx,
             self.world,
             t,
             passive_ticks_so_far=self._passive_ticks_batch,
-            batch_tick_index=self._batch_tick_index,
+            batch_tick_index=batch_tick_index,
         )
         passive_added = [aid for aid in active if aid not in primary]
         if passive_added:

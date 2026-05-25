@@ -35,7 +35,15 @@ from agent_world.hbm_demo.features.f05_story_routing import routing
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
 from agent_world.hbm_demo.features.f11_live_turn_sync.handler import start_background_turn
 from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import sync_runtime_state
-from agent_world.hbm_demo.http.ipc_helper import get_ipc_client, send_inject_batch
+from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop_enabled
+from agent_world.hbm_demo.http.ipc_helper import (
+    get_ipc_client,
+    push_session_mirror,
+    resolve_loop_min_ticks,
+    send_enqueue_player_input,
+    send_inject_batch,
+    wait_for_loop_window,
+)
 from agent_world.hbm_demo.shared.env_status import is_runner_ready, read_env_status
 from agent_world.hbm_demo.shared.errors import RunnerNotReadyError
 from agent_world.hbm_demo.shared.settings import DEFAULT_IPC_TIMEOUT
@@ -63,17 +71,38 @@ def run_debug_inject(
     if not events:
         raise RuntimeError(f"no agents at place_id={session.place_id!r}")
 
-    resp = send_inject_batch(
-        get_ipc_client(str(sim)),
-        events=events,
-        tick_count=tick_count,
-        turn_context=turn_context,
-        timeout=timeout,
-    )
+    ipc_client = get_ipc_client(str(sim))
+    env_before = read_env_status(sim) or {}
+    start_tick = int(env_before.get("current_tick", 0))
+    if is_world_loop_enabled():
+        send_enqueue_player_input(
+            ipc_client,
+            events=events,
+            turn_context=turn_context,
+            timeout=timeout,
+        )
+        session.player_turn += 1
+        push_session_mirror(ipc_client, session, timeout=timeout)
+        loop_status = wait_for_loop_window(
+            ipc_client,
+            start_tick=start_tick,
+            min_ticks=resolve_loop_min_ticks(session.phase, tick_count),
+            timeout=timeout,
+        )
+        resp_result = dict(loop_status)
+    else:
+        resp = send_inject_batch(
+            ipc_client,
+            events=events,
+            tick_count=tick_count,
+            turn_context=turn_context,
+            timeout=timeout,
+        )
+        session.player_turn += 1
+        resp_result = dict(resp.result or {})
 
-    session.player_turn += 1
     return {
-        "ipc": dict(resp.result or {}),
+        "ipc": resp_result,
         "events_count": len(events),
         "agent_ids": [ev["effect"]["agent_id"] for ev in events],
     }
@@ -98,22 +127,44 @@ def _handle_sync_inject(
 ) -> Dict[str, Any]:
     """Synchronous inject path — Turn 25 (and legacy inline flow)."""
     ipc_client = get_ipc_client(str(sim))
-    resp = send_inject_batch(
-        ipc_client,
-        events=events,
-        broadcast=broadcast,
-        turn_context=turn_context,
-        tick_count=tick_count,
-        timeout=ipc_timeout,
-    )
+    min_ticks = resolve_loop_min_ticks(hbm.phase, tick_count)
 
-    ipc_result = dict(resp.result or {})
+    if is_world_loop_enabled():
+        send_enqueue_player_input(
+            ipc_client,
+            events=events,
+            broadcast=broadcast,
+            turn_context=turn_context,
+            timeout=ipc_timeout,
+        )
+        hbm.player_turn += 1
+        push_session_mirror(ipc_client, hbm, timeout=ipc_timeout)
+        loop_status = wait_for_loop_window(
+            ipc_client,
+            start_tick=start_tick,
+            min_ticks=min_ticks,
+            timeout=ipc_timeout,
+        )
+        ipc_end_tick = int(loop_status.get("current_tick", start_tick))
+        ipc_result = dict(loop_status)
+    else:
+        resp = send_inject_batch(
+            ipc_client,
+            events=events,
+            broadcast=broadcast,
+            turn_context=turn_context,
+            tick_count=tick_count,
+            timeout=ipc_timeout,
+        )
+        ipc_result = dict(resp.result or {})
+        ipc_end_tick = int(
+            ipc_result.get("end_tick", ipc_result.get("world_t", start_tick))
+        )
+
     env_after = read_env_status(sim) or {}
     current_tick = int(env_after.get("current_tick", start_tick))
-    ipc_end_tick = int(
-        ipc_result.get("end_tick", ipc_result.get("world_t", current_tick))
-    )
-    current_tick = max(current_tick, ipc_end_tick)
+    ipc_end_tick = max(current_tick, ipc_end_tick)
+    current_tick = ipc_end_tick
     db = make_readonly_db(sim)
 
     task_place_id = hbm.place_id
@@ -139,7 +190,8 @@ def _handle_sync_inject(
             extra={"nodes": routing_info.get("nodes")},
         )
 
-    hbm.player_turn += 1
+    if not is_world_loop_enabled():
+        hbm.player_turn += 1
     save_session(flask_session, hbm, sim_id)
 
     if is_final_turn:

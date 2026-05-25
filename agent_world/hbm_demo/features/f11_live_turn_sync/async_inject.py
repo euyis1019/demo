@@ -1,10 +1,9 @@
-"""F11 background turn pipeline: F04 scoring + inject + routing."""
+"""F11 background turn pipeline: F04 scoring + enqueue + routing."""
 
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
 
 from agent_world.hbm_demo.features.f01_session.logging import log_turn_event
 from agent_world.hbm_demo.features.f01_session.models import HbmSession
@@ -23,8 +22,16 @@ from agent_world.hbm_demo.features.f04_stats.deltas import apply_stat_deltas
 from agent_world.hbm_demo.features.f04_stats.scoring import score_player_turn
 from agent_world.hbm_demo.features.f05_story_routing import routing
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
+from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop_enabled
 from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import save_task_runtime
-from agent_world.hbm_demo.http.ipc_helper import get_ipc_client, send_inject_batch
+from agent_world.hbm_demo.http.ipc_helper import (
+    get_ipc_client,
+    push_session_mirror,
+    resolve_loop_min_ticks,
+    send_enqueue_player_input,
+    send_inject_batch,
+    wait_for_loop_window,
+)
 from agent_world.hbm_demo.shared.env_status import read_env_status
 
 log = logging.getLogger("agent_world.hbm_demo.f11")
@@ -44,7 +51,7 @@ def run_background_turn(
     tick_count: int,
     ipc_timeout: float,
 ) -> None:
-    """Score (F04), inject, route — all off the HTTP request thread."""
+    """Score (F04), enqueue inject, route — all off the HTTP request thread."""
     task = PendingTask(
         task_id=task_id,
         start_tick=start_tick,
@@ -90,22 +97,46 @@ def run_background_turn(
             )
 
         ipc_client = get_ipc_client(str(sim_dir))
-        resp = send_inject_batch(
-            ipc_client,
-            events=events,
-            broadcast=broadcast,
-            turn_context=turn_context,
-            tick_count=tick_count,
-            timeout=ipc_timeout,
-        )
+        min_ticks = resolve_loop_min_ticks(task_phase, tick_count)
 
-        ipc_result = dict(resp.result or {})
+        if is_world_loop_enabled():
+            send_enqueue_player_input(
+                ipc_client,
+                events=events,
+                broadcast=broadcast,
+                turn_context=turn_context,
+                timeout=ipc_timeout,
+            )
+            hbm.player_turn += 1
+            push_session_mirror(ipc_client, hbm, timeout=ipc_timeout)
+            loop_status = wait_for_loop_window(
+                ipc_client,
+                start_tick=start_tick,
+                min_ticks=min_ticks,
+                timeout=ipc_timeout,
+            )
+            ipc_end_tick = int(loop_status.get("current_tick", start_tick))
+        else:
+            resp = send_inject_batch(
+                ipc_client,
+                events=events,
+                broadcast=broadcast,
+                turn_context=turn_context,
+                tick_count=tick_count,
+                timeout=ipc_timeout,
+            )
+            ipc_result = dict(resp.result or {})
+            env_after = read_env_status(sim_dir) or {}
+            current_tick = int(env_after.get("current_tick", start_tick))
+            ipc_end_tick = int(
+                ipc_result.get("end_tick", ipc_result.get("world_t", current_tick))
+            )
+            ipc_end_tick = max(current_tick, ipc_end_tick)
+            hbm.player_turn += 1
+
         env_after = read_env_status(sim_dir) or {}
-        current_tick = int(env_after.get("current_tick", start_tick))
-        ipc_end_tick = int(
-            ipc_result.get("end_tick", ipc_result.get("world_t", current_tick))
-        )
-        current_tick = max(current_tick, ipc_end_tick)
+        current_tick = int(env_after.get("current_tick", ipc_end_tick))
+        ipc_end_tick = max(current_tick, ipc_end_tick)
         db = make_readonly_db(sim_dir)
 
         routing_info = routing.apply_routing(
@@ -118,6 +149,7 @@ def run_background_turn(
             ipc_timeout=ipc_timeout,
         )
         if routing_info.get("nodes"):
+            push_session_mirror(ipc_client, hbm, timeout=ipc_timeout)
             log_turn_event(
                 event="routing_applied",
                 task_id=task_id,
@@ -127,8 +159,6 @@ def run_background_turn(
                 end_tick=current_tick,
                 extra={"nodes": routing_info.get("nodes"), "async": True},
             )
-
-        hbm.player_turn += 1
 
         task.ipc_end_tick = ipc_end_tick
         task.inject_status = INJECT_STATUS_DONE
@@ -161,5 +191,4 @@ def run_background_turn(
         )
 
 
-# Backward-compatible alias for imports/tests.
 run_background_inject = run_background_turn

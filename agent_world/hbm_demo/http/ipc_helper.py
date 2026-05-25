@@ -1,10 +1,15 @@
-"""Flask-side IPC helpers for HBM demo (batch inject / move)."""
+"""Flask-side IPC helpers for HBM demo (world loop + legacy batch)."""
 
 from __future__ import annotations
 
+import time
 from typing import Any, Dict, List, Optional
 
 from agent_world.app.services.simulation_ipc import IPCResponse, SimulationIPCClient
+from agent_world.hbm_demo.features.f07_agent_control.config import (
+    is_world_loop_enabled,
+    resolve_inject_tick_count,
+)
 from agent_world.hbm_demo.shared.errors import IpcFailedError, IpcTimeoutError
 from agent_world.hbm_demo.shared.settings import (
     DEFAULT_IPC_TIMEOUT,
@@ -25,6 +30,122 @@ def _ensure_ipc_completed(resp: IPCResponse, *, operation: str) -> IPCResponse:
     raise IpcFailedError(resp.error or f"{operation} failed: {resp.status.value}")
 
 
+def send_get_loop_status(
+    client: SimulationIPCClient,
+    *,
+    timeout: float = DEFAULT_MOVE_TIMEOUT,
+) -> IPCResponse:
+    try:
+        resp = client.send_command(CommandType.GET_LOOP_STATUS, {}, timeout=timeout)
+    except TimeoutError as exc:
+        raise IpcTimeoutError(str(exc)) from exc
+    return _ensure_ipc_completed(resp, operation="GET_LOOP_STATUS")
+
+
+def send_update_session_mirror(
+    client: SimulationIPCClient,
+    *,
+    turn_context: Dict[str, Any],
+    timeout: float = DEFAULT_MOVE_TIMEOUT,
+) -> IPCResponse:
+    try:
+        resp = client.send_command(
+            CommandType.UPDATE_SESSION_MIRROR,
+            {"turn_context": turn_context},
+            timeout=timeout,
+        )
+    except TimeoutError as exc:
+        raise IpcTimeoutError(str(exc)) from exc
+    return _ensure_ipc_completed(resp, operation="UPDATE_SESSION_MIRROR")
+
+
+def push_session_mirror(
+    client: SimulationIPCClient,
+    session: Any,
+    *,
+    player_text: str = "",
+    timeout: float = DEFAULT_MOVE_TIMEOUT,
+) -> None:
+    """Sync Flask session snapshot to Runner (no-op when world loop disabled)."""
+    if not is_world_loop_enabled():
+        return
+    from agent_world.hbm_demo.features.f07_agent_control.session_mirror import (
+        mirror_from_session,
+    )
+
+    mirror = mirror_from_session(session, player_text=player_text)
+    send_update_session_mirror(client, turn_context=mirror, timeout=timeout)
+
+
+def send_enqueue_player_input(
+    client: SimulationIPCClient,
+    *,
+    events: List[Dict[str, Any]],
+    turn_context: Optional[Dict[str, Any]] = None,
+    broadcast: Optional[Dict[str, Any]] = None,
+    timeout: float = DEFAULT_IPC_TIMEOUT,
+) -> IPCResponse:
+    payload: Dict[str, Any] = {"events": events}
+    if broadcast:
+        payload["broadcast"] = broadcast
+    if turn_context:
+        payload["turn_context"] = turn_context
+    try:
+        resp = client.send_command(
+            CommandType.ENQUEUE_PLAYER_INPUT,
+            payload,
+            timeout=timeout,
+        )
+    except TimeoutError as exc:
+        raise IpcTimeoutError(str(exc)) from exc
+    return _ensure_ipc_completed(resp, operation="ENQUEUE_PLAYER_INPUT")
+
+
+def send_enqueue_script_event(
+    client: SimulationIPCClient,
+    *,
+    events: List[Dict[str, Any]],
+    broadcast: Optional[Dict[str, Any]] = None,
+    timeout: float = DEFAULT_IPC_TIMEOUT,
+) -> IPCResponse:
+    payload: Dict[str, Any] = {"events": events}
+    if broadcast:
+        payload["broadcast"] = broadcast
+    try:
+        resp = client.send_command(
+            CommandType.INJECT_SCRIPT_EVENT,
+            payload,
+            timeout=timeout,
+        )
+    except TimeoutError as exc:
+        raise IpcTimeoutError(str(exc)) from exc
+    return _ensure_ipc_completed(resp, operation="INJECT_SCRIPT_EVENT")
+
+
+def wait_for_loop_window(
+    client: SimulationIPCClient,
+    *,
+    start_tick: int,
+    min_ticks: int = 8,
+    timeout: float = DEFAULT_IPC_TIMEOUT,
+    poll_sec: float = 0.25,
+) -> Dict[str, Any]:
+    """Wait until queue drained and ``current_tick >= start_tick + min_ticks``."""
+    deadline = time.monotonic() + float(timeout)
+    last: Dict[str, Any] = {}
+    while time.monotonic() < deadline:
+        resp = send_get_loop_status(client, timeout=min(30.0, timeout))
+        last = dict(resp.result or {})
+        tick = int(last.get("current_tick", 0))
+        depth = int(last.get("queue_depth", 0))
+        if tick >= int(start_tick) + int(min_ticks) and depth == 0:
+            return last
+        time.sleep(poll_sec)
+    raise IpcTimeoutError(
+        f"world loop window timeout start={start_tick} min_ticks={min_ticks} last={last}"
+    )
+
+
 def send_inject_batch(
     client: SimulationIPCClient,
     *,
@@ -34,7 +155,23 @@ def send_inject_batch(
     turn_context: Optional[Dict[str, Any]] = None,
     timeout: float = DEFAULT_IPC_TIMEOUT,
 ) -> IPCResponse:
-    """Send batch script inject with optional broadcast, turn_context, and tick_count."""
+    """Legacy batch inject, or enqueue-only when world loop is enabled."""
+    if is_world_loop_enabled():
+        if turn_context:
+            return send_enqueue_player_input(
+                client,
+                events=events,
+                broadcast=broadcast,
+                turn_context=turn_context,
+                timeout=timeout,
+            )
+        return send_enqueue_script_event(
+            client,
+            events=events,
+            broadcast=broadcast,
+            timeout=timeout,
+        )
+
     payload: Dict[str, Any] = {"events": events, "tick_count": tick_count}
     if broadcast:
         payload["broadcast"] = broadcast
@@ -49,6 +186,10 @@ def send_inject_batch(
     except TimeoutError as exc:
         raise IpcTimeoutError(str(exc)) from exc
     return _ensure_ipc_completed(resp, operation="INJECT_SCRIPT_EVENT")
+
+
+def resolve_loop_min_ticks(phase: str, tick_count: int) -> int:
+    return resolve_inject_tick_count(phase, tick_count)
 
 
 def send_move_agent(

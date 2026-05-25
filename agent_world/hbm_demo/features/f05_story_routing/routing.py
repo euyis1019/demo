@@ -11,7 +11,6 @@ from openai import OpenAI
 
 from agent_world.hbm_demo.features.f01_session.constants import DEFAULT_CONFIG
 from agent_world.hbm_demo.shared.config_loader import load_scenario
-from agent_world.hbm_demo.http.ipc_helper import send_inject_batch, send_move_agent
 from agent_world.hbm_demo.core.runner.kernel import llm_request_extras, resolve_api_key
 
 log = logging.getLogger("agent_world.hbm_demo.routing")
@@ -253,6 +252,8 @@ def apply_routing(
     ipc_timeout: float = 600.0,
 ) -> Dict[str, Any]:
     """Apply routing side effects after main inject (§4.3 / §6.2.3)."""
+    from agent_world.hbm_demo.http.ipc_helper import send_inject_batch, send_move_agent
+
     applied: Dict[str, Any] = {"nodes": []}
 
     if node_a_applies(session):

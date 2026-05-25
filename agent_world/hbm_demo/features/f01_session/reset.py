@@ -10,7 +10,6 @@ from agent_world.hbm_demo.features.f01_session.lifecycle import create_session, 
 from agent_world.hbm_demo.features.f01_session.logging import log_turn_event
 from agent_world.hbm_demo.features.f01_session.paths import get_sim_dir
 from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import clear_async_state
-from agent_world.hbm_demo.http.ipc_helper import get_ipc_client, send_reset_world
 from agent_world.hbm_demo.shared.env_status import is_runner_ready, read_env_status
 from agent_world.hbm_demo.shared.errors import RunnerNotReadyError
 
@@ -25,6 +24,12 @@ def reset_demo(
     if not is_runner_ready(sim):
         raise RunnerNotReadyError(f"runner not ready: {sim}")
 
+    from agent_world.hbm_demo.http.ipc_helper import (
+        get_ipc_client,
+        push_session_mirror,
+        send_reset_world,
+    )
+
     client = get_ipc_client(str(sim))
     send_reset_world(client)
 
@@ -32,6 +37,7 @@ def reset_demo(
     flask_session.clear()
     hbm = create_session(sim)
     save_session(flask_session, hbm, sim_id)
+    push_session_mirror(client, hbm)
     env = read_env_status(sim) or {}
 
     log_turn_event(

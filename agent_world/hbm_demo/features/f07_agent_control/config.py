@@ -121,3 +121,29 @@ def resolve_inject_tick_count(phase: str, tick_count: int) -> int:
 
 def story_knowledge_dir() -> Path:
     return _FEATURE_DIR / "story_knowledge"
+
+
+def world_loop_block() -> Dict[str, Any]:
+    block = load_turn_control().get("world_loop") or {}
+    return dict(block) if isinstance(block, dict) else {}
+
+
+def player_input_block() -> Dict[str, Any]:
+    block = load_turn_control().get("player_input") or {}
+    return dict(block) if isinstance(block, dict) else {}
+
+
+def is_world_loop_enabled() -> bool:
+    return bool(world_loop_block().get("enabled", False))
+
+
+def world_loop_tick_interval() -> float:
+    return float(world_loop_block().get("tick_interval_sec", 1.0))
+
+
+def world_loop_max_ticks() -> int:
+    return int(world_loop_block().get("max_ticks_per_session", 10000))
+
+
+def player_input_max_depth() -> int:
+    return int(player_input_block().get("max_queue_depth", 32))

@@ -53,3 +53,16 @@ llm_params:
   Phase 3: { temperature: 0.62, max_tokens: 350 }
   Phase 3_turn16: { temperature: 0.68, max_tokens: 400 }
   Phase 4: { temperature: 0.48, max_tokens: 200 }
+
+world_loop:
+  enabled: true
+  tick_interval_sec: 1.0
+  max_ticks_per_session: 10000
+  idle_pause_after_sec: 0
+  merge_player_burst: false
+  allow_manual_pause: true
+  pause_drains_queue: false
+
+player_input:
+  max_queue_depth: 32
+  inject_on_tick_boundary: true

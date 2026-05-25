@@ -9,7 +9,7 @@ from flask import Blueprint, jsonify, request, session
 from agent_world.hbm_demo import game_service as gs
 from agent_world.hbm_demo.http.health import check_stack_health
 from agent_world.hbm_demo.http.http_errors import service_error_payload
-from agent_world.hbm_demo.shared.env_status import read_env_status
+from agent_world.hbm_demo.shared.env_status import is_runner_ready, read_env_status
 
 hbm_bp = Blueprint("hbm", __name__)
 
@@ -45,6 +45,11 @@ def session_start(sim_id: str):
     hbm = gs.create_session()
     gs.save_session(session, hbm, sim_id)
     env = read_env_status(gs.get_sim_dir()) or {}
+
+    if is_runner_ready(gs.get_sim_dir()):
+        from agent_world.hbm_demo.http.ipc_helper import get_ipc_client, push_session_mirror
+
+        push_session_mirror(get_ipc_client(str(gs.get_sim_dir())), hbm)
 
     return jsonify(
         {

@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
-from agent_world.hbm_demo.core.runner import broadcast_helper
+from agent_world.hbm_demo.core.runner.world_loop import WorldLoopOrchestrator
 from agent_world.hbm_demo.features.f01_session.world_reset import reset_world_runtime
+from agent_world.hbm_demo.features.f07_agent_control.config import (
+    is_experience_hardening,
+    is_world_loop_enabled,
+    resolve_inject_tick_loops,
+)
 from agent_world.hbm_demo.shared.env_status import write_env_status
 from agent_world.ipc.commands import CommandType
-from agent_world.script.loader import ScriptLoader
 
 log = logging.getLogger("agent_world.hbm_demo.ipc")
 
@@ -31,18 +35,25 @@ def wire_handlers(
     segment_store: Any,
     sim_dir: str | Path,
     get_current_tick: Callable[[], int],
+    orchestrator: Optional[WorldLoopOrchestrator] = None,
 ) -> None:
-    """Register LIST_PLACES, MOVE_AGENT, full INJECT, RESET_WORLD, and CLOSE_ENV."""
+    """Register LIST_PLACES, MOVE_AGENT, inject/enqueue, RESET_WORLD, and CLOSE_ENV."""
 
     sim_dir_str = str(Path(sim_dir).resolve())
 
-    async def handle_inject_script_event(payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _legacy_inject_batch(payload: Dict[str, Any]) -> Dict[str, Any]:
+        """v1 fallback when world loop disabled."""
         start_tick = int(world_state.clock.t)
-        log.info(
-            "INJECT_SCRIPT_EVENT keys=%s start_tick=%s",
-            list(payload.keys()),
-            start_tick,
+        from agent_world.hbm_demo.core.runner import broadcast_helper
+        from agent_world.hbm_demo.features.f07_agent_control.config import is_f07_enabled
+        from agent_world.hbm_demo.features.f07_agent_control.inject_batch import (
+            notify_non_inject_active_agents,
         )
+        from agent_world.hbm_demo.features.f07_agent_control.turn_context import (
+            clear_player_memory_for_agents,
+            extract_inject_agent_ids,
+        )
+        from agent_world.script.loader import ScriptLoader
 
         bc = payload.get("broadcast")
         if bc:
@@ -58,22 +69,12 @@ def wire_handlers(
         if payload.get("event"):
             events = [payload["event"]]
 
-        from agent_world.hbm_demo.features.f07_agent_control.config import (
-            is_experience_hardening,
-            is_f07_enabled,
-            resolve_inject_tick_loops,
-        )
-        from agent_world.hbm_demo.features.f07_agent_control.inject_batch import (
-            notify_non_inject_active_agents,
-        )
-        from agent_world.hbm_demo.features.f07_agent_control.turn_context import (
-            clear_player_memory_for_agents,
-            extract_inject_agent_ids,
-        )
-
         turn_context = payload.get("turn_context") or {}
         if hasattr(world_step, "set_tick_context"):
-            world_step.set_tick_context(turn_context if is_f07_enabled() else None)
+            world_step.set_tick_context(
+                turn_context if is_f07_enabled() else None,
+                reset_l3_window=True,
+            )
 
         if events and is_f07_enabled():
             inject_ids = extract_inject_agent_ids(events)
@@ -97,13 +98,6 @@ def wire_handlers(
 
         n = int(payload.get("tick_count", 6))
         tick_loops = resolve_inject_tick_loops(n)
-        log.info(
-            "INJECT tick_loops=%s (requested=%s experience_hardening=%s)",
-            tick_loops,
-            n,
-            is_experience_hardening(),
-        )
-
         try:
             for _ in range(tick_loops):
                 await world_step.run_one_tick()
@@ -118,6 +112,36 @@ def wire_handlers(
             "end_tick": end_tick,
             "world_t": end_tick,
         }
+
+    async def handle_inject_script_event(payload: Dict[str, Any]) -> Dict[str, Any]:
+        log.info(
+            "INJECT_SCRIPT_EVENT keys=%s tick=%s loop=%s",
+            list(payload.keys()),
+            get_current_tick(),
+            is_world_loop_enabled(),
+        )
+        if orchestrator is not None and orchestrator.enabled:
+            return orchestrator.enqueue_script_event(payload)
+        return await _legacy_inject_batch(payload)
+
+    async def handle_enqueue_player_input(payload: Dict[str, Any]) -> Dict[str, Any]:
+        if orchestrator is None or not orchestrator.enabled:
+            return await _legacy_inject_batch(payload)
+        return orchestrator.enqueue_player_input(payload)
+
+    async def handle_update_session_mirror(payload: Dict[str, Any]) -> Dict[str, Any]:
+        if orchestrator is None or not orchestrator.enabled:
+            return {"ok": False, "reason": "world_loop_disabled"}
+        return orchestrator.update_session_mirror(payload)
+
+    async def handle_get_loop_status(payload: Dict[str, Any]) -> Dict[str, Any]:  # noqa: ARG001
+        if orchestrator is None or not orchestrator.enabled:
+            return {
+                "loop_running": False,
+                "loop_state": "disabled",
+                "current_tick": int(get_current_tick()),
+            }
+        return orchestrator.get_loop_status()
 
     async def handle_list_places(payload: Dict[str, Any]) -> Dict[str, Any]:  # noqa: ARG001
         places = []
@@ -158,10 +182,14 @@ def wire_handlers(
             }
 
     async def handle_close_env(payload: Dict[str, Any]) -> Dict[str, Any]:  # noqa: ARG001
+        if orchestrator is not None:
+            await orchestrator.stop()
         ipc_server.stop()
         return {}
 
     async def handle_reset_world(payload: Dict[str, Any]) -> Dict[str, Any]:  # noqa: ARG001
+        if orchestrator is not None:
+            orchestrator.reset_runtime()
         end_tick = await reset_world_runtime(
             world_db=world_db,
             world_state=world_state,
@@ -176,11 +204,34 @@ def wire_handlers(
             segment_store=segment_store,
             sim_dir=sim_dir_str,
         )
+        if orchestrator is not None and orchestrator.enabled:
+            orchestrator.update_session_mirror({})
+            write_env_status(
+                sim_dir_str,
+                end_tick,
+                status="running",
+                loop_running=True,
+                loop_state="running",
+                last_activity_t=0,
+                queue_depth=0,
+            )
         return {"end_tick": end_tick, "world_t": end_tick}
 
     ipc_server.register_handler(
         CommandType.INJECT_SCRIPT_EVENT,
         handle_inject_script_event,
+    )
+    ipc_server.register_handler(
+        CommandType.ENQUEUE_PLAYER_INPUT,
+        handle_enqueue_player_input,
+    )
+    ipc_server.register_handler(
+        CommandType.UPDATE_SESSION_MIRROR,
+        handle_update_session_mirror,
+    )
+    ipc_server.register_handler(
+        CommandType.GET_LOOP_STATUS,
+        handle_get_loop_status,
     )
     ipc_server.register_handler(CommandType.LIST_PLACES, handle_list_places)
     ipc_server.register_handler(CommandType.MOVE_AGENT, handle_move_agent)

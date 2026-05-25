@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 # IPCServer (MiroFish legacy) writes ``alive``; HBM demo standardizes on ``running``.
 _STATUS_NORMALIZE = {"alive": "running"}
@@ -21,11 +21,15 @@ def write_env_status(
     current_tick: int,
     *,
     status: str = "running",
+    loop_running: Optional[bool] = None,
+    loop_state: Optional[str] = None,
+    last_activity_t: Optional[int] = None,
+    queue_depth: Optional[int] = None,
 ) -> None:
     """Write ``{sim_dir}/env_status.json`` with ``current_tick`` preserved."""
     path = Path(sim_dir) / "env_status.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    body = {
+    body: dict[str, Any] = {
         "status": normalize_env_status(status),
         "current_tick": int(current_tick),
         "timestamp": datetime.now(timezone.utc)
@@ -33,6 +37,14 @@ def write_env_status(
         .isoformat()
         .replace("+00:00", "Z"),
     }
+    if loop_running is not None:
+        body["loop_running"] = bool(loop_running)
+    if loop_state is not None:
+        body["loop_state"] = str(loop_state)
+    if last_activity_t is not None:
+        body["last_activity_t"] = int(last_activity_t)
+    if queue_depth is not None:
+        body["queue_depth"] = int(queue_depth)
     path.write_text(json.dumps(body, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
@@ -63,14 +75,26 @@ def patch_ipc_server_env_status(
     ipc_server: Any,
     sim_dir: str | Path,
     get_current_tick: Callable[[], int],
+    *,
+    get_loop_extra: Optional[Callable[[], dict[str, Any]]] = None,
 ) -> None:
     """Replace ``IPCServer._update_env_status`` so it keeps ``current_tick``."""
 
     def _merged_update(status: str) -> None:
+        extra: dict[str, Any] = {}
+        if get_loop_extra is not None:
+            try:
+                extra = dict(get_loop_extra() or {})
+            except Exception:  # noqa: BLE001
+                extra = {}
         write_env_status(
             sim_dir,
             get_current_tick(),
             status=normalize_env_status(status),
+            loop_running=extra.get("loop_running"),
+            loop_state=extra.get("loop_state"),
+            last_activity_t=extra.get("last_activity_t"),
+            queue_depth=extra.get("queue_depth"),
         )
 
     ipc_server._update_env_status = _merged_update  # type: ignore[method-assign]

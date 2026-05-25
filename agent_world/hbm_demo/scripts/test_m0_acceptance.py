@@ -358,12 +358,15 @@ def test_m3_runner_modules() -> None:
 
     registered = {
         CommandType.INJECT_SCRIPT_EVENT,
+        CommandType.ENQUEUE_PLAYER_INPUT,
+        CommandType.UPDATE_SESSION_MIRROR,
+        CommandType.GET_LOOP_STATUS,
         CommandType.LIST_PLACES,
         CommandType.MOVE_AGENT,
         CommandType.RESET_WORLD,
         CommandType.CLOSE_ENV,
     }
-    ok(f"IPC CommandType registry includes {len(registered)} F00 commands")
+    ok(f"IPC CommandType registry includes {len(registered)} HBM commands")
 
 
 def test_m4_http_modules() -> None:
@@ -377,6 +380,11 @@ def test_m4_http_modules() -> None:
 
     for name, obj in (
         ("ipc_helper.send_inject_batch", ipc_helper.send_inject_batch),
+        ("ipc_helper.send_enqueue_player_input", ipc_helper.send_enqueue_player_input),
+        ("ipc_helper.send_update_session_mirror", ipc_helper.send_update_session_mirror),
+        ("ipc_helper.send_get_loop_status", ipc_helper.send_get_loop_status),
+        ("ipc_helper.wait_for_loop_window", ipc_helper.wait_for_loop_window),
+        ("ipc_helper.push_session_mirror", ipc_helper.push_session_mirror),
         ("health.check_stack_health", health.check_stack_health),
         ("http_errors.service_error_payload", http_errors.service_error_payload),
     ):
@@ -1936,6 +1944,94 @@ def test_f07_v2_phase0_hard_control_retired() -> None:
     ok("Phase0 HbmActionDispatcher silently ignores request_move")
 
 
+def test_f07_v2_phase1_world_loop() -> None:
+    """dev_logs/31 Phase 1 — WorldLoopOrchestrator + PlayerInputQueue + enqueue IPC."""
+    section("T2m v2 Phase1 world loop")
+    from agent_world.hbm_demo.core.runner.player_input_queue import (
+        PlayerInputItem,
+        PlayerInputQueue,
+        ScriptQueueItem,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_world_loop_enabled,
+        load_turn_control,
+        world_loop_tick_interval,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.session_mirror import (
+        bootstrap_mirror,
+        mirror_from_session,
+    )
+    from agent_world.ipc.commands import CommandType
+
+    for mod_name in (
+        "agent_world.hbm_demo.core.runner.world_loop",
+        "agent_world.hbm_demo.core.runner.player_input_queue",
+    ):
+        __import__(mod_name)
+        ok(f"import {mod_name.rsplit('.', 1)[-1]}")
+
+    load_turn_control.cache_clear()
+    if not is_world_loop_enabled():
+        raise TestFailure("Phase1: turn_control world_loop.enabled must be true")
+    ok(f"world_loop enabled interval={world_loop_tick_interval()}s")
+
+    for cmd in (
+        CommandType.ENQUEUE_PLAYER_INPUT,
+        CommandType.UPDATE_SESSION_MIRROR,
+        CommandType.GET_LOOP_STATUS,
+    ):
+        if not isinstance(cmd.value, str):
+            raise TestFailure(f"Phase1 missing IPC command: {cmd}")
+    ok("Phase1 IPC commands registered")
+
+    q = PlayerInputQueue(max_depth=2)
+    if not q.enqueue_player(PlayerInputItem([], {"phase": "Phase 1"})):
+        raise TestFailure("Phase1 queue enqueue_player failed")
+    if not q.enqueue_script(ScriptQueueItem([])):
+        raise TestFailure("Phase1 queue enqueue_script failed")
+    players, scripts = q.drain_for_tick()
+    if len(players) != 1 or len(scripts) != 1:
+        raise TestFailure(f"Phase1 queue drain mismatch: {players} {scripts}")
+    if q.depth() != 0:
+        raise TestFailure("Phase1 queue not empty after drain")
+    ok("PlayerInputQueue FIFO drain at tick boundary")
+
+    boot = bootstrap_mirror()
+    if boot.get("phase") != "Phase 1" or boot.get("player_inject_tick") is not None:
+        raise TestFailure(f"Phase1 bootstrap mirror bad: {boot}")
+    from agent_world.hbm_demo.features.f01_session.models import HbmSession
+
+    hbm = HbmSession(
+        task_id="t",
+        start_tick=0,
+        place_id="nvidia_reception",
+        phase="Phase 1",
+        player_turn=1,
+        stats={"vision": 8, "execution": 5, "trust": 12, "burnout": 3},
+    )
+    mirror = mirror_from_session(hbm)
+    if mirror.get("player_turn") != 1:
+        raise TestFailure(f"Phase1 mirror_from_session bad: {mirror}")
+    ok("session_mirror bootstrap + mirror_from_session")
+
+    run_hbm_src = (HBM_DIR / "core" / "runner" / "run_hbm.py").read_text(encoding="utf-8")
+    if "WorldLoopOrchestrator" not in run_hbm_src or "orchestrator.start()" not in run_hbm_src:
+        raise TestFailure("Phase1 run_hbm must start WorldLoopOrchestrator")
+    ok("run_hbm wires WorldLoopOrchestrator.start()")
+
+    ipc_src = (HBM_DIR / "core" / "runner" / "ipc_handlers.py").read_text(encoding="utf-8")
+    if "handle_enqueue_player_input" not in ipc_src:
+        raise TestFailure("Phase1 ipc_handlers missing ENQUEUE_PLAYER_INPUT")
+    if "orchestrator.enqueue_player_input" not in ipc_src:
+        raise TestFailure("Phase1 ipc_handlers must enqueue via orchestrator")
+    ok("ipc_handlers enqueue-only when world loop enabled")
+
+    env_src = (HBM_DIR / "shared" / "env_status.py").read_text(encoding="utf-8")
+    if "loop_running" not in env_src or "last_activity_t" not in env_src:
+        raise TestFailure("Phase1 env_status missing loop fields")
+    ok("env_status.json supports loop_running + last_activity_t")
+
+
 def test_m6_frontend_features() -> None:
     section("T1g M6 web/src/features/ 前端 Feature 拆分")
     web_src = HBM_DIR / "web" / "src"
@@ -2322,6 +2418,31 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
         raise TestFailure(f"env-status HTTP {code}")
     ok(f"GET /env-status → tick={(env_payload.get('data') or {}).get('current_tick')}")
 
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_world_loop_enabled,
+    )
+
+    if is_world_loop_enabled():
+        env_data = env_payload.get("data") or {}
+        if not env_data.get("loop_running"):
+            raise TestFailure(
+                f"Phase1: env_status.loop_running expected true, got {env_data}"
+            )
+        idle_t0 = int(env_data.get("current_tick", 0))
+        idle_t1 = idle_t0
+        idle_deadline = time.time() + 45.0
+        while time.time() < idle_deadline:
+            time.sleep(1.0)
+            _, env_idle, _ = http_json("GET", f"{base}{BASE_PATH}/env-status")
+            idle_t1 = int((env_idle.get("data") or {}).get("current_tick", 0))
+            if idle_t1 > idle_t0:
+                break
+        if idle_t1 <= idle_t0:
+            raise TestFailure(
+                f"Phase1: idle tick did not advance {idle_t0} → {idle_t1} within 45s"
+            )
+        ok(f"Phase1 idle world loop tick advance {idle_t0} → {idle_t1}")
+
     code, start, cookie = http_json("POST", f"{base}{BASE_PATH}/session/start")
     if code != 200 or not start.get("success"):
         raise TestFailure(f"session/start failed: {start}")
@@ -2427,7 +2548,8 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
     saw_f12_delta = False
     client_since = start_tick
     last_through = start_tick - 1
-    deadline = time.time() + 180.0
+    loop_deadline_extra = 180.0 if is_world_loop_enabled() else 0.0
+    deadline = time.time() + 180.0 + loop_deadline_extra
     env_url = f"{base}{BASE_PATH}/env-status"
     last_result: Dict[str, Any] = {}
     acc_f2f: List[Dict[str, Any]] = []
@@ -2829,7 +2951,7 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
         run_phase4_ipc_smoke,
     )
 
-    p4 = run_phase4_ipc_smoke(SIM_DIR, ipc_timeout=180.0)
+    p4 = run_phase4_ipc_smoke(SIM_DIR, ipc_timeout=300.0)
     if p4.inject_agent_ids != [2]:
         raise TestFailure(f"E6 Phase 4 inject must target Agent 2 only: {p4.inject_agent_ids}")
     if p4.jensen_f2f_count < 1:
@@ -3007,6 +3129,7 @@ def main() -> int:
         test_f07_e_step4_turn_priority_and_offtopic,
         test_f07_e_step5_final_acceptance,
         test_f07_v2_phase0_hard_control_retired,
+        test_f07_v2_phase1_world_loop,
         test_f05_routing_payload,
         test_f11_live_turn_sync,
         test_f11_c_frontend,

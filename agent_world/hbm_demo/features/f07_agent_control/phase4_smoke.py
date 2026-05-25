@@ -14,14 +14,22 @@ from agent_world.hbm_demo.features.f05_story_routing.routing import (
 from agent_world.hbm_demo.features.f06_read_model.world_db import ReadOnlyWorldDB
 from agent_world.hbm_demo.features.f07_agent_control.config import (
     is_f07_enabled,
+    is_world_loop_enabled,
     resolve_inject_tick_count,
+)
+from agent_world.hbm_demo.features.f07_agent_control.session_mirror import (
+    mirror_from_session,
 )
 from agent_world.hbm_demo.http.ipc_helper import (
     get_ipc_client,
+    send_enqueue_player_input,
     send_inject_batch,
     send_move_agent,
     send_reset_world,
+    send_update_session_mirror,
+    wait_for_loop_window,
 )
+from agent_world.hbm_demo.shared.env_status import read_env_status
 from agent_world.ipc.commands import CommandType
 
 
@@ -86,16 +94,39 @@ def run_phase4_ipc_smoke(
     ]
 
     tick_count = resolve_inject_tick_count("Phase 4", 12) if is_f07_enabled() else 8
-    inject_resp = send_inject_batch(
-        client,
-        events=events,
-        tick_count=tick_count,
-        turn_context=turn_context,
-        timeout=ipc_timeout,
-    )
-    result = inject_resp.result or {}
-    start_tick = int(result.get("start_tick", 0))
-    end_tick = int(result.get("end_tick", start_tick))
+    env = read_env_status(sim_path) or {}
+    start_tick = int(env.get("current_tick", 0))
+
+    if is_world_loop_enabled():
+        send_update_session_mirror(
+            client,
+            turn_context=mirror_from_session(session, player_text=player_text),
+            timeout=ipc_timeout,
+        )
+        send_enqueue_player_input(
+            client,
+            events=events,
+            turn_context=turn_context,
+            timeout=ipc_timeout,
+        )
+        loop_status = wait_for_loop_window(
+            client,
+            start_tick=start_tick,
+            min_ticks=tick_count,
+            timeout=ipc_timeout,
+        )
+        end_tick = int(loop_status.get("current_tick", start_tick))
+    else:
+        inject_resp = send_inject_batch(
+            client,
+            events=events,
+            tick_count=tick_count,
+            turn_context=turn_context,
+            timeout=ipc_timeout,
+        )
+        result = inject_resp.result or {}
+        start_tick = int(result.get("start_tick", start_tick))
+        end_tick = int(result.get("end_tick", start_tick))
 
     list_resp = client.send_command(CommandType.LIST_PLACES, {}, timeout=ipc_timeout)
     locations_raw = (list_resp.result or {}).get("agent_locations") or {}

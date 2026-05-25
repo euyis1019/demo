@@ -500,13 +500,13 @@ Flask / 前端可轮询此文件或通过 API 代理，与 `worldTick` 展示一
 
 ### Phase 1 — WorldLoopOrchestrator（P0）
 
-- [ ] `core/runner/world_loop.py` — asyncio loop + 1s interval  
-- [ ] `PlayerInputQueue` — thread-safe，IPC/Flask 写入  
-- [ ] 改 `run_hbm.py` — 启动 loop task + IPC forever  
-- [ ] 改 `ipc_handlers` — inject 仅 enqueue  
-- [ ] 改 `f02` / `f11` — 不再 `send_inject_batch(tick_count=12)`  
-- [ ] `env_status.json` 增加 `loop_running`, `last_activity_t`  
-- [ ] 验收：Runner 启动后无玩家 input 时 t 仍每秒 +1；玩家 POST 后下 tick 可见 inject  
+- [x] `core/runner/world_loop.py` — asyncio loop + 1s interval  
+- [x] `PlayerInputQueue` — thread-safe，IPC/Flask 写入  
+- [x] 改 `run_hbm.py` — 启动 loop task + IPC forever  
+- [x] 改 `ipc_handlers` — inject 仅 enqueue  
+- [x] 改 `f02` / `f11` — 不再 `send_inject_batch(tick_count=12)`  
+- [x] `env_status.json` 增加 `loop_running`, `last_activity_t`  
+- [x] 验收：`test_m0_acceptance` Phase1 断言 + E2E idle tick 自增  
 
 ### Phase 1b — 左栏暂停世界（P0 · R13）
 

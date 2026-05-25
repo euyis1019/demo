@@ -23,6 +23,11 @@ class CommandType(str, Enum):
     MOVE_AGENT = "MOVE_AGENT"
     RESET_WORLD = "RESET_WORLD"  # HBM demo: restore world.db + tick to initial
 
+    # ---- HBM v2 world loop (dev_logs/31) ----
+    ENQUEUE_PLAYER_INPUT = "ENQUEUE_PLAYER_INPUT"
+    UPDATE_SESSION_MIRROR = "UPDATE_SESSION_MIRROR"
+    GET_LOOP_STATUS = "GET_LOOP_STATUS"
+
 
 class CommandStatus(str, Enum):
     """Response status enum (sym MiroFish)."""

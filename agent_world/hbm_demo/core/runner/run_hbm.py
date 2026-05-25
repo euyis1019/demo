@@ -1,4 +1,4 @@
-"""HBM demo Runner — seed world + LLM agents + IPC inject tick loop.
+"""HBM demo Runner — seed world + LLM agents + resident world loop + IPC.
 
 Usage:
     python -m agent_world.hbm_demo.run_hbm \\
@@ -18,6 +18,7 @@ from typing import Optional
 
 from agent_world.hbm_demo.core.runner.ipc_handlers import wire_handlers
 from agent_world.hbm_demo.core.runner.kernel import build_kernel
+from agent_world.hbm_demo.core.runner.world_loop import WorldLoopOrchestrator
 from agent_world.hbm_demo.shared.config_loader import load_scenario
 from agent_world.hbm_demo.shared.env_status import patch_ipc_server_env_status, write_env_status
 from agent_world.ipc.server import IPCServer
@@ -57,15 +58,33 @@ async def _run(sim_dir: Path, scenario: dict) -> int:
 
     write_env_status(sim_dir_str, kernel.clock.t, status="starting")
 
+    orchestrator = WorldLoopOrchestrator(
+        world_db=kernel.world_db,
+        world_state=kernel.world_state,
+        place_store=kernel.place_store,
+        script_engine=kernel.script_engine,
+        world_step=kernel.world_step,
+        agents=kernel.agents,
+        sim_dir=sim_dir_str,
+        get_current_tick=lambda: int(kernel.world_state.clock.t),
+    )
+
     ipc_server = IPCServer(
         simulation_dir=sim_dir_str,
         world_state=kernel.world_state,
         script_engine=kernel.script_engine,
     )
+
+    def _loop_extra() -> dict:
+        if orchestrator.enabled:
+            return orchestrator.get_loop_status()
+        return {}
+
     patch_ipc_server_env_status(
         ipc_server,
         sim_dir_str,
         lambda: int(kernel.world_state.clock.t),
+        get_loop_extra=_loop_extra,
     )
     wire_handlers(
         ipc_server,
@@ -82,15 +101,25 @@ async def _run(sim_dir: Path, scenario: dict) -> int:
         segment_store=kernel.world_step.segments,
         sim_dir=sim_dir_str,
         get_current_tick=lambda: int(kernel.world_state.clock.t),
+        orchestrator=orchestrator,
     )
 
-    write_env_status(sim_dir_str, kernel.clock.t, status="running")
+    write_env_status(
+        sim_dir_str,
+        kernel.clock.t,
+        status="running",
+        loop_running=orchestrator.enabled,
+        loop_state="running" if orchestrator.enabled else "disabled",
+        last_activity_t=int(kernel.clock.t),
+        queue_depth=0,
+    )
     log.info(
-        "HBM runner ready sim_dir=%s simulation_id=%s agents=%d places=%d",
+        "HBM runner ready sim_dir=%s simulation_id=%s agents=%d places=%d world_loop=%s",
         sim_dir_str,
         scenario.get("simulation_id"),
         len(kernel.agents),
         len(scenario.get("places", [])),
+        orchestrator.enabled,
     )
 
     def _request_stop(*_args: object) -> None:
@@ -104,10 +133,12 @@ async def _run(sim_dir: Path, scenario: dict) -> int:
         except NotImplementedError:
             signal.signal(sig, lambda *_: _request_stop())
 
+    await orchestrator.start()
     try:
         await ipc_server.run_forever()
     finally:
-        write_env_status(sim_dir_str, kernel.clock.t, status="stopped")
+        await orchestrator.stop()
+        write_env_status(sim_dir_str, kernel.clock.t, status="stopped", loop_running=False)
         kernel.world_db.close()
         log.info("HBM runner exit")
     return 0
