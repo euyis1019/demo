@@ -1,9 +1,10 @@
-"""HBM v2 WorldLoopOrchestrator — resident tick loop (dev_logs/31 §四)."""
+"""HBM v2 WorldLoopOrchestrator — resident tick loop (dev_logs/31 §四, §8.3)."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from agent_world.hbm_demo.core.runner import broadcast_helper
@@ -15,6 +16,7 @@ from agent_world.hbm_demo.core.runner.player_input_queue import (
 from agent_world.hbm_demo.features.f07_agent_control.config import (
     is_f07_enabled,
     is_world_loop_enabled,
+    pause_drains_queue,
     player_input_max_depth,
     world_loop_max_ticks,
     world_loop_tick_interval,
@@ -89,6 +91,10 @@ class WorldLoopOrchestrator:
         self._last_activity_t: int = 0
         self._last_player_inject_tick: Optional[int] = None
         self._ticks_run: int = 0
+        self._loop_state: str = "stopped"
+        self._paused_at_tick: Optional[int] = None
+        self._pause_event = asyncio.Event()
+        self._pause_event.set()
 
     @property
     def enabled(self) -> bool:
@@ -101,11 +107,15 @@ class WorldLoopOrchestrator:
         if self._loop_task is not None and not self._loop_task.done():
             return
         self._running = True
+        self._loop_state = "running"
+        self._paused_at_tick = None
+        self._pause_event.set()
         self._loop_task = asyncio.create_task(self._loop(), name="hbm-world-loop")
         log.info("WorldLoopOrchestrator started interval=%ss", world_loop_tick_interval())
 
     async def stop(self) -> None:
         self._running = False
+        self._pause_event.set()
         if self._loop_task is not None:
             self._loop_task.cancel()
             try:
@@ -113,6 +123,7 @@ class WorldLoopOrchestrator:
             except asyncio.CancelledError:
                 pass
             self._loop_task = None
+        self._loop_state = "stopped"
         self._write_status(loop_running=False)
 
     def reset_runtime(self) -> None:
@@ -121,6 +132,60 @@ class WorldLoopOrchestrator:
         self._last_activity_t = 0
         self._last_player_inject_tick = None
         self._ticks_run = 0
+        self._loop_state = "running"
+        self._paused_at_tick = None
+        self._pause_event.set()
+
+    def pause(self) -> Dict[str, Any]:
+        if not self.enabled:
+            return {"ok": False, "reason": "world_loop_disabled"}
+        tick = int(self._get_current_tick())
+        if self._loop_state == "paused":
+            return self._pause_payload(already=True)
+        self._loop_state = "paused"
+        self._paused_at_tick = tick
+        self._pause_event.clear()
+        self._write_status(loop_running=bool(self._running))
+        log.info("world loop paused at tick=%s", tick)
+        return self._pause_payload()
+
+    def resume(self) -> Dict[str, Any]:
+        if not self.enabled:
+            return {"ok": False, "reason": "world_loop_disabled"}
+        tick = int(self._get_current_tick())
+        if self._loop_state != "paused":
+            return self._resume_payload(already=True)
+        self._loop_state = "running"
+        self._paused_at_tick = None
+        self._pause_event.set()
+        self._write_status(loop_running=bool(self._running))
+        log.info("world loop resumed at tick=%s", tick)
+        return self._resume_payload()
+
+    def _pause_payload(self, *, already: bool = False) -> Dict[str, Any]:
+        tick = int(self._get_current_tick())
+        out = {
+            "ok": True,
+            "loop_state": "paused",
+            "paused_at_tick": int(self._paused_at_tick if self._paused_at_tick is not None else tick),
+            "world_t": tick,
+            "current_tick": tick,
+        }
+        if already:
+            out["already_paused"] = True
+        return out
+
+    def _resume_payload(self, *, already: bool = False) -> Dict[str, Any]:
+        tick = int(self._get_current_tick())
+        out = {
+            "ok": True,
+            "loop_state": "running",
+            "world_t": tick,
+            "current_tick": tick,
+        }
+        if already:
+            out["already_running"] = True
+        return out
 
     def enqueue_player_input(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         events = list(payload.get("events") or [])
@@ -170,12 +235,16 @@ class WorldLoopOrchestrator:
     def get_loop_status(self) -> Dict[str, Any]:
         tick = int(self._get_current_tick())
         stats = self._queue.stats()
+        loop_state = self._loop_state if self._running else "stopped"
         return {
-            "loop_running": bool(self._running and self.enabled),
-            "loop_state": "running" if self._running else "stopped",
+            "loop_running": bool(self._running and self.enabled and loop_state == "running"),
+            "loop_state": loop_state,
             "current_tick": tick,
+            "world_t": tick,
+            "tick_interval_sec": world_loop_tick_interval(),
             "last_activity_t": int(self._last_activity_t),
             "last_player_inject_tick": self._last_player_inject_tick,
+            "paused_at_tick": self._paused_at_tick,
             "ticks_run": int(self._ticks_run),
             **stats,
         }
@@ -185,6 +254,9 @@ class WorldLoopOrchestrator:
         max_ticks = world_loop_max_ticks()
         try:
             while self._running:
+                await self._pause_event.wait()
+                if not self._running:
+                    break
                 if self._ticks_run >= max_ticks:
                     log.warning("world loop hit max_ticks=%s — stopping", max_ticks)
                     break
@@ -197,6 +269,7 @@ class WorldLoopOrchestrator:
             log.exception("world loop crashed: %s", exc)
         finally:
             self._running = False
+            self._loop_state = "stopped"
             self._write_status(loop_running=False)
 
     async def _run_one_cycle(self) -> None:
@@ -220,6 +293,9 @@ class WorldLoopOrchestrator:
         self._write_status(loop_running=True)
 
     async def _drain_queue(self) -> Optional[Dict[str, Any]]:
+        if self._loop_state == "paused" and not pause_drains_queue():
+            return None
+
         players, scripts = self._queue.drain_for_tick()
         if not players and not scripts:
             return None
@@ -276,14 +352,25 @@ class WorldLoopOrchestrator:
             self._script_engine.loaded_event_ids.add(ev.id)
 
     def _write_status(self, *, loop_running: bool) -> None:
+        paused_iso: Optional[str] = None
+        if self._loop_state == "paused" and self._paused_at_tick is not None:
+            paused_iso = (
+                datetime.now(timezone.utc)
+                .replace(microsecond=0)
+                .isoformat()
+                .replace("+00:00", "Z")
+            )
         write_env_status(
             self._sim_dir,
             self._get_current_tick(),
             status="running",
             loop_running=loop_running,
-            loop_state="running" if loop_running else "stopped",
+            loop_state=self._loop_state if self._running else "stopped",
             last_activity_t=int(self._last_activity_t),
             queue_depth=int(self._queue.depth()),
+            paused_at_tick=self._paused_at_tick,
+            paused_at_iso=paused_iso,
+            tick_interval_sec=world_loop_tick_interval(),
         )
 
 

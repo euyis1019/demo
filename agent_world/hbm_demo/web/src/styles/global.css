@@ -237,12 +237,15 @@ body {
 
 .status-panel__footer {
   flex-shrink: 0;
+  display: flex;
+  gap: 0.5rem;
   padding: 0.75rem 1rem;
   border-top: 1px solid var(--hbm-panel-border);
 }
 
+.status-panel__pause-btn,
 .status-panel__reset-btn {
-  width: 100%;
+  flex: 1;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--hbm-panel-border);
   border-radius: 6px;
@@ -257,15 +260,38 @@ body {
     background 0.15s ease;
 }
 
+.status-panel__pause-btn:hover:not(:disabled),
 .status-panel__reset-btn:hover:not(:disabled) {
   color: var(--hbm-text);
   border-color: rgba(61, 139, 253, 0.45);
   background: rgba(61, 139, 253, 0.08);
 }
 
+.status-panel__pause-btn--paused {
+  border-color: rgba(245, 158, 11, 0.55);
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.status-panel__pause-btn--paused:hover:not(:disabled) {
+  border-color: rgba(245, 158, 11, 0.75);
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.status-panel__pause-btn:disabled,
 .status-panel__reset-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.status-panel__tick--paused {
+  color: #fbbf24;
+}
+
+.status-panel__paused-tag {
+  font-size: 0.75rem;
+  color: #fbbf24;
 }
 
 .main-chat {

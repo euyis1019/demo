@@ -7,6 +7,7 @@ import type {
   SessionStartData,
   Stats,
   TurnDelta,
+  WorldLoopState,
   WorldSnapshot,
 } from "../api/types";
 import { getPhaseTransitionMessage } from "../constants/phaseTransitions";
@@ -39,6 +40,8 @@ export interface GameState {
   playerTurn: number;
   placeId: string;
   worldTick: number;
+  worldLoopState: WorldLoopState;
+  worldLoopPausedAtTick?: number;
   nameMap: Record<string, string>;
   roomF2f: Record<PlaceId, GameMessage[]>;
   agentLocations: Record<string, { placeId: string; arrivedAt: number }>;
@@ -73,6 +76,7 @@ export function createInitialState(): GameState {
     playerTurn: 1,
     placeId: "nvidia_reception",
     worldTick: 0,
+    worldLoopState: "unknown",
     nameMap: {},
     roomF2f: emptyRoomF2f(),
     agentLocations: {},
@@ -105,6 +109,12 @@ export type GameAction =
   | { type: "DISMISS_PHASE_TOAST" }
   | { type: "RESET_PLAYTHROUGH" }
   | { type: "SET_WORLD_SNAPSHOT"; snapshot: WorldSnapshot }
+  | {
+      type: "SET_WORLD_LOOP_STATUS";
+      loopState: WorldLoopState;
+      currentTick?: number;
+      pausedAtTick?: number;
+    }
   | { type: "OPEN_AGENT_MODAL"; agentId: string }
   | { type: "CLOSE_AGENT_MODAL" }
   | { type: "DISMISS_WORLD_EVENT" }
@@ -297,6 +307,15 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         nameMap: snap.nameMap,
       };
     }
+    case "SET_WORLD_LOOP_STATUS":
+      return {
+        ...state,
+        worldLoopState: action.loopState,
+        worldLoopPausedAtTick:
+          action.loopState === "paused" ? action.pausedAtTick : undefined,
+        worldTick:
+          typeof action.currentTick === "number" ? action.currentTick : state.worldTick,
+      };
     case "OPEN_AGENT_MODAL":
       return { ...state, activeAgentModal: action.agentId };
     case "CLOSE_AGENT_MODAL":

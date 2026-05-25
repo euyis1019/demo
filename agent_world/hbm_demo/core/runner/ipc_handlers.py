@@ -140,8 +140,19 @@ def wire_handlers(
                 "loop_running": False,
                 "loop_state": "disabled",
                 "current_tick": int(get_current_tick()),
+                "world_t": int(get_current_tick()),
             }
         return orchestrator.get_loop_status()
+
+    async def handle_pause_loop(payload: Dict[str, Any]) -> Dict[str, Any]:  # noqa: ARG001
+        if orchestrator is None or not orchestrator.enabled:
+            return {"ok": False, "reason": "world_loop_disabled"}
+        return orchestrator.pause()
+
+    async def handle_resume_loop(payload: Dict[str, Any]) -> Dict[str, Any]:  # noqa: ARG001
+        if orchestrator is None or not orchestrator.enabled:
+            return {"ok": False, "reason": "world_loop_disabled"}
+        return orchestrator.resume()
 
     async def handle_list_places(payload: Dict[str, Any]) -> Dict[str, Any]:  # noqa: ARG001
         places = []
@@ -214,6 +225,9 @@ def wire_handlers(
                 loop_state="running",
                 last_activity_t=0,
                 queue_depth=0,
+                paused_at_tick=None,
+                paused_at_iso=None,
+                tick_interval_sec=orchestrator.get_loop_status().get("tick_interval_sec"),
             )
         return {"end_tick": end_tick, "world_t": end_tick}
 
@@ -233,6 +247,8 @@ def wire_handlers(
         CommandType.GET_LOOP_STATUS,
         handle_get_loop_status,
     )
+    ipc_server.register_handler(CommandType.PAUSE_LOOP, handle_pause_loop)
+    ipc_server.register_handler(CommandType.RESUME_LOOP, handle_resume_loop)
     ipc_server.register_handler(CommandType.LIST_PLACES, handle_list_places)
     ipc_server.register_handler(CommandType.MOVE_AGENT, handle_move_agent)
     ipc_server.register_handler(CommandType.RESET_WORLD, handle_reset_world)

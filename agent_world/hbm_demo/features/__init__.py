@@ -122,6 +122,13 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         ],
         "phase": "Phase 3 — 四房间 WorldStage 前端（Flask API + web world-stage）",
     },
+    "F13": {
+        "name": "世界 loop 暂停/继续",
+        "status": "implemented",
+        "path": "features/f13_world_loop_control/",
+        "modules": ["handler"],
+        "phase": "Phase 1b — pause/resume API + StatusPanel (dev_logs/31 §8.3)",
+    },
 }
 
 __all__ = ["FEATURE_REGISTRY"]

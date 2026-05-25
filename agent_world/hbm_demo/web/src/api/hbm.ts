@@ -15,6 +15,7 @@ import type {
   PlayerTurnRequest,
   SessionSnapshot,
   SessionStartData,
+  WorldLoopStatusData,
   WorldSnapshot,
 } from "./types";
 
@@ -105,4 +106,30 @@ export async function getEnvStatus(): Promise<ApiResponse<EnvStatusData>> {
     timeoutMs: READ_TIMEOUT_MS,
     allowHttpStatuses: [503],
   });
+}
+
+/** GET /world-loop/status — F13 pause/resume state. */
+export async function getWorldLoopStatus(): Promise<ApiResponse<WorldLoopStatusData>> {
+  return apiGet<WorldLoopStatusData>(`${API_PREFIX}/world-loop/status`, undefined, {
+    timeoutMs: READ_TIMEOUT_MS,
+    allowHttpStatuses: [503],
+  });
+}
+
+/** POST /world-loop/pause — F13 freeze world tick loop. */
+export async function pauseWorldLoop(): Promise<ApiResponse<WorldLoopStatusData>> {
+  return apiPost<WorldLoopStatusData>(
+    `${API_PREFIX}/world-loop/pause`,
+    {},
+    { timeoutMs: READ_TIMEOUT_MS },
+  );
+}
+
+/** POST /world-loop/resume — F13 resume world tick loop. */
+export async function resumeWorldLoop(): Promise<ApiResponse<WorldLoopStatusData>> {
+  return apiPost<WorldLoopStatusData>(
+    `${API_PREFIX}/world-loop/resume`,
+    {},
+    { timeoutMs: READ_TIMEOUT_MS },
+  );
 }

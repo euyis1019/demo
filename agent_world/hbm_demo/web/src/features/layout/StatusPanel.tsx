@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Stats } from "../../api/types";
+import type { Stats, WorldLoopState } from "../../api/types";
 
 export interface StatusPanelProps {
   stats: Stats;
@@ -9,6 +9,10 @@ export interface StatusPanelProps {
   placeLabel: string;
   presentAgents?: string[];
   worldTick?: number;
+  worldLoopState?: WorldLoopState;
+  onPauseWorld?: () => void;
+  onResumeWorld?: () => void;
+  pauseDisabled?: boolean;
   onReset?: () => void;
   resetDisabled?: boolean;
 }
@@ -20,7 +24,7 @@ const STAT_ROWS: { key: keyof Stats; label: string }[] = [
   { key: "burnout", label: "Burnout" },
 ];
 
-/** F2-2 + F4-5 — Stats 变化高亮动画；Turn x / 25。 */
+/** F2-2 + F4-5 — Stats 变化高亮动画；Turn x / 25。F13 — pause/resume world loop。 */
 export function StatusPanel({
   stats,
   phase,
@@ -29,11 +33,17 @@ export function StatusPanel({
   placeLabel,
   presentAgents = [],
   worldTick,
+  worldLoopState = "unknown",
+  onPauseWorld,
+  onResumeWorld,
+  pauseDisabled = false,
   onReset,
   resetDisabled = false,
 }: StatusPanelProps) {
   const prevStatsRef = useRef(stats);
   const [pulseKeys, setPulseKeys] = useState<Set<keyof Stats>>(new Set());
+  const isPaused = worldLoopState === "paused";
+  const showPauseControl = Boolean(onPauseWorld && onResumeWorld);
 
   useEffect(() => {
     const changed = new Set<keyof Stats>();
@@ -100,7 +110,19 @@ export function StatusPanel({
           <h2 className="status-panel__title">当前地点</h2>
           <p className="status-panel__place">{placeLabel}</p>
           {typeof worldTick === "number" ? (
-            <p className="status-panel__tick">World tick: {worldTick}</p>
+            <p
+              className={[
+                "status-panel__tick",
+                isPaused ? "status-panel__tick--paused" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              World tick: {worldTick}
+              {isPaused ? (
+                <span className="status-panel__paused-tag"> (已暂停)</span>
+              ) : null}
+            </p>
           ) : null}
           {presentAgents.length > 0 ? (
             <ul className="presence-list">
@@ -111,16 +133,39 @@ export function StatusPanel({
           ) : null}
         </section>
         </div>
-        {onReset ? (
+        {showPauseControl || onReset ? (
           <div className="status-panel__footer">
-            <button
-              type="button"
-              className="status-panel__reset-btn"
-              onClick={onReset}
-              disabled={resetDisabled}
-            >
-              重开
-            </button>
+            {showPauseControl ? (
+              <button
+                type="button"
+                className={[
+                  "status-panel__pause-btn",
+                  isPaused ? "status-panel__pause-btn--paused" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onClick={() => {
+                  if (isPaused) {
+                    onResumeWorld?.();
+                  } else {
+                    onPauseWorld?.();
+                  }
+                }}
+                disabled={pauseDisabled}
+              >
+                {isPaused ? "继续世界" : "暂停世界"}
+              </button>
+            ) : null}
+            {onReset ? (
+              <button
+                type="button"
+                className="status-panel__reset-btn"
+                onClick={onReset}
+                disabled={resetDisabled}
+              >
+                重开
+              </button>
+            ) : null}
           </div>
         ) : null}
       </div>

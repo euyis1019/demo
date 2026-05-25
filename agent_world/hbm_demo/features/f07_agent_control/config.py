@@ -147,3 +147,11 @@ def world_loop_max_ticks() -> int:
 
 def player_input_max_depth() -> int:
     return int(player_input_block().get("max_queue_depth", 32))
+
+
+def is_manual_pause_allowed() -> bool:
+    return bool(world_loop_block().get("allow_manual_pause", True))
+
+
+def pause_drains_queue() -> bool:
+    return bool(world_loop_block().get("pause_drains_queue", False))

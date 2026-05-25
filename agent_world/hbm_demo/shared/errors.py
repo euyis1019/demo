@@ -31,3 +31,7 @@ class IpcTimeoutError(HbmServiceError):
 
 class LlmServiceError(HbmServiceError):
     http_status = 502
+
+
+class WorldLoopDisabledError(HbmServiceError):
+    http_status = 503

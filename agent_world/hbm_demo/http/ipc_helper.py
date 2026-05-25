@@ -42,6 +42,30 @@ def send_get_loop_status(
     return _ensure_ipc_completed(resp, operation="GET_LOOP_STATUS")
 
 
+def send_pause_loop(
+    client: SimulationIPCClient,
+    *,
+    timeout: float = DEFAULT_MOVE_TIMEOUT,
+) -> IPCResponse:
+    try:
+        resp = client.send_command(CommandType.PAUSE_LOOP, {}, timeout=timeout)
+    except TimeoutError as exc:
+        raise IpcTimeoutError(str(exc)) from exc
+    return _ensure_ipc_completed(resp, operation="PAUSE_LOOP")
+
+
+def send_resume_loop(
+    client: SimulationIPCClient,
+    *,
+    timeout: float = DEFAULT_MOVE_TIMEOUT,
+) -> IPCResponse:
+    try:
+        resp = client.send_command(CommandType.RESUME_LOOP, {}, timeout=timeout)
+    except TimeoutError as exc:
+        raise IpcTimeoutError(str(exc)) from exc
+    return _ensure_ipc_completed(resp, operation="RESUME_LOOP")
+
+
 def send_update_session_mirror(
     client: SimulationIPCClient,
     *,

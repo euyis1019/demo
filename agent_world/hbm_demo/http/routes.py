@@ -199,6 +199,48 @@ def world_snapshot(sim_id: str):
     return jsonify({"success": True, "data": data})
 
 
+@hbm_bp.route("/simulations/<sim_id>/world-loop/status", methods=["GET"])
+def world_loop_status(sim_id: str):
+    """F13 — resident world loop status."""
+    err = _check_sim_id(sim_id)
+    if err:
+        return err
+    try:
+        data = gs.get_world_loop_status(sim_dir=gs.get_sim_dir())
+    except Exception as exc:  # noqa: BLE001
+        body, code = service_error_payload(exc)
+        return jsonify(body), code
+    return jsonify({"success": True, "data": data})
+
+
+@hbm_bp.route("/simulations/<sim_id>/world-loop/pause", methods=["POST"])
+def world_loop_pause(sim_id: str):
+    """F13 — pause resident world tick loop."""
+    err = _check_sim_id(sim_id)
+    if err:
+        return err
+    try:
+        data = gs.pause_world_loop(sim_dir=gs.get_sim_dir())
+    except Exception as exc:  # noqa: BLE001
+        body, code = service_error_payload(exc)
+        return jsonify(body), code
+    return jsonify({"success": True, "data": data})
+
+
+@hbm_bp.route("/simulations/<sim_id>/world-loop/resume", methods=["POST"])
+def world_loop_resume(sim_id: str):
+    """F13 — resume resident world tick loop."""
+    err = _check_sim_id(sim_id)
+    if err:
+        return err
+    try:
+        data = gs.resume_world_loop(sim_dir=gs.get_sim_dir())
+    except Exception as exc:  # noqa: BLE001
+        body, code = service_error_payload(exc)
+        return jsonify(body), code
+    return jsonify({"success": True, "data": data})
+
+
 @hbm_bp.route("/simulations/<sim_id>/debug-inject", methods=["POST"])
 def debug_inject(sim_id: str):
     """Phase 2 temporary endpoint — kept for manual IPC testing."""

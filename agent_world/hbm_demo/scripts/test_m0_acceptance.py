@@ -361,6 +361,8 @@ def test_m3_runner_modules() -> None:
         CommandType.ENQUEUE_PLAYER_INPUT,
         CommandType.UPDATE_SESSION_MIRROR,
         CommandType.GET_LOOP_STATUS,
+        CommandType.PAUSE_LOOP,
+        CommandType.RESUME_LOOP,
         CommandType.LIST_PLACES,
         CommandType.MOVE_AGENT,
         CommandType.RESET_WORLD,
@@ -383,6 +385,8 @@ def test_m4_http_modules() -> None:
         ("ipc_helper.send_enqueue_player_input", ipc_helper.send_enqueue_player_input),
         ("ipc_helper.send_update_session_mirror", ipc_helper.send_update_session_mirror),
         ("ipc_helper.send_get_loop_status", ipc_helper.send_get_loop_status),
+        ("ipc_helper.send_pause_loop", ipc_helper.send_pause_loop),
+        ("ipc_helper.send_resume_loop", ipc_helper.send_resume_loop),
         ("ipc_helper.wait_for_loop_window", ipc_helper.wait_for_loop_window),
         ("ipc_helper.push_session_mirror", ipc_helper.push_session_mirror),
         ("health.check_stack_health", health.check_stack_health),
@@ -406,11 +410,14 @@ def test_m4_http_modules() -> None:
         "/simulations/<sim_id>/player-turn",
         "/simulations/<sim_id>/action-result",
         "/simulations/<sim_id>/world-snapshot",
+        "/simulations/<sim_id>/world-loop/status",
+        "/simulations/<sim_id>/world-loop/pause",
+        "/simulations/<sim_id>/world-loop/resume",
         "/simulations/<sim_id>/debug-inject",
     }
     if rules != expected:
         raise TestFailure(f"hbm_bp routes mismatch: {sorted(rules)}")
-    ok(f"hbm_bp registers {len(expected)} HTTP endpoints (F08)")
+    ok(f"hbm_bp registers {len(expected)} HTTP endpoints (F08+F13)")
 
 
 def test_f11_live_turn_sync() -> None:
@@ -2032,6 +2039,90 @@ def test_f07_v2_phase1_world_loop() -> None:
     ok("env_status.json supports loop_running + last_activity_t")
 
 
+def test_f07_v2_phase1b_world_loop_pause() -> None:
+    """dev_logs/31 Phase 1b — pause/resume world loop (§8.3)."""
+    section("T2n v2 Phase1b world loop pause/resume")
+    from types import SimpleNamespace
+
+    from agent_world.hbm_demo.core.runner.world_loop import WorldLoopOrchestrator
+    from agent_world.hbm_demo.features import FEATURE_REGISTRY
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_manual_pause_allowed,
+        is_world_loop_enabled,
+        load_turn_control,
+    )
+    from agent_world.hbm_demo.features.f13_world_loop_control.handler import (
+        get_world_loop_status,
+        pause_world_loop,
+        resume_world_loop,
+    )
+    from agent_world.ipc.commands import CommandType
+
+    if "F13" not in FEATURE_REGISTRY:
+        raise TestFailure("Phase1b: FEATURE_REGISTRY missing F13")
+    ok("FEATURE_REGISTRY includes F13")
+
+    load_turn_control.cache_clear()
+    if not is_world_loop_enabled():
+        raise TestFailure("Phase1b: world_loop.enabled must be true")
+    if not is_manual_pause_allowed():
+        raise TestFailure("Phase1b: allow_manual_pause must be true")
+    ok("turn_control allow_manual_pause enabled")
+
+    for cmd in (CommandType.PAUSE_LOOP, CommandType.RESUME_LOOP):
+        if not isinstance(cmd.value, str):
+            raise TestFailure(f"Phase1b missing IPC command: {cmd}")
+    ok("Phase1b PAUSE_LOOP + RESUME_LOOP registered")
+
+    for fn in (get_world_loop_status, pause_world_loop, resume_world_loop):
+        if not callable(fn):
+            raise TestFailure(f"Phase1b handler missing: {fn}")
+    ok("F13 handler entrypoints present")
+
+    status_panel = (HBM_DIR / "web" / "src" / "features" / "layout" / "StatusPanel.tsx").read_text(
+        encoding="utf-8"
+    )
+    if "暂停世界" not in status_panel or "继续世界" not in status_panel:
+        raise TestFailure("Phase1b StatusPanel missing pause/resume labels")
+    ok("StatusPanel pause/resume UI wired")
+
+    orch = WorldLoopOrchestrator(
+        world_db=SimpleNamespace(),
+        world_state=SimpleNamespace(clock=SimpleNamespace(t=7)),
+        place_store=SimpleNamespace(),
+        script_engine=SimpleNamespace(),
+        world_step=SimpleNamespace(),
+        agents=SimpleNamespace(),
+        sim_dir=str(SIM_DIR),
+        get_current_tick=lambda: 7,
+    )
+    orch._running = True
+    orch._loop_state = "running"
+    pause_resp = orch.pause()
+    if pause_resp.get("loop_state") != "paused" or pause_resp.get("paused_at_tick") != 7:
+        raise TestFailure(f"Phase1b orchestrator.pause bad: {pause_resp}")
+    if orch._pause_event.is_set():
+        raise TestFailure("Phase1b pause_event must be cleared when paused")
+    ok("WorldLoopOrchestrator.pause freezes at current tick")
+
+    again = orch.pause()
+    if not again.get("already_paused"):
+        raise TestFailure(f"Phase1b pause should be idempotent: {again}")
+    ok("WorldLoopOrchestrator.pause idempotent")
+
+    resume_resp = orch.resume()
+    if resume_resp.get("loop_state") != "running":
+        raise TestFailure(f"Phase1b orchestrator.resume bad: {resume_resp}")
+    if not orch._pause_event.is_set():
+        raise TestFailure("Phase1b pause_event must be set when running")
+    ok("WorldLoopOrchestrator.resume restores running state")
+
+    env_src = (HBM_DIR / "shared" / "env_status.py").read_text(encoding="utf-8")
+    if "paused_at_tick" not in env_src or "paused_at_iso" not in env_src:
+        raise TestFailure("Phase1b env_status missing paused_at fields")
+    ok("env_status supports paused_at_tick + paused_at_iso")
+
+
 def test_m6_frontend_features() -> None:
     section("T1g M6 web/src/features/ 前端 Feature 拆分")
     web_src = HBM_DIR / "web" / "src"
@@ -2442,6 +2533,57 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
                 f"Phase1: idle tick did not advance {idle_t0} → {idle_t1} within 45s"
             )
         ok(f"Phase1 idle world loop tick advance {idle_t0} → {idle_t1}")
+
+        section("T4-pre Phase1b world-loop pause/resume (§8.3.7)")
+        code, pause_resp, _ = http_json(
+            "POST", f"{base}{BASE_PATH}/world-loop/pause", timeout=15.0
+        )
+        if code != 200 or not pause_resp.get("success"):
+            raise TestFailure(f"Phase1b pause failed HTTP {code}: {pause_resp}")
+        pause_data = pause_resp.get("data") or {}
+        if pause_data.get("loop_state") != "paused":
+            raise TestFailure(f"Phase1b pause loop_state != paused: {pause_data}")
+        pause_tick = int(pause_data.get("current_tick", -1))
+        ok(f"Phase1b POST /world-loop/pause → tick={pause_tick}")
+
+        frozen_deadline = time.time() + 6.0
+        while time.time() < frozen_deadline:
+            _, env_frozen, _ = http_json("GET", f"{base}{BASE_PATH}/env-status")
+            frozen_tick = int((env_frozen.get("data") or {}).get("current_tick", -1))
+            if frozen_tick != pause_tick:
+                raise TestFailure(
+                    f"Phase1b tick moved while paused: {pause_tick} → {frozen_tick}"
+                )
+            time.sleep(1.0)
+        ok(f"Phase1b tick frozen at {pause_tick} for 5s")
+
+        code, resume_resp, _ = http_json(
+            "POST", f"{base}{BASE_PATH}/world-loop/resume", timeout=15.0
+        )
+        if code != 200 or not resume_resp.get("success"):
+            raise TestFailure(f"Phase1b resume failed HTTP {code}: {resume_resp}")
+        if (resume_resp.get("data") or {}).get("loop_state") != "running":
+            raise TestFailure(f"Phase1b resume loop_state != running: {resume_resp}")
+        ok("Phase1b POST /world-loop/resume → running")
+
+        resume_tick = pause_tick
+        resume_deadline = time.time() + 45.0
+        while time.time() < resume_deadline:
+            time.sleep(1.0)
+            _, env_resume, _ = http_json("GET", f"{base}{BASE_PATH}/env-status")
+            resume_tick = int((env_resume.get("data") or {}).get("current_tick", resume_tick))
+            if resume_tick > pause_tick:
+                break
+        if resume_tick <= pause_tick:
+            raise TestFailure(
+                f"Phase1b tick did not advance after resume: {pause_tick} → {resume_tick}"
+            )
+        ok(f"Phase1b tick resumed {pause_tick} → {resume_tick}")
+
+        _, loop_status, _ = http_json("GET", f"{base}{BASE_PATH}/world-loop/status")
+        if not (loop_status.get("data") or {}).get("loop_state"):
+            raise TestFailure(f"Phase1b GET /world-loop/status bad: {loop_status}")
+        ok("Phase1b GET /world-loop/status OK")
 
     code, start, cookie = http_json("POST", f"{base}{BASE_PATH}/session/start")
     if code != 200 or not start.get("success"):
@@ -3130,6 +3272,7 @@ def main() -> int:
         test_f07_e_step5_final_acceptance,
         test_f07_v2_phase0_hard_control_retired,
         test_f07_v2_phase1_world_loop,
+        test_f07_v2_phase1b_world_loop_pause,
         test_f05_routing_payload,
         test_f11_live_turn_sync,
         test_f11_c_frontend,

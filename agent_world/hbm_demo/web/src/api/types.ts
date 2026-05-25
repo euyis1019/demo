@@ -123,7 +123,28 @@ export interface EnvStatusData {
   status?: string;
   current_tick?: number;
   timestamp?: string;
+  loop_state?: string;
+  loop_running?: boolean;
+  paused_at_tick?: number;
+  paused_at_iso?: string;
+  tick_interval_sec?: number;
   [key: string]: unknown;
+}
+
+export type WorldLoopState = "running" | "paused" | "stopped" | "disabled" | "unknown";
+
+export interface WorldLoopStatusData {
+  loop_state: WorldLoopState | string;
+  loop_running: boolean;
+  current_tick: number;
+  world_t: number;
+  tick_interval_sec: number;
+  paused_at_tick?: number | null;
+  paused_at_iso?: string | null;
+  queue_depth?: number;
+  last_activity_t?: number;
+  already_paused?: boolean;
+  already_running?: boolean;
 }
 
 export interface PlayerTurnProcessing {

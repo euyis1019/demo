@@ -21,6 +21,7 @@ import {
   useHealthCheck,
   useLoadingElapsed,
   useStartGame,
+  useWorldLoopControl,
   WorldStage,
 } from "./features";
 import { useEnvStatus } from "./features/observer/useEnvStatus";
@@ -34,8 +35,16 @@ function GameApp() {
   const { retryHealth } = useHealthCheck();
   const { startGame, restartGame, resetDemo } = useStartGame();
   const { sendTurn } = useGameLoop();
+  const {
+    worldLoopState,
+    pauseDisabled,
+    pauseWorld,
+    resumeWorld,
+  } = useWorldLoopControl(state.sessionInitialized && state.view === "playing");
   const loadingElapsed = useLoadingElapsed(state.loading);
-  const envTick = useEnvStatus(state.sessionInitialized && state.view === "playing");
+  const envTick = useEnvStatus(
+    state.sessionInitialized && state.view === "playing" && state.worldLoopState !== "paused",
+  );
 
   const {
     healthChecking,
@@ -143,6 +152,10 @@ function GameApp() {
             placeLabel={placeDisplayName(placeId)}
             presentAgents={presentAgents}
             worldTick={envTick ?? worldTick}
+            worldLoopState={worldLoopState}
+            onPauseWorld={() => void pauseWorld()}
+            onResumeWorld={() => void resumeWorld()}
+            pauseDisabled={pauseDisabled || view !== "playing"}
             onReset={() => void resetDemo()}
             resetDisabled={loading}
           />

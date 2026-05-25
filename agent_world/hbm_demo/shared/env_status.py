@@ -25,6 +25,9 @@ def write_env_status(
     loop_state: Optional[str] = None,
     last_activity_t: Optional[int] = None,
     queue_depth: Optional[int] = None,
+    paused_at_tick: Optional[int] = None,
+    paused_at_iso: Optional[str] = None,
+    tick_interval_sec: Optional[float] = None,
 ) -> None:
     """Write ``{sim_dir}/env_status.json`` with ``current_tick`` preserved."""
     path = Path(sim_dir) / "env_status.json"
@@ -45,6 +48,12 @@ def write_env_status(
         body["last_activity_t"] = int(last_activity_t)
     if queue_depth is not None:
         body["queue_depth"] = int(queue_depth)
+    if paused_at_tick is not None:
+        body["paused_at_tick"] = int(paused_at_tick)
+    if paused_at_iso is not None:
+        body["paused_at_iso"] = str(paused_at_iso)
+    if tick_interval_sec is not None:
+        body["tick_interval_sec"] = float(tick_interval_sec)
     path.write_text(json.dumps(body, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
@@ -95,6 +104,9 @@ def patch_ipc_server_env_status(
             loop_state=extra.get("loop_state"),
             last_activity_t=extra.get("last_activity_t"),
             queue_depth=extra.get("queue_depth"),
+            paused_at_tick=extra.get("paused_at_tick"),
+            paused_at_iso=extra.get("paused_at_iso"),
+            tick_interval_sec=extra.get("tick_interval_sec"),
         )
 
     ipc_server._update_env_status = _merged_update  # type: ignore[method-assign]

@@ -510,10 +510,10 @@ Flask / 前端可轮询此文件或通过 API 代理，与 `worldTick` 展示一
 
 ### Phase 1b — 左栏暂停世界（P0 · R13）
 
-- [ ] §8.3 Runner IPC + Orchestrator pause/resume  
-- [ ] §8.3 Flask `/api/world-loop/*`  
-- [ ] §8.3 StatusPanel 双按钮 + tick 冻结展示  
-- [ ] 验收：见 §8.3.7  
+- [x] §8.3 Runner IPC + Orchestrator pause/resume  
+- [x] §8.3 Flask `/api/world-loop/*`  
+- [x] §8.3 StatusPanel 双按钮 + tick 冻结展示  
+- [x] 验收：见 §8.3.7 — pause 5s tick 不变；resume 后 tick 恢复自增  
 
 ### Phase 2 — 连续 delta API + F14 常驻 poll（P1）
 
