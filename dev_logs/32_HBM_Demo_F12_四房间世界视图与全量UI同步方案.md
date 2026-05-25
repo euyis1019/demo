@@ -474,12 +474,12 @@ animatingMoves: LocationChange[];  // 可选，驱动 CSS 动画
 
 ### Phase 3 — 前端世界视图（~2–3 天）
 
-- [ ] 两栏布局 + RoomGrid + AgentCircle + 移动动画
-- [ ] RoomSpeechBubble
-- [ ] gameStore + useGameLoop
-- [ ] AgentPhoneModal + InnerOsTimeline
-- [ ] WorldEventModal
-- [ ] 删除 Observer
+- [x] 两栏布局 + RoomGrid + AgentCircle + 移动动画
+- [x] RoomSpeechBubble
+- [x] gameStore + useGameLoop
+- [x] AgentPhoneModal + InnerOsTimeline
+- [x] WorldEventModal
+- [x] 删除 Observer（App 不再渲染右栏）
 
 ### Phase 4 — 联调与回归
 

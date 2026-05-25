@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import {
   getActionResult,
   getSession,
+  getWorldSnapshot,
   postPlayerTurn,
   resetSession,
   startSession,
@@ -41,6 +42,13 @@ function isProcessingWithDelta(
   );
 }
 
+async function fetchWorldSnapshot(dispatch: ReturnType<typeof useGameStoreContext>["dispatch"]) {
+  const response = await getWorldSnapshot();
+  if (response.data) {
+    dispatch({ type: "SET_WORLD_SNAPSHOT", snapshot: response.data });
+  }
+}
+
 /** F3-2 / F4-8 — start via session/start; full reset via session/reset. */
 export function useStartGame() {
   const { applySessionStart, setLoading, dispatch } = useGameStoreContext();
@@ -59,6 +67,7 @@ export function useStartGame() {
           );
         }
         applySessionStart(response.data);
+        await fetchWorldSnapshot(dispatch);
       } catch (err) {
         dispatch({
           type: "SET_ERROR",
@@ -99,7 +108,7 @@ export function useStartGame() {
   return { startGame, restartGame, resetDemo };
 }
 
-/** F3-3 + F5 + F11-C — incremental delta poll during processing. */
+/** F3-3 + F5 + F11-C + F12 — incremental world delta poll during processing. */
 export function useGameLoop() {
   const { state, dispatch, setLoading } = useGameStoreContext();
 
@@ -108,6 +117,7 @@ export function useGameLoop() {
     if (response.data?.initialized) {
       dispatch({ type: "APPLY_SESSION", data: response.data });
     }
+    await fetchWorldSnapshot(dispatch);
   }, [dispatch]);
 
   const handleApiError = useCallback(
@@ -166,7 +176,6 @@ export function useGameLoop() {
         });
 
         const taskId = data.task_id;
-        const placeId = state.placeId;
         let sinceTick = data.start_tick ?? 0;
         let pollCompleted = false;
 
@@ -176,7 +185,7 @@ export function useGameLoop() {
           }
 
           const poll = await getActionResult(taskId, {
-            place_id: placeId,
+            place_id: state.placeId,
             since_tick: sinceTick,
           });
           const pollData = poll.data;
@@ -197,7 +206,7 @@ export function useGameLoop() {
 
           if (isProcessingWithDelta(pollData)) {
             const { delta } = pollData;
-            dispatch({ type: "APPEND_TURN_DELTA", delta });
+            dispatch({ type: "APPLY_WORLD_DELTA", delta });
             sinceTick = delta.through_tick;
           }
 

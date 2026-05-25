@@ -21,6 +21,67 @@ export interface GameMessage {
   recipient?: string;
   group_id?: number;
   place_id?: string;
+  sender_id?: number;
+  recipient_id?: number;
+  delivered?: 0 | 1;
+  is_system?: boolean;
+}
+
+export interface LocationChange {
+  agent_id: number;
+  from_place: string | null;
+  to_place: string;
+  at_tick: number;
+  source: string;
+}
+
+export interface WorldEvent {
+  id: string;
+  at_tick: number;
+  kind: "broadcast" | "phase_route" | "place_mutation" | "bad_end" | "system";
+  title?: string;
+  content: string;
+  place_id?: string;
+}
+
+export interface SocialEvent {
+  at_tick: number;
+  kind:
+    | "relation_add"
+    | "relation_remove"
+    | "group_join"
+    | "group_leave"
+    | "group_kick";
+  agent_id: number;
+  peer_id?: number;
+  group_id?: number;
+  relation_type?: string;
+}
+
+export interface StateChange {
+  agent_id: number;
+  content: string;
+  at_tick: number;
+}
+
+export interface AgentLocation {
+  place_id: string;
+  arrived_at: number;
+}
+
+export interface AgentMessageBucket {
+  rdc: GameMessage[];
+  grp: GameMessage[];
+}
+
+export interface WorldSnapshot {
+  through_tick: number;
+  player_place_id: string;
+  agent_locations: Record<string, AgentLocation>;
+  place_attrs: Record<string, Record<string, unknown>>;
+  relations: Array<Record<string, unknown>>;
+  group_members: Record<string, number[]>;
+  name_map: Record<string, string>;
 }
 
 export interface HealthData {
@@ -98,10 +159,21 @@ export type PlayerTurnData =
   | PlayerTurnCompleted;
 
 export interface TurnDelta {
-  public_messages: GameMessage[];
-  observer_messages: GameMessage[];
-  group_messages: GameMessage[];
   through_tick: number;
+  player_place_id?: string;
+  room_f2f?: Partial<Record<string, GameMessage[]>>;
+  agent_messages?: Record<string, AgentMessageBucket>;
+  location_changes?: LocationChange[];
+  social_events?: SocialEvent[];
+  state_changes?: StateChange[];
+  world_events?: WorldEvent[];
+  agent_locations?: Record<string, AgentLocation>;
+  /** @deprecated F11 legacy — use room_f2f */
+  public_messages: GameMessage[];
+  /** @deprecated F11 legacy — use agent_messages */
+  observer_messages: GameMessage[];
+  /** @deprecated F11 legacy — use agent_messages */
+  group_messages: GameMessage[];
 }
 
 export interface ActionResultProcessing {
@@ -115,13 +187,10 @@ export interface ActionResultProcessing {
   delta?: TurnDelta;
 }
 
-export interface ActionResultCompleted {
+export interface ActionResultCompleted extends TurnDelta {
   status: "completed";
   task_id: string;
   end_tick: number;
-  public_messages: GameMessage[];
-  observer_messages: GameMessage[];
-  group_messages: GameMessage[];
   stats_update: Stats;
   current_phase: string;
 }

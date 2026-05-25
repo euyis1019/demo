@@ -653,19 +653,21 @@ def test_f11_c_frontend() -> None:
     game_loop = (web_src / "features" / "game-loop" / "useGameLoop.ts").read_text(
         encoding="utf-8"
     )
-    if "APPEND_TURN_DELTA" not in game_loop or "since_tick" not in game_loop:
-        raise TestFailure("useGameLoop missing F11-C delta poll merge")
-    ok("useGameLoop APPEND_TURN_DELTA + since_tick poll")
+    if "APPLY_WORLD_DELTA" not in game_loop or "since_tick" not in game_loop:
+        raise TestFailure("useGameLoop missing F12 APPLY_WORLD_DELTA poll merge")
+    ok("useGameLoop APPLY_WORLD_DELTA + since_tick poll")
 
     store = (web_src / "store" / "gameStore.ts").read_text(encoding="utf-8")
-    if "APPEND_TURN_DELTA" not in store:
-        raise TestFailure("gameStore missing APPEND_TURN_DELTA reducer")
-    ok("gameStore APPEND_TURN_DELTA reducer")
+    if "APPLY_WORLD_DELTA" not in store or "roomF2f" not in store:
+        raise TestFailure("gameStore missing F12 APPLY_WORLD_DELTA / roomF2f state")
+    ok("gameStore APPLY_WORLD_DELTA + roomF2f state")
 
     hbm_api = (web_src / "api" / "hbm.ts").read_text(encoding="utf-8")
     if "since_tick" not in hbm_api:
         raise TestFailure("hbm.ts getActionResult missing since_tick")
-    ok("api/hbm.ts since_tick query param")
+    if "getWorldSnapshot" not in hbm_api:
+        raise TestFailure("hbm.ts missing getWorldSnapshot for F12 calibration")
+    ok("api/hbm.ts since_tick + getWorldSnapshot")
 
     import re
 
@@ -732,6 +734,46 @@ def test_f12_phase2_world_delta() -> None:
     if root_gs.get_world_snapshot is not feat_get_world_snapshot:
         raise TestFailure("game_service.get_world_snapshot shim != F12 handler")
     ok("game_service.get_world_snapshot shim")
+
+
+def test_f12_phase3_world_stage() -> None:
+    section("T1m F12 Phase 3 四房间世界视图前端")
+    web_src = HBM_DIR / "web" / "src"
+    required = (
+        "WorldStage.tsx",
+        "RoomGrid.tsx",
+        "RoomCell.tsx",
+        "AgentCircle.tsx",
+        "RoomSpeechBubble.tsx",
+        "AgentPhoneModal.tsx",
+        "WorldEventModal.tsx",
+    )
+    stage_dir = web_src / "features" / "world-stage"
+    for name in required:
+        if not (stage_dir / name).is_file():
+            raise TestFailure(f"missing world-stage/{name}")
+    ok(f"world-stage/ has {len(required)} core components")
+
+    places = (web_src / "utils" / "places.ts").read_text(encoding="utf-8")
+    if "ROOM_GRID" not in places:
+        raise TestFailure("utils/places.ts missing ROOM_GRID")
+    ok("utils/places ROOM_GRID")
+
+    world_sync = (web_src / "store" / "worldSync.ts").read_text(encoding="utf-8")
+    if "applyWorldDelta" not in world_sync or "applyWorldSnapshot" not in world_sync:
+        raise TestFailure("store/worldSync.ts missing applyWorldDelta helpers")
+    ok("store/worldSync delta merge helpers")
+
+    types_src = (web_src / "api" / "types.ts").read_text(encoding="utf-8")
+    for field in ("room_f2f", "agent_locations", "world_events", "WorldSnapshot"):
+        if field not in types_src:
+            raise TestFailure(f"api/types.ts missing F12 field/type {field}")
+    ok("api/types F12 TurnDelta + WorldSnapshot types")
+
+    css = (web_src / "styles" / "global.css").read_text(encoding="utf-8")
+    if ".room-grid" not in css or ".agent-circle" not in css:
+        raise TestFailure("global.css missing F12 room-grid / agent-circle styles")
+    ok("global.css F12 world-stage styles")
 
 
 def test_f03_action_completion() -> None:
@@ -1751,7 +1793,7 @@ def test_m6_frontend_features() -> None:
         "game-loop",
         "layout",
         "main-chat",
-        "observer",
+        "world-stage",
         "endings",
         "shared",
     )
@@ -1764,24 +1806,30 @@ def test_m6_frontend_features() -> None:
     registry = (web_src / "features" / "index.ts").read_text(encoding="utf-8")
     if "FEATURE_REGISTRY" not in registry or "F09a" not in registry:
         raise TestFailure("features/index.ts missing FEATURE_REGISTRY")
-    ok("features/index.ts FEATURE_REGISTRY (F09a–h)")
+    if "F12" not in registry:
+        raise TestFailure("features/index.ts missing F12 world-stage registry")
+    ok("features/index.ts FEATURE_REGISTRY (F09 + F12)")
 
     app_src = (web_src / "App.tsx").read_text(encoding="utf-8")
     if 'from "./features"' not in app_src:
         raise TestFailure("App.tsx should import from ./features directly")
-    ok("App.tsx imports from ./features")
+    if "WorldStage" not in app_src or "TwoColumnLayout" not in app_src:
+        raise TestFailure("App.tsx should use F12 TwoColumnLayout + WorldStage")
+    if "ObserverPanel" in app_src:
+        raise TestFailure("App.tsx should not render ObserverPanel (F12 Phase 3)")
+    ok("App.tsx F12 two-column WorldStage layout")
 
     for removed in ("components", "hooks"):
         if (web_src / removed).exists():
             raise TestFailure(f"legacy web/src/{removed}/ should be removed (M7)")
     ok("web/src/components and hooks removed (M7)")
 
-    layout_impl = (web_src / "features" / "layout" / "ThreeColumnLayout.tsx").read_text(
+    layout_impl = (web_src / "features" / "layout" / "TwoColumnLayout.tsx").read_text(
         encoding="utf-8"
     )
-    if "ThreeColumnLayout" not in layout_impl or "app-shell" not in layout_impl:
-        raise TestFailure("features/layout/ThreeColumnLayout implementation missing")
-    ok("F09c ThreeColumnLayout in features/layout")
+    if "TwoColumnLayout" not in layout_impl or "app-shell--two-col" not in layout_impl:
+        raise TestFailure("features/layout/TwoColumnLayout implementation missing")
+    ok("F12 TwoColumnLayout in features/layout")
 
 
 def test_m7_legacy_cleanup() -> None:
@@ -2748,6 +2796,7 @@ def main() -> int:
         test_f11_c_frontend,
         test_f12_phase1_persistence,
         test_f12_phase2_world_delta,
+        test_f12_phase3_world_stage,
         test_runner_module_entry,
     ):
         try:

@@ -1,4 +1,13 @@
-/** place_id → 中文展示名（与 hbm_scenario.yaml summary 对齐）。 */
+/** place_id → 中文展示名 + F12 四房间 grid（dev_logs/32 §6.2）。 */
+
+export const ROOM_GRID = [
+  "nvidia_reception",
+  "jensen_private_room",
+  "negotiation_room",
+  "openai_hq",
+] as const;
+
+export type PlaceId = (typeof ROOM_GRID)[number];
 
 const PLACE_LABELS: Record<string, string> = {
   nvidia_reception: "英伟达总部 · 接待前台",
@@ -9,4 +18,13 @@ const PLACE_LABELS: Record<string, string> = {
 
 export function placeDisplayName(placeId: string): string {
   return PLACE_LABELS[placeId] ?? placeId;
+}
+
+export function emptyRoomF2f(): Record<PlaceId, import("../api/types").GameMessage[]> {
+  return {
+    nvidia_reception: [],
+    jensen_private_room: [],
+    negotiation_room: [],
+    openai_hq: [],
+  };
 }

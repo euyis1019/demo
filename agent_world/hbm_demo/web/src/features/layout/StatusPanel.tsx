@@ -8,6 +8,7 @@ export interface StatusPanelProps {
   maxTurns?: number;
   placeLabel: string;
   presentAgents?: string[];
+  worldTick?: number;
   onReset?: () => void;
   resetDisabled?: boolean;
 }
@@ -27,6 +28,7 @@ export function StatusPanel({
   maxTurns = 25,
   placeLabel,
   presentAgents = [],
+  worldTick,
   onReset,
   resetDisabled = false,
 }: StatusPanelProps) {
@@ -97,6 +99,9 @@ export function StatusPanel({
         <section className="status-panel__section">
           <h2 className="status-panel__title">当前地点</h2>
           <p className="status-panel__place">{placeLabel}</p>
+          {typeof worldTick === "number" ? (
+            <p className="status-panel__tick">World tick: {worldTick}</p>
+          ) : null}
           {presentAgents.length > 0 ? (
             <ul className="presence-list">
               {presentAgents.map((name) => (

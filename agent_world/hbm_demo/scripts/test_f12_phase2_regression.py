@@ -107,6 +107,21 @@ def main() -> int:
         failures.append(f"test_m0_acceptance: {exc}")
         print(f"  ✗ {exc}")
 
+    section("F12 Phase 3 frontend build smoke")
+    try:
+        proc = subprocess.run(
+            ["npm", "run", "build"],
+            cwd=str(HBM_DIR / "web"),
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            raise TestFailure(proc.stdout + proc.stderr or "npm run build failed")
+        ok("npm run build passed")
+    except Exception as exc:  # noqa: BLE001
+        failures.append(f"npm_build: {exc}")
+        print(f"  ✗ {exc}")
+
     if failures:
         print(f"\nFAILED ({len(failures)}):")
         for item in failures:

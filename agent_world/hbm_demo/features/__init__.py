@@ -120,7 +120,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
             "handler",
             "runner_bridge",
         ],
-        "phase": "Phase 2 — Flask F12 API (world delta + world-snapshot)",
+        "phase": "Phase 3 — 四房间 WorldStage 前端（Flask API + web world-stage）",
     },
 }
 

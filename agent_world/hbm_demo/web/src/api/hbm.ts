@@ -15,6 +15,7 @@ import type {
   PlayerTurnRequest,
   SessionSnapshot,
   SessionStartData,
+  WorldSnapshot,
 } from "./types";
 
 export { SIM_ID, API_PREFIX, DEFAULT_TICK_COUNT } from "./config";
@@ -88,6 +89,13 @@ export async function getActionResult(
   }
   return apiGet<ActionResultData>(`${API_PREFIX}/action-result`, query, {
     timeoutMs: ACTION_RESULT_TIMEOUT_MS,
+  });
+}
+
+/** GET /world-snapshot — F12 full-world calibration. */
+export async function getWorldSnapshot(): Promise<ApiResponse<WorldSnapshot>> {
+  return apiGet<WorldSnapshot>(`${API_PREFIX}/world-snapshot`, undefined, {
+    timeoutMs: READ_TIMEOUT_MS,
   });
 }
 

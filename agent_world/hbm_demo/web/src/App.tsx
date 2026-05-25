@@ -1,29 +1,33 @@
 /**
  * F5 — 错误处理、loading elapsed、Runner 503 Modal（PLAN2 F5）。
+ * F12 — 两栏 WorldStage + Agent 手机面板（dev_logs/32 §6）。
  */
 
 import "./styles/global.css";
+import { useMemo } from "react";
 import { MAX_TURNS } from "./constants/gameLoop";
+import { agentDisplayName } from "./constants/agents";
 import {
   BootScreen,
   EndingScreen,
   GameOverScreen,
   LoadingOverlay,
-  MainChat,
-  ObserverPanel,
   PhaseToast,
   PlayerInput,
   RunnerNotReadyModal,
   StatusPanel,
-  ThreeColumnLayout,
-  useEnvStatus,
+  TwoColumnLayout,
   useGameLoop,
   useHealthCheck,
   useLoadingElapsed,
   useStartGame,
+  WorldStage,
 } from "./features";
+import { useEnvStatus } from "./features/observer/useEnvStatus";
+import { agentsInPlace } from "./store/worldSync";
 import { GameStoreProvider, useGameStoreContext } from "./store";
 import { placeDisplayName } from "./utils/places";
+import { isPlayerSender } from "./utils/messages";
 
 function GameApp() {
   const { state, dispatch } = useGameStoreContext();
@@ -45,14 +49,27 @@ function GameApp() {
     phase,
     playerTurn,
     placeId,
-    f2fMessages,
-    rdcMessages,
-    grpMessages,
+    roomF2f,
+    agentLocations,
+    agentInbox,
+    nameMap,
+    worldTick,
+    activeAgentModal,
+    pendingWorldEvent,
+    recentMoveKeys,
     view,
     endingId,
     lastError,
     runnerModalOpen,
   } = state;
+
+  const presentAgents = useMemo(
+    () =>
+      agentsInPlace(agentLocations, placeId)
+        .filter((id) => id !== "player")
+        .map((id) => agentDisplayName(id, nameMap)),
+    [agentLocations, placeId, nameMap],
+  );
 
   if (healthChecking) {
     return (
@@ -96,7 +113,10 @@ function GameApp() {
 
   const badEndLine =
     view === "game_over"
-      ? f2fMessages.filter((m) => m.sender !== "玩家").at(-1)?.content
+      ? Object.values(roomF2f)
+          .flat()
+          .filter((message) => !isPlayerSender(message.sender))
+          .at(-1)?.content
       : undefined;
 
   return (
@@ -112,7 +132,7 @@ function GameApp() {
         onRetryHealth={() => void retryHealth()}
       />
 
-      <ThreeColumnLayout
+      <TwoColumnLayout
         status={
           <StatusPanel
             stats={stats}
@@ -120,29 +140,36 @@ function GameApp() {
             playerTurn={playerTurn}
             maxTurns={MAX_TURNS}
             placeLabel={placeDisplayName(placeId)}
+            presentAgents={presentAgents}
+            worldTick={envTick ?? worldTick}
             onReset={() => void resetDemo()}
             resetDisabled={loading}
           />
         }
         main={
-          <MainChat messages={f2fMessages} immediateMsg={immediateMsg}>
-            {lastError ? (
-              <p className="game-error" role="alert">
-                {lastError}
-              </p>
-            ) : null}
-            <PlayerInput
-              onSend={(text) => void sendTurn(text)}
-              disabled={loading || view !== "playing"}
-              placeholder="输入你的台词…"
-            />
-          </MainChat>
-        }
-        observer={
-          <ObserverPanel
-            rdcMessages={rdcMessages}
-            grpMessages={grpMessages}
-            currentTick={envTick}
+          <WorldStage
+            roomF2f={roomF2f}
+            agentLocations={agentLocations}
+            agentInbox={agentInbox}
+            nameMap={nameMap}
+            recentMoveKeys={recentMoveKeys}
+            activeAgentModal={activeAgentModal}
+            pendingWorldEvent={pendingWorldEvent}
+            immediateMsg={immediateMsg}
+            lastError={lastError}
+            onAgentClick={(agentId) =>
+              dispatch({ type: "OPEN_AGENT_MODAL", agentId })
+            }
+            onCloseAgentModal={() => dispatch({ type: "CLOSE_AGENT_MODAL" })}
+            onDismissWorldEvent={() => dispatch({ type: "DISMISS_WORLD_EVENT" })}
+            onClearRecentMoves={() => dispatch({ type: "CLEAR_RECENT_MOVES" })}
+            inputSlot={
+              <PlayerInput
+                onSend={(text) => void sendTurn(text)}
+                disabled={loading || view !== "playing"}
+                placeholder="输入你的台词…"
+              />
+            }
           />
         }
       />

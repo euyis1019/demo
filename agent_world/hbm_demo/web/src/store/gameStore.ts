@@ -7,10 +7,19 @@ import type {
   SessionStartData,
   Stats,
   TurnDelta,
+  WorldSnapshot,
 } from "../api/types";
 import { getPhaseTransitionMessage } from "../constants/phaseTransitions";
 import { MAX_TURNS } from "../constants/gameLoop";
-import { mergeMessages as mergeMessageLists, stampPlayerBubble } from "../utils/messages";
+import type { PlaceId } from "../utils/places";
+import { emptyRoomF2f } from "../utils/places";
+import {
+  applyWorldDelta,
+  applyWorldSnapshot,
+  pushPlayerBubbleToRoom,
+  type AgentInbox,
+} from "./worldSync";
+import type { WorldEvent } from "../api/types";
 
 export type EndingId = PlayerTurnCompleted["ending_id"];
 export type GameView = "boot" | "playing" | "game_over" | "ending";
@@ -28,9 +37,15 @@ export interface GameState {
   phase: string;
   playerTurn: number;
   placeId: string;
-  f2fMessages: GameMessage[];
-  rdcMessages: GameMessage[];
-  grpMessages: GameMessage[];
+  worldTick: number;
+  nameMap: Record<string, string>;
+  roomF2f: Record<PlaceId, GameMessage[]>;
+  agentLocations: Record<string, { placeId: string; arrivedAt: number }>;
+  agentInbox: Record<string, AgentInbox>;
+  worldEvents: WorldEvent[];
+  pendingWorldEvent: WorldEvent | null;
+  activeAgentModal: string | null;
+  recentMoveKeys: string[];
   endingId?: EndingId;
   lastError?: string;
   runnerModalOpen: boolean;
@@ -55,9 +70,15 @@ export function createInitialState(): GameState {
     phase: "Phase 1",
     playerTurn: 1,
     placeId: "nvidia_reception",
-    f2fMessages: [],
-    rdcMessages: [],
-    grpMessages: [],
+    worldTick: 0,
+    nameMap: {},
+    roomF2f: emptyRoomF2f(),
+    agentLocations: {},
+    agentInbox: {},
+    worldEvents: [],
+    pendingWorldEvent: null,
+    activeAgentModal: null,
+    recentMoveKeys: [],
     runnerModalOpen: false,
   };
 }
@@ -72,13 +93,19 @@ export type GameAction =
   | { type: "APPLY_PLAYER_TURN_PROCESSING"; stats: Stats; phase: string; playerTurn: number }
   | { type: "PUSH_PLAYER_BUBBLE"; message: GameMessage }
   | { type: "APPEND_TURN_DELTA"; delta: TurnDelta }
+  | { type: "APPLY_WORLD_DELTA"; delta: TurnDelta }
   | { type: "APPEND_ACTION_RESULT"; data: ActionResultCompleted }
   | { type: "SET_GAME_OVER"; data: PlayerTurnGameOver }
   | { type: "SET_ENDING"; data: PlayerTurnCompleted }
   | { type: "SET_ERROR"; message?: string }
   | { type: "SET_RUNNER_MODAL"; open: boolean }
   | { type: "DISMISS_PHASE_TOAST" }
-  | { type: "RESET_PLAYTHROUGH" };
+  | { type: "RESET_PLAYTHROUGH" }
+  | { type: "SET_WORLD_SNAPSHOT"; snapshot: WorldSnapshot }
+  | { type: "OPEN_AGENT_MODAL"; agentId: string }
+  | { type: "CLOSE_AGENT_MODAL" }
+  | { type: "DISMISS_WORLD_EVENT" }
+  | { type: "CLEAR_RECENT_MOVES" };
 
 function statsFromSnapshot(data: SessionSnapshot | SessionStartData): Stats {
   return { ...(data.stats ?? INITIAL_STATS) };
@@ -95,6 +122,48 @@ function applyPhaseChange(
   return {
     phase: newPhase,
     phaseToast: toast ?? state.phaseToast ?? null,
+  };
+}
+
+function withWorldDelta(state: GameState, delta: TurnDelta): GameState {
+  const patch = applyWorldDelta(state, delta);
+  return {
+    ...state,
+    placeId: patch.placeId ?? state.placeId,
+    worldTick: patch.worldTick,
+    roomF2f: patch.roomF2f,
+    agentLocations: patch.agentLocations,
+    agentInbox: patch.agentInbox,
+    worldEvents: patch.worldEvents,
+    pendingWorldEvent: patch.pendingWorldEvent,
+    recentMoveKeys: patch.recentMoveKeys.length
+      ? patch.recentMoveKeys
+      : state.recentMoveKeys,
+  };
+}
+
+function resetWorldState(): Pick<
+  GameState,
+  | "roomF2f"
+  | "agentLocations"
+  | "agentInbox"
+  | "worldEvents"
+  | "pendingWorldEvent"
+  | "activeAgentModal"
+  | "recentMoveKeys"
+  | "worldTick"
+  | "nameMap"
+> {
+  return {
+    worldTick: 0,
+    nameMap: {},
+    roomF2f: emptyRoomF2f(),
+    agentLocations: {},
+    agentInbox: {},
+    worldEvents: [],
+    pendingWorldEvent: null,
+    activeAgentModal: null,
+    recentMoveKeys: [],
   };
 }
 
@@ -119,9 +188,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         phase: action.data.phase,
         playerTurn: action.data.player_turn,
         placeId: action.data.place_id,
-        f2fMessages: [],
-        rdcMessages: [],
-        grpMessages: [],
+        ...resetWorldState(),
         immediateMsg: undefined,
         phaseToast: null,
         endingId: undefined,
@@ -160,59 +227,38 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case "PUSH_PLAYER_BUBBLE":
       return {
         ...state,
-        f2fMessages: mergeMessageLists(state.f2fMessages, [
-          stampPlayerBubble(state.f2fMessages, action.message),
-        ]),
+        roomF2f: pushPlayerBubbleToRoom(
+          state.roomF2f,
+          state.placeId,
+          action.message,
+        ),
       };
     case "APPEND_TURN_DELTA":
-      return {
-        ...state,
-        f2fMessages: mergeMessageLists(
-          state.f2fMessages,
-          action.delta.public_messages,
-        ),
-        rdcMessages: mergeMessageLists(
-          state.rdcMessages,
-          action.delta.observer_messages,
-        ),
-        grpMessages: mergeMessageLists(
-          state.grpMessages,
-          action.delta.group_messages,
-        ),
-      };
+    case "APPLY_WORLD_DELTA":
+      return withWorldDelta(state, action.delta);
     case "APPEND_ACTION_RESULT": {
       const phaseUpdate = applyPhaseChange(state, action.data.current_phase);
       return {
-        ...state,
+        ...withWorldDelta(state, action.data),
         stats: { ...action.data.stats_update },
         ...phaseUpdate,
         immediateMsg: undefined,
-        f2fMessages: mergeMessageLists(
-          state.f2fMessages,
-          action.data.public_messages,
-        ),
-        rdcMessages: mergeMessageLists(
-          state.rdcMessages,
-          action.data.observer_messages,
-        ),
-        grpMessages: mergeMessageLists(
-          state.grpMessages,
-          action.data.group_messages,
-        ),
       };
     }
     case "SET_GAME_OVER":
       return {
-        ...state,
+        ...withWorldDelta(state, {
+          through_tick: state.worldTick,
+          public_messages: action.data.public_messages,
+          observer_messages: [],
+          group_messages: [],
+          player_place_id: state.placeId,
+        }),
         view: "game_over",
         loading: false,
         immediateMsg: undefined,
         stats: { ...action.data.stats_update },
         ...applyPhaseChange(state, action.data.current_phase),
-        f2fMessages: mergeMessageLists(
-          state.f2fMessages,
-          action.data.public_messages,
-        ),
       };
     case "SET_ENDING":
       return {
@@ -230,6 +276,32 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return { ...state, runnerModalOpen: action.open };
     case "DISMISS_PHASE_TOAST":
       return { ...state, phaseToast: null };
+    case "SET_WORLD_SNAPSHOT": {
+      const snap = applyWorldSnapshot(action.snapshot);
+      return {
+        ...state,
+        placeId: snap.placeId,
+        worldTick: snap.worldTick,
+        agentLocations: snap.agentLocations,
+        nameMap: snap.nameMap,
+      };
+    }
+    case "OPEN_AGENT_MODAL":
+      return { ...state, activeAgentModal: action.agentId };
+    case "CLOSE_AGENT_MODAL":
+      return { ...state, activeAgentModal: null };
+    case "DISMISS_WORLD_EVENT": {
+      const remaining = state.worldEvents.filter(
+        (event) => event.id !== state.pendingWorldEvent?.id,
+      );
+      return {
+        ...state,
+        worldEvents: remaining,
+        pendingWorldEvent: remaining[0] ?? null,
+      };
+    }
+    case "CLEAR_RECENT_MOVES":
+      return { ...state, recentMoveKeys: [] };
     case "RESET_PLAYTHROUGH":
       return {
         ...createInitialState(),
