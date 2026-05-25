@@ -168,6 +168,7 @@ def wire_handlers(
                 new_place,
                 world=world_state,
                 t=world_state.t,
+                source="ipc_move",
             )
             return {"old_place": old_place, "new_place": new_place}
         except Exception as exc:  # noqa: BLE001

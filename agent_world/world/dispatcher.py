@@ -366,7 +366,7 @@ class ActionDispatcher:
             return False
         old = places.L_t(agent_id) if hasattr(places, "L_t") else None
         try:
-            await places.move(agent_id, new_place, world=self.world, t=t)
+            await places.move(agent_id, new_place, world=self.world, t=t, source="request_move")
             logger.info(
                 "MOVE agent=%s %s -> %s @ t=%s", agent_id, old, new_place, t,
             )

@@ -145,12 +145,22 @@ class PlaceStore:
 
     # -- write path ---------------------------------------------------------
 
-    async def move(self, agent_id: int, new_place: str, *, world: Any = None, t: int = 0) -> None:
+    async def move(
+        self,
+        agent_id: int,
+        new_place: str,
+        *,
+        world: Any = None,
+        t: int = 0,
+        source: str = "move",
+    ) -> None:
         """Move ``agent_id`` to ``new_place``; eagerly persists to WorldDB.
 
         Atomically updates ``L`` and the reverse index, then fires on_leave /
         on_enter hooks. Hook exceptions are logged-and-swallowed (LAYOUT §2.A
         invariants: hook failure must not roll back world.db state).
+
+        ``source`` is recorded in ``agent_location_log`` (F12).
         """
         if new_place not in self.places:
             raise KeyError(f"unknown place_id: {new_place}")
@@ -173,6 +183,13 @@ class PlaceStore:
 
         # Persist via WorldDB (single-writer lock owned by WorldDB).
         await self.world_db.set_location(agent_id, new_place, t=t)
+        await self.world_db.insert_location_log(
+            agent_id,
+            old_place,
+            new_place,
+            t,
+            source,
+        )
 
         for hook in self._on_enter:
             _safe_call(hook, agent_id, new_record, world)

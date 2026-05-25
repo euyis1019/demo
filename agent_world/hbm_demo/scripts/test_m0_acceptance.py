@@ -513,6 +513,26 @@ def test_f11_c_frontend() -> None:
     ok("messageKey dedupe for delta merge")
 
 
+def test_f12_phase1_persistence() -> None:
+    section("T1k F12 Phase 1 Runner persistence logs")
+    script = HBM_DIR / "scripts" / "test_f12_phase1_persistence.py"
+    if not script.is_file():
+        raise TestFailure(f"missing {script}")
+    env = apply_hbm_demo_env(dict(os.environ))
+    proc = subprocess.run(
+        [sys.executable, str(script)],
+        cwd=str(ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        raise TestFailure(
+            proc.stdout + proc.stderr or "F12 Phase 1 tests failed"
+        )
+    ok("F12 Phase 1 persistence script passed")
+
+
 def test_f03_action_completion() -> None:
     section("T1f F03 action-result 完成判定")
     from agent_world.hbm_demo.features.f02_player_turn.task import (
@@ -2482,6 +2502,7 @@ def main() -> int:
         test_f05_routing_payload,
         test_f11_live_turn_sync,
         test_f11_c_frontend,
+        test_f12_phase1_persistence,
         test_runner_module_entry,
     ):
         try:

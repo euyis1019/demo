@@ -109,6 +109,13 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "modules": ["handler", "async_inject", "task_state", "delta"],
         "phase": "F11-C done (frontend delta merge); feature complete",
     },
+    "F12": {
+        "name": "全量世界 UI 同步",
+        "status": "in_progress",
+        "path": "features/f12_world_sync/",
+        "modules": ["persistence_logs"],
+        "phase": "Phase 1 — Runner audit logs (agent_location_log, agent_state_log)",
+    },
 }
 
 __all__ = ["FEATURE_REGISTRY"]

@@ -34,21 +34,31 @@ class PlaceMutationEffect(EffectBase):
         if places is None:
             raise RuntimeError("PlaceMutationEffect requires world.places")
 
-        # 优先走 PlaceStore 提供的 patch API（如有），保证内存态 + 反向
-        # 索引同步刷新。
-        patch_fn = getattr(places, "patch_attrs", None) or getattr(places, "update_attrs", None)
+        patch_fn = getattr(places, "patch_attrs", None) or getattr(
+            places, "update_attrs", None
+        )
         if callable(patch_fn):
             result = patch_fn(self.place_id, self.attrs_patch)
             if hasattr(result, "__await__"):
                 await result
-            return
-
-        # Fallback: 直接 in-place merge ``places.attrs[place_id]``。
-        attrs_map = getattr(places, "attrs", None)
-        if attrs_map is None:
-            raise RuntimeError("world.places exposes neither patch API nor .attrs map")
-        bucket = attrs_map.get(self.place_id)
-        if bucket is None:
-            attrs_map[self.place_id] = dict(self.attrs_patch)
+        elif hasattr(places, "places"):
+            rec = places.places.get(self.place_id)
+            if rec is not None:
+                rec.attrs.update(self.attrs_patch)
+            else:
+                raise KeyError(f"unknown place_id: {self.place_id}")
         else:
-            bucket.update(self.attrs_patch)
+            attrs_map = getattr(places, "attrs", None)
+            if attrs_map is None or not hasattr(attrs_map, "get"):
+                raise RuntimeError(
+                    "world.places exposes neither patch API nor place records"
+                )
+            bucket = attrs_map.get(self.place_id)
+            if bucket is None:
+                attrs_map[self.place_id] = dict(self.attrs_patch)
+            else:
+                bucket.update(self.attrs_patch)
+
+        world_db = getattr(world, "world_db", None)
+        if world_db is not None:
+            await world_db.update_place_attrs(self.place_id, self.attrs_patch)

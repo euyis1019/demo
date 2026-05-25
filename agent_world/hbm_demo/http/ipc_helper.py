@@ -81,3 +81,10 @@ def send_reset_world(
     except TimeoutError as exc:
         raise IpcTimeoutError(str(exc)) from exc
     return _ensure_ipc_completed(resp, operation="RESET_WORLD")
+
+
+def fetch_list_places(client: SimulationIPCClient) -> Dict[str, Any]:
+    """Return Runner place list and agent locations (IPC LIST_PLACES)."""
+    resp = client.send_command(CommandType.LIST_PLACES, {}, timeout=DEFAULT_MOVE_TIMEOUT)
+    resp = _ensure_ipc_completed(resp, operation="LIST_PLACES")
+    return dict(resp.result or {})

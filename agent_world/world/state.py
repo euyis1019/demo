@@ -199,6 +199,7 @@ class WorldState:
         ``current_state_set_at`` so PerceptionBuilder can detect staleness.
         """
         a = self.agents.get(int(agent_id))
+        tick = int(t) if t is not None else int(self.clock.t)
         if a is None:
             # Fall back to creating a stub AgentRuntime so script effects
             # firing pre-fork still take effect.
@@ -208,6 +209,14 @@ class WorldState:
                 current_state_set_at=int(t) if t is not None else -1,
             )
             self.agents[int(agent_id)] = a
+            try:
+                self.world_db.insert_state_log_sync(
+                    int(agent_id), str(new_state), tick
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.debug(
+                    "insert_state_log_sync failed agent=%s: %s", agent_id, exc
+                )
             return
         try:
             setattr(a, "current_state", str(new_state))
@@ -221,6 +230,14 @@ class WorldState:
                 "set_current_state(%s): agent has no settable current_state",
                 agent_id,
             )
+            return
+        tick = int(t) if t is not None else int(self.clock.t)
+        try:
+            self.world_db.insert_state_log_sync(
+                int(agent_id), str(new_state), tick
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.debug("insert_state_log_sync failed agent=%s: %s", agent_id, exc)
 
     def short_term_goal(self, agent_id: int) -> Optional[str]:
         """Return ``agents[agent_id].short_term_goal`` if present."""

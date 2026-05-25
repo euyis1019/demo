@@ -1,6 +1,6 @@
 """world.db access layer (L1).
 
-Single-file SQLite holding 12 world-level tables. Hosts every write through one
+Single-file SQLite holding 14 world-level tables. Hosts every write through one
 ``asyncio.Lock`` (LAYOUT B8 single-writer decision); reads run unlocked on the
 same ``sqlite3.Connection`` (SQLite is safe for concurrent reads on a single
 connection in autocommit mode).
@@ -25,10 +25,11 @@ Design notes
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sqlite3
 from dataclasses import dataclass
-from typing import Any, Iterable, Optional
+from typing import Any, Dict, Iterable, Optional
 
 
 # --------------------------------------------------------------------------- #
@@ -79,7 +80,7 @@ SCHEMA_DIR = os.path.join(os.path.dirname(__file__), "schema", "world")
 
 
 class WorldDB:
-    """Access layer for ``world.db`` (12 tables)."""
+    """Access layer for ``world.db`` (14 tables)."""
 
     def __init__(self, path: str) -> None:
         self.path = path
@@ -201,6 +202,123 @@ class WorldDB:
             "SELECT agent_id FROM agent_location WHERE place_id=?", (place_id,)
         ).fetchall()
         return [int(r["agent_id"]) for r in rows]
+
+    async def update_place_attrs(
+        self, place_id: str, attrs_patch: Dict[str, Any]
+    ) -> None:
+        """Shallow-merge ``attrs_patch`` into ``place.attrs`` JSON (F12)."""
+        raw = self.get_place_attrs(place_id) or "{}"
+        try:
+            data = json.loads(raw) if isinstance(raw, str) else dict(raw)
+        except (json.JSONDecodeError, TypeError):
+            data = {}
+        if not isinstance(data, dict):
+            data = {}
+        data.update(dict(attrs_patch))
+        encoded = json.dumps(data, ensure_ascii=False)
+        async with self._write_lock:
+            self._exec(
+                "UPDATE place SET attrs=? WHERE place_id=?",
+                (encoded, str(place_id)),
+            )
+
+    # ----- F12 audit logs (agent movement + inner OS) --------------------
+
+    async def insert_location_log(
+        self,
+        agent_id: int,
+        from_place: Optional[str],
+        to_place: str,
+        at_tick: int,
+        source: str,
+    ) -> int:
+        async with self._write_lock:
+            cur = self._exec(
+                """
+                INSERT INTO agent_location_log
+                    (agent_id, from_place, to_place, at_tick, source)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    int(agent_id),
+                    from_place,
+                    str(to_place),
+                    int(at_tick),
+                    str(source),
+                ),
+            )
+            return int(cur.lastrowid)
+
+    def insert_state_log_sync(
+        self, agent_id: int, content: str, at_tick: int
+    ) -> int:
+        """Sync write for :meth:`WorldState.set_current_state` (called in-tick)."""
+        cur = self._exec(
+            """
+            INSERT INTO agent_state_log (agent_id, content, at_tick)
+            VALUES (?, ?, ?)
+            """,
+            (int(agent_id), str(content), int(at_tick)),
+        )
+        return int(cur.lastrowid)
+
+    async def insert_state_log(
+        self, agent_id: int, content: str, at_tick: int
+    ) -> int:
+        async with self._write_lock:
+            cur = self._exec(
+                """
+                INSERT INTO agent_state_log (agent_id, content, at_tick)
+                VALUES (?, ?, ?)
+                """,
+                (int(agent_id), str(content), int(at_tick)),
+            )
+            return int(cur.lastrowid)
+
+    def fetch_location_logs_since(
+        self, since_tick: int, t_now: int
+    ) -> list[dict]:
+        rows = self._exec(
+            """
+            SELECT * FROM agent_location_log
+            WHERE at_tick > ? AND at_tick <= ?
+            ORDER BY at_tick ASC, log_id ASC
+            """,
+            (int(since_tick), int(t_now)),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def fetch_state_logs_since(
+        self,
+        since_tick: int,
+        t_now: int,
+        agent_id: Optional[int] = None,
+    ) -> list[dict]:
+        if agent_id is None:
+            rows = self._exec(
+                """
+                SELECT * FROM agent_state_log
+                WHERE at_tick > ? AND at_tick <= ?
+                ORDER BY at_tick ASC, log_id ASC
+                """,
+                (int(since_tick), int(t_now)),
+            ).fetchall()
+        else:
+            rows = self._exec(
+                """
+                SELECT * FROM agent_state_log
+                WHERE agent_id=? AND at_tick > ? AND at_tick <= ?
+                ORDER BY at_tick ASC, log_id ASC
+                """,
+                (int(agent_id), int(since_tick), int(t_now)),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def clear_location_logs(self) -> None:
+        self._exec("DELETE FROM agent_location_log")
+
+    def clear_state_logs(self) -> None:
+        self._exec("DELETE FROM agent_state_log")
 
     # =====================================================================
     # relation

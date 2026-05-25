@@ -29,7 +29,17 @@ class MoveEffect(EffectBase):
         move_fn = getattr(places, "move", None) if places is not None else None
         if move_fn is None:
             raise RuntimeError("MoveEffect requires world.places.move")
-        result = move_fn(self.agent_id, self.place_id)
+        t = int(getattr(world, "t", 0) or 0)
+        clock = getattr(world, "clock", None)
+        if t == 0 and clock is not None:
+            t = int(getattr(clock, "t", 0) or 0)
+        result = move_fn(
+            self.agent_id,
+            self.place_id,
+            world=world,
+            t=t,
+            source="script",
+        )
         # ``move`` 在不同实现中可能是 sync / async；统一适配。
         if hasattr(result, "__await__"):
             await result

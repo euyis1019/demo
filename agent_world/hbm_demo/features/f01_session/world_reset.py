@@ -26,6 +26,8 @@ _VOLATILE_TABLES = (
     "direct_message",
     "group_message",
     "script_event_log",
+    "agent_location_log",
+    "agent_state_log",
 )
 
 

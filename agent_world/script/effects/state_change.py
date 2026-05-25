@@ -33,7 +33,14 @@ class StateChangeEffect(EffectBase):
         # UPDATE_STATE action semantics (LAYOUT B5).
         setter = getattr(world, "set_current_state", None)
         if callable(setter):
-            setter(self.agent_id, self.new_state)
+            tick = int(getattr(world, "t", 0) or 0)
+            clock = getattr(world, "clock", None)
+            if tick == 0 and clock is not None:
+                tick = int(getattr(clock, "t", 0) or 0)
+            try:
+                setter(self.agent_id, self.new_state, t=tick)
+            except TypeError:
+                setter(self.agent_id, self.new_state)
             return
 
         # Fallback: direct write into world.agents (legacy path).
