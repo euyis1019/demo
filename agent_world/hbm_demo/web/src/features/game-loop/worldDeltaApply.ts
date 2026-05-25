@@ -29,6 +29,9 @@ export function applyWorldDeltaPayload(
   const through = data.through_tick;
   if (through > sinceTick || hasDeltaActivity(data)) {
     dispatch({ type: "APPLY_WORLD_DELTA", delta: data });
+    if (hasDeltaActivity(data)) {
+      dispatch({ type: "SET_IMMEDIATE", message: undefined });
+    }
   }
 
   if (data.game_over?.status === "game_over") {

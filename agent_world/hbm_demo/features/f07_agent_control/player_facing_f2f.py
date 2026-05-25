@@ -9,7 +9,8 @@ PLAYER_RECIPIENT_ID = 0
 
 def is_speak_to_local_action(action_type: Any) -> bool:
     name = str(
-        getattr(action_type, "value", None)
+        getattr(action_type, "tool_name", None)
+        or getattr(action_type, "value", None)
         or getattr(action_type, "name", None)
         or action_type
         or ""

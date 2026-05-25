@@ -302,7 +302,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         placeId: snap.placeId,
-        worldTick: snap.worldTick,
+        // worldTick is the F14 delta cursor — only ADVANCE via APPLY_WORLD_DELTA.
         agentLocations: snap.agentLocations,
         nameMap: snap.nameMap,
       };
@@ -313,8 +313,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         worldLoopState: action.loopState,
         worldLoopPausedAtTick:
           action.loopState === "paused" ? action.pausedAtTick : undefined,
-        worldTick:
-          typeof action.currentTick === "number" ? action.currentTick : state.worldTick,
       };
     case "OPEN_AGENT_MODAL":
       return { ...state, activeAgentModal: action.agentId };

@@ -165,9 +165,9 @@ if [[ "$runner_ready" -ne 1 ]]; then
   exit 1
 fi
 
-echo "正在启动 Flask（端口 ${FLASK_PORT}）…"
-"$PYTHON" -m flask run --host 127.0.0.1 --port "$FLASK_PORT" \
-  >>"$RUN_DIR/flask.log" 2>&1 &
+  echo "正在启动 Flask（端口 ${FLASK_PORT}）…"
+  "$PYTHON" -m flask run --host 127.0.0.1 --port "$FLASK_PORT" --with-threads \
+    >>"$RUN_DIR/flask.log" 2>&1 &
 FLASK_PID=$!
 
 flask_ready=0

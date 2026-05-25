@@ -74,6 +74,10 @@ def clear_player_memory_for_agents(agents: Any, agent_ids: List[int]) -> None:
         mem = getattr(agent, "player_memory", None)
         if mem is not None and hasattr(mem, "clear"):
             mem.clear()
+        if hasattr(agent, "_inject_responded"):
+            agent._inject_responded = False  # noqa: SLF001
+        if hasattr(agent, "_pending_rdc_out"):
+            agent._pending_rdc_out = {}  # noqa: SLF001
 
 
 __all__ = [

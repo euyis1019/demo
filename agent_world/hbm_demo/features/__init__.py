@@ -70,7 +70,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
             "player_response",
             "player_facing_f2f",
             "pick_active",
-            "tool_guard",
+            "conversation_control",
             "inject_batch",
             "turn_control",
         ],

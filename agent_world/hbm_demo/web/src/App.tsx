@@ -42,14 +42,15 @@ function GameApp() {
     pauseWorld,
     resumeWorld,
   } = useWorldLoopControl(state.sessionInitialized && state.view === "playing");
+  const envTick = useEnvStatus(
+    state.sessionInitialized && state.view === "playing",
+  );
   useWorldDeltaSync(
     state.sessionInitialized && state.view === "playing",
     worldLoopState === "paused",
+    envTick,
   );
   const loadingElapsed = useLoadingElapsed(state.loading);
-  const envTick = useEnvStatus(
-    state.sessionInitialized && state.view === "playing" && state.worldLoopState !== "paused",
-  );
 
   const {
     healthChecking,

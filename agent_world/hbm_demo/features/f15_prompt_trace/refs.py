@@ -132,8 +132,7 @@ def enrich_world_delta(
     delta: Dict[str, Any],
     link_map: Dict[str, str],
 ) -> Dict[str, Any]:
-    if not link_map:
-        return delta
+    link_map = link_map or {}
 
     room_f2f = delta.get("room_f2f") or {}
     if isinstance(room_f2f, dict):

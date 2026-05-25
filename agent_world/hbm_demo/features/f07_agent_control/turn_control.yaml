@@ -17,10 +17,6 @@ experience_hardening:
   inject_exclusive_ticks:
     Phase 1: 2
 
-# L5 hard block — when false, disallowed tools are dropped (not mass do_nothing)
-tool_guard:
-  hard_block: false
-
 phases:
   Phase 1:
     primary_active: [1, 2, 3]
@@ -30,6 +26,8 @@ phases:
     passive_max_per_batch: 1
     passive_tick_probability: medium
     inject_exclusive_ticks: 2
+    inject_response_ticks: 4
+    primary_notify_ticks: 3
   Phase 2:
     primary_active: [2]
     passive_rdc_reply: [3]

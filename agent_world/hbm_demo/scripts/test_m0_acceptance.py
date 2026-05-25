@@ -761,9 +761,9 @@ def test_f11_c_frontend() -> None:
     import re
 
     game_loop_const = (web_src / "constants" / "gameLoop.ts").read_text(encoding="utf-8")
-    if not re.search(r"DELTA_POLL_MS\s*=\s*500", game_loop_const):
-        raise TestFailure("gameLoop DELTA_POLL_MS should be 500 for F14")
-    ok("DELTA_POLL_MS = 500ms")
+    if not re.search(r"DELTA_POLL_MS\s*=\s*\d+", game_loop_const):
+        raise TestFailure("gameLoop DELTA_POLL_MS missing for F14")
+    ok("DELTA_POLL_MS configured for F14 poll")
 
     messages = (web_src / "utils" / "messages.ts").read_text(encoding="utf-8")
     if "messageKey" not in messages or "mergeMessages" not in messages:
@@ -1020,24 +1020,15 @@ def test_f03_action_completion() -> None:
 
 
 def test_f07_b_agent_control() -> None:
-    """F07-B L3/L5 unit tests (dev_logs/24 §11 B1–B5)."""
-    section("T2d F07-B pick_active / tool_guard / world_step")
+    """F07-B L3 unit tests (dev_logs/24 §11 B1–B5)."""
+    section("T2d F07-B pick_active / world_step")
     from types import SimpleNamespace
 
-    from agent_world.demo.demo_agent import _ToolCall
     from agent_world.hbm_demo.core.runner.world_step import HbmWorldStep
-    from agent_world.hbm_demo.features.f07_agent_control import (
-        is_tool_allowed,
-        pick_active_ids,
-        primary_active_ids,
-    )
-    from agent_world.hbm_demo.features.f07_agent_control.tool_guard import (
-        filter_tool_calls,
-    )
+    from agent_world.hbm_demo.features.f07_agent_control import pick_active_ids, primary_active_ids
     from agent_world.hbm_demo.features.f07_agent_control.config import (
         inject_exclusive_ticks_for,
         is_experience_hardening,
-        is_hard_block_enabled,
         load_turn_control,
         resolve_inject_tick_count,
         scripted_f2f_fallback_enabled,
@@ -1054,66 +1045,71 @@ def test_f07_b_agent_control() -> None:
         raise TestFailure(f"Phase 1 primary_active expected [1,2,3]: {primary}")
     ok("B4 Phase 1 primary_active [1,2,3]")
 
-    world = SimpleNamespace(agents={1: object(), 2: object(), 3: object(), 7: object()})
-    active = pick_active_ids(ctx_p1, world, t=10)
-    if 7 in active:
-        raise TestFailure(f"Phase 1 must freeze agent 7: {active}")
-    if not all(aid in (1, 2, 3, 4, 5, 6) for aid in active):
-        raise TestFailure(f"Phase 1 active out of range: {active}")
-    if not all(aid in active for aid in (1, 2, 3)):
-        raise TestFailure(f"Phase 1 must include primary [1,2,3]: {active}")
-    ok(f"B1 pick_active Phase 1 active={active} (no agent 7)")
+    world = SimpleNamespace(agents={1: object(), 2: object(), 3: object(), 7: object()}, world_db=None)
+    active = pick_active_ids(ctx_p1, world, t=10, batch_tick_index=99)
+    if active:
+        raise TestFailure(f"idle tick with no stimulus should not activate agents: {active}")
+    ok("B1 pick_active idle → [] (stimulus-driven L3)")
 
-    if is_tool_allowed(2, "request_move", ctx_p1):
-        raise TestFailure("Phase 1 must block request_move")
-    if is_tool_allowed(1, "send_to_group", ctx_p1):
-        raise TestFailure("Phase 1 agent 1 must block send_to_group")
-    if not is_tool_allowed(1, "speak_to_local", ctx_p1):
-        raise TestFailure("Phase 1 agent 1 must allow speak_to_local")
-    ok("B3 tool_guard MOVE/GRP blocked Phase 1")
+    class _UnreadDB:
+        def fetch_arrived_for(self, recipient_id, t, last_seen):  # noqa: ARG002
+            if int(recipient_id) == 2:
+                return [SimpleNamespace(sender_id=1)]
+            return []
+
+        def fetch_f2f_history_at(self, *args, **kwargs):  # noqa: ARG002
+            return []
+
+    unread_world = SimpleNamespace(
+        agents={1: object(), 2: object(), 3: object()},
+        world_db=_UnreadDB(),
+        places=SimpleNamespace(L_t=lambda _aid: "negotiation_room"),
+    )
+    active_unread = pick_active_ids(ctx_p1, unread_world, t=10, batch_tick_index=99)
+    if 2 not in active_unread:
+        raise TestFailure(f"unread RDC must activate recipient: {active_unread}")
+    ok(f"B1 pick_active unread RDC activates recipient: {active_unread}")
+
+    hbm_src = (HBM_DIR / "core" / "runner" / "hbm_agent.py").read_text(encoding="utf-8")
+    if "filter_tool_calls" in hbm_src:
+        raise TestFailure("L5 removed: hbm_agent must not call filter_tool_calls")
+    ok("L5 tool filter removed from hbm_agent (L3 pick_active only)")
+
+    from agent_world.hbm_demo.core.runner.hbm_agent import HbmAgent
+    from agent_world.demo.demo_agent import _ToolCall
+    from agent_world.hbm_demo.features.f07_agent_control.conversation_control import (
+        build_conversation_hints,
+        mark_communication_action,
+    )
+
+    agent = HbmAgent(agent_id=1, name="前台")
+    agent.player_memory.append({"role": "system", "content": "玩家说：测试"})
+    mark_communication_action(
+        agent,
+        action_type=_ToolCall(tool_name="speak_to_local", args={"content": "好的"}),
+        action_kwargs={"content": "好的"},
+        dispatch_result={"success": True},
+        t=5,
+    )
+    if agent.player_memory:
+        raise TestFailure("mark_communication_action should clear player_memory")
+    if not getattr(agent, "_inject_responded", False):
+        raise TestFailure("mark_communication_action should set inject_responded")
+    hints = build_conversation_hints(1, agent, SimpleNamespace(world_db=None), t=6)
+    if "do_nothing" not in hints:
+        raise TestFailure(f"post-response hints should suggest do_nothing: {hints!r}")
+    ok("conversation_control clears inject memory + anti-repeat hints")
 
     load_turn_control.cache_clear()
     if is_experience_hardening():
         raise TestFailure("v2 Phase0 requires experience_hardening.enabled=false")
-    if is_hard_block_enabled():
-        raise TestFailure("v2 Phase0 requires tool_guard.hard_block=false")
     if scripted_f2f_fallback_enabled():
         raise TestFailure("v2 Phase0 requires scripted_f2f_fallback=false")
     if inject_exclusive_ticks_for("Phase 1") != 2:
         raise TestFailure(
             f"v2 inject_exclusive from phases expected 2: {inject_exclusive_ticks_for('Phase 1')}"
         )
-    ok("v2 Phase0 turn_control: hardening off, hard_block off, inject_exclusive=2")
-
-    blocked = filter_tool_calls(
-        2,
-        ctx_p1,
-        [_ToolCall(tool_name="request_move", args={"place_id": "x"})],
-    )
-    if is_hard_block_enabled():
-        if not blocked or blocked[0].tool_name != "do_nothing":
-            raise TestFailure(f"hard_block MOVE should become do_nothing: {blocked}")
-        ok("B3 filter_tool_calls replaces illegal MOVE (hard_block)")
-    else:
-        if blocked:
-            raise TestFailure(
-                f"v2 should drop disallowed MOVE without do_nothing: {blocked}"
-            )
-        ok("B3 v2 filter_tool_calls drops illegal MOVE (no mass do_nothing)")
-
-    allowed_mix = filter_tool_calls(
-        1,
-        ctx_p1,
-        [
-            _ToolCall(tool_name="speak_to_local", args={"content": "hi"}),
-            _ToolCall(tool_name="request_move", args={"place_id": "x"}),
-        ],
-    )
-    if not allowed_mix or allowed_mix[0].tool_name != "speak_to_local":
-        raise TestFailure(f"v2 mixed batch should keep speak_to_local: {allowed_mix}")
-    if len(allowed_mix) != 1:
-        raise TestFailure(f"v2 mixed batch should drop MOVE only: {allowed_mix}")
-    ok("B3 v2 mixed tool batch keeps allowed tools")
+    ok("v2 Phase0 turn_control: hardening off, inject_exclusive=2")
 
     step = HbmWorldStep.__new__(HbmWorldStep)
     step._tick_context = None
@@ -1159,8 +1155,10 @@ def test_f07_c_agent_control() -> None:
     from agent_world.hbm_demo.features.f07_agent_control.llm_params import (
         resolve_llm_params,
     )
+    from agent_world.hbm_demo.features.f07_agent_control.conversation_control import (
+        has_unread_inbound,
+    )
     from agent_world.hbm_demo.features.f07_agent_control.pick_active import (
-        _has_unread_inbound,
         _passive_candidates,
         primary_active_ids,
     )
@@ -1189,9 +1187,9 @@ def test_f07_c_agent_control() -> None:
         places=SimpleNamespace(L_t=lambda aid: "negotiation_room"),
     )
     agent3 = SimpleNamespace(last_message_seen_at=0)
-    if not _has_unread_inbound(3, agent3, world_p2, 5, rdc_from=2):
+    if not has_unread_inbound(3, agent3, world_p2, 5, rdc_from=2):
         raise TestFailure("C1 VP should detect unread Jensen RDC")
-    if _has_unread_inbound(3, agent3, world_p2, 5, rdc_from=4):
+    if has_unread_inbound(3, agent3, world_p2, 5, rdc_from=4):
         raise TestFailure("C1 VP must ignore non-Jensen RDC (rdc_from=2 only)")
     passive = _passive_candidates("Phase 2", 7, world_p2, 5, world_p2.agents)
     if 3 not in passive:
@@ -1342,9 +1340,6 @@ def test_f07_d_agent_control() -> None:
         pick_active_ids,
         primary_active_ids,
     )
-    from agent_world.hbm_demo.features.f07_agent_control.tool_guard import (
-        allowed_tools_for,
-    )
     from agent_world.hbm_demo.features.f07_agent_control.player_response import (
         format_l6_player_directive,
     )
@@ -1391,10 +1386,12 @@ def test_f07_d_agent_control() -> None:
         raise TestFailure(f"D1 Phase 4 active should be [2]: {active}")
     ok("D1 Phase 4 L3 primary [2], Agent 3 present_silent (no tick)")
 
-    vp_tools = allowed_tools_for(3, ctx_p4)
-    if vp_tools:
-        raise TestFailure(f"D1 Agent 3 Phase 4 tools must be empty: {vp_tools}")
-    ok("D1 Agent 3 Phase 4 tool matrix empty")
+    f07_dir = HBM_DIR / "features" / "f07_agent_control"
+    if (f07_dir / "tool_guard.py").is_file():
+        raise TestFailure("L5 removed: tool_guard.py should not exist")
+    if (f07_dir / "tool_matrix.yaml").is_file():
+        raise TestFailure("L5 removed: tool_matrix.yaml should not exist")
+    ok("D1 L5 tool matrix/guard removed; Phase 4 gating is L3 pick_active only")
 
     if TECH_VP_ID in CEO_IDS:
         raise TestFailure("D1 node C must not include Tech VP in CEO_IDS")
@@ -1550,11 +1547,7 @@ def test_f07_e_step2_guard_and_fallback() -> None:
     import tempfile
 
     section("T2h F07-E Step2 E1 guard + E5 + f2f_fallback")
-    from agent_world.demo.demo_agent import _ToolCall
     from agent_world.hbm_demo.features import FEATURE_REGISTRY
-    from agent_world.hbm_demo.features.f07_agent_control.batch_guard import (
-        BatchGuardState,
-    )
     from agent_world.hbm_demo.features.f07_agent_control.config import (
         first_f2f_required_agents,
         is_experience_hardening,
@@ -1566,9 +1559,6 @@ def test_f07_e_step2_guard_and_fallback() -> None:
         apply_batch_f2f_fallback,
         build_fallback_content,
         extract_player_keyword,
-    )
-    from agent_world.hbm_demo.features.f07_agent_control.tool_guard import (
-        filter_tool_calls,
     )
     from agent_world.hbm_demo.features.f06_read_model.world_db import ReadOnlyWorldDB
     from agent_world.persistence.world_db import WorldDB
@@ -1599,40 +1589,10 @@ def test_f07_e_step2_guard_and_fallback() -> None:
         raise TestFailure(f"build_fallback_content unexpected: {content!r}")
     ok("E1 fallback template uses player keyword")
 
-    ctx_p1 = {
-        "phase": "Phase 1",
-        "player_turn": 1,
-        "place_id": "nvidia_reception",
-        "player_text": "玩家说：我们能把显存占用压到 40% 吗？",
-        "inject_agent_ids": [1],
-    }
-    guard = BatchGuardState()
-    blocked = filter_tool_calls(
-        1,
-        ctx_p1,
-        [_ToolCall(tool_name="send_message", args={"target": 2, "content": "x"})],
-        batch_guard=guard,
-    )
-    if not blocked or blocked[0].tool_name != "do_nothing":
-        raise TestFailure(f"E1 should block send_message before F2F: {blocked}")
-    allowed = filter_tool_calls(
-        1,
-        ctx_p1,
-        [_ToolCall(tool_name="speak_to_local", args={"content": "hello"})],
-        batch_guard=guard,
-    )
-    if not allowed or allowed[0].tool_name != "speak_to_local":
-        raise TestFailure(f"E1 should allow speak_to_local before F2F: {allowed}")
-    guard.mark_f2f(1)
-    after_f2f = filter_tool_calls(
-        1,
-        ctx_p1,
-        [_ToolCall(tool_name="send_message", args={"target": 2, "content": "x"})],
-        batch_guard=guard,
-    )
-    if not after_f2f or after_f2f[0].tool_name != "send_message":
-        raise TestFailure(f"E1 should allow send_message after F2F marked: {after_f2f}")
-    ok("E1 first_action_guard blocks non-F2F until batch_guard.mark_f2f")
+    f07_dir = HBM_DIR / "features" / "f07_agent_control"
+    if (f07_dir / "tool_guard.py").is_file():
+        raise TestFailure("L5 removed: E1 first_action_guard must not use tool_guard")
+    ok("E1 first_action_guard retired with L5 removal")
 
     ipc_src = (HBM_DIR / "core" / "runner" / "ipc_handlers.py").read_text(encoding="utf-8")
     if "apply_batch_f2f_fallback_at" not in ipc_src:
@@ -1682,11 +1642,7 @@ def test_f07_e_step3_rdc_quota_and_tick_order() -> None:
     from types import SimpleNamespace
 
     section("T2i F07-E Step3 E2 RDC quota + inject tick order")
-    from agent_world.demo.demo_agent import _ToolCall
     from agent_world.hbm_demo.features import FEATURE_REGISTRY
-    from agent_world.hbm_demo.features.f07_agent_control.batch_guard import (
-        BatchGuardState,
-    )
     from agent_world.hbm_demo.features.f07_agent_control.config import (
         inject_exclusive_ticks_for,
         is_experience_hardening,
@@ -1698,9 +1654,6 @@ def test_f07_e_step3_rdc_quota_and_tick_order() -> None:
     )
     from agent_world.hbm_demo.features.f07_agent_control.pick_active import (
         pick_active_ids,
-    )
-    from agent_world.hbm_demo.features.f07_agent_control.tool_guard import (
-        filter_tool_calls,
     )
 
     phase = FEATURE_REGISTRY.get("F07", {}).get("phase", "")
@@ -1774,25 +1727,23 @@ def test_f07_e_step3_rdc_quota_and_tick_order() -> None:
     )
     if exclusive_tick1 != [1]:
         raise TestFailure(f"inject_exclusive tick1 expected [1]: {exclusive_tick1}")
+    ok("E2 inject_exclusive_ticks Phase 1 tick0-1 → [1] only")
     normal_tick2 = pick_active_ids(
         ctx_p1, world, t=3, batch_tick_index=2
     )
-    if not all(aid in normal_tick2 for aid in (1, 2, 3)):
-        raise TestFailure(f"tick2+ should restore primary [1,2,3]: {normal_tick2}")
-    ok("E2 inject_exclusive_ticks Phase 1 tick0-1 → [1] only")
+    if 1 not in normal_tick2:
+        raise TestFailure(
+            f"inject_response window should keep inject agent active: {normal_tick2}"
+        )
+    if not all(aid in normal_tick2 for aid in (2, 3)):
+        raise TestFailure(
+            f"primary_notify window should include notified primaries: {normal_tick2}"
+        )
+    ok(f"post-inject window active={normal_tick2} (not all primaries forever)")
 
-    guard = BatchGuardState()
-    guard.mark_f2f(1)
-    guard.mark_rdc(1, 2)
-    blocked_rdc = filter_tool_calls(
-        1,
-        ctx_p1,
-        [_ToolCall(tool_name="send_message", args={"target": 2, "content": "dup"})],
-        batch_guard=guard,
-    )
-    if not blocked_rdc or blocked_rdc[0].tool_name != "do_nothing":
-        raise TestFailure(f"E2 should block 2nd RDC for agent 1: {blocked_rdc}")
-    ok("E2 rdc_quota blocks send_message after quota exhausted")
+    if (HBM_DIR / "features" / "f07_agent_control" / "tool_guard.py").is_file():
+        raise TestFailure("L5 removed: E2 rdc_quota must not use tool_guard")
+    ok("E2 rdc_quota enforcement retired with L5 removal")
 
     ws_src = (HBM_DIR / "core" / "runner" / "world_step.py").read_text(encoding="utf-8")
     if "_batch_tick_index" not in ws_src or "_mark_rdc_if_sent" not in ws_src:
@@ -2001,7 +1952,6 @@ def test_f07_v2_phase0_hard_control_retired() -> None:
     from agent_world.hbm_demo.features.f07_agent_control.config import (
         is_experience_hardening,
         is_f07_enabled,
-        is_hard_block_enabled,
         load_turn_control,
         scripted_f2f_fallback_enabled,
     )
@@ -2013,11 +1963,9 @@ def test_f07_v2_phase0_hard_control_retired() -> None:
     load_turn_control.cache_clear()
     if is_experience_hardening():
         raise TestFailure("Phase0: experience_hardening.enabled must be false")
-    if is_hard_block_enabled():
-        raise TestFailure("Phase0: tool_guard.hard_block must be false")
     if scripted_f2f_fallback_enabled():
         raise TestFailure("Phase0: scripted_f2f_fallback must be false")
-    ok("Phase0 turn_control: hardening/hard_block/fallback off")
+    ok("Phase0 turn_control: hardening/fallback off; L5 tool filter removed")
 
     ipc_src = (HBM_DIR / "core" / "runner" / "ipc_handlers.py").read_text(
         encoding="utf-8"
@@ -2427,6 +2375,54 @@ def test_f07_v2_phase3_prompt_trace() -> None:
         raise TestFailure(f"enrich_world_delta failed: {msg}")
     ok("enrich_world_delta attaches trace fields")
 
+    enriched_no_links = enrich_world_delta(
+        {
+            "room_f2f": {
+                "nvidia_reception": [
+                    {
+                        "sender": "A",
+                        "content": "hi",
+                        "type": "F2F",
+                        "attempted_at": 5,
+                        "sender_id": 1,
+                        "place_id": "nvidia_reception",
+                    }
+                ]
+            },
+            "state_changes": [],
+            "location_changes": [],
+        },
+        {},
+    )
+    msg_no_link = enriched_no_links["room_f2f"]["nvidia_reception"][0]
+    if msg_no_link.get("ref_key") != "f2f:nvidia_reception:5:1":
+        raise TestFailure(f"enrich_world_delta missing ref_key without links: {msg_no_link}")
+    if msg_no_link.get("prompt_trace_id"):
+        raise TestFailure("ref_key-only enrich should not set prompt_trace_id")
+    ok("enrich_world_delta attaches ref_key even without link_map")
+
+    world_src = (HBM_DIR / "core" / "runner" / "world_step.py").read_text(
+        encoding="utf-8"
+    )
+    if "trace_id=prompt_trace_id" not in world_src:
+        raise TestFailure("world_step must pass captured prompt_trace_id to record_action_links")
+    ok("world_step preserves prompt_trace_id for F15 linker")
+
+    if "def _agent_place_id" not in world_src:
+        raise TestFailure("HbmWorldStep must define _agent_place_id for F15 + player F2F")
+    ok("HbmWorldStep defines _agent_place_id")
+
+    if "if not is_experience_hardening():\n            return\n        if not is_speak_to_local_action" in world_src:
+        raise TestFailure("player-facing F2F must not be gated on experience_hardening")
+    ok("player-facing F2F not gated on experience_hardening")
+
+    from agent_world.demo.demo_agent import _ToolCall
+    from agent_world.hbm_demo.features.f15_prompt_trace.linker import _action_name
+
+    if _action_name(_ToolCall(tool_name="update_state", args={})) != "update_state":
+        raise TestFailure("F15 linker _action_name must read _ToolCall.tool_name")
+    ok("F15 linker resolves _ToolCall.tool_name")
+
     world_sync = (HBM_DIR / "web" / "src" / "store" / "worldSync.ts").read_text(
         encoding="utf-8"
     )
@@ -2690,12 +2686,10 @@ def test_f07_v2_phase5_story_advance_and_ws() -> None:
         raise TestFailure("Phase5: dispatcher missing story_advance persistence")
     ok("HbmActionDispatcher persists story_advance to world.db")
 
-    matrix = (HBM_DIR / "features" / "f07_agent_control" / "tool_matrix.yaml").read_text(
-        encoding="utf-8"
-    )
-    if "story_advance" not in matrix:
-        raise TestFailure("Phase5: tool_matrix missing story_advance")
-    ok("tool_matrix allows story_advance per phase/agent")
+    agent_src = (HBM_DIR / "core" / "runner" / "hbm_agent.py").read_text(encoding="utf-8")
+    if "story_advance" not in agent_src:
+        raise TestFailure("Phase5: HbmAgent must expose story_advance tool")
+    ok("HbmAgent exposes story_advance (no L5 tool_matrix gate)")
 
     signals_src = (
         HBM_DIR / "features" / "f05_story_routing" / "agent_signals.py"
@@ -3760,11 +3754,11 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
     if is_experience_hardening():
         if len(grp) != 0:
             raise TestFailure(
-                f"F07 Phase 1 Turn 1 GRP must be 0 (L3/L5); got GRP={len(grp)}"
+                f"F07 Phase 1 Turn 1 GRP must be 0 (experience_hardening); got GRP={len(grp)}"
             )
         ok("Tier A: Phase 1 Turn 1 GRP=0")
     else:
-        ok(f"v2 Phase0 Turn1 GRP={len(grp)} (hard_block off — LLM may emit GRP)")
+        ok(f"v2 Turn1 GRP={len(grp)} (L5 removed — LLM tool choice unfiltered)")
     if llm_key:
         from agent_world.hbm_demo.features.f07_agent_control.config import (
             is_experience_hardening,

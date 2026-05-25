@@ -20,7 +20,8 @@ log = logging.getLogger(__name__)
 
 def _action_name(action_type: Any) -> str:
     return str(
-        getattr(action_type, "value", None)
+        getattr(action_type, "tool_name", None)
+        or getattr(action_type, "value", None)
         or getattr(action_type, "name", None)
         or action_type
         or ""
@@ -38,11 +39,16 @@ async def record_action_links(
     dispatch_result: Optional[Dict[str, Any]],
     place_id: Optional[str],
 ) -> None:
-    if world_db is None or not trace_id:
+    store = PromptTraceStore(world_db) if world_db is not None else None
+    if store is None or not store.enabled:
         return
-
-    store = PromptTraceStore(world_db)
-    if not store.enabled:
+    if not trace_id:
+        log.debug(
+            "F15 skip link: missing trace_id agent=%s t=%s action=%s",
+            agent_id,
+            t,
+            _action_name(action_type),
+        )
         return
 
     name = _action_name(action_type)

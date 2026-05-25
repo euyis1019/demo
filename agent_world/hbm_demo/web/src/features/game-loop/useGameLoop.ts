@@ -2,11 +2,14 @@ import { useCallback } from "react";
 import {
   getActionResult,
   getSession,
+  getWorldDelta,
   getWorldSnapshot,
   postPlayerTurn,
   resetSession,
+  resumeWorldLoop,
   startSession,
 } from "../../api/hbm";
+import { applyWorldDeltaPayload } from "./worldDeltaApply";
 import type {
   ActionResultCompleted,
   ActionResultProcessing,
@@ -55,10 +58,17 @@ function isProcessingWithDelta(
   );
 }
 
-async function fetchWorldSnapshot(dispatch: ReturnType<typeof useGameStoreContext>["dispatch"]) {
-  const response = await getWorldSnapshot();
-  if (response.data) {
-    dispatch({ type: "SET_WORLD_SNAPSHOT", snapshot: response.data });
+/** Hydrate room/agent inbox from F14 delta, then calibrate locations from snapshot. */
+async function hydrateWorldFromServer(
+  dispatch: ReturnType<typeof useGameStoreContext>["dispatch"],
+) {
+  const deltaResp = await getWorldDelta(0);
+  if (deltaResp.data) {
+    applyWorldDeltaPayload(dispatch, deltaResp.data, 0);
+  }
+  const snapResp = await getWorldSnapshot();
+  if (snapResp.data) {
+    dispatch({ type: "SET_WORLD_SNAPSHOT", snapshot: snapResp.data });
   }
 }
 
@@ -80,7 +90,7 @@ export function useStartGame() {
           );
         }
         applySessionStart(response.data);
-        await fetchWorldSnapshot(dispatch);
+        await hydrateWorldFromServer(dispatch);
       } catch (err) {
         dispatch({
           type: "SET_ERROR",
@@ -130,7 +140,7 @@ export function useGameLoop() {
     if (response.data?.initialized) {
       dispatch({ type: "APPLY_SESSION", data: response.data });
     }
-    await fetchWorldSnapshot(dispatch);
+    await hydrateWorldFromServer(dispatch);
   }, [dispatch]);
 
   const handleApiError = useCallback(
@@ -160,10 +170,15 @@ export function useGameLoop() {
           place_id: state.placeId,
         },
       });
-      dispatch({ type: "SET_IMMEDIATE", message: undefined });
       dispatch({ type: "SET_ERROR", message: undefined });
 
+      let keepImmediateMsg = false;
+
       try {
+        if (state.worldLoopState === "paused") {
+          await resumeWorldLoop();
+        }
+
         const response = await postPlayerTurn({ player_text: trimmed });
         const data = response.data;
         if (!data) {
@@ -188,6 +203,7 @@ export function useGameLoop() {
             phase: data.current_phase,
             playerTurn: data.player_turn,
           });
+          keepImmediateMsg = true;
           return;
         }
 
@@ -251,7 +267,9 @@ export function useGameLoop() {
         handleApiError(err, "本回合处理失败");
       } finally {
         setLoading(false);
-        dispatch({ type: "SET_IMMEDIATE", message: undefined });
+        if (!keepImmediateMsg) {
+          dispatch({ type: "SET_IMMEDIATE", message: undefined });
+        }
       }
     },
     [
@@ -262,6 +280,7 @@ export function useGameLoop() {
       state.loading,
       state.placeId,
       state.playerTurn,
+      state.worldLoopState,
     ],
   );
 

@@ -216,13 +216,12 @@ def run_eval() -> Dict[str, Any]:
     )
     from types import SimpleNamespace
 
-    def _move_allowed(phase: str) -> bool:
-        import yaml
-
-        path = HBM_DIR / "features" / "f07_agent_control" / "tool_matrix.yaml"
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        block = (data.get("phases") or {}).get(phase) or {}
-        return bool(block.get("move_allowed", False))
+    def _move_blocked_by_dispatcher() -> bool:
+        """Agent request_move is silently ignored by HbmActionDispatcher (IPC-only MOVE)."""
+        disp_src = (HBM_DIR / "core" / "runner" / "hbm_dispatcher.py").read_text(
+            encoding="utf-8"
+        )
+        return "noop" in disp_src and "request_move" in disp_src
 
     cfg = load_turn_control()
     report["structural_checks"].append(
@@ -249,9 +248,9 @@ def run_eval() -> Dict[str, Any]:
         )
         report["structural_checks"].append(
             {
-                "check": f"{phase} move_allowed=false",
-                "ok": _move_allowed(phase) is False,
-                "value": _move_allowed(phase),
+                "check": f"{phase} MOVE via dispatcher noop (no L5 matrix)",
+                "ok": _move_blocked_by_dispatcher() is True,
+                "value": _move_blocked_by_dispatcher(),
             }
         )
         if phase == "Phase 1":

@@ -1,13 +1,14 @@
 import { useEffect, useRef } from "react";
 import type { WorldDeltaData } from "../../api/types";
-import { API_PREFIX, SIM_ID } from "../../api/hbm";
+import { API_PREFIX } from "../../api/hbm";
 import { WORLD_STREAM_FALLBACK_POLL_MS } from "../../constants/gameLoop";
 import { useGameStoreContext } from "../../store/GameStoreProvider";
 import { applyWorldDeltaPayload } from "./worldDeltaApply";
 
 function worldStreamUrl(): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//${window.location.host}${API_PREFIX}/simulations/${SIM_ID}/world-stream`;
+  // API_PREFIX already includes `/api/hbm/simulations/${SIM_ID}` (see api/config.ts).
+  return `${proto}//${window.location.host}${API_PREFIX}/world-stream`;
 }
 
 /** F16 — WebSocket push for session delta (dev_logs/31 Phase 5 §14.4). */
@@ -37,17 +38,23 @@ export function useWorldDeltaStream(
     let cancelled = false;
     let ws: WebSocket | null = null;
     let reconnectTimer: number | undefined;
+    let reconnectDelayMs = WORLD_STREAM_FALLBACK_POLL_MS;
 
     const connect = () => {
       if (cancelled) {
         return;
       }
+      if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+        return;
+      }
+
       ws = new WebSocket(worldStreamUrl());
 
       ws.onopen = () => {
         if (cancelled || !ws) {
           return;
         }
+        reconnectDelayMs = WORLD_STREAM_FALLBACK_POLL_MS;
         onConnectedRef.current(true);
         ws.send(JSON.stringify({ since_tick: sinceTickRef.current }));
       };
@@ -81,8 +88,10 @@ export function useWorldDeltaStream(
 
       ws.onclose = () => {
         onConnectedRef.current(false);
+        ws = null;
         if (!cancelled) {
-          reconnectTimer = window.setTimeout(connect, WORLD_STREAM_FALLBACK_POLL_MS);
+          reconnectTimer = window.setTimeout(connect, reconnectDelayMs);
+          reconnectDelayMs = Math.min(Math.round(reconnectDelayMs * 1.5), 30_000);
         }
       };
     };
@@ -95,7 +104,10 @@ export function useWorldDeltaStream(
       if (reconnectTimer !== undefined) {
         window.clearTimeout(reconnectTimer);
       }
-      ws?.close();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close(1000, "component unmount");
+      }
+      ws = null;
     };
   }, [dispatch, enabled, _paused]);
 }

@@ -46,6 +46,16 @@ def _should_push(delta: Dict[str, Any], since_tick: int) -> bool:
     return False
 
 
+def _safe_send(ws: Any, payload: Dict[str, Any]) -> bool:
+    """Send JSON frame; return False when client disconnected (avoid proxy EPIPE loops)."""
+    try:
+        ws.send(json.dumps(payload, ensure_ascii=False))
+        return True
+    except Exception as exc:  # noqa: BLE001
+        log.debug("world-stream send failed: %s", exc)
+        return False
+
+
 def register_world_stream_routes(sock: Any, *, url_prefix: str) -> None:
     """Register ``WS …/world-stream`` on the Flask-Sock instance."""
 
@@ -54,11 +64,11 @@ def register_world_stream_routes(sock: Any, *, url_prefix: str) -> None:
         from flask import session
 
         if not is_world_stream_enabled():
-            ws.send(json.dumps({"success": False, "error": "world_stream disabled"}))
+            _safe_send(ws, {"success": False, "error": "world_stream disabled"})
             return
 
         if sim_id != gs.DEFAULT_SIM_ID:
-            ws.send(json.dumps({"success": False, "error": f"unknown simulation_id: {sim_id}"}))
+            _safe_send(ws, {"success": False, "error": f"unknown simulation_id: {sim_id}"})
             return
 
         since_tick = 0
@@ -74,38 +84,40 @@ def register_world_stream_routes(sock: Any, *, url_prefix: str) -> None:
         interval = world_stream_poll_interval()
         log.debug("world-stream connected sim=%s since_tick=%s", sim_id, since_tick)
 
-        while True:
-            if not is_runner_ready(gs.get_sim_dir()):
-                ws.send(
-                    json.dumps(
-                        {
-                            "success": False,
-                            "error": "Runner not ready",
-                        }
+        try:
+            while True:
+                if not is_runner_ready(gs.get_sim_dir()):
+                    if not _safe_send(
+                        ws,
+                        {"success": False, "error": "Runner not ready"},
+                    ):
+                        return
+                    time.sleep(1.0)
+                    continue
+
+                try:
+                    delta = get_world_delta(
+                        session,
+                        sim_id=sim_id,
+                        since_tick=since_tick,
                     )
-                )
-                time.sleep(1.0)
-                continue
+                except Exception as exc:  # noqa: BLE001
+                    if not _safe_send(ws, {"success": False, "error": str(exc)}):
+                        return
+                    time.sleep(interval)
+                    continue
 
-            try:
-                delta = get_world_delta(
-                    session,
-                    sim_id=sim_id,
-                    since_tick=since_tick,
-                )
-            except Exception as exc:  # noqa: BLE001
-                ws.send(json.dumps({"success": False, "error": str(exc)}))
+                if _should_push(delta, since_tick):
+                    if not _safe_send(ws, {"success": True, "data": delta}):
+                        return
+                    since_tick = int(delta.get("through_tick", since_tick))
+
+                if delta.get("game_over"):
+                    return
+
                 time.sleep(interval)
-                continue
-
-            if _should_push(delta, since_tick):
-                ws.send(json.dumps({"success": True, "data": delta}, ensure_ascii=False))
-                since_tick = int(delta.get("through_tick", since_tick))
-
-            if delta.get("game_over"):
-                return
-
-            time.sleep(interval)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("world-stream closed sim=%s: %s", sim_id, exc)
 
 
 __all__ = ["register_world_stream_routes"]

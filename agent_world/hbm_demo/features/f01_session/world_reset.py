@@ -63,6 +63,8 @@ async def reset_world_runtime(
 
     for agent in agents:
         agent.player_memory.clear()
+        agent._pending_rdc_out = {}  # noqa: SLF001
+        agent._inject_responded = False  # noqa: SLF001
         segment_store.clear(agent.agent_id)
 
     await seed_world(

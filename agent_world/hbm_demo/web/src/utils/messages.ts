@@ -60,14 +60,26 @@ export function mergeMessages(
   if (!incoming?.length) {
     return sortMessages(existing);
   }
-  const seen = new Set(existing.map(messageKey));
+  const indexByKey = new Map(existing.map((message, index) => [messageKey(message), index]));
   const merged = [...existing];
   for (const message of incoming) {
     const key = messageKey(message);
-    if (seen.has(key)) {
+    const existingIndex = indexByKey.get(key);
+    if (existingIndex != null) {
+      const prev = merged[existingIndex];
+      if (
+        (message.ref_key && !prev.ref_key) ||
+        (message.prompt_trace_id && !prev.prompt_trace_id)
+      ) {
+        merged[existingIndex] = {
+          ...prev,
+          ref_key: prev.ref_key ?? message.ref_key,
+          prompt_trace_id: prev.prompt_trace_id ?? message.prompt_trace_id,
+        };
+      }
       continue;
     }
-    seen.add(key);
+    indexByKey.set(key, merged.length);
     merged.push(message);
   }
   return sortMessages(merged);

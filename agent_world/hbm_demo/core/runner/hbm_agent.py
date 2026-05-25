@@ -107,6 +107,8 @@ class HbmAgent(DemoAgent):
 
     player_memory: List[Dict[str, str]] = field(default_factory=list)
     completion_extras: Dict[str, Any] = field(default_factory=dict)
+    _pending_rdc_out: Dict[int, int] = field(default_factory=dict, repr=False)
+    _inject_responded: bool = field(default=False, repr=False)
 
     async def update_memory(
         self,
@@ -205,18 +207,6 @@ class HbmAgent(DemoAgent):
             tool_calls.append(_ToolCall(tool_name=name, args=args))
             raw_tool_calls.append({"name": name, "args": args})
 
-        if turn_ctx:
-            from agent_world.hbm_demo.features.f07_agent_control.tool_guard import (
-                filter_tool_calls,
-            )
-
-            tool_calls = filter_tool_calls(
-                self.agent_id,
-                turn_ctx,
-                tool_calls,
-                batch_guard=getattr(self, "_batch_guard_state", None),
-            )
-
         if trace_store is not None and trace_id:
             trace_store.finish_trace(
                 trace_id,
@@ -241,8 +231,8 @@ class HbmAgent(DemoAgent):
         reception_extra = ""
         if aid == 1:
             reception_extra = (
-                "3) 你在前台：必须优先 speak_to_local 回应玩家，"
-                "再 send_message RDC→Jensen。\n"
+                "3) 你在前台：优先 speak_to_local 回应玩家，必要时 send_message RDC→Jensen；"
+                "已汇报且老板未回时选 do_nothing，勿重复催。\n"
             )
         elif phase == "Phase 2" and aid == 2:
             reception_extra = (
@@ -271,7 +261,9 @@ class HbmAgent(DemoAgent):
                 "一句一句来，禁止演讲开场。\n"
             )
 
-        respond_rule = "1) 必须先回应玩家注入记忆中的原话（复述或引用关键词）。\n"
+        respond_rule = (
+            "1) 有玩家 inject 时须首次回应其关键词；已回应且无新消息时选 do_nothing。\n"
+        )
         from agent_world.hbm_demo.features.f07_agent_control.config import (
             is_experience_hardening,
         )
@@ -285,6 +277,11 @@ class HbmAgent(DemoAgent):
             respond_rule = (
                 "1) 若本拍无新前台 RDC，选 do_nothing；"
                 "勿主动发起与当前访客无关的话题。\n"
+            )
+        elif phase == "Phase 1" and aid in (2, 3) and not self.player_memory:
+            respond_rule = (
+                "1) 无未读 RDC/新 inject 时选 do_nothing；"
+                "收到前台 RDC 后本拍须 send_message 回复 Jensen 或相关同事。\n"
             )
         elif phase == "Phase 2" and aid == 3:
             respond_rule = "1) 本拍仅回复 Jensen RDC，无需回应玩家（你看不到玩家原话）。\n"
@@ -304,8 +301,10 @@ class HbmAgent(DemoAgent):
             f"{respond_rule}"
             f"{length_rule}"
             f"{reception_extra}"
-            "4) 遵守系统约束中的阶段禁止项（MOVE/GRP 等）；无效操作会被忽略，请优先有效沟通工具。\n"
+            "4) 遵守系统约束中的阶段禁止项（MOVE/GRP 等）；无效操作会被引擎忽略。\n"
             "5) 每一拍只调用一个工具，参数严格符合 schema。\n"
+            "6) 无新消息、无新 inject、且本批已说过话 → 优先 do_nothing，禁止复读。\n"
+            "7) incoming_messages / 未读 RDC 出现 → 本拍必须回复，不要拖到下一拍。\n"
             "\n可选工具：\n"
             f"{_HBM_TOOLS_LIST}\n"
             "保持人物性格——输入上下文可长，实际发言必须短。"
@@ -320,7 +319,7 @@ class HbmAgent(DemoAgent):
         prefix: List[str] = []
 
         if self.player_memory:
-            prefix.append("# 玩家/系统注入的对话记忆（必须认真回应）：")
+            prefix.append("# 玩家/系统注入的对话记忆（本批首次须回应；已回应后勿重复）：")
             for entry in self.player_memory:
                 prefix.append(f"  - [{entry['role']}] {entry['content']}")
 
@@ -348,6 +347,14 @@ class HbmAgent(DemoAgent):
             )
             if recap:
                 prefix.append(recap)
+
+        from agent_world.hbm_demo.features.f07_agent_control.conversation_control import (
+            build_conversation_hints,
+        )
+
+        hints = build_conversation_hints(int(self.agent_id), self, world, int(t))
+        if hints:
+            prefix.append(hints)
 
         if self.player_memory:
             # A8: skip stale-state force update_state while responding to player.

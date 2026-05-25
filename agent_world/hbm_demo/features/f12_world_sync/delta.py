@@ -36,9 +36,7 @@ def _attach_trace_refs(
     t_now: int,
 ) -> Dict[str, Any]:
     links = db.fetch_trace_links_since(since_t, t_now)
-    if not links:
-        return delta
-    link_map = build_link_map(links)
+    link_map = build_link_map(links) if links else {}
     return enrich_world_delta(delta, link_map)
 
 

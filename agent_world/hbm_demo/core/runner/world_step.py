@@ -91,8 +91,7 @@ class HbmWorldStep(WorldStep):
         if not is_f07_enabled() or not self._tick_context:
             if is_world_loop_enabled():
                 ctx = bootstrap_mirror()
-                primary = primary_active_ids(ctx)
-                return list(primary)
+                return pick_active_ids(ctx, self.world, t, batch_tick_index=999)
             return super()._pick_active(t)
 
         ctx = self._tick_context
@@ -113,6 +112,10 @@ class HbmWorldStep(WorldStep):
         if passive_added:
             self._passive_ticks_batch += 1
         return active
+
+    def _agent_place_id(self, agent_id: int) -> Optional[str]:
+        """Place id for F15 links and player-facing F2F emission."""
+        return self._location_of(int(agent_id))
 
     def _resolve_batch_llm_params(
         self,
@@ -154,15 +157,17 @@ class HbmWorldStep(WorldStep):
                 agent._batch_temperature = llm.get("temperature")  # noqa: SLF001
                 agent._batch_max_tokens = llm.get("max_tokens")  # noqa: SLF001
 
+        prompt_trace_id: Optional[str] = None
         try:
             decision = await self._decide(agent, agent_id, t)
         finally:
+            prompt_trace_id = getattr(agent, "_prompt_trace_id", None)
+            agent._prompt_trace_id = None  # noqa: SLF001
             if ctx:
                 agent._batch_turn_context = None  # noqa: SLF001
                 agent._batch_guard_state = None  # noqa: SLF001
                 agent._batch_temperature = None  # noqa: SLF001
                 agent._batch_max_tokens = None  # noqa: SLF001
-                agent._prompt_trace_id = None  # noqa: SLF001
 
         try:
             if hasattr(agent, "last_message_seen_at"):
@@ -186,7 +191,7 @@ class HbmWorldStep(WorldStep):
 
                 await record_action_links(
                     self.world_db,
-                    trace_id=getattr(agent, "_prompt_trace_id", None),
+                    trace_id=prompt_trace_id,
                     agent_id=int(agent_id),
                     t=int(t),
                     action_type=atype,
@@ -194,6 +199,19 @@ class HbmWorldStep(WorldStep):
                     dispatch_result=dispatch_result,
                     place_id=self._agent_place_id(agent_id),
                 )
+                from agent_world.hbm_demo.features.f07_agent_control.conversation_control import (
+                    mark_communication_action,
+                )
+
+                agent = self._resolve_agent(agent_id)
+                if agent is not None:
+                    mark_communication_action(
+                        agent,
+                        action_type=atype,
+                        action_kwargs=akwargs or {},
+                        dispatch_result=dispatch_result,
+                        t=int(t),
+                    )
                 await self._handle_speak_to_local_f2f(
                     agent_id=agent_id,
                     action_type=atype,
@@ -224,17 +242,12 @@ class HbmWorldStep(WorldStep):
         dispatch_result: Any,
         t: int,
     ) -> None:
-        from agent_world.hbm_demo.features.f07_agent_control.config import (
-            is_experience_hardening,
-        )
         from agent_world.hbm_demo.features.f07_agent_control.player_facing_f2f import (
             emit_player_facing_f2f,
             is_speak_to_local_action,
             should_emit_player_facing_f2f,
         )
 
-        if not is_experience_hardening():
-            return
         if not is_speak_to_local_action(action_type):
             return
         if not dispatch_result or not dispatch_result.get("success"):
