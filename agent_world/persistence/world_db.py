@@ -314,6 +314,45 @@ class WorldDB:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def insert_story_advance_sync(
+        self, agent_id: int, signal: str, at_tick: int
+    ) -> int:
+        cur = self._exec(
+            """
+            INSERT INTO story_advance_log (agent_id, signal, at_tick)
+            VALUES (?, ?, ?)
+            """,
+            (int(agent_id), str(signal), int(at_tick)),
+        )
+        return int(cur.lastrowid)
+
+    def fetch_story_advance_since(
+        self,
+        since_tick: int,
+        t_now: int,
+        *,
+        signal: Optional[str] = None,
+        agent_id: Optional[int] = None,
+    ) -> list[dict]:
+        sql = """
+            SELECT log_id, agent_id, signal, at_tick
+            FROM story_advance_log
+            WHERE at_tick > ? AND at_tick <= ?
+        """
+        params: list[Any] = [int(since_tick), int(t_now)]
+        if signal is not None:
+            sql += " AND signal = ?"
+            params.append(str(signal))
+        if agent_id is not None:
+            sql += " AND agent_id = ?"
+            params.append(int(agent_id))
+        sql += " ORDER BY at_tick ASC, log_id ASC"
+        rows = self._exec(sql, tuple(params)).fetchall()
+        return [dict(r) for r in rows]
+
+    def clear_story_advance_logs(self) -> None:
+        self._exec("DELETE FROM story_advance_log")
+
     def clear_location_logs(self) -> None:
         self._exec("DELETE FROM agent_location_log")
 

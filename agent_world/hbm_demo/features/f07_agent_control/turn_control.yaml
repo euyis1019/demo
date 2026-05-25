@@ -74,3 +74,9 @@ prompt_trace:
   truncate_prompt_chars: 0
 
 recap_window_ticks: 20
+
+# F16 WebSocket world delta stream (dev_logs/31 Phase 5 §14.4)
+world_stream:
+  enabled: true
+  poll_interval_sec: 0.25
+  fallback_poll_ms: 5000

@@ -7,8 +7,8 @@ defaults:
 phases:
   Phase 1:
     agents:
-      1: [speak_to_local, send_message, do_nothing, update_state]
-      2: [send_message, do_nothing, update_state]
+      1: [speak_to_local, send_message, story_advance, do_nothing, update_state]
+      2: [send_message, story_advance, do_nothing, update_state]
       3: [send_message, do_nothing, update_state]
       4: [speak_to_local, do_nothing]
       5: [speak_to_local, do_nothing]
@@ -18,7 +18,7 @@ phases:
   Phase 2:
     agents:
       1: [do_nothing]
-      2: [speak_to_local, send_message, do_nothing, update_state]
+      2: [speak_to_local, send_message, story_advance, do_nothing, update_state]
       3: [send_message, do_nothing]
       4: [speak_to_local, do_nothing]
       5: [speak_to_local, do_nothing]
@@ -28,7 +28,7 @@ phases:
   Phase 3:
     agents:
       1: [do_nothing]
-      2: [speak_to_local, send_message, send_to_group, do_nothing, update_state, relation_change]
+      2: [speak_to_local, send_message, send_to_group, story_advance, do_nothing, update_state, relation_change]
       3: [speak_to_local, send_message, send_to_group, do_nothing, update_state, relation_change]
       4: [speak_to_local, send_message, send_to_group, do_nothing, update_state, relation_change]
       5: [speak_to_local, send_message, send_to_group, do_nothing, update_state, relation_change]
@@ -38,7 +38,7 @@ phases:
   Phase 4:
     agents:
       1: [do_nothing]
-      2: [speak_to_local, do_nothing, update_state]
+      2: [speak_to_local, story_advance, do_nothing, update_state]
       3: []
       4: [do_nothing]
       5: [do_nothing]

@@ -1,32 +1,14 @@
 import { useEffect, useRef } from "react";
 import { getWorldDelta } from "../../api/hbm";
-import type { WorldDeltaData } from "../../api/types";
 import {
   DELTA_POLL_MS,
   DELTA_POLL_PAUSED_MS,
 } from "../../constants/gameLoop";
 import { useGameStoreContext } from "../../store/GameStoreProvider";
 import { errorMessage, isRunnerNotReadyError } from "../../utils/apiError";
+import { applyWorldDeltaPayload } from "./worldDeltaApply";
 
-function hasDeltaActivity(data: WorldDeltaData): boolean {
-  const roomF2f = data.room_f2f ?? {};
-  const hasF2f = Object.values(roomF2f).some(
-    (messages) => (messages?.length ?? 0) > 0,
-  );
-  const hasAgentMsgs = Object.values(data.agent_messages ?? {}).some(
-    (bucket) => (bucket.rdc?.length ?? 0) > 0 || (bucket.grp?.length ?? 0) > 0,
-  );
-  return (
-    hasF2f ||
-    hasAgentMsgs ||
-    (data.observer_messages?.length ?? 0) > 0 ||
-    (data.group_messages?.length ?? 0) > 0 ||
-    (data.location_changes?.length ?? 0) > 0 ||
-    (data.world_events?.length ?? 0) > 0
-  );
-}
-
-/** F14 — resident session delta poll, decoupled from sendTurn (dev_logs/31 Phase 2). */
+/** F14 — HTTP poll fallback when WebSocket unavailable (dev_logs/31 Phase 2/5). */
 export function useWorldDeltaPoll(enabled: boolean, paused: boolean): void {
   const { state, dispatch } = useGameStoreContext();
   const sinceTickRef = useRef(state.worldTick);
@@ -55,26 +37,11 @@ export function useWorldDeltaPoll(enabled: boolean, paused: boolean): void {
         if (!data || cancelled) {
           return;
         }
-
-        const through = data.through_tick;
-        if (through > sinceTickRef.current || hasDeltaActivity(data)) {
-          dispatch({ type: "APPLY_WORLD_DELTA", delta: data });
-          sinceTickRef.current = through;
-        }
-
-        if (data.game_over?.status === "game_over") {
-          dispatch({ type: "SET_GAME_OVER", data: data.game_over });
-          return;
-        }
-
-        if (data.stats_update && data.current_phase && data.player_turn !== undefined) {
-          dispatch({
-            type: "APPLY_PLAYER_TURN_PROCESSING",
-            stats: data.stats_update,
-            phase: data.current_phase,
-            playerTurn: data.player_turn,
-          });
-        }
+        sinceTickRef.current = applyWorldDeltaPayload(
+          dispatch,
+          data,
+          sinceTickRef.current,
+        );
       } catch (err) {
         if (cancelled || isRunnerNotReadyError(err)) {
           return;

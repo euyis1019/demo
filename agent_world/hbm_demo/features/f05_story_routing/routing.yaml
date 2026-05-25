@@ -23,3 +23,5 @@ routing:
       - 请跟我来
       - 这边请
     max_turns_phase1_without_approve: 10
+  story_advance:
+    enabled: true

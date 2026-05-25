@@ -3,6 +3,10 @@
 export const POLL_INTERVAL_MS = 800;
 export const DELTA_POLL_MS = 500;
 export const DELTA_POLL_PAUSED_MS = 2000;
+/** Phase 5 — prefer WebSocket; set VITE_WORLD_STREAM=false to force HTTP poll only. */
+export const WORLD_STREAM_ENABLED =
+  import.meta.env.VITE_WORLD_STREAM !== "false";
+export const WORLD_STREAM_FALLBACK_POLL_MS = 5000;
 export const MAX_POLL_ATTEMPTS = 120;
 export const MAX_TURNS = 25;
 

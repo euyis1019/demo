@@ -44,7 +44,37 @@ RELATION_CHANGE_TOOL: Dict[str, Any] = {
     },
 }
 
-HBM_TOOLS: List[Dict[str, Any]] = list(DEMO_TOOLS) + [RELATION_CHANGE_TOOL]
+STORY_ADVANCE_TOOL: Dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "story_advance",
+        "description": (
+            "标记结构化剧情信号（不替你说台词）。"
+            "在已用 speak/RDC 完成对话后，当剧情应进入下一幕时调用。"
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "signal": {
+                    "type": "string",
+                    "enum": [
+                        "approve_visitor",
+                        "reject_visitor",
+                        "return_to_negotiation",
+                        "expel_ceos",
+                        "offer_join",
+                        "offer_seed",
+                    ],
+                    "description": "剧情推进信号",
+                }
+            },
+            "required": ["signal"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+HBM_TOOLS: List[Dict[str, Any]] = list(DEMO_TOOLS) + [RELATION_CHANGE_TOOL, STORY_ADVANCE_TOOL]
 
 _DEMO_TAIL_MARKER = "【本拍硬性要求】"
 
@@ -54,7 +84,8 @@ _HBM_TOOLS_LIST = (
     "  • send_to_group            —— 在群里说话（你必须是群成员）\n"
     "  • update_state             —— 改写自己的当前内心状态\n"
     "  • do_nothing               —— 真的无话可说时才用\n"
-    "  • relation_change          —— 建立/断绝关系（仅剧情允许时）"
+    "  • relation_change          —— 建立/断绝关系（仅剧情允许时）\n"
+    "  • story_advance            —— 标记剧情节点信号（approve_visitor 等，不替你说台词）"
 )
 
 

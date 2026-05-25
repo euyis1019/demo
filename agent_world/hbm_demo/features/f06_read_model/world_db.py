@@ -410,6 +410,36 @@ class ReadOnlyWorldDB:
 
         return self._with_retry(_query)
 
+    def fetch_story_advance_since(
+        self,
+        since_t: int,
+        t_now: int,
+        *,
+        signal: Optional[str] = None,
+        agent_id: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        def _query(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
+            sql = """
+                SELECT log_id, agent_id, signal, at_tick
+                FROM story_advance_log
+                WHERE at_tick > ? AND at_tick <= ?
+            """
+            params: list[Any] = [int(since_t), int(t_now)]
+            if signal is not None:
+                sql += " AND signal = ?"
+                params.append(str(signal))
+            if agent_id is not None:
+                sql += " AND agent_id = ?"
+                params.append(int(agent_id))
+            sql += " ORDER BY at_tick ASC, log_id ASC"
+            try:
+                rows = conn.execute(sql, tuple(params)).fetchall()
+            except sqlite3.OperationalError:
+                return []
+            return [dict(r) for r in rows]
+
+        return self._with_retry(_query)
+
     def fetch_trace_by_id(self, trace_id: str) -> Optional[Dict[str, Any]]:
         def _query(conn: sqlite3.Connection) -> Optional[Dict[str, Any]]:
             row = conn.execute(

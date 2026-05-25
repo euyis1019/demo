@@ -17,6 +17,15 @@ log = logging.getLogger("agent_world.hbm_demo.dispatcher")
 _HBM_MOVE_REASON = "hbm_move_ipc_only"
 
 
+def _action_name(action_type: Any) -> str:
+    if isinstance(action_type, str):
+        return action_type.strip().lower()
+    value = getattr(action_type, "value", None)
+    if value is not None:
+        return str(value).strip().lower()
+    return str(action_type).strip().lower()
+
+
 class HbmActionDispatcher(ActionDispatcher):
     """Silently ignore agent ``request_move``; location changes use Flask IPC."""
 
@@ -27,6 +36,28 @@ class HbmActionDispatcher(ActionDispatcher):
         t: int,
         **kwargs: Any,
     ) -> Dict[str, Any]:
+        name = _action_name(action_type)
+        if name == "story_advance":
+            from agent_world.hbm_demo.features.f05_story_routing.story_signals import (
+                normalize_story_signal,
+            )
+
+            signal = normalize_story_signal(kwargs.get("signal"))
+            if not signal:
+                return {"success": False, "reason": "invalid_story_signal"}
+            world_db = getattr(self.world, "world_db", None)
+            if world_db is None or not hasattr(world_db, "insert_story_advance_sync"):
+                return {"success": False, "reason": "story_advance_unavailable"}
+            log_id = world_db.insert_story_advance_sync(int(agent_id), signal, int(t))
+            log.info(
+                "story_advance agent=%s signal=%s t=%s log_id=%s",
+                agent_id,
+                signal,
+                t,
+                log_id,
+            )
+            return {"success": True, "signal": signal, "log_id": log_id}
+
         if isinstance(action_type, str):
             try:
                 action_type = ActionType(action_type)

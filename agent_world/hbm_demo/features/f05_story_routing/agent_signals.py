@@ -8,9 +8,11 @@ from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
     approve_keywords,
     escort_keywords,
     expel_keywords,
+    is_story_advance_enabled,
     max_turns_phase1_without_approve,
     reject_keywords,
 )
+from agent_world.hbm_demo.features.f05_story_routing.story_signals import has_story_signal
 from agent_world.hbm_demo.features.f06_read_model.world_db import sender_display_name
 
 RECEPTION_AGENT_ID = 1
@@ -39,7 +41,11 @@ def _has_rdc_pair(db: Any, *, sender_id: int, recipient_id: int, since_t: int, t
 
 
 def detect_node_a(db: Any, *, since_t: int, t_now: int) -> bool:
-    """Phase 1 → 2: RDC chain 1→2, 2→3, 2→1 approve."""
+    """Phase 1 → 2: RDC chain 1→2, 2→3, 2→1 approve or story_advance(approve_visitor)."""
+    if is_story_advance_enabled() and has_story_signal(
+        db, "approve_visitor", since_t=since_t, t_now=t_now
+    ):
+        return True
     if not _has_rdc_pair(db, sender_id=1, recipient_id=2, since_t=since_t, t_now=t_now):
         return False
     if not _has_rdc_pair(db, sender_id=2, recipient_id=3, since_t=since_t, t_now=t_now):
@@ -57,7 +63,11 @@ def detect_node_a(db: Any, *, since_t: int, t_now: int) -> bool:
 
 
 def detect_node_b(db: Any, *, since_t: int, t_now: int) -> bool:
-    """Phase 2 → 3: Jensen F2F @ private room and/or VP positive RDC."""
+    """Phase 2 → 3: Jensen F2F / VP RDC / story_advance(return_to_negotiation)."""
+    if is_story_advance_enabled() and has_story_signal(
+        db, "return_to_negotiation", since_t=since_t, t_now=t_now
+    ):
+        return True
     from agent_world.hbm_demo.features.f05_story_routing.routing import (
         POSITIVE_RDC_KEYWORDS,
         has_positive_tech_vp_rdc,
@@ -70,7 +80,11 @@ def detect_node_b(db: Any, *, since_t: int, t_now: int) -> bool:
 
 
 def detect_node_c(db: Any, *, since_t: int, t_now: int) -> bool:
-    """Phase 3 → 4: Jensen expels CEOs via F2F/RDC."""
+    """Phase 3 → 4: Jensen expels CEOs via F2F/RDC or story_advance(expel_ceos)."""
+    if is_story_advance_enabled() and has_story_signal(
+        db, "expel_ceos", since_t=since_t, t_now=t_now
+    ):
+        return True
     for ceo_id in CEO_IDS:
         rows = db.fetch_rdc_messages(
             sender_id=JENSEN_ID,
@@ -90,11 +104,15 @@ def detect_node_c(db: Any, *, since_t: int, t_now: int) -> bool:
 
 
 def detect_bad_end(session: Any, db: Any, *, t_now: int) -> bool:
-    """Bad End: reception reject F2F or Phase1 timeout without approve chain."""
+    """Bad End: reception reject F2F / story_advance(reject_visitor) / Phase1 timeout."""
     if str(getattr(session, "phase", "")) != "Phase 1":
         return False
 
     since_t = max(0, int(getattr(session, "start_tick", 0) or 0))
+    if is_story_advance_enabled() and has_story_signal(
+        db, "reject_visitor", since_t=since_t, t_now=int(t_now)
+    ):
+        return True
     history = db.fetch_f2f_history_at(PLACE_RECEPTION, int(t_now), since_t)
     for _at_t, sender_id, _mid, content in history:
         if int(sender_id) == RECEPTION_AGENT_ID and _content_matches(content, reject_keywords()):

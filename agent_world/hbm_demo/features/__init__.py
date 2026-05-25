@@ -143,6 +143,13 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "modules": ["store", "linker", "handler", "refs"],
         "phase": "Phase 3 — trace DB + API + UI click-through (dev_logs/31 §十六)",
     },
+    "F16": {
+        "name": "WebSocket world delta stream",
+        "status": "implemented",
+        "path": "features/f16_world_stream/",
+        "modules": ["handler", "config"],
+        "phase": "Phase 5 — WS push delta (dev_logs/31 §14.4)",
+    },
 }
 
 __all__ = ["FEATURE_REGISTRY"]

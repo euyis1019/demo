@@ -30,6 +30,7 @@ _VOLATILE_TABLES = (
     "agent_state_log",
     "agent_action_trace_link",
     "agent_llm_trace",
+    "story_advance_log",
 )
 
 

@@ -725,9 +725,19 @@ def test_f11_c_frontend() -> None:
     delta_poll = (web_src / "features" / "game-loop" / "useWorldDeltaPoll.ts").read_text(
         encoding="utf-8"
     )
-    if "getWorldDelta" not in delta_poll or "APPLY_WORLD_DELTA" not in delta_poll:
-        raise TestFailure("useWorldDeltaPoll missing getWorldDelta / APPLY_WORLD_DELTA")
+    delta_apply = (web_src / "features" / "game-loop" / "worldDeltaApply.ts").read_text(
+        encoding="utf-8"
+    )
+    if "getWorldDelta" not in delta_poll or "APPLY_WORLD_DELTA" not in delta_apply:
+        raise TestFailure("useWorldDeltaPoll/worldDeltaApply missing getWorldDelta / APPLY_WORLD_DELTA")
     ok("useWorldDeltaPoll F14 resident poll wired")
+
+    delta_sync = (web_src / "features" / "game-loop" / "useWorldDeltaSync.ts").read_text(
+        encoding="utf-8"
+    )
+    if "useWorldDeltaStream" not in delta_sync or "useWorldDeltaPoll" not in delta_sync:
+        raise TestFailure("useWorldDeltaSync missing WS + poll fallback wiring")
+    ok("useWorldDeltaSync F16 WS + F14 poll fallback wired")
 
     game_loop = (web_src / "features" / "game-loop" / "useGameLoop.ts").read_text(
         encoding="utf-8"
@@ -2587,11 +2597,11 @@ def test_f07_v2_phase4_agent_driven() -> None:
     ok("HbmSession.ending_id persisted")
 
     poll_src = (
-        HBM_DIR / "web" / "src" / "features" / "game-loop" / "useWorldDeltaPoll.ts"
+        HBM_DIR / "web" / "src" / "features" / "game-loop" / "worldDeltaApply.ts"
     ).read_text(encoding="utf-8")
     if "game_over" not in poll_src or "SET_GAME_OVER" not in poll_src:
-        raise TestFailure("Phase4: useWorldDeltaPoll missing game_over handling")
-    ok("frontend useWorldDeltaPoll dispatches SET_GAME_OVER")
+        raise TestFailure("Phase4: worldDeltaApply missing game_over handling")
+    ok("frontend worldDeltaApply dispatches SET_GAME_OVER")
 
     types_src = (HBM_DIR / "web" / "src" / "api" / "types.ts").read_text(
         encoding="utf-8"
@@ -2618,6 +2628,173 @@ def test_f07_v2_phase4_agent_driven() -> None:
     if not callable(scan_routing_if_needed):
         raise TestFailure("scan_routing_if_needed missing")
     ok("scan_routing_if_needed entrypoint present")
+
+
+def test_f07_v2_phase5_story_advance_and_ws() -> None:
+    """dev_logs/31 Phase 5 — story_advance tool + F16 WebSocket delta stream."""
+    section("T2r v2 Phase5 story_advance + world-stream WS")
+    from types import SimpleNamespace
+
+    from agent_world.hbm_demo.core.runner.hbm_agent import STORY_ADVANCE_TOOL
+    from agent_world.hbm_demo.core.runner.hbm_dispatcher import HbmActionDispatcher
+    from agent_world.hbm_demo.features import FEATURE_REGISTRY
+    from agent_world.hbm_demo.features.f05_story_routing.agent_signals import (
+        detect_bad_end,
+        detect_node_a,
+        detect_node_b,
+        detect_node_c,
+    )
+    from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
+        is_story_advance_enabled,
+    )
+    from agent_world.hbm_demo.features.f05_story_routing.story_signals import (
+        VALID_STORY_SIGNALS,
+        normalize_story_signal,
+    )
+    from agent_world.hbm_demo.features.f16_world_stream.config import (
+        is_world_stream_enabled,
+    )
+
+    schema_path = (
+        ROOT / "agent_world" / "persistence" / "schema" / "world" / "story_advance_log.sql"
+    )
+    if not schema_path.is_file():
+        raise TestFailure("Phase5: missing story_advance_log.sql")
+    ok("story_advance_log schema present")
+
+    if "F16" not in FEATURE_REGISTRY:
+        raise TestFailure("Phase5: FEATURE_REGISTRY missing F16")
+    ok("FEATURE_REGISTRY includes F16")
+
+    if not is_story_advance_enabled():
+        raise TestFailure("Phase5: routing.yaml story_advance.enabled expected true")
+    ok("routing.yaml story_advance.enabled")
+
+    if normalize_story_signal("approve_visitor") != "approve_visitor":
+        raise TestFailure("normalize_story_signal failed")
+    if normalize_story_signal("INVALID") is not None:
+        raise TestFailure("normalize_story_signal must reject unknown signals")
+    ok(f"story_signals VALID_STORY_SIGNALS ({len(VALID_STORY_SIGNALS)} values)")
+
+    agent_src = (HBM_DIR / "core" / "runner" / "hbm_agent.py").read_text(encoding="utf-8")
+    if "STORY_ADVANCE_TOOL" not in agent_src or "story_advance" not in agent_src:
+        raise TestFailure("Phase5: hbm_agent missing story_advance tool")
+    if STORY_ADVANCE_TOOL["function"]["name"] != "story_advance":
+        raise TestFailure("STORY_ADVANCE_TOOL name mismatch")
+    ok("HbmAgent exposes story_advance LLM tool")
+
+    disp_src = (HBM_DIR / "core" / "runner" / "hbm_dispatcher.py").read_text(
+        encoding="utf-8"
+    )
+    if "insert_story_advance_sync" not in disp_src:
+        raise TestFailure("Phase5: dispatcher missing story_advance persistence")
+    ok("HbmActionDispatcher persists story_advance to world.db")
+
+    matrix = (HBM_DIR / "features" / "f07_agent_control" / "tool_matrix.yaml").read_text(
+        encoding="utf-8"
+    )
+    if "story_advance" not in matrix:
+        raise TestFailure("Phase5: tool_matrix missing story_advance")
+    ok("tool_matrix allows story_advance per phase/agent")
+
+    signals_src = (
+        HBM_DIR / "features" / "f05_story_routing" / "agent_signals.py"
+    ).read_text(encoding="utf-8")
+    if "has_story_signal" not in signals_src:
+        raise TestFailure("Phase5: agent_signals missing story_advance OR path")
+    ok("agent_signals OR-combines NL keywords with story_advance")
+
+    class SignalDB:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def fetch_story_advance_since(
+            self, since_t, t_now, *, signal=None, agent_id=None  # noqa: ANN001
+        ):
+            out = [
+                r
+                for r in self._rows
+                if int(since_t) < int(r["at_tick"]) <= int(t_now)
+            ]
+            if signal is not None:
+                out = [r for r in out if r["signal"] == signal]
+            if agent_id is not None:
+                out = [r for r in out if int(r["agent_id"]) == int(agent_id)]
+            return out
+
+        def fetch_rdc_messages(
+            self, *, sender_id, recipient_id, since_t, t_now  # noqa: ANN001
+        ):
+            return []
+
+        def fetch_f2f_history_at(self, place_id, t_now, since_t):  # noqa: ANN001
+            return []
+
+    sig_row = [{"agent_id": 2, "signal": "approve_visitor", "at_tick": 5}]
+    if not detect_node_a(SignalDB(sig_row), since_t=0, t_now=10):
+        raise TestFailure("detect_node_a failed on story_advance approve_visitor")
+    ok("detect_node_a accepts story_advance(approve_visitor)")
+
+    if not detect_node_b(
+        SignalDB([{"agent_id": 2, "signal": "return_to_negotiation", "at_tick": 6}]),
+        since_t=0,
+        t_now=10,
+    ):
+        raise TestFailure("detect_node_b failed on return_to_negotiation signal")
+    ok("detect_node_b accepts story_advance(return_to_negotiation)")
+
+    if not detect_node_c(
+        SignalDB([{"agent_id": 2, "signal": "expel_ceos", "at_tick": 7}]),
+        since_t=0,
+        t_now=10,
+    ):
+        raise TestFailure("detect_node_c failed on expel_ceos signal")
+    ok("detect_node_c accepts story_advance(expel_ceos)")
+
+    bad_session = SimpleNamespace(phase="Phase 1", player_turn=3, start_tick=0)
+    if not detect_bad_end(
+        bad_session,
+        SignalDB([{"agent_id": 1, "signal": "reject_visitor", "at_tick": 4}]),
+        t_now=10,
+    ):
+        raise TestFailure("detect_bad_end failed on reject_visitor signal")
+    ok("detect_bad_end accepts story_advance(reject_visitor)")
+
+    if not is_world_stream_enabled():
+        raise TestFailure("Phase5: turn_control world_stream.enabled expected true")
+    ok("turn_control.yaml world_stream.enabled")
+
+    f16_src = (HBM_DIR / "features" / "f16_world_stream" / "handler.py").read_text(
+        encoding="utf-8"
+    )
+    if "world-stream" not in f16_src or "get_world_delta" not in f16_src:
+        raise TestFailure("Phase5: F16 handler missing world-stream route")
+    ok("F16 handler pushes get_world_delta over WebSocket")
+
+    app_src = (ROOT / "agent_world" / "app" / "__init__.py").read_text(encoding="utf-8")
+    if "flask_sock" not in app_src or "register_world_stream_routes" not in app_src:
+        raise TestFailure("Phase5: Flask app missing WebSocket registration")
+    ok("Flask create_app registers F16 WebSocket routes")
+
+    sync_src = (
+        HBM_DIR / "web" / "src" / "features" / "game-loop" / "useWorldDeltaSync.ts"
+    ).read_text(encoding="utf-8")
+    stream_src = (
+        HBM_DIR / "web" / "src" / "features" / "game-loop" / "useWorldDeltaStream.ts"
+    ).read_text(encoding="utf-8")
+    app_tsx = (HBM_DIR / "web" / "src" / "App.tsx").read_text(encoding="utf-8")
+    if "useWorldDeltaSync" not in sync_src or "useWorldDeltaStream" not in sync_src:
+        raise TestFailure("Phase5: frontend missing useWorldDeltaSync/Stream")
+    if "useWorldDeltaSync" not in app_tsx:
+        raise TestFailure("Phase5: App.tsx must use useWorldDeltaSync")
+    if "world-stream" not in stream_src:
+        raise TestFailure("Phase5: useWorldDeltaStream missing WS URL")
+    ok("frontend useWorldDeltaSync (WS primary + poll fallback)")
+
+    vite_cfg = (HBM_DIR / "web" / "vite.config.ts").read_text(encoding="utf-8")
+    if "ws: true" not in vite_cfg:
+        raise TestFailure("Phase5: vite proxy missing ws: true")
+    ok("Vite dev proxy forwards WebSocket")
 
 
 def test_m6_frontend_features() -> None:
@@ -3953,6 +4130,7 @@ def main() -> int:
         test_f07_v2_phase2_world_delta,
         test_f07_v2_phase3_prompt_trace,
         test_f07_v2_phase4_agent_driven,
+        test_f07_v2_phase5_story_advance_and_ws,
         test_f05_routing_payload,
         test_f11_live_turn_sync,
         test_f11_c_frontend,

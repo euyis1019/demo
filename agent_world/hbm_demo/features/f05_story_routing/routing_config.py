@@ -73,3 +73,8 @@ def max_turns_phase1_without_approve() -> int:
         return max(1, int(raw))
     except (TypeError, ValueError):
         return 10
+
+
+def is_story_advance_enabled() -> bool:
+    block = load_routing_config().get("story_advance") or {}
+    return bool(block.get("enabled", True))

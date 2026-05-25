@@ -21,7 +21,7 @@ import {
   useHealthCheck,
   useLoadingElapsed,
   useStartGame,
-  useWorldDeltaPoll,
+  useWorldDeltaSync,
   useWorldLoopControl,
   WorldStage,
 } from "./features";
@@ -42,7 +42,7 @@ function GameApp() {
     pauseWorld,
     resumeWorld,
   } = useWorldLoopControl(state.sessionInitialized && state.view === "playing");
-  useWorldDeltaPoll(
+  useWorldDeltaSync(
     state.sessionInitialized && state.view === "playing",
     worldLoopState === "paused",
   );

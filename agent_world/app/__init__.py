@@ -7,9 +7,13 @@ wires blueprints and config so the HTTP surface is callable.
 
 from __future__ import annotations
 
+import logging
+
 from flask import Flask
 
 from .config import Config
+
+log = logging.getLogger(__name__)
 
 
 def create_app(config_class: type = Config) -> Flask:
@@ -27,6 +31,25 @@ def create_app(config_class: type = Config) -> Flask:
 
     app.register_blueprint(simulation_bp, url_prefix="/api/simulation")
     app.register_blueprint(hbm_bp, url_prefix="/api/hbm")
+
+    # F16 WebSocket — optional; requires flask-sock when world_stream.enabled.
+    try:
+        from agent_world.hbm_demo.features.f16_world_stream.config import (
+            is_world_stream_enabled,
+        )
+
+        if is_world_stream_enabled():
+            from flask_sock import Sock
+
+            from agent_world.hbm_demo.features.f16_world_stream import (
+                register_world_stream_routes,
+            )
+
+            sock = Sock()
+            sock.init_app(app)
+            register_world_stream_routes(sock, url_prefix="/api/hbm")
+    except ImportError as exc:
+        log.warning("F16 world-stream disabled (missing dependency): %s", exc)
 
     @app.route("/health")
     def health() -> dict:
