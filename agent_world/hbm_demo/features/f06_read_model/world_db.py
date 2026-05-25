@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 import time
 from pathlib import Path
-from typing import Any, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from agent_world.hbm_demo.features.f01_session.paths import get_world_db_path
 from agent_world.hbm_demo.shared.errors import DatabaseReadError
@@ -122,7 +122,7 @@ class ReadOnlyWorldDB:
             return conn.execute(
                 """
                 SELECT message_id, sender_id, recipient_id, group_id,
-                       channel_type, content, place_id, attempted_at
+                       channel_type, content, place_id, attempted_at, delivered
                 FROM direct_message
                 WHERE channel_type=? AND attempted_at > ? AND attempted_at <= ?
                 ORDER BY attempted_at, message_id
@@ -221,6 +221,208 @@ class ReadOnlyWorldDB:
             return row is not None
 
         return bool(self._with_retry(_query))
+
+
+    def fetch_all_agent_locations(self) -> Dict[int, Dict[str, Any]]:
+        def _query(conn: sqlite3.Connection) -> Dict[int, Dict[str, Any]]:
+            rows = conn.execute(
+                "SELECT agent_id, place_id, arrived_at FROM agent_location"
+            ).fetchall()
+            return {
+                int(r["agent_id"]): {
+                    "place_id": str(r["place_id"]),
+                    "arrived_at": int(r["arrived_at"]),
+                }
+                for r in rows
+            }
+
+        return self._with_retry(_query)
+
+    def fetch_f2f_by_places(
+        self,
+        since_t: int,
+        t_now: int,
+        place_ids: List[str],
+        *,
+        limit: int = 30,
+    ) -> Dict[str, List[tuple]]:
+        out: Dict[str, List[tuple]] = {}
+        for place_id in place_ids:
+            history = self.fetch_f2f_history_at(
+                place_id, t_now, since_t, limit=limit
+            )
+            out[place_id] = [h for h in history if h[0] > since_t]
+        return out
+
+    def fetch_rdc_for_agent(
+        self,
+        agent_id: int,
+        since_t: int,
+        t_now: int,
+    ) -> List[sqlite3.Row]:
+        def _query(conn: sqlite3.Connection) -> List[sqlite3.Row]:
+            return conn.execute(
+                """
+                SELECT message_id, sender_id, recipient_id, group_id,
+                       channel_type, content, place_id, attempted_at, delivered
+                FROM direct_message
+                WHERE channel_type='RDC'
+                  AND attempted_at > ? AND attempted_at <= ?
+                  AND (sender_id=? OR recipient_id=?)
+                ORDER BY attempted_at, message_id
+                """,
+                (since_t, t_now, int(agent_id), int(agent_id)),
+            ).fetchall()
+
+        return self._with_retry(_query)
+
+    def fetch_grp_for_agent(
+        self,
+        agent_id: int,
+        since_t: int,
+        t_now: int,
+    ) -> List[sqlite3.Row]:
+        def _query(conn: sqlite3.Connection) -> List[sqlite3.Row]:
+            return conn.execute(
+                """
+                SELECT dm.message_id, dm.sender_id, dm.recipient_id, dm.group_id,
+                       dm.channel_type, dm.content, dm.place_id, dm.attempted_at,
+                       dm.delivered
+                FROM direct_message dm
+                INNER JOIN group_member gm
+                    ON gm.group_id = dm.group_id AND gm.agent_id = ?
+                WHERE dm.channel_type='GRP'
+                  AND dm.attempted_at > ? AND dm.attempted_at <= ?
+                  AND (dm.sender_id=? OR dm.recipient_id=?)
+                ORDER BY dm.attempted_at, dm.message_id
+                """,
+                (int(agent_id), since_t, t_now, int(agent_id), int(agent_id)),
+            ).fetchall()
+
+        return self._with_retry(_query)
+
+    def fetch_group_members(self) -> Dict[int, List[int]]:
+        def _query(conn: sqlite3.Connection) -> Dict[int, List[int]]:
+            rows = conn.execute(
+                "SELECT group_id, agent_id FROM group_member ORDER BY group_id, agent_id"
+            ).fetchall()
+            out: Dict[int, List[int]] = {}
+            for row in rows:
+                gid = int(row["group_id"])
+                out.setdefault(gid, []).append(int(row["agent_id"]))
+            return out
+
+        return self._with_retry(_query)
+
+    def fetch_group_events_since(
+        self, since_t: int, t_now: int
+    ) -> List[Dict[str, Any]]:
+        def _query(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
+            rows = conn.execute(
+                """
+                SELECT event_id, group_id, agent_id, event_type, occurred_at, actor_id
+                FROM group_event
+                WHERE occurred_at > ? AND occurred_at <= ?
+                ORDER BY occurred_at, event_id
+                """,
+                (since_t, t_now),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+        return self._with_retry(_query)
+
+    def fetch_relations_snapshot(self) -> List[Dict[str, Any]]:
+        def _query(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
+            rows = conn.execute(
+                """
+                SELECT src_agent, dst_agent, relation_type, created_at, expires_at
+                FROM relation
+                ORDER BY src_agent, dst_agent, relation_type
+                """
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+        return self._with_retry(_query)
+
+    def fetch_broadcasts_since(
+        self, since_t: int, t_now: int
+    ) -> List[sqlite3.Row]:
+        def _query(conn: sqlite3.Connection) -> List[sqlite3.Row]:
+            return conn.execute(
+                """
+                SELECT message_id, sender_id, recipient_id, group_id,
+                       channel_type, content, place_id, attempted_at, delivered
+                FROM direct_message
+                WHERE channel_type='RDC' AND sender_id=-1
+                  AND attempted_at > ? AND attempted_at <= ?
+                ORDER BY attempted_at, message_id
+                """,
+                (since_t, t_now),
+            ).fetchall()
+
+        return self._with_retry(_query)
+
+    def fetch_location_logs_since(
+        self, since_t: int, t_now: int
+    ) -> List[Dict[str, Any]]:
+        def _query(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
+            rows = conn.execute(
+                """
+                SELECT log_id, agent_id, from_place, to_place, at_tick, source
+                FROM agent_location_log
+                WHERE at_tick > ? AND at_tick <= ?
+                ORDER BY at_tick, log_id
+                """,
+                (since_t, t_now),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+        return self._with_retry(_query)
+
+    def fetch_state_logs_since(
+        self,
+        since_t: int,
+        t_now: int,
+        agent_id: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        def _query(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
+            if agent_id is None:
+                rows = conn.execute(
+                    """
+                    SELECT log_id, agent_id, content, at_tick
+                    FROM agent_state_log
+                    WHERE at_tick > ? AND at_tick <= ?
+                    ORDER BY at_tick, log_id
+                    """,
+                    (since_t, t_now),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT log_id, agent_id, content, at_tick
+                    FROM agent_state_log
+                    WHERE agent_id=? AND at_tick > ? AND at_tick <= ?
+                    ORDER BY at_tick, log_id
+                    """,
+                    (int(agent_id), since_t, t_now),
+                ).fetchall()
+            return [dict(r) for r in rows]
+
+        return self._with_retry(_query)
+
+    def fetch_place_attrs(self, place_ids: List[str]) -> Dict[str, str]:
+        if not place_ids:
+            return {}
+
+        def _query(conn: sqlite3.Connection) -> Dict[str, str]:
+            placeholders = ",".join("?" for _ in place_ids)
+            rows = conn.execute(
+                f"SELECT place_id, attrs FROM place WHERE place_id IN ({placeholders})",
+                list(place_ids),
+            ).fetchall()
+            return {str(r["place_id"]): str(r["attrs"] or "{}") for r in rows}
+
+        return self._with_retry(_query)
 
 
 def make_readonly_db(sim_dir: Path | None = None) -> ReadOnlyWorldDB:

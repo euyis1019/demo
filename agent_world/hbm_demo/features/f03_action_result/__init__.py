@@ -7,7 +7,6 @@ from agent_world.hbm_demo.features.f03_action_result.completion import (
     format_f2f_public_messages,
     format_messages,
 )
-from agent_world.hbm_demo.features.f03_action_result.handler import get_action_result
 
 __all__ = [
     "PHASE_RDC_PAIRS",

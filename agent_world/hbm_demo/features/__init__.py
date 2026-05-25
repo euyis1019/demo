@@ -113,8 +113,14 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "全量世界 UI 同步",
         "status": "in_progress",
         "path": "features/f12_world_sync/",
-        "modules": ["persistence_logs"],
-        "phase": "Phase 1 — Runner audit logs (agent_location_log, agent_state_log)",
+        "modules": [
+            "delta",
+            "snapshot",
+            "formatter",
+            "handler",
+            "runner_bridge",
+        ],
+        "phase": "Phase 2 — Flask F12 API (world delta + world-snapshot)",
     },
 }
 

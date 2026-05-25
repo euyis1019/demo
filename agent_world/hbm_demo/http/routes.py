@@ -178,6 +178,22 @@ def action_result(sim_id: str):
     return jsonify({"success": True, "data": result})
 
 
+@hbm_bp.route("/simulations/<sim_id>/world-snapshot", methods=["GET"])
+def world_snapshot(sim_id: str):
+    """F12 — full world read-model snapshot for UI calibration."""
+    err = _check_sim_id(sim_id)
+    if err:
+        return err
+
+    try:
+        data = gs.get_world_snapshot(session, sim_id=sim_id)
+    except Exception as exc:  # noqa: BLE001
+        body, code = service_error_payload(exc)
+        return jsonify(body), code
+
+    return jsonify({"success": True, "data": data})
+
+
 @hbm_bp.route("/simulations/<sim_id>/debug-inject", methods=["POST"])
 def debug_inject(sim_id: str):
     """Phase 2 temporary endpoint — kept for manual IPC testing."""

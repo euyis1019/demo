@@ -172,6 +172,7 @@ def _handle_sync_inject(
         phase=task_phase,
         player_turn=hbm.player_turn - 1,
         ipc_end_tick=ipc_end_tick,
+        routing_info=dict(routing_info) if routing_info else None,
     )
     save_task(flask_session, task, sim_id)
 

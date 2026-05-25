@@ -23,6 +23,7 @@ class PendingTask:
     ipc_end_tick: Optional[int] = None
     inject_status: str = INJECT_STATUS_PENDING
     inject_error: Optional[str] = None
+    routing_info: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         out: Dict[str, Any] = {
@@ -37,11 +38,14 @@ class PendingTask:
             out["ipc_end_tick"] = self.ipc_end_tick
         if self.inject_error is not None:
             out["inject_error"] = self.inject_error
+        if self.routing_info is not None:
+            out["routing_info"] = dict(self.routing_info)
         return out
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "PendingTask":
         ipc_end = data.get("ipc_end_tick")
+        routing_raw = data.get("routing_info")
         return cls(
             task_id=str(data["task_id"]),
             start_tick=int(data["start_tick"]),
@@ -51,6 +55,7 @@ class PendingTask:
             ipc_end_tick=int(ipc_end) if ipc_end is not None else None,
             inject_status=str(data.get("inject_status") or INJECT_STATUS_PENDING),
             inject_error=data.get("inject_error"),
+            routing_info=dict(routing_raw) if isinstance(routing_raw, dict) else None,
         )
 
 

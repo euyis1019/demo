@@ -133,6 +133,7 @@ def run_background_turn(
         task.ipc_end_tick = ipc_end_tick
         task.inject_status = INJECT_STATUS_DONE
         task.inject_error = None
+        task.routing_info = dict(routing_info) if routing_info else None
         save_task_runtime(sim_dir, task.to_dict(), session_dict=hbm.to_dict())
 
         log_turn_event(

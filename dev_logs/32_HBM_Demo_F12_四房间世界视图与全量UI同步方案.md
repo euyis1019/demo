@@ -465,11 +465,11 @@ animatingMoves: LocationChange[];  // 可选，驱动 CSS 动画
 
 ### Phase 2 — Flask F12 API（~1–2 天）
 
-- [ ] F06 扩展查询
-- [ ] `f12_world_sync` 模块
-- [ ] 扩展 F11 delta + F03 handler
-- [ ] routing → world_events
-- [ ] `test_f12_world_delta.py` + 更新 acceptance
+- [x] F06 扩展查询
+- [x] `f12_world_sync` 模块
+- [x] 扩展 F11 delta + F03 handler
+- [x] routing → world_events
+- [x] `test_f12_world_delta.py` + 更新 acceptance
 
 ### Phase 3 — 前端世界视图（~2–3 天）
 

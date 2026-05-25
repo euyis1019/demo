@@ -13,8 +13,6 @@ from agent_world.hbm_demo.features.f01_session.paths import get_name_map, get_si
 from agent_world.hbm_demo.features.f03_action_result.completion import (
     check_action_complete,
     effective_tick_for_task,
-    format_f2f_public_messages,
-    format_messages,
 )
 from agent_world.hbm_demo.features.f04_stats.deltas import initial_stats
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
@@ -28,6 +26,7 @@ from agent_world.hbm_demo.features.f11_live_turn_sync.delta import (
     build_turn_delta,
     empty_delta,
 )
+from agent_world.hbm_demo.features.f12_world_sync.delta import build_completed_payload
 from agent_world.hbm_demo.shared.env_status import read_env_status
 
 log = logging.getLogger("agent_world.hbm_demo.game_service")
@@ -85,7 +84,7 @@ def get_action_result(
             "task_id": task_id,
             "inject_status": task.inject_status,
             "start_tick": task.start_tick,
-            "delta": empty_delta(task.start_tick),
+            "delta": empty_delta(task.start_tick, player_place_id=task.place_id),
         }
 
     env_tick = int(env["current_tick"])
@@ -106,27 +105,17 @@ def get_action_result(
             "delta": delta,
         }
 
-    since_t = task.start_tick
-    f2f_history = db.fetch_f2f_history_at(
-        task.place_id, effective_tick, since_t
-    )
-    public_messages = format_f2f_public_messages(
-        [h for h in f2f_history if h[0] > since_t],
-        name_map,
-    )
-
-    rdc_rows = db.fetch_messages_since(
-        channel_type="RDC", since_t=since_t, t_now=effective_tick
-    )
-    observer_messages = format_messages(rdc_rows, name_map)
-
-    grp_rows = db.fetch_messages_since(
-        channel_type="GRP", since_t=since_t, t_now=effective_tick
-    )
-    group_messages = format_messages(grp_rows, name_map)
-
     stats_update = dict(hbm.stats) if hbm else initial_stats()
     current_phase = hbm.phase if hbm else task.phase
+
+    completed = build_completed_payload(
+        task,
+        effective_tick,
+        db,
+        name_map,
+        stats_update=stats_update,
+        current_phase=current_phase,
+    )
 
     log_turn_event(
         event="action_result_completed",
@@ -136,20 +125,13 @@ def get_action_result(
         start_tick=task.start_tick,
         end_tick=effective_tick,
         extra={
-            "public_count": len(public_messages),
-            "rdc_count": len(observer_messages),
-            "grp_count": len(group_messages),
+            "public_count": len(completed.get("public_messages") or []),
+            "rdc_count": len(completed.get("observer_messages") or []),
+            "grp_count": len(completed.get("group_messages") or []),
+            "room_f2f_places": sum(
+                len(v) for v in (completed.get("room_f2f") or {}).values()
+            ),
         },
     )
 
-    return {
-        "status": "completed",
-        "task_id": task_id,
-        "end_tick": effective_tick,
-        "public_messages": public_messages,
-        "observer_messages": observer_messages,
-        "group_messages": group_messages,
-        "stats_update": stats_update,
-        "current_phase": current_phase,
-        "inject_status": task.inject_status,
-    }
+    return completed

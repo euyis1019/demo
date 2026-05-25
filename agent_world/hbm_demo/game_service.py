@@ -40,6 +40,7 @@ from agent_world.hbm_demo.features.f03_action_result.completion import (
     format_messages,
 )
 from agent_world.hbm_demo.features.f03_action_result.handler import get_action_result
+from agent_world.hbm_demo.features.f12_world_sync.handler import get_world_snapshot
 from agent_world.hbm_demo.features.f04_stats.deltas import apply_stat_deltas, initial_stats
 from agent_world.hbm_demo.features.f04_stats.scoring import (
     IMMEDIATE_MSG_PLACEHOLDER,
@@ -77,6 +78,7 @@ __all__ = [
     "format_messages",
     "generate_immediate_msg",
     "get_action_result",
+    "get_world_snapshot",
     "get_name_map",
     "get_or_create_session",
     "get_scenario",

@@ -306,6 +306,7 @@ def test_m4_http_modules() -> None:
         "/simulations/<sim_id>/env-status",
         "/simulations/<sim_id>/player-turn",
         "/simulations/<sim_id>/action-result",
+        "/simulations/<sim_id>/world-snapshot",
         "/simulations/<sim_id>/debug-inject",
     }
     if rules != expected:
@@ -418,18 +419,89 @@ def test_f11_live_turn_sync() -> None:
         empty_delta,
     )
 
-    ed = empty_delta(3)
+    ed = empty_delta(3, player_place_id="nvidia_reception")
     if ed.get("through_tick") != 3 or ed.get("public_messages") != []:
         raise TestFailure(f"empty_delta wrong: {ed}")
-    ok("F11-B empty_delta")
+    for key in (
+        "room_f2f",
+        "agent_messages",
+        "location_changes",
+        "social_events",
+        "state_changes",
+        "world_events",
+        "agent_locations",
+        "player_place_id",
+    ):
+        if key not in ed:
+            raise TestFailure(f"empty_delta missing F12 key {key}: {ed}")
+    ok("F11-B empty_delta (F12 fields)")
 
     class _Row(dict):
         def __getitem__(self, key):  # noqa: ANN001
             return dict.__getitem__(self, key)
 
+        def keys(self):  # noqa: ANN001
+            return dict.keys(self)
+
     class FakeDB:
         def fetch_f2f_history_at(self, place_id, t_now, since_t):  # noqa: ANN001
             return [(2, 1, 1, "前台你好"), (4, 1, 2, "请稍等")]
+
+        def fetch_f2f_by_places(self, since_t, t_now, place_ids):  # noqa: ANN001
+            out = {pid: [] for pid in place_ids}
+            if "nvidia_reception" in out:
+                history = self.fetch_f2f_history_at(
+                    "nvidia_reception", t_now, since_t
+                )
+                out["nvidia_reception"] = [h for h in history if h[0] > since_t]
+            return out
+
+        def fetch_rdc_for_agent(self, agent_id, since_t, t_now):  # noqa: ANN001
+            if agent_id == 3 and since_t < 3 <= t_now:
+                return [
+                    _Row(
+                        channel_type="RDC",
+                        sender_id=2,
+                        recipient_id=3,
+                        group_id=None,
+                        content="内参",
+                        place_id="",
+                        attempted_at=3,
+                        delivered=1,
+                    )
+                ]
+            return []
+
+        def fetch_grp_for_agent(self, agent_id, since_t, t_now):  # noqa: ANN001
+            if agent_id == 4 and since_t < 5 <= t_now:
+                return [
+                    _Row(
+                        channel_type="GRP",
+                        sender_id=4,
+                        recipient_id=None,
+                        group_id=100,
+                        content="群消息",
+                        place_id="negotiation_room",
+                        attempted_at=5,
+                        delivered=1,
+                    )
+                ]
+            return []
+
+        def fetch_location_logs_since(self, since_t, t_now):  # noqa: ANN001
+            return []
+
+        def fetch_group_events_since(self, since_t, t_now):  # noqa: ANN001
+            return []
+
+        def fetch_state_logs_since(self, since_t, t_now, agent_id=None):  # noqa: ANN001
+            return []
+
+        def fetch_broadcasts_since(self, since_t, t_now):  # noqa: ANN001
+            return []
+
+        def fetch_all_agent_locations(self):  # noqa: ANN001
+            return {1: {"place_id": "nvidia_reception", "arrived_at": 0}}
 
         def fetch_messages_since(self, *, channel_type, since_t, t_now):  # noqa: ANN001
             if channel_type == "RDC" and since_t < 3:
@@ -442,6 +514,7 @@ def test_f11_live_turn_sync() -> None:
                         content="内参",
                         place_id="",
                         attempted_at=3,
+                        delivered=1,
                     )
                 ]
             if channel_type == "GRP":
@@ -454,6 +527,7 @@ def test_f11_live_turn_sync() -> None:
                         content="群消息",
                         place_id="negotiation_room",
                         attempted_at=5,
+                        delivered=1,
                     )
                 ]
             return []
@@ -476,7 +550,9 @@ def test_f11_live_turn_sync() -> None:
         raise TestFailure(f"expected 1 RDC: {delta}")
     if len(delta.get("group_messages") or []) != 1:
         raise TestFailure(f"expected 1 GRP: {delta}")
-    ok("F11-B build_turn_delta filters since_tick")
+    if "room_f2f" not in delta or "agent_locations" not in delta:
+        raise TestFailure(f"F12 delta keys missing: {delta.keys()}")
+    ok("F11-B build_turn_delta filters since_tick (F12 delta)")
 
 
 def test_f11_c_frontend() -> None:
@@ -531,6 +607,40 @@ def test_f12_phase1_persistence() -> None:
             proc.stdout + proc.stderr or "F12 Phase 1 tests failed"
         )
     ok("F12 Phase 1 persistence script passed")
+
+
+def test_f12_phase2_world_delta() -> None:
+    section("T1l F12 Phase 2 Flask world delta API")
+    script = HBM_DIR / "scripts" / "test_f12_world_delta.py"
+    if not script.is_file():
+        raise TestFailure(f"missing {script}")
+    env = apply_hbm_demo_env(dict(os.environ))
+    proc = subprocess.run(
+        [sys.executable, str(script)],
+        cwd=str(ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        raise TestFailure(
+            proc.stdout + proc.stderr or "F12 Phase 2 tests failed"
+        )
+    ok("F12 Phase 2 world delta script passed")
+
+    routes = (HBM_DIR / "http" / "routes.py").read_text(encoding="utf-8")
+    if "world-snapshot" not in routes:
+        raise TestFailure("routes.py missing GET /world-snapshot")
+    ok("routes.py registers GET /world-snapshot")
+
+    import agent_world.hbm_demo.game_service as root_gs
+    from agent_world.hbm_demo.features.f12_world_sync.handler import (
+        get_world_snapshot as feat_get_world_snapshot,
+    )
+
+    if root_gs.get_world_snapshot is not feat_get_world_snapshot:
+        raise TestFailure("game_service.get_world_snapshot shim != F12 handler")
+    ok("game_service.get_world_snapshot shim")
 
 
 def test_f03_action_completion() -> None:
@@ -2503,6 +2613,7 @@ def main() -> int:
         test_f11_live_turn_sync,
         test_f11_c_frontend,
         test_f12_phase1_persistence,
+        test_f12_phase2_world_delta,
         test_runner_module_entry,
     ):
         try:

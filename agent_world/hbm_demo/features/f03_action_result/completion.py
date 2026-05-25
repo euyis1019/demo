@@ -159,12 +159,19 @@ def format_messages(
             "type": ch,
             "attempted_at": int(row["attempted_at"]),
         }
+        if row["sender_id"] is not None:
+            item["sender_id"] = int(row["sender_id"])
         if ch == "RDC":
             item["recipient"] = sender_display_name(row["recipient_id"], name_map)
+            item["recipient_id"] = int(row["recipient_id"])
         if ch == "GRP" and row["group_id"] is not None:
             item["group_id"] = int(row["group_id"])
         if row["place_id"]:
             item["place_id"] = str(row["place_id"])
+        if "delivered" in row.keys():
+            item["delivered"] = int(row["delivered"])
+        if row["sender_id"] is not None and int(row["sender_id"]) == -1:
+            item["is_system"] = True
         out.append(item)
     return out
 
@@ -179,6 +186,7 @@ def format_f2f_public_messages(
             "content": content,
             "type": "F2F",
             "attempted_at": at_t,
+            "sender_id": int(sender_id),
         }
         for at_t, sender_id, _mid, content in history
         if at_t > 0
