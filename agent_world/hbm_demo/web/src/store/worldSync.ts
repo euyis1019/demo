@@ -11,7 +11,7 @@ import { PLAYER_AGENT_ID } from "../constants/agents";
 import { PLAYER_SENDER } from "../constants/gameLoop";
 import type { PlaceId } from "../utils/places";
 import { ROOM_GRID } from "../utils/places";
-import { mergeMessages, stampPlayerBubble } from "../utils/messages";
+import { mergeMessages, messageKey, stampPlayerBubble } from "../utils/messages";
 
 export interface AgentInbox {
   rdc: GameMessage[];
@@ -40,13 +40,32 @@ export function normalizeAgentLocations(
   return out;
 }
 
-function threadKeyRdc(message: GameMessage): string {
-  const peer =
-    message.recipient_id ??
-    message.sender_id ??
-    message.recipient ??
-    message.sender;
-  return `rdc:${peer}`;
+export function rdcPeerId(message: GameMessage, ownerAgentId: string): string {
+  const owner = String(ownerAgentId);
+  const senderId =
+    message.sender_id != null && message.sender_id >= 0
+      ? String(message.sender_id)
+      : null;
+  const recipientId =
+    message.recipient_id != null ? String(message.recipient_id) : null;
+
+  if (senderId === owner && recipientId && recipientId !== owner) {
+    return recipientId;
+  }
+  if (recipientId === owner && senderId && senderId !== owner) {
+    return senderId;
+  }
+  if (senderId && senderId !== owner) {
+    return senderId;
+  }
+  if (recipientId && recipientId !== owner) {
+    return recipientId;
+  }
+  return "unknown";
+}
+
+function threadKeyRdc(message: GameMessage, ownerAgentId: string): string {
+  return `rdc:${rdcPeerId(message, ownerAgentId)}`;
 }
 
 function threadKeyGrp(message: GameMessage): string {
@@ -199,6 +218,55 @@ function mergeLegacyObserverIntoInbox(
   return next;
 }
 
+export interface RdcLink {
+  from: string;
+  to: string;
+  key: string;
+}
+
+function extractRdcLinks(
+  incoming: Record<string, { rdc?: GameMessage[]; grp?: GameMessage[] }> | undefined,
+  observerMessages: GameMessage[] | undefined,
+): RdcLink[] {
+  const links: RdcLink[] = [];
+  const seen = new Set<string>();
+
+  const consider = (message: GameMessage) => {
+    if (message.type !== "RDC") {
+      return;
+    }
+    const sender = message.sender_id;
+    const recipient = message.recipient_id;
+    if (
+      sender == null ||
+      recipient == null ||
+      sender < 0 ||
+      recipient < 0 ||
+      sender === recipient
+    ) {
+      return;
+    }
+    const key = messageKey(message);
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    links.push({ from: String(sender), to: String(recipient), key });
+  };
+
+  if (incoming) {
+    for (const bucket of Object.values(incoming)) {
+      for (const message of bucket.rdc ?? []) {
+        consider(message);
+      }
+    }
+  }
+  for (const message of observerMessages ?? []) {
+    consider(message);
+  }
+  return links;
+}
+
 export interface WorldDeltaPatch {
   placeId?: string;
   worldTick: number;
@@ -208,6 +276,7 @@ export interface WorldDeltaPatch {
   worldEvents: WorldEvent[];
   pendingWorldEvent: WorldEvent | null;
   recentMoveKeys: string[];
+  recentRdcLinks: RdcLink[];
 }
 
 export function applyWorldDelta(
@@ -264,6 +333,8 @@ export function applyWorldDelta(
     }
   }
 
+  const recentRdcLinks = extractRdcLinks(delta.agent_messages, delta.observer_messages);
+
   return {
     placeId: playerPlace,
     worldTick: delta.through_tick,
@@ -273,6 +344,7 @@ export function applyWorldDelta(
     worldEvents,
     pendingWorldEvent,
     recentMoveKeys,
+    recentRdcLinks,
   };
 }
 

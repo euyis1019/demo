@@ -8,6 +8,8 @@ import type { AgentInbox } from "../../store/worldSync";
 export interface MessageThreadListProps {
   inbox: AgentInbox;
   kind: "rdc" | "grp";
+  ownerAgentId: string;
+  nameMap?: Record<string, string>;
 }
 
 interface ThreadGroup {
@@ -17,12 +19,17 @@ interface ThreadGroup {
   archived: boolean;
 }
 
-function buildThreads(inbox: AgentInbox, kind: "rdc" | "grp"): ThreadGroup[] {
+function buildThreads(
+  inbox: AgentInbox,
+  kind: "rdc" | "grp",
+  ownerAgentId: string,
+): ThreadGroup[] {
   const messages = kind === "rdc" ? inbox.rdc : inbox.grp;
   const buckets = new Map<string, ThreadGroup>();
 
   for (const message of messages) {
-    const key = kind === "rdc" ? threadKeyRdc(message) : threadKeyGrp(message);
+    const key =
+      kind === "rdc" ? threadKeyRdc(message, ownerAgentId) : threadKeyGrp(message);
     const label =
       kind === "grp"
         ? groupDisplayLabel(message.group_id) ?? key
@@ -49,8 +56,16 @@ function buildThreads(inbox: AgentInbox, kind: "rdc" | "grp"): ThreadGroup[] {
   });
 }
 
-export function MessageThreadList({ inbox, kind }: MessageThreadListProps) {
-  const threads = useMemo(() => buildThreads(inbox, kind), [inbox, kind]);
+export function MessageThreadList({
+  inbox,
+  kind,
+  ownerAgentId,
+  nameMap = {},
+}: MessageThreadListProps) {
+  const threads = useMemo(
+    () => buildThreads(inbox, kind, ownerAgentId),
+    [inbox, kind, ownerAgentId],
+  );
 
   if (threads.length === 0) {
     return <p className="agent-phone__empty">暂无消息</p>;
@@ -74,12 +89,15 @@ export function MessageThreadList({ inbox, kind }: MessageThreadListProps) {
               <span className="message-thread__badge">已归档</span>
             ) : null}
           </header>
-          <div className="message-thread__messages">
+          <div className="message-thread__messages chat-message-list">
             {thread.messages.map((message, index) => (
               <MessageBubble
                 key={`${thread.key}-${index}`}
                 message={message}
                 variant={kind}
+                inboxOwnerId={ownerAgentId}
+                chatLayout
+                nameMap={nameMap}
               />
             ))}
           </div>

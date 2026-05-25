@@ -1,9 +1,10 @@
+import { useState } from "react";
 import type { GameMessage } from "../../api/types";
-import { agentDisplayName } from "../../constants/agents";
 import { placeDisplayName, type PlaceId } from "../../utils/places";
 import { agentsInPlace } from "../../store/worldSync";
 import { AgentCircle } from "./AgentCircle";
-import { RoomSpeechBubble } from "./RoomSpeechBubble";
+import { RoomHistoryModal } from "./RoomHistoryModal";
+import { useRoomEphemeralSpeeches } from "./useRoomEphemeralSpeeches";
 
 export interface RoomCellProps {
   placeId: PlaceId;
@@ -22,11 +23,24 @@ export function RoomCell({
   recentMoveKeys,
   onAgentClick,
 }: RoomCellProps) {
+  const [historyOpen, setHistoryOpen] = useState(false);
   const agents = agentsInPlace(agentLocations, placeId);
+  const ephemeralSpeeches = useRoomEphemeralSpeeches(messages, agents, nameMap);
 
   return (
     <div className="room-cell" data-place-id={placeId}>
-      <header className="room-cell__header">{placeDisplayName(placeId)}</header>
+      <header className="room-cell__header">
+        <button
+          type="button"
+          className="room-cell__history-btn"
+          aria-label={`${placeDisplayName(placeId)} 聊天记录`}
+          title="聊天记录"
+          onClick={() => setHistoryOpen(true)}
+        >
+          历史
+        </button>
+        <span className="room-cell__title">{placeDisplayName(placeId)}</span>
+      </header>
       <div className="room-cell__stage">
         <div className="room-cell__agents">
           {agents.map((agentId, index) => (
@@ -37,6 +51,7 @@ export function RoomCell({
               total={agents.length}
               nameMap={nameMap}
               recentMoveKeys={recentMoveKeys}
+              speechContent={ephemeralSpeeches[agentId]?.content}
               onClick={onAgentClick}
             />
           ))}
@@ -44,10 +59,16 @@ export function RoomCell({
             <p className="room-cell__empty">暂无 Agent</p>
           ) : null}
         </div>
-        <RoomSpeechBubble messages={messages} />
       </div>
+
+      {historyOpen ? (
+        <RoomHistoryModal
+          placeId={placeId}
+          messages={messages}
+          nameMap={nameMap}
+          onClose={() => setHistoryOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
-
-export { agentDisplayName };

@@ -485,6 +485,7 @@ animatingMoves: LocationChange[];  // 可选，驱动 CSS 动画
 ### Phase 4 — 联调与回归
 
 - [ ] Turn1–4 手动走查（F2F 气泡、Jensen 移动、广播弹窗）— 需人工 UI 验证
+- [x] `test_f12_synthetic_scenario.py` — 无 LLM 合成引擎回放（§八 全场景 + Flask HTTP + 前端 fixture）
 - [x] `test_f12_visibility.py` 断言 F12 无 hidden（替代 test_message_visibility_gap）
 - [x] `test_m0_acceptance` 全绿
 - [x] `test_f12_full_acceptance.py` 一键全方案自动化回归
@@ -525,7 +526,7 @@ animatingMoves: LocationChange[];  // 可选，驱动 CSS 动画
 | **Runner** | `dispatcher.py`, `ipc_handlers.py`, `place_mutation.py`, `world_reset.py`, `ipc_helper.py` |
 | **Flask F12** | `features/f12_world_sync/*`, `f06/world_db.py`, `f11/delta.py`, `f03/*`, `f05/routing.py`, `http/routes.py` |
 | **前端** | `features/world-stage/*`, `TwoColumnLayout`, `gameStore.ts`, `useGameLoop.ts`, `api/types.ts`, `api/hbm.ts`, `places.ts`, `global.css` |
-| **测试** | `scripts/test_f12_world_delta.py`, 更新 `test_m0_acceptance.py` |
+| **测试** | `scripts/test_f12_world_delta.py`, `test_f12_synthetic_scenario.py`, `fixtures/f12_synthetic_fixture.json`, 更新 `test_m0_acceptance.py` |
 
 ---
 

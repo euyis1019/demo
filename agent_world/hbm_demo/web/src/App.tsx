@@ -57,6 +57,7 @@ function GameApp() {
     activeAgentModal,
     pendingWorldEvent,
     recentMoveKeys,
+    recentRdcLinks,
     view,
     endingId,
     lastError,
@@ -153,6 +154,7 @@ function GameApp() {
             agentInbox={agentInbox}
             nameMap={nameMap}
             recentMoveKeys={recentMoveKeys}
+            recentRdcLinks={recentRdcLinks}
             activeAgentModal={activeAgentModal}
             pendingWorldEvent={pendingWorldEvent}
             immediateMsg={immediateMsg}
@@ -163,6 +165,7 @@ function GameApp() {
             onCloseAgentModal={() => dispatch({ type: "CLOSE_AGENT_MODAL" })}
             onDismissWorldEvent={() => dispatch({ type: "DISMISS_WORLD_EVENT" })}
             onClearRecentMoves={() => dispatch({ type: "CLEAR_RECENT_MOVES" })}
+            onClearRecentRdcLinks={() => dispatch({ type: "CLEAR_RECENT_RDC_LINKS" })}
             inputSlot={
               <PlayerInput
                 onSend={(text) => void sendTurn(text)}

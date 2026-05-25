@@ -1,13 +1,16 @@
 import type { GameMessage } from "../../api/types";
 import type { PlaceId } from "../../utils/places";
 import { ROOM_GRID } from "../../utils/places";
+import type { RdcLink } from "../../store/worldSync";
 import { RoomCell } from "./RoomCell";
+import { RdcConnectionOverlay } from "./RdcConnectionOverlay";
 
 export interface RoomGridProps {
   roomF2f: Record<PlaceId, GameMessage[]>;
   agentLocations: Record<string, { placeId: string; arrivedAt: number }>;
   nameMap: Record<string, string>;
   recentMoveKeys: string[];
+  recentRdcLinks: RdcLink[];
   onAgentClick: (agentId: string) => void;
 }
 
@@ -17,6 +20,7 @@ export function RoomGrid({
   agentLocations,
   nameMap,
   recentMoveKeys,
+  recentRdcLinks,
   onAgentClick,
 }: RoomGridProps) {
   return (
@@ -32,6 +36,7 @@ export function RoomGrid({
           onAgentClick={onAgentClick}
         />
       ))}
+      <RdcConnectionOverlay links={recentRdcLinks} agentLocations={agentLocations} />
     </div>
   );
 }

@@ -18,6 +18,7 @@ import {
   applyWorldSnapshot,
   pushPlayerBubbleToRoom,
   type AgentInbox,
+  type RdcLink,
 } from "./worldSync";
 import type { WorldEvent } from "../api/types";
 
@@ -46,6 +47,7 @@ export interface GameState {
   pendingWorldEvent: WorldEvent | null;
   activeAgentModal: string | null;
   recentMoveKeys: string[];
+  recentRdcLinks: RdcLink[];
   endingId?: EndingId;
   lastError?: string;
   runnerModalOpen: boolean;
@@ -79,6 +81,7 @@ export function createInitialState(): GameState {
     pendingWorldEvent: null,
     activeAgentModal: null,
     recentMoveKeys: [],
+    recentRdcLinks: [],
     runnerModalOpen: false,
   };
 }
@@ -105,7 +108,8 @@ export type GameAction =
   | { type: "OPEN_AGENT_MODAL"; agentId: string }
   | { type: "CLOSE_AGENT_MODAL" }
   | { type: "DISMISS_WORLD_EVENT" }
-  | { type: "CLEAR_RECENT_MOVES" };
+  | { type: "CLEAR_RECENT_MOVES" }
+  | { type: "CLEAR_RECENT_RDC_LINKS" };
 
 function statsFromSnapshot(data: SessionSnapshot | SessionStartData): Stats {
   return { ...(data.stats ?? INITIAL_STATS) };
@@ -139,6 +143,11 @@ function withWorldDelta(state: GameState, delta: TurnDelta): GameState {
     recentMoveKeys: patch.recentMoveKeys.length
       ? patch.recentMoveKeys
       : state.recentMoveKeys,
+    recentRdcLinks: patch.recentRdcLinks.length
+      ? [...state.recentRdcLinks, ...patch.recentRdcLinks].filter(
+          (link, index, all) => all.findIndex((item) => item.key === link.key) === index,
+        )
+      : state.recentRdcLinks,
   };
 }
 
@@ -151,6 +160,7 @@ function resetWorldState(): Pick<
   | "pendingWorldEvent"
   | "activeAgentModal"
   | "recentMoveKeys"
+  | "recentRdcLinks"
   | "worldTick"
   | "nameMap"
 > {
@@ -164,6 +174,7 @@ function resetWorldState(): Pick<
     pendingWorldEvent: null,
     activeAgentModal: null,
     recentMoveKeys: [],
+    recentRdcLinks: [],
   };
 }
 
@@ -302,6 +313,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
     case "CLEAR_RECENT_MOVES":
       return { ...state, recentMoveKeys: [] };
+    case "CLEAR_RECENT_RDC_LINKS":
+      return { ...state, recentRdcLinks: [] };
     case "RESET_PLAYTHROUGH":
       return {
         ...createInitialState(),

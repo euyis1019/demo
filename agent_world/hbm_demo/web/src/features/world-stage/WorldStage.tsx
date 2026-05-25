@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import type { GameMessage, WorldEvent } from "../../api/types";
 import type { PlaceId } from "../../utils/places";
-import type { AgentInbox } from "../../store/worldSync";
+import type { AgentInbox, RdcLink } from "../../store/worldSync";
 import { AgentPhoneModal } from "./AgentPhoneModal";
 import { RoomGrid } from "./RoomGrid";
 import { WorldEventModal } from "./WorldEventModal";
@@ -12,6 +12,7 @@ export interface WorldStageProps {
   agentInbox: Record<string, AgentInbox>;
   nameMap: Record<string, string>;
   recentMoveKeys: string[];
+  recentRdcLinks: RdcLink[];
   activeAgentModal: string | null;
   pendingWorldEvent: WorldEvent | null;
   immediateMsg?: string;
@@ -21,6 +22,7 @@ export interface WorldStageProps {
   onCloseAgentModal: () => void;
   onDismissWorldEvent: () => void;
   onClearRecentMoves: () => void;
+  onClearRecentRdcLinks: () => void;
 }
 
 export function WorldStage({
@@ -29,6 +31,7 @@ export function WorldStage({
   agentInbox,
   nameMap,
   recentMoveKeys,
+  recentRdcLinks,
   activeAgentModal,
   pendingWorldEvent,
   immediateMsg,
@@ -38,6 +41,7 @@ export function WorldStage({
   onCloseAgentModal,
   onDismissWorldEvent,
   onClearRecentMoves,
+  onClearRecentRdcLinks,
 }: WorldStageProps) {
   useEffect(() => {
     if (recentMoveKeys.length === 0) {
@@ -48,6 +52,16 @@ export function WorldStage({
     }, 450);
     return () => window.clearTimeout(timer);
   }, [recentMoveKeys, onClearRecentMoves]);
+
+  useEffect(() => {
+    if (recentRdcLinks.length === 0) {
+      return undefined;
+    }
+    const timer = window.setTimeout(() => {
+      onClearRecentRdcLinks();
+    }, 4800);
+    return () => window.clearTimeout(timer);
+  }, [recentRdcLinks, onClearRecentRdcLinks]);
 
   const activeInbox =
     activeAgentModal != null
@@ -77,6 +91,7 @@ export function WorldStage({
         agentLocations={agentLocations}
         nameMap={nameMap}
         recentMoveKeys={recentMoveKeys}
+        recentRdcLinks={recentRdcLinks}
         onAgentClick={onAgentClick}
       />
 

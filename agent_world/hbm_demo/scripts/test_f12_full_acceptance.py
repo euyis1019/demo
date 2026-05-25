@@ -81,6 +81,7 @@ def main() -> int:
         ("Phase 1 persistence", "test_f12_phase1_persistence.py"),
         ("Phase 2 world delta", "test_f12_world_delta.py"),
         ("Phase 4 visibility", "test_f12_visibility.py"),
+        ("Synthetic engine replay", "test_f12_synthetic_scenario.py"),
     ):
         try:
             _run_py(name, rel)

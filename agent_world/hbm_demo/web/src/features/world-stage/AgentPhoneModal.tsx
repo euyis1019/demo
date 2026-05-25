@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { agentDisplayName } from "../../constants/agents";
 import type { AgentInbox } from "../../store/worldSync";
-import { InnerOsTimeline } from "./InnerOsTimeline";
-import { MessageThreadList } from "./MessageThreadList";
+import { buildContactThreads, type ContactThread } from "./agentContactThreads";
+import { AgentContactList } from "./AgentContactList";
+import { AgentThreadDetail } from "./AgentThreadDetail";
 
 export interface AgentPhoneModalProps {
   agentId: string;
@@ -11,16 +12,18 @@ export interface AgentPhoneModalProps {
   onClose: () => void;
 }
 
-type PhoneTab = "rdc" | "grp" | "os";
-
 export function AgentPhoneModal({
   agentId,
   inbox,
   nameMap,
   onClose,
 }: AgentPhoneModalProps) {
-  const [tab, setTab] = useState<PhoneTab>("rdc");
+  const [activeThread, setActiveThread] = useState<ContactThread | null>(null);
   const title = agentDisplayName(agentId, nameMap);
+  const threads = useMemo(
+    () => buildContactThreads(inbox, nameMap, agentId),
+    [inbox, nameMap, agentId],
+  );
 
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
@@ -33,44 +36,29 @@ export function AgentPhoneModal({
       >
         <header className="agent-phone-modal__header">
           <div>
-            <h2>{title}</h2>
-            <p className="agent-phone-modal__subtitle">Agent #{agentId}</p>
+            <h2>{activeThread ? activeThread.title : title}</h2>
+            <p className="agent-phone-modal__subtitle">
+              {activeThread ? "对话详情" : `Agent #${agentId} · 联系人`}
+            </p>
           </div>
           <button type="button" className="modal-close" onClick={onClose}>
             关闭
           </button>
         </header>
 
-        <div className="agent-phone-tabs" role="tablist">
-          {(
-            [
-              ["rdc", "私信"],
-              ["grp", "群聊"],
-              ["os", "内心 OS"],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={tab === id}
-              className={[
-                "agent-phone-tabs__btn",
-                tab === id ? "agent-phone-tabs__btn--active" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              onClick={() => setTab(id)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
         <div className="agent-phone-modal__body">
-          {tab === "rdc" ? <MessageThreadList inbox={inbox} kind="rdc" /> : null}
-          {tab === "grp" ? <MessageThreadList inbox={inbox} kind="grp" /> : null}
-          {tab === "os" ? <InnerOsTimeline entries={inbox.osLog} /> : null}
+          {activeThread ? (
+            <AgentThreadDetail
+              thread={activeThread}
+              ownerAgentId={agentId}
+              nameMap={nameMap}
+              onBack={() => setActiveThread(null)}
+            />
+          ) : (
+            <div className="agent-phone-modal__scroll">
+              <AgentContactList threads={threads} onSelect={setActiveThread} />
+            </div>
+          )}
         </div>
       </div>
     </div>
