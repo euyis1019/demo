@@ -21,6 +21,7 @@ import {
   useHealthCheck,
   useLoadingElapsed,
   useStartGame,
+  useWorldDeltaPoll,
   useWorldLoopControl,
   WorldStage,
 } from "./features";
@@ -41,6 +42,10 @@ function GameApp() {
     pauseWorld,
     resumeWorld,
   } = useWorldLoopControl(state.sessionInitialized && state.view === "playing");
+  useWorldDeltaPoll(
+    state.sessionInitialized && state.view === "playing",
+    worldLoopState === "paused",
+  );
   const loadingElapsed = useLoadingElapsed(state.loading);
   const envTick = useEnvStatus(
     state.sessionInitialized && state.view === "playing" && state.worldLoopState !== "paused",

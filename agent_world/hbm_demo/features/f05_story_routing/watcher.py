@@ -1,0 +1,115 @@
+"""F05 RoutingWatcher — scan DB on tick advance during F14 poll (dev_logs/31 Phase 2)."""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+from typing import Any, Dict, List
+
+from agent_world.hbm_demo.features.f01_session.lifecycle import save_session
+from agent_world.hbm_demo.features.f01_session.models import HbmSession
+from agent_world.hbm_demo.features.f05_story_routing import routing
+from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
+from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop_enabled
+from agent_world.hbm_demo.features.f12_world_sync.formatter import format_routing_world_events
+from agent_world.hbm_demo.http.ipc_helper import get_ipc_client, push_session_mirror
+from agent_world.hbm_demo.shared.settings import DEFAULT_IPC_TIMEOUT
+
+log = logging.getLogger("agent_world.hbm_demo.f05")
+
+ROUTING_WATCHER_KEY = "hbm_routing_watcher"
+
+
+def _mark_session_modified(flask_session: Any) -> None:
+    if hasattr(flask_session, "modified"):
+        flask_session.modified = True
+
+
+def _watcher_state(flask_session: Any) -> Dict[str, Any]:
+    return flask_session.setdefault(ROUTING_WATCHER_KEY, {})
+
+
+def consume_routing_world_events(
+    flask_session: Any,
+    *,
+    since_tick: int,
+    t_now: int,
+) -> List[Dict[str, Any]]:
+    """Return routing world_events in (since_tick, t_now] and prune older entries."""
+    state = _watcher_state(flask_session)
+    pending = list(state.get("pending_world_events") or [])
+    since_t = int(since_tick)
+    end_t = int(t_now)
+    selected = [
+        event
+        for event in pending
+        if since_t < int(event.get("at_tick", 0)) <= end_t
+    ]
+    state["pending_world_events"] = [
+        event
+        for event in pending
+        if int(event.get("at_tick", 0)) > since_t
+    ]
+    _mark_session_modified(flask_session)
+    return selected
+
+
+def scan_routing_if_needed(
+    flask_session: Any,
+    hbm: HbmSession,
+    *,
+    sim_id: str,
+    sim_dir: Path,
+    current_tick: int,
+    ipc_timeout: float = DEFAULT_IPC_TIMEOUT,
+) -> Dict[str, Any]:
+    """Apply routing side effects when env tick advances (world loop mode only)."""
+    if not is_world_loop_enabled():
+        return {}
+
+    state = _watcher_state(flask_session)
+    last_scan = int(state.get("last_scan_tick", -1))
+    tick = int(current_tick)
+    if tick <= last_scan:
+        return dict(state.get("last_routing_info") or {})
+
+    ipc_client = get_ipc_client(str(sim_dir))
+    db = make_readonly_db(sim_dir)
+    task_id = f"route_{tick}"
+    routing_info = routing.apply_routing(
+        hbm,
+        ipc_client=ipc_client,
+        db=db,
+        task_id=task_id,
+        current_tick=tick,
+        tick_count=1,
+        ipc_timeout=ipc_timeout,
+    )
+
+    if routing_info.get("nodes"):
+        save_session(flask_session, hbm, sim_id)
+        push_session_mirror(ipc_client, hbm, timeout=ipc_timeout)
+        events = format_routing_world_events(
+            routing_info,
+            at_tick=tick,
+            task_id=task_id,
+        )
+        pending = state.setdefault("pending_world_events", [])
+        pending.extend(events)
+        log.info(
+            "routing watcher applied nodes=%s at tick=%s",
+            routing_info.get("nodes"),
+            tick,
+        )
+
+    state["last_scan_tick"] = tick
+    state["last_routing_info"] = dict(routing_info) if routing_info else {}
+    _mark_session_modified(flask_session)
+    return dict(state["last_routing_info"])
+
+
+__all__ = [
+    "ROUTING_WATCHER_KEY",
+    "consume_routing_world_events",
+    "scan_routing_if_needed",
+]

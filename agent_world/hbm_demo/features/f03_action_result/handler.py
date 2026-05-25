@@ -27,6 +27,7 @@ from agent_world.hbm_demo.features.f11_live_turn_sync.delta import (
     empty_delta,
 )
 from agent_world.hbm_demo.features.f12_world_sync.delta import build_completed_payload
+from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop_enabled
 from agent_world.hbm_demo.shared.env_status import read_env_status
 
 log = logging.getLogger("agent_world.hbm_demo.game_service")
@@ -42,6 +43,18 @@ def get_action_result(
     sim_dir: Path | None = None,
 ) -> Dict[str, Any]:
     sim = sim_dir or get_sim_dir()
+
+    if is_world_loop_enabled():
+        from agent_world.hbm_demo.features.f14_world_delta.handler import get_world_delta
+
+        client_since = int(since_tick) if since_tick is not None else 0
+        return get_world_delta(
+            flask_session,
+            sim_id=sim_id,
+            since_tick=client_since,
+            sim_dir=sim,
+        )
+
     sync_runtime_state(flask_session, sim_id, sim_dir=sim)
 
     hbm = load_session(flask_session, sim_id)

@@ -174,10 +174,27 @@ export interface PlayerTurnCompleted {
   current_phase: string;
 }
 
+export interface PlayerTurnAccepted {
+  accepted: true;
+  immediate_msg: string;
+  stats_update: Stats;
+  current_phase: string;
+  player_turn: number;
+}
+
 export type PlayerTurnData =
+  | PlayerTurnAccepted
   | PlayerTurnProcessing
   | PlayerTurnGameOver
   | PlayerTurnCompleted;
+
+export interface WorldDeltaData extends TurnDelta {
+  current_tick: number;
+  loop_state?: string;
+  stats_update: Stats;
+  current_phase: string;
+  player_turn: number;
+}
 
 export interface TurnDelta {
   through_tick: number;

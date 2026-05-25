@@ -199,6 +199,34 @@ def world_snapshot(sim_id: str):
     return jsonify({"success": True, "data": data})
 
 
+@hbm_bp.route("/simulations/<sim_id>/world-delta", methods=["GET"])
+def world_delta(sim_id: str):
+    """F14 — session-scoped incremental world sync (since_tick poll)."""
+    err = _check_sim_id(sim_id)
+    if err:
+        return err
+
+    since_tick_raw = request.args.get("since_tick")
+    since_tick: int | None = None
+    if since_tick_raw is not None and str(since_tick_raw).strip() != "":
+        try:
+            since_tick = int(since_tick_raw)
+        except ValueError:
+            return _bad_request("since_tick must be an integer")
+
+    try:
+        data = gs.get_world_delta(
+            session,
+            sim_id=sim_id,
+            since_tick=since_tick,
+        )
+    except Exception as exc:  # noqa: BLE001
+        body, code = service_error_payload(exc)
+        return jsonify(body), code
+
+    return jsonify({"success": True, "data": data})
+
+
 @hbm_bp.route("/simulations/<sim_id>/world-loop/status", methods=["GET"])
 def world_loop_status(sim_id: str):
     """F13 — resident world loop status."""

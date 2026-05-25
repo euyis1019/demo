@@ -129,6 +129,13 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "modules": ["handler"],
         "phase": "Phase 1b — pause/resume API + StatusPanel (dev_logs/31 §8.3)",
     },
+    "F14": {
+        "name": "常驻 world delta poll",
+        "status": "implemented",
+        "path": "features/f14_world_delta/",
+        "modules": ["handler"],
+        "phase": "Phase 2 — session delta + RoutingWatcher (dev_logs/31 §十四)",
+    },
 }
 
 __all__ = ["FEATURE_REGISTRY"]

@@ -16,6 +16,7 @@ import type {
   SessionSnapshot,
   SessionStartData,
   WorldLoopStatusData,
+  WorldDeltaData,
   WorldSnapshot,
 } from "./types";
 
@@ -91,6 +92,17 @@ export async function getActionResult(
   return apiGet<ActionResultData>(`${API_PREFIX}/action-result`, query, {
     timeoutMs: ACTION_RESULT_TIMEOUT_MS,
   });
+}
+
+/** GET /world-delta — F14 session-scoped incremental sync. */
+export async function getWorldDelta(
+  sinceTick: number,
+): Promise<ApiResponse<WorldDeltaData>> {
+  return apiGet<WorldDeltaData>(
+    `${API_PREFIX}/world-delta`,
+    { since_tick: String(sinceTick) },
+    { timeoutMs: READ_TIMEOUT_MS },
+  );
 }
 
 /** GET /world-snapshot — F12 full-world calibration. */

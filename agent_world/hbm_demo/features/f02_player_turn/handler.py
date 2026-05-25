@@ -51,6 +51,20 @@ from agent_world.hbm_demo.shared.settings import DEFAULT_IPC_TIMEOUT
 log = logging.getLogger("agent_world.hbm_demo.game_service")
 
 
+def _pause_loop_after_terminal(*, sim: Path) -> None:
+    """Freeze resident loop after game_over / Turn 25 ending (Phase 2)."""
+    if not is_world_loop_enabled():
+        return
+    try:
+        from agent_world.hbm_demo.features.f13_world_loop_control.handler import (
+            pause_world_loop,
+        )
+
+        pause_world_loop(sim_dir=sim)
+    except Exception:  # noqa: BLE001
+        log.exception("failed to pause world loop after terminal turn")
+
+
 def run_debug_inject(
     session: HbmSession,
     player_text: str,
@@ -206,6 +220,7 @@ def _handle_sync_inject(
             end_tick=current_tick,
             extra={"status": "completed", "ending_id": ending_id},
         )
+        _pause_loop_after_terminal(sim=sim)
         return {
             "status": "completed",
             "ending_id": ending_id,
@@ -247,6 +262,70 @@ def _handle_sync_inject(
         "ipc_end_tick": ipc_end_tick,
         "routing": routing_info,
         "ipc": ipc_result,
+    }
+
+
+def _handle_v2_player_turn(
+    flask_session: Any,
+    hbm: HbmSession,
+    *,
+    sim: Path,
+    sim_id: str,
+    player_text: str,
+    task_id: str,
+    ipc_timeout: float,
+) -> Dict[str, Any]:
+    """Phase 2 — score, enqueue, mirror; F14 poll captures world activity."""
+    deltas = score_player_turn(hbm, player_text)
+    apply_stat_deltas(hbm, deltas)
+
+    if check_turn4_bad_end(hbm):
+        save_session(flask_session, hbm, sim_id)
+        _pause_loop_after_terminal(sim=sim)
+        return {
+            "status": "game_over",
+            "ending_id": "bad_reject",
+            "public_messages": list(BAD_END_PUBLIC_MESSAGES),
+            "stats_update": dict(hbm.stats),
+            "current_phase": hbm.phase,
+        }
+
+    events, broadcast, turn_context = build_inject_events(
+        hbm, player_text, task_id=task_id
+    )
+    if not events:
+        raise RuntimeError(
+            f"no inject events for phase={hbm.phase!r} turn={hbm.player_turn}"
+        )
+
+    ipc_client = get_ipc_client(str(sim))
+    send_enqueue_player_input(
+        ipc_client,
+        events=events,
+        broadcast=broadcast,
+        turn_context=turn_context,
+        timeout=ipc_timeout,
+    )
+    hbm.player_turn += 1
+    push_session_mirror(ipc_client, hbm, timeout=ipc_timeout)
+    save_session(flask_session, hbm, sim_id)
+
+    log_turn_event(
+        event="player_turn_accepted",
+        task_id=task_id,
+        phase=hbm.phase,
+        player_turn=hbm.player_turn - 1,
+        start_tick=int((read_env_status(sim) or {}).get("current_tick", 0)),
+        end_tick=int((read_env_status(sim) or {}).get("current_tick", 0)),
+        extra={"accepted": True},
+    )
+
+    return {
+        "accepted": True,
+        "immediate_msg": IMMEDIATE_MSG_PLACEHOLDER,
+        "stats_update": dict(hbm.stats),
+        "current_phase": hbm.phase,
+        "player_turn": hbm.player_turn,
     }
 
 
@@ -306,6 +385,7 @@ def handle_player_turn(
 
         if check_turn4_bad_end(hbm):
             save_session(flask_session, hbm, sim_id)
+            _pause_loop_after_terminal(sim=sim)
             return {
                 "status": "game_over",
                 "ending_id": "bad_reject",
@@ -339,7 +419,18 @@ def handle_player_turn(
             player_text=player_text,
         )
 
-    # F11-A + async F04: score/inject on background thread; POST returns immediately.
+    if is_world_loop_enabled():
+        return _handle_v2_player_turn(
+            flask_session,
+            hbm,
+            sim=sim,
+            sim_id=sim_id,
+            player_text=player_text,
+            task_id=task_id,
+            ipc_timeout=ipc_timeout,
+        )
+
+    # Legacy F11 async path when world loop disabled.
     save_session(flask_session, hbm, sim_id)
 
     task_place_id = hbm.place_id

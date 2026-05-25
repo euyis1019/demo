@@ -7,7 +7,12 @@ import {
   resetSession,
   startSession,
 } from "../../api/hbm";
-import type { ActionResultCompleted, ActionResultProcessing } from "../../api/types";
+import type {
+  ActionResultCompleted,
+  ActionResultProcessing,
+  PlayerTurnAccepted,
+  PlayerTurnProcessing,
+} from "../../api/types";
 import { POLL_TIMEOUT_MESSAGE } from "../../constants/runner";
 import {
   MAX_POLL_ATTEMPTS,
@@ -21,6 +26,14 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+function isAcceptedTurn(data: unknown): data is PlayerTurnAccepted {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    (data as PlayerTurnAccepted).accepted === true
+  );
 }
 
 function isCompletedAction(data: unknown): data is ActionResultCompleted {
@@ -108,7 +121,7 @@ export function useStartGame() {
   return { startGame, restartGame, resetDemo };
 }
 
-/** F3-3 + F5 + F11-C + F12 — incremental world delta poll during processing. */
+/** F3-3 + Phase 2 — POST enqueue only; F14 poll merges world delta. */
 export function useGameLoop() {
   const { state, dispatch, setLoading } = useGameStoreContext();
 
@@ -157,26 +170,39 @@ export function useGameLoop() {
           throw new Error("player-turn 未返回 data");
         }
 
-        if (data.status === "game_over") {
+        if ("status" in data && data.status === "game_over") {
           dispatch({ type: "SET_GAME_OVER", data });
           return;
         }
 
-        if (data.status === "completed") {
+        if ("status" in data && data.status === "completed") {
           dispatch({ type: "SET_ENDING", data });
           return;
         }
 
-        dispatch({ type: "SET_IMMEDIATE", message: data.immediate_msg });
+        if (isAcceptedTurn(data)) {
+          dispatch({ type: "SET_IMMEDIATE", message: data.immediate_msg });
+          dispatch({
+            type: "APPLY_PLAYER_TURN_PROCESSING",
+            stats: data.stats_update,
+            phase: data.current_phase,
+            playerTurn: data.player_turn,
+          });
+          return;
+        }
+
+        // Legacy F11 path when world loop disabled.
+        const legacy = data as PlayerTurnProcessing;
+        dispatch({ type: "SET_IMMEDIATE", message: legacy.immediate_msg });
         dispatch({
           type: "APPLY_PLAYER_TURN_PROCESSING",
-          stats: data.stats_update,
-          phase: data.current_phase,
+          stats: legacy.stats_update,
+          phase: legacy.current_phase,
           playerTurn: state.playerTurn + 1,
         });
 
-        const taskId = data.task_id;
-        let sinceTick = data.start_tick ?? 0;
+        const taskId = legacy.task_id;
+        let sinceTick = legacy.start_tick ?? 0;
         let pollCompleted = false;
 
         for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt += 1) {

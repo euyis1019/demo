@@ -113,6 +113,81 @@ def build_world_delta(
     }
 
 
+def build_session_world_delta(
+    *,
+    since_tick: int,
+    t_now: int,
+    player_place_id: str,
+    db: ReadOnlyWorldDB,
+    name_map: Dict[int, str],
+    extra_world_events: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """Session-scoped incremental delta (F14) — no PendingTask boundary."""
+    since_t = max(0, int(since_tick))
+    t_end = max(int(t_now), since_t)
+    player_place = str(player_place_id or "nvidia_reception")
+
+    room_f2f: Dict[str, List[Dict[str, Any]]] = {
+        place_id: [] for place_id in HBM_ROOM_PLACES
+    }
+    f2f_by_place = db.fetch_f2f_by_places(
+        since_t, t_end, list(HBM_ROOM_PLACES)
+    )
+    for place_id, history in f2f_by_place.items():
+        room_f2f[place_id] = format_f2f_history_with_ids(history, name_map)
+
+    agent_messages: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
+    for agent_id in HBM_AGENT_IDS:
+        rdc_rows = db.fetch_rdc_for_agent(agent_id, since_t, t_end)
+        grp_rows = db.fetch_grp_for_agent(agent_id, since_t, t_end)
+        if not rdc_rows and not grp_rows:
+            continue
+        agent_messages[str(agent_id)] = {
+            "rdc": format_messages(rdc_rows, name_map),
+            "grp": format_messages(grp_rows, name_map),
+        }
+
+    location_changes = format_location_changes(
+        db.fetch_location_logs_since(since_t, t_end)
+    )
+    social_events = format_group_social_events(
+        db.fetch_group_events_since(since_t, t_end)
+    )
+    state_changes = format_state_changes(
+        db.fetch_state_logs_since(since_t, t_end)
+    )
+
+    world_events: List[Dict[str, Any]] = []
+    world_events.extend(
+        format_broadcast_world_events(
+            db.fetch_broadcasts_since(since_t, t_end), name_map
+        )
+    )
+    if extra_world_events:
+        world_events.extend(extra_world_events)
+
+    agent_locations = format_agent_locations(db.fetch_all_agent_locations())
+
+    public_messages = legacy_public_messages_from_room_f2f(room_f2f, player_place)
+    observer_messages = legacy_observer_from_agent_messages(agent_messages)
+    group_messages = legacy_group_from_agent_messages(agent_messages)
+
+    return {
+        "through_tick": t_end,
+        "player_place_id": player_place,
+        "room_f2f": room_f2f,
+        "agent_messages": agent_messages,
+        "location_changes": location_changes,
+        "social_events": social_events,
+        "state_changes": state_changes,
+        "world_events": world_events,
+        "agent_locations": agent_locations,
+        "public_messages": public_messages,
+        "observer_messages": observer_messages,
+        "group_messages": group_messages,
+    }
+
+
 def empty_delta(through_tick: int, *, player_place_id: str = "") -> Dict[str, Any]:
     room_f2f = {place_id: [] for place_id in HBM_ROOM_PLACES}
     return {
