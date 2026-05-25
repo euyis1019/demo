@@ -18,6 +18,7 @@ import type {
   WorldLoopStatusData,
   WorldDeltaData,
   WorldSnapshot,
+  PromptTraceData,
 } from "./types";
 
 export { SIM_ID, API_PREFIX, DEFAULT_TICK_COUNT } from "./config";
@@ -143,5 +144,27 @@ export async function resumeWorldLoop(): Promise<ApiResponse<WorldLoopStatusData
     `${API_PREFIX}/world-loop/resume`,
     {},
     { timeoutMs: READ_TIMEOUT_MS },
+  );
+}
+
+/** GET /prompt-trace/by-ref — F15 UI lookup. */
+export async function getPromptTraceByRef(
+  refKey: string,
+): Promise<ApiResponse<PromptTraceData>> {
+  return apiGet<PromptTraceData>(
+    `${API_PREFIX}/prompt-trace/by-ref`,
+    { ref_key: refKey },
+    { timeoutMs: READ_TIMEOUT_MS, allowHttpStatuses: [404] },
+  );
+}
+
+/** GET /prompt-trace/{id} — F15 full trace. */
+export async function getPromptTrace(
+  traceId: string,
+): Promise<ApiResponse<PromptTraceData>> {
+  return apiGet<PromptTraceData>(
+    `${API_PREFIX}/prompt-trace/${encodeURIComponent(traceId)}`,
+    undefined,
+    { timeoutMs: READ_TIMEOUT_MS, allowHttpStatuses: [404] },
   );
 }

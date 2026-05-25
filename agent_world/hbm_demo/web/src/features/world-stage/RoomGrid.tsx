@@ -12,6 +12,7 @@ export interface RoomGridProps {
   recentMoveKeys: string[];
   recentRdcLinks: RdcLink[];
   onAgentClick: (agentId: string) => void;
+  onPromptClick?: (message: GameMessage) => void;
 }
 
 /** 2×2 四房间 grid（dev_logs/32 §6.3）。 */
@@ -22,6 +23,7 @@ export function RoomGrid({
   recentMoveKeys,
   recentRdcLinks,
   onAgentClick,
+  onPromptClick,
 }: RoomGridProps) {
   return (
     <div className="room-grid" role="grid" aria-label="四房间世界视图">
@@ -34,6 +36,7 @@ export function RoomGrid({
           nameMap={nameMap}
           recentMoveKeys={recentMoveKeys}
           onAgentClick={onAgentClick}
+          onPromptClick={onPromptClick}
         />
       ))}
       <RdcConnectionOverlay links={recentRdcLinks} agentLocations={agentLocations} />

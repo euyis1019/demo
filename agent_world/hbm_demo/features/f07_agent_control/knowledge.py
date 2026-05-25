@@ -8,7 +8,10 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from agent_world.hbm_demo.features.f07_agent_control.config import story_knowledge_dir
+from agent_world.hbm_demo.features.f07_agent_control.config import (
+    recap_window_ticks,
+    story_knowledge_dir,
+)
 from agent_world.hbm_demo.features.f07_agent_control.player_response import (
     format_l6_player_directive,
     format_notification_directive,
@@ -60,27 +63,109 @@ def load_turn_hints() -> Dict[int, str]:
 
 
 def format_session_facts(session: Any) -> str:
-    stats = getattr(session, "stats", None) or {}
     turn = int(getattr(session, "player_turn", 1))
     phase = str(getattr(session, "phase", "Phase 1"))
-    vision = stats.get("vision", 0)
-    execution = stats.get("execution", 0)
-    trust = stats.get("trust", 0)
-    burnout = stats.get("burnout", 0)
-    node_hint = ""
-    if phase == "Phase 1" and turn >= 3:
-        node_hint = f"距节点 A（Turn 4，需 Vision+Execution≥15）还有 {max(4 - turn, 0)} Turn。"
-    elif phase == "Phase 2" and turn >= 10:
-        node_hint = f"距节点 B（Turn 12，需 Execution≥20 + Tech VP 正面 RDC）还有 {max(12 - turn, 0)} Turn。"
-    elif phase == "Phase 3" and turn >= 18:
-        node_hint = f"距节点 C（Turn 20，需 Burnout<80 且 Vision≥30）还有 {max(20 - turn, 0)} Turn。"
-    elif phase == "Phase 4" and turn >= 23:
-        node_hint = f"距终局节点 D（Turn 25）还有 {max(25 - turn, 0)} Turn。"
-    return (
-        f"当前 Turn {turn}，Phase {phase}。"
-        f"数值：Vision={vision} Execution={execution} Trust={trust} Burnout={burnout}。"
-        f"{node_hint}"
-    ).strip()
+    return f"当前 Turn {turn}，Phase {phase}。"
+
+
+def _agent_label(agent_id: int, name_map: Dict[int, str]) -> str:
+    if int(agent_id) == 0:
+        return "玩家"
+    return str(name_map.get(int(agent_id)) or f"Agent{agent_id}")
+
+
+def _short_quote(content: str, limit: int = 48) -> str:
+    text = " ".join(str(content or "").split())
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1] + "…"
+
+
+def build_thread_recap(
+    agent_id: int,
+    t: int,
+    world_db: Any,
+    name_map: Dict[int, str],
+    *,
+    window: Optional[int] = None,
+) -> str:
+    """Read-only recent dialogue/OS summary for L4 (dev_logs/31 §6.3)."""
+    if world_db is None:
+        return ""
+
+    win = int(window) if window is not None else recap_window_ticks()
+    since_t = max(0, int(t) - win)
+    t_now = int(t)
+    aid = int(agent_id)
+
+    lines: List[str] = []
+    try:
+        rows = world_db.fetch_messages_for_recap(since_t, t_now, limit=40)
+    except Exception:
+        rows = []
+
+    for row in rows:
+        ch = str(row.get("channel_type") or "")
+        at_tick = int(row.get("attempted_at") or 0)
+        sender_id = row.get("sender_id")
+        content = _short_quote(str(row.get("content") or ""))
+        if not content or sender_id is None:
+            continue
+        sid = int(sender_id)
+
+        if ch == "F2F":
+            place = str(row.get("place_id") or "room")
+            if sid == aid:
+                lines.append(f"- 你(F2F@{place}, t={at_tick}): 「{content}」")
+            else:
+                lines.append(
+                    f"- {_agent_label(sid, name_map)}→你(F2F@{place}, t={at_tick}): 「{content}」"
+                    if row.get("place_id")
+                    else f"- {_agent_label(sid, name_map)}(F2F, t={at_tick}): 「{content}」"
+                )
+        elif ch == "RDC":
+            recipient_id = row.get("recipient_id")
+            if recipient_id is None:
+                continue
+            rid = int(recipient_id)
+            if sid != aid and rid != aid:
+                lines.append(
+                    f"- {_agent_label(sid, name_map)}→{_agent_label(rid, name_map)}"
+                    f"(RDC, t={at_tick}): 「{content}」"
+                )
+            elif sid == aid:
+                lines.append(
+                    f"- 你→{_agent_label(rid, name_map)}(RDC, t={at_tick}): 「{content}」"
+                )
+            else:
+                lines.append(
+                    f"- {_agent_label(sid, name_map)}→你(RDC, t={at_tick}): 「{content}」"
+                )
+        elif ch == "GRP":
+            group_id = row.get("group_id")
+            if sid == aid:
+                lines.append(f"- 你(GRP#{group_id}, t={at_tick}): 「{content}」")
+            else:
+                lines.append(
+                    f"- {_agent_label(sid, name_map)}(GRP#{group_id}, t={at_tick}): 「{content}」"
+                )
+
+    os_lines: List[str] = []
+    try:
+        state_rows = world_db.fetch_state_logs_since(since_t, t_now, agent_id=aid)
+    except Exception:
+        state_rows = []
+    for row in state_rows[-5:]:
+        os_lines.append(
+            f"- update_state @ t={int(row['at_tick'])}: 「{_short_quote(str(row.get('content') or ''))}」"
+        )
+
+    sections: List[str] = []
+    if lines:
+        sections.append("【近期对话摘要】\n" + "\n".join(lines[-12:]))
+    if os_lines:
+        sections.append("【你最近 OS】\n" + "\n".join(os_lines))
+    return "\n\n".join(sections)
 
 
 def _section(title: str, body: Optional[str]) -> str:

@@ -18,3 +18,4 @@ export * from "./main-chat";
 export * from "./endings";
 export * from "./shared";
 export * from "./world-stage";
+export * from "./prompt-trace";

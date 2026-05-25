@@ -11,5 +11,6 @@ export { RoomGrid } from "./RoomGrid";
 export { RoomHistoryModal } from "./RoomHistoryModal";
 export { RoomSpeechBubble } from "./RoomSpeechBubble";
 export { WorldEventModal } from "./WorldEventModal";
+export { LocationHistoryTimeline } from "./LocationHistoryTimeline";
 export { WorldStage } from "./WorldStage";
 export { buildContactThreads } from "./agentContactThreads";

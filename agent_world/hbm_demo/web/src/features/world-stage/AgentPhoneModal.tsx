@@ -1,15 +1,24 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import type { GameMessage, LocationChange, StateChange } from "../../api/types";
 import { agentDisplayName } from "../../constants/agents";
 import type { AgentInbox } from "../../store/worldSync";
-import { buildContactThreads, type ContactThread } from "./agentContactThreads";
 import { AgentContactList } from "./AgentContactList";
 import { AgentThreadDetail } from "./AgentThreadDetail";
+import {
+  buildContactThreads,
+  type ContactThread,
+} from "./agentContactThreads";
 
 export interface AgentPhoneModalProps {
   agentId: string;
   inbox: AgentInbox;
   nameMap: Record<string, string>;
   onClose: () => void;
+  onOpenPromptTrace?: (req: {
+    refKey?: string;
+    label?: string;
+    noPromptReason?: string;
+  }) => void;
 }
 
 export function AgentPhoneModal({
@@ -17,12 +26,50 @@ export function AgentPhoneModal({
   inbox,
   nameMap,
   onClose,
+  onOpenPromptTrace,
 }: AgentPhoneModalProps) {
   const [activeThread, setActiveThread] = useState<ContactThread | null>(null);
   const title = agentDisplayName(agentId, nameMap);
   const threads = useMemo(
     () => buildContactThreads(inbox, nameMap, agentId),
     [inbox, nameMap, agentId],
+  );
+
+  const openMessageTrace = useCallback(
+    (message: GameMessage) => {
+      onOpenPromptTrace?.({
+        refKey: message.ref_key,
+        label: `${title} · ${message.type} @ t=${message.attempted_at ?? "?"}`,
+      });
+    },
+    [onOpenPromptTrace, title],
+  );
+
+  const openStateTrace = useCallback(
+    (entry: StateChange) => {
+      onOpenPromptTrace?.({
+        refKey: entry.ref_key,
+        label: `${title} · OS @ t=${entry.at_tick}`,
+      });
+    },
+    [onOpenPromptTrace, title],
+  );
+
+  const openLocationTrace = useCallback(
+    (entry: LocationChange) => {
+      if (entry.source === "ipc_move") {
+        onOpenPromptTrace?.({
+          label: `${title} · 地点 @ t=${entry.at_tick}`,
+          noPromptReason: "系统移动（IPC 路由）· 无 LLM Prompt",
+        });
+        return;
+      }
+      onOpenPromptTrace?.({
+        refKey: entry.ref_key,
+        label: `${title} · 地点 @ t=${entry.at_tick}`,
+      });
+    },
+    [onOpenPromptTrace, title],
   );
 
   return (
@@ -53,6 +100,9 @@ export function AgentPhoneModal({
               ownerAgentId={agentId}
               nameMap={nameMap}
               onBack={() => setActiveThread(null)}
+              onPromptMessage={openMessageTrace}
+              onPromptState={openStateTrace}
+              onPromptLocation={openLocationTrace}
             />
           ) : (
             <div className="agent-phone-modal__scroll">

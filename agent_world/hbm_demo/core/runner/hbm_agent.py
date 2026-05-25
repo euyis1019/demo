@@ -102,11 +102,46 @@ class HbmAgent(DemoAgent):
             log.error("agent %s perception failed: %s", self.agent_id, exc)
             return _Response(info={"tool_calls": []})
 
-        user_text = self._observation_to_text(obs, t)
+        user_text = self._observation_to_text(obs, t, world=world)
         messages = [
             {"role": "system", "content": sys_prompt},
             {"role": "user", "content": user_text},
         ]
+
+        turn_ctx = getattr(self, "_batch_turn_context", None) or {}
+        temperature = float(
+            getattr(self, "_batch_temperature", None)
+            if getattr(self, "_batch_temperature", None) is not None
+            else self.temperature
+        )
+        max_tokens = int(
+            getattr(self, "_batch_max_tokens", None)
+            if getattr(self, "_batch_max_tokens", None) is not None
+            else self.max_tokens
+        )
+
+        trace_id: Optional[str] = None
+        world_db = getattr(world, "world_db", None)
+        from agent_world.hbm_demo.features.f15_prompt_trace.store import PromptTraceStore
+
+        trace_store = PromptTraceStore(world_db) if world_db is not None else None
+        if trace_store is not None and trace_store.enabled:
+            trace_id = trace_store.begin_trace(
+                agent_id=int(self.agent_id),
+                at_tick=int(t),
+                phase=str(turn_ctx.get("phase") or "") or None,
+                player_turn=(
+                    int(turn_ctx["player_turn"])
+                    if turn_ctx.get("player_turn") is not None
+                    else None
+                ),
+                model=str(self.model),
+                temperature=temperature,
+                max_tokens=max_tokens,
+                system_prompt=sys_prompt,
+                user_prompt=user_text,
+            )
+            self._prompt_trace_id = trace_id  # noqa: SLF001
 
         try:
             resp = await self.client.chat.completions.create(
@@ -114,24 +149,18 @@ class HbmAgent(DemoAgent):
                 messages=messages,
                 tools=HBM_TOOLS,
                 tool_choice="auto",
-                temperature=float(
-                    getattr(self, "_batch_temperature", None)
-                    if getattr(self, "_batch_temperature", None) is not None
-                    else self.temperature
-                ),
-                max_tokens=int(
-                    getattr(self, "_batch_max_tokens", None)
-                    if getattr(self, "_batch_max_tokens", None) is not None
-                    else self.max_tokens
-                ),
+                temperature=temperature,
+                max_tokens=max_tokens,
                 **self.completion_extras,
             )
         except Exception as exc:  # noqa: BLE001
             log.error("agent %s LLM call failed: %s", self.agent_id, exc)
+            self._prompt_trace_id = None  # noqa: SLF001
             return _Response(info={"tool_calls": []})
 
         msg = resp.choices[0].message
         tool_calls: List[_ToolCall] = []
+        raw_tool_calls: List[Dict[str, Any]] = []
         for tc in msg.tool_calls or []:
             try:
                 args = json.loads(tc.function.arguments or "{}")
@@ -143,8 +172,8 @@ class HbmAgent(DemoAgent):
             if name == "relation_change":
                 args = _adapt_relation_change_args(args)
             tool_calls.append(_ToolCall(tool_name=name, args=args))
+            raw_tool_calls.append({"name": name, "args": args})
 
-        turn_ctx = getattr(self, "_batch_turn_context", None)
         if turn_ctx:
             from agent_world.hbm_demo.features.f07_agent_control.tool_guard import (
                 filter_tool_calls,
@@ -155,6 +184,13 @@ class HbmAgent(DemoAgent):
                 turn_ctx,
                 tool_calls,
                 batch_guard=getattr(self, "_batch_guard_state", None),
+            )
+
+        if trace_store is not None and trace_id:
+            trace_store.finish_trace(
+                trace_id,
+                tool_calls=raw_tool_calls,
+                assistant_content=(msg.content or "").strip() or None,
             )
 
         if not tool_calls:
@@ -237,7 +273,7 @@ class HbmAgent(DemoAgent):
             f"{respond_rule}"
             f"{length_rule}"
             f"{reception_extra}"
-            "4) 遵守系统约束中的阶段禁止项（MOVE/GRP 等）；违规将被引擎拒绝。\n"
+            "4) 遵守系统约束中的阶段禁止项（MOVE/GRP 等）；无效操作会被忽略，请优先有效沟通工具。\n"
             "5) 每一拍只调用一个工具，参数严格符合 schema。\n"
             "\n可选工具：\n"
             f"{_HBM_TOOLS_LIST}\n"
@@ -249,7 +285,7 @@ class HbmAgent(DemoAgent):
         head = text[:idx].rstrip() if idx >= 0 else text.rstrip()
         return head + "\n\n" + self._hbm_short_action_rules()
 
-    def _observation_to_text(self, obs: Any, t: int) -> str:
+    def _observation_to_text(self, obs: Any, t: int, *, world: Any = None) -> str:
         prefix: List[str] = []
 
         if self.player_memory:
@@ -265,6 +301,22 @@ class HbmAgent(DemoAgent):
                     prefix.append(f"  - {item}")
             else:
                 prefix.append(f"  - {scripted}")
+
+        world_db = getattr(world, "world_db", None) if world is not None else None
+        if world_db is not None:
+            from agent_world.hbm_demo.features.f01_session.paths import get_name_map
+            from agent_world.hbm_demo.features.f07_agent_control.knowledge import (
+                build_thread_recap,
+            )
+
+            recap = build_thread_recap(
+                int(self.agent_id),
+                int(t),
+                world_db,
+                get_name_map(),
+            )
+            if recap:
+                prefix.append(recap)
 
         if self.player_memory:
             # A8: skip stale-state force update_state while responding to player.

@@ -1,12 +1,17 @@
 import type { ContactThread } from "./agentContactThreads";
+import type { GameMessage, LocationChange, StateChange } from "../../api/types";
 import { MessageBubble } from "../main-chat/MessageBubble";
 import { InnerOsTimeline } from "./InnerOsTimeline";
+import { LocationHistoryTimeline } from "./LocationHistoryTimeline";
 
 export interface AgentThreadDetailProps {
   thread: ContactThread;
   ownerAgentId: string;
   nameMap: Record<string, string>;
   onBack: () => void;
+  onPromptMessage?: (message: GameMessage) => void;
+  onPromptState?: (entry: StateChange) => void;
+  onPromptLocation?: (entry: LocationChange) => void;
 }
 
 export function AgentThreadDetail({
@@ -14,6 +19,9 @@ export function AgentThreadDetail({
   ownerAgentId,
   nameMap,
   onBack,
+  onPromptMessage,
+  onPromptState,
+  onPromptLocation,
 }: AgentThreadDetailProps) {
   return (
     <div className="agent-thread-detail">
@@ -25,7 +33,12 @@ export function AgentThreadDetail({
       </header>
       <div className="agent-thread-detail__body">
         {thread.kind === "os" ? (
-          <InnerOsTimeline entries={thread.osEntries} />
+          <InnerOsTimeline entries={thread.osEntries} onPromptClick={onPromptState} />
+        ) : thread.kind === "location" ? (
+          <LocationHistoryTimeline
+            entries={thread.locationEntries}
+            onPromptClick={onPromptLocation}
+          />
         ) : (
           <div className="agent-thread-detail__messages chat-message-list">
             {thread.messages.map((message, index) => (
@@ -36,6 +49,7 @@ export function AgentThreadDetail({
                 inboxOwnerId={ownerAgentId}
                 chatLayout
                 nameMap={nameMap}
+                onPromptClick={onPromptMessage}
               />
             ))}
           </div>

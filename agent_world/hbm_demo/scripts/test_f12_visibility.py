@@ -307,6 +307,7 @@ def test_live_sim_if_present() -> None:
         return
     from agent_world.hbm_demo.features.f01_session.paths import get_name_map
 
+    WorldDB(str(db_path)).init_schema()
     ro = ReadOnlyWorldDB(db_path)
     name_map = get_name_map()
     report = audit_f12_delta(

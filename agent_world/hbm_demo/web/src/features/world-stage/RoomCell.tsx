@@ -13,6 +13,7 @@ export interface RoomCellProps {
   nameMap: Record<string, string>;
   recentMoveKeys: string[];
   onAgentClick: (agentId: string) => void;
+  onPromptClick?: (message: GameMessage) => void;
 }
 
 export function RoomCell({
@@ -22,6 +23,7 @@ export function RoomCell({
   nameMap,
   recentMoveKeys,
   onAgentClick,
+  onPromptClick,
 }: RoomCellProps) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const agents = agentsInPlace(agentLocations, placeId);
@@ -67,6 +69,7 @@ export function RoomCell({
           messages={messages}
           nameMap={nameMap}
           onClose={() => setHistoryOpen(false)}
+          onPromptClick={onPromptClick}
         />
       ) : null}
     </div>

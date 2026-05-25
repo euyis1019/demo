@@ -66,3 +66,11 @@ world_loop:
 player_input:
   max_queue_depth: 32
   inject_on_tick_boundary: true
+
+# F15 Prompt Inspector + L4 thread recap (dev_logs/31 §十六 · Phase 3)
+prompt_trace:
+  enabled: true
+  max_traces_per_session: 5000
+  truncate_prompt_chars: 0
+
+recap_window_ticks: 20

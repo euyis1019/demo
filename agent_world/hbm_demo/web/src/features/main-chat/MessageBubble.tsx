@@ -12,6 +12,7 @@ export interface MessageBubbleProps {
   inboxOwnerId?: string;
   chatLayout?: boolean;
   nameMap?: Record<string, string>;
+  onPromptClick?: (message: GameMessage) => void;
 }
 
 /** F4 — chat bubbles; with chatLayout: left = peer, right = self (WeChat). */
@@ -21,6 +22,7 @@ export function MessageBubble({
   inboxOwnerId,
   chatLayout = false,
   nameMap,
+  onPromptClick,
 }: MessageBubbleProps) {
   const terminal =
     message.sender === TERMINAL_SENDER ||
@@ -38,6 +40,11 @@ export function MessageBubble({
     variant === "grp" && !chatLayout ? groupDisplayLabel(message.group_id) : undefined;
 
   const showSenderHeader = !chatLayout || terminal || (chatLayout && !chatSelf);
+
+  const showPrompt =
+    Boolean(onPromptClick) &&
+    Boolean(message.ref_key || message.prompt_trace_id) &&
+    !terminal;
 
   return (
     <article
@@ -67,7 +74,28 @@ export function MessageBubble({
               {groupLabel}
             </span>
           ) : null}
+          {showPrompt ? (
+            <button
+              type="button"
+              className="prompt-trace-btn msg-bubble__prompt"
+              title="查看 Prompt"
+              onClick={() => onPromptClick?.(message)}
+            >
+              📝
+            </button>
+          ) : null}
         </header>
+      ) : showPrompt ? (
+        <div className="msg-bubble__header msg-bubble__header--prompt-only">
+          <button
+            type="button"
+            className="prompt-trace-btn msg-bubble__prompt"
+            title="查看 Prompt"
+            onClick={() => onPromptClick?.(message)}
+          >
+            📝
+          </button>
+        </div>
       ) : null}
       <p className="msg-bubble__content">{message.content}</p>
     </article>

@@ -464,6 +464,9 @@ def test_m4_http_modules() -> None:
         "/simulations/<sim_id>/world-loop/status",
         "/simulations/<sim_id>/world-loop/pause",
         "/simulations/<sim_id>/world-loop/resume",
+        "/simulations/<sim_id>/prompt-trace/<trace_id>",
+        "/simulations/<sim_id>/prompt-trace/by-ref",
+        "/simulations/<sim_id>/prompt-traces",
         "/simulations/<sim_id>/debug-inject",
     }
     if rules != expected:
@@ -687,6 +690,9 @@ def test_f11_live_turn_sync() -> None:
                         delivered=1,
                     )
                 ]
+            return []
+
+        def fetch_trace_links_since(self, since_t, t_now):  # noqa: ANN001
             return []
 
     task = PendingTask(
@@ -2262,6 +2268,9 @@ def test_f07_v2_phase2_world_delta() -> None:
         def fetch_all_agent_locations(self):
             return {}
 
+        def fetch_trace_links_since(self, since_t, t_now):
+            return []
+
     delta = build_session_world_delta(
         since_tick=0,
         t_now=5,
@@ -2283,6 +2292,120 @@ def test_f07_v2_phase2_world_delta() -> None:
     if events:
         raise TestFailure(f"empty watcher should yield no events: {events}")
     ok("RoutingWatcher consume_routing_world_events on empty session")
+
+
+def test_f07_v2_phase3_prompt_trace() -> None:
+    """dev_logs/31 Phase 3 — L4 recap + F15 Prompt Inspector."""
+    section("T2p v2 Phase3 recap + F15 prompt trace")
+    from agent_world.hbm_demo.features import FEATURE_REGISTRY
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_prompt_trace_enabled,
+        recap_window_ticks,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.knowledge import (
+        build_thread_recap,
+        format_session_facts,
+    )
+    from agent_world.hbm_demo.features.f15_prompt_trace.refs import enrich_world_delta
+    from agent_world.hbm_demo import game_service as gs
+
+    if "F15" not in FEATURE_REGISTRY:
+        raise TestFailure("Phase3: FEATURE_REGISTRY missing F15")
+    ok("FEATURE_REGISTRY includes F15")
+
+    schema_dir = ROOT / "agent_world" / "persistence" / "schema" / "world"
+    for name in ("agent_llm_trace.sql", "agent_action_trace_link.sql"):
+        if not (schema_dir / name).is_file():
+            raise TestFailure(f"Phase3: missing schema {name}")
+    ok("F15 world.db schema SQL present")
+
+    if not callable(build_thread_recap):
+        raise TestFailure("knowledge.build_thread_recap missing")
+    ok("knowledge.build_thread_recap present")
+
+    facts = format_session_facts(type("S", (), {"player_turn": 3, "phase": "Phase 1"})())
+    if "Vision=" in facts or "Execution=" in facts or "节点" in facts:
+        raise TestFailure(f"format_session_facts still contains Stats gate text: {facts}")
+    ok("format_session_facts stripped Stats gate copy")
+
+    hbm_src = (HBM_DIR / "core" / "runner" / "hbm_agent.py").read_text(encoding="utf-8")
+    if "违规将被引擎拒绝" in hbm_src:
+        raise TestFailure("hbm_agent still contains hard threat copy")
+    if "PromptTraceStore" not in hbm_src or "build_thread_recap" not in hbm_src:
+        raise TestFailure("hbm_agent missing trace write or thread recap hook")
+    ok("hbm_agent trace hook + softened action rules")
+
+    turn_yaml = (HBM_DIR / "features" / "f07_agent_control" / "turn_control.yaml").read_text(
+        encoding="utf-8"
+    )
+    if "prompt_trace:" not in turn_yaml or "recap_window_ticks:" not in turn_yaml:
+        raise TestFailure("turn_control.yaml missing prompt_trace / recap_window_ticks")
+    ok("turn_control.yaml prompt_trace + recap_window_ticks")
+
+    if recap_window_ticks() < 1:
+        raise TestFailure("recap_window_ticks invalid")
+
+    for fn_name in ("get_prompt_trace", "get_prompt_trace_by_ref", "list_prompt_traces"):
+        if not hasattr(gs, fn_name):
+            raise TestFailure(f"game_service missing {fn_name}")
+    ok("game_service exports F15 API helpers")
+
+    routes_src = (HBM_DIR / "http" / "routes.py").read_text(encoding="utf-8")
+    if "/prompt-trace/by-ref" not in routes_src:
+        raise TestFailure("routes missing prompt-trace/by-ref")
+    ok("Flask routes register prompt-trace endpoints")
+
+    delta_src = (HBM_DIR / "features" / "f12_world_sync" / "delta.py").read_text(
+        encoding="utf-8"
+    )
+    if "enrich_world_delta" not in delta_src or "_attach_trace_refs" not in delta_src:
+        raise TestFailure("F12 delta missing trace enrichment")
+    ok("F12 delta enriches prompt_trace_id / ref_key")
+
+    link_map = {"f2f:nvidia_reception:5:1": "tr_test"}
+    enriched = enrich_world_delta(
+        {
+            "room_f2f": {
+                "nvidia_reception": [
+                    {
+                        "sender": "A",
+                        "content": "hi",
+                        "type": "F2F",
+                        "attempted_at": 5,
+                        "sender_id": 1,
+                        "place_id": "nvidia_reception",
+                    }
+                ]
+            },
+            "state_changes": [],
+            "location_changes": [],
+        },
+        link_map,
+    )
+    msg = enriched["room_f2f"]["nvidia_reception"][0]
+    if msg.get("prompt_trace_id") != "tr_test" or msg.get("ref_key") != "f2f:nvidia_reception:5:1":
+        raise TestFailure(f"enrich_world_delta failed: {msg}")
+    ok("enrich_world_delta attaches trace fields")
+
+    world_sync = (HBM_DIR / "web" / "src" / "store" / "worldSync.ts").read_text(
+        encoding="utf-8"
+    )
+    if "locationLog" not in world_sync or "mergeLocationChanges" not in world_sync:
+        raise TestFailure("worldSync missing locationLog merge")
+    ok("frontend worldSync locationLog merge present")
+
+    for rel in (
+        "web/src/features/prompt-trace/PromptTraceModal.tsx",
+        "web/src/features/world-stage/LocationHistoryTimeline.tsx",
+    ):
+        if not (HBM_DIR / rel).is_file():
+            raise TestFailure(f"Phase3 frontend missing {rel}")
+    ok("PromptTraceModal + LocationHistoryTimeline present")
+
+    if is_prompt_trace_enabled():
+        ok("prompt_trace.enabled=true in turn_control.yaml")
+    else:
+        ok("prompt_trace.enabled=false (CI override OK)")
 
 
 def test_m6_frontend_features() -> None:
@@ -2708,18 +2831,29 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
         if pause_data.get("loop_state") != "paused":
             raise TestFailure(f"Phase1b pause loop_state != paused: {pause_data}")
         pause_tick = int(pause_data.get("current_tick", -1))
+        paused_at = pause_data.get("paused_at_tick")
+        if paused_at is not None:
+            pause_tick = int(paused_at)
         ok(f"Phase1b POST /world-loop/pause → tick={pause_tick}")
+
+        # Allow one in-flight tick to finish after pause IPC returns.
+        time.sleep(2.0)
+        _, env_anchor, _ = http_json("GET", f"{base}{BASE_PATH}/env-status")
+        anchor_tick = int((env_anchor.get("data") or {}).get("current_tick", pause_tick))
+        if anchor_tick < pause_tick:
+            anchor_tick = pause_tick
+        ok(f"Phase1b pause anchor tick={anchor_tick} (post in-flight settle)")
 
         frozen_deadline = time.time() + 6.0
         while time.time() < frozen_deadline:
             _, env_frozen, _ = http_json("GET", f"{base}{BASE_PATH}/env-status")
             frozen_tick = int((env_frozen.get("data") or {}).get("current_tick", -1))
-            if frozen_tick != pause_tick:
+            if frozen_tick != anchor_tick:
                 raise TestFailure(
-                    f"Phase1b tick moved while paused: {pause_tick} → {frozen_tick}"
+                    f"Phase1b tick moved while paused: {anchor_tick} → {frozen_tick}"
                 )
             time.sleep(1.0)
-        ok(f"Phase1b tick frozen at {pause_tick} for 5s")
+        ok(f"Phase1b tick frozen at {anchor_tick} for 5s")
 
         code, resume_resp, _ = http_json(
             "POST", f"{base}{BASE_PATH}/world-loop/resume", timeout=15.0
@@ -2730,19 +2864,19 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
             raise TestFailure(f"Phase1b resume loop_state != running: {resume_resp}")
         ok("Phase1b POST /world-loop/resume → running")
 
-        resume_tick = pause_tick
+        resume_tick = anchor_tick
         resume_deadline = time.time() + 45.0
         while time.time() < resume_deadline:
             time.sleep(1.0)
             _, env_resume, _ = http_json("GET", f"{base}{BASE_PATH}/env-status")
             resume_tick = int((env_resume.get("data") or {}).get("current_tick", resume_tick))
-            if resume_tick > pause_tick:
+            if resume_tick > anchor_tick:
                 break
-        if resume_tick <= pause_tick:
+        if resume_tick <= anchor_tick:
             raise TestFailure(
-                f"Phase1b tick did not advance after resume: {pause_tick} → {resume_tick}"
+                f"Phase1b tick did not advance after resume: {anchor_tick} → {resume_tick}"
             )
-        ok(f"Phase1b tick resumed {pause_tick} → {resume_tick}")
+        ok(f"Phase1b tick resumed {anchor_tick} → {resume_tick}")
 
         _, loop_status, _ = http_json("GET", f"{base}{BASE_PATH}/world-loop/status")
         if not (loop_status.get("data") or {}).get("loop_state"):
@@ -3189,11 +3323,26 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
     )
 
     min_ipc_end = max_inject_tick_loops() if is_experience_hardening() else 8
-    if ipc_end < min_ipc_end:
-        raise TestFailure(
-            f"F07 Phase 1 inject must reach tick≥{min_ipc_end}; ipc_end_tick={ipc_end}"
+    if v2_loop:
+        if ipc_end <= start_tick:
+            raise TestFailure(
+                f"F14 Turn1 through_tick must advance past start_tick={start_tick}; "
+                f"got {ipc_end}"
+            )
+        if not _delta_has_activity(result):
+            raise TestFailure(
+                f"F14 Turn1 delta captured no activity at through_tick={ipc_end}"
+            )
+        ok(
+            f"Tier A v2: through_tick={ipc_end} > start_tick={start_tick} "
+            f"(continuous delta, no ipc batch floor)"
         )
-    ok(f"Tier A: ipc_end_tick={ipc_end} (≥{min_ipc_end}, no processing deadlock)")
+    else:
+        if ipc_end < min_ipc_end:
+            raise TestFailure(
+                f"F07 Phase 1 inject must reach tick≥{min_ipc_end}; ipc_end_tick={ipc_end}"
+            )
+        ok(f"Tier A: ipc_end_tick={ipc_end} (≥{min_ipc_end}, no processing deadlock)")
     if is_experience_hardening():
         if len(grp) != 0:
             raise TestFailure(
@@ -3565,6 +3714,7 @@ def main() -> int:
         test_f07_v2_phase1_world_loop,
         test_f07_v2_phase1b_world_loop_pause,
         test_f07_v2_phase2_world_delta,
+        test_f07_v2_phase3_prompt_trace,
         test_f05_routing_payload,
         test_f11_live_turn_sync,
         test_f11_c_frontend,

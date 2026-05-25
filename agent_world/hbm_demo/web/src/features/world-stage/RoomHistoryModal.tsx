@@ -9,6 +9,7 @@ export interface RoomHistoryModalProps {
   messages: GameMessage[];
   nameMap: Record<string, string>;
   onClose: () => void;
+  onPromptClick?: (message: GameMessage) => void;
 }
 
 export function RoomHistoryModal({
@@ -16,6 +17,7 @@ export function RoomHistoryModal({
   messages,
   nameMap,
   onClose,
+  onPromptClick,
 }: RoomHistoryModalProps) {
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
@@ -47,6 +49,7 @@ export function RoomHistoryModal({
                 inboxOwnerId={PLAYER_AGENT_ID}
                 chatLayout
                 nameMap={nameMap}
+                onPromptClick={onPromptClick}
               />
             ))
           )}

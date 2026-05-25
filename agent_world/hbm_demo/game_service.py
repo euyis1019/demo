@@ -47,6 +47,11 @@ from agent_world.hbm_demo.features.f13_world_loop_control.handler import (
     resume_world_loop,
 )
 from agent_world.hbm_demo.features.f14_world_delta.handler import get_world_delta
+from agent_world.hbm_demo.features.f15_prompt_trace.handler import (
+    get_prompt_trace,
+    get_prompt_trace_by_ref,
+    list_prompt_traces,
+)
 from agent_world.hbm_demo.features.f04_stats.deltas import apply_stat_deltas, initial_stats
 from agent_world.hbm_demo.features.f04_stats.scoring import (
     IMMEDIATE_MSG_PLACEHOLDER,
@@ -86,6 +91,9 @@ __all__ = [
     "get_action_result",
     "get_world_snapshot",
     "get_world_delta",
+    "get_prompt_trace",
+    "get_prompt_trace_by_ref",
+    "list_prompt_traces",
     "get_world_loop_status",
     "pause_world_loop",
     "resume_world_loop",

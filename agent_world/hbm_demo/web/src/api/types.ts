@@ -25,6 +25,8 @@ export interface GameMessage {
   recipient_id?: number;
   delivered?: 0 | 1;
   is_system?: boolean;
+  prompt_trace_id?: string;
+  ref_key?: string;
 }
 
 export interface LocationChange {
@@ -33,6 +35,8 @@ export interface LocationChange {
   to_place: string;
   at_tick: number;
   source: string;
+  prompt_trace_id?: string;
+  ref_key?: string;
 }
 
 export interface WorldEvent {
@@ -62,6 +66,32 @@ export interface StateChange {
   agent_id: number;
   content: string;
   at_tick: number;
+  prompt_trace_id?: string;
+  ref_key?: string;
+}
+
+export interface PromptTraceLink {
+  link_kind: string;
+  ref_key: string;
+  agent_id: number;
+  at_tick: number;
+}
+
+export interface PromptTraceData {
+  trace_id: string;
+  agent_id: number;
+  at_tick: number;
+  phase?: string | null;
+  player_turn?: number | null;
+  model?: string;
+  temperature?: number | null;
+  max_tokens?: number | null;
+  system_prompt: string;
+  user_prompt: string;
+  tool_calls: Array<{ name: string; args: Record<string, unknown> }>;
+  assistant_content?: string | null;
+  created_at?: string;
+  links: PromptTraceLink[];
 }
 
 export interface AgentLocation {

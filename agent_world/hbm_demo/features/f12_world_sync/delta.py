@@ -23,6 +23,23 @@ from agent_world.hbm_demo.features.f12_world_sync.formatter import (
     legacy_observer_from_agent_messages,
     legacy_public_messages_from_room_f2f,
 )
+from agent_world.hbm_demo.features.f15_prompt_trace.refs import (
+    build_link_map,
+    enrich_world_delta,
+)
+
+
+def _attach_trace_refs(
+    delta: Dict[str, Any],
+    db: ReadOnlyWorldDB,
+    since_t: int,
+    t_now: int,
+) -> Dict[str, Any]:
+    links = db.fetch_trace_links_since(since_t, t_now)
+    if not links:
+        return delta
+    link_map = build_link_map(links)
+    return enrich_world_delta(delta, link_map)
 
 
 def _player_place_id(task: PendingTask) -> str:
@@ -50,6 +67,8 @@ def build_world_delta(
     )
     for place_id, history in f2f_by_place.items():
         room_f2f[place_id] = format_f2f_history_with_ids(history, name_map)
+        for msg in room_f2f[place_id]:
+            msg["place_id"] = place_id
 
     agent_messages: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
     for agent_id in HBM_AGENT_IDS:
@@ -97,20 +116,25 @@ def build_world_delta(
     observer_messages = legacy_observer_from_agent_messages(agent_messages)
     group_messages = legacy_group_from_agent_messages(agent_messages)
 
-    return {
-        "through_tick": t_now,
-        "player_place_id": player_place,
-        "room_f2f": room_f2f,
-        "agent_messages": agent_messages,
-        "location_changes": location_changes,
-        "social_events": social_events,
-        "state_changes": state_changes,
-        "world_events": world_events,
-        "agent_locations": agent_locations,
-        "public_messages": public_messages,
-        "observer_messages": observer_messages,
-        "group_messages": group_messages,
-    }
+    return _attach_trace_refs(
+        {
+            "through_tick": t_now,
+            "player_place_id": player_place,
+            "room_f2f": room_f2f,
+            "agent_messages": agent_messages,
+            "location_changes": location_changes,
+            "social_events": social_events,
+            "state_changes": state_changes,
+            "world_events": world_events,
+            "agent_locations": agent_locations,
+            "public_messages": public_messages,
+            "observer_messages": observer_messages,
+            "group_messages": group_messages,
+        },
+        db,
+        since_t,
+        t_now,
+    )
 
 
 def build_session_world_delta(
@@ -135,6 +159,8 @@ def build_session_world_delta(
     )
     for place_id, history in f2f_by_place.items():
         room_f2f[place_id] = format_f2f_history_with_ids(history, name_map)
+        for msg in room_f2f[place_id]:
+            msg["place_id"] = place_id
 
     agent_messages: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
     for agent_id in HBM_AGENT_IDS:
@@ -172,20 +198,25 @@ def build_session_world_delta(
     observer_messages = legacy_observer_from_agent_messages(agent_messages)
     group_messages = legacy_group_from_agent_messages(agent_messages)
 
-    return {
-        "through_tick": t_end,
-        "player_place_id": player_place,
-        "room_f2f": room_f2f,
-        "agent_messages": agent_messages,
-        "location_changes": location_changes,
-        "social_events": social_events,
-        "state_changes": state_changes,
-        "world_events": world_events,
-        "agent_locations": agent_locations,
-        "public_messages": public_messages,
-        "observer_messages": observer_messages,
-        "group_messages": group_messages,
-    }
+    return _attach_trace_refs(
+        {
+            "through_tick": t_end,
+            "player_place_id": player_place,
+            "room_f2f": room_f2f,
+            "agent_messages": agent_messages,
+            "location_changes": location_changes,
+            "social_events": social_events,
+            "state_changes": state_changes,
+            "world_events": world_events,
+            "agent_locations": agent_locations,
+            "public_messages": public_messages,
+            "observer_messages": observer_messages,
+            "group_messages": group_messages,
+        },
+        db,
+        since_t,
+        t_end,
+    )
 
 
 def empty_delta(through_tick: int, *, player_place_id: str = "") -> Dict[str, Any]:

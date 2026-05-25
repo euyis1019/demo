@@ -136,6 +136,13 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "modules": ["handler"],
         "phase": "Phase 2 — session delta + RoutingWatcher (dev_logs/31 §十四)",
     },
+    "F15": {
+        "name": "Prompt Inspector",
+        "status": "implemented",
+        "path": "features/f15_prompt_trace/",
+        "modules": ["store", "linker", "handler", "refs"],
+        "phase": "Phase 3 — trace DB + API + UI click-through (dev_logs/31 §十六)",
+    },
 }
 
 __all__ = ["FEATURE_REGISTRY"]

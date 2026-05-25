@@ -1,7 +1,8 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useCallback, type ReactNode } from "react";
 import type { GameMessage, WorldEvent } from "../../api/types";
 import type { PlaceId } from "../../utils/places";
 import type { AgentInbox, RdcLink } from "../../store/worldSync";
+import { PromptTraceModal, usePromptTrace } from "../prompt-trace";
 import { AgentPhoneModal } from "./AgentPhoneModal";
 import { RoomGrid } from "./RoomGrid";
 import { WorldEventModal } from "./WorldEventModal";
@@ -43,6 +44,18 @@ export function WorldStage({
   onClearRecentMoves,
   onClearRecentRdcLinks,
 }: WorldStageProps) {
+  const promptTrace = usePromptTrace();
+
+  const openMessagePrompt = useCallback(
+    (message: GameMessage) => {
+      void promptTrace.openTrace({
+        refKey: message.ref_key,
+        label: `F2F · ${message.sender} @ t=${message.attempted_at ?? "?"}`,
+      });
+    },
+    [promptTrace],
+  );
+
   useEffect(() => {
     if (recentMoveKeys.length === 0) {
       return undefined;
@@ -69,6 +82,7 @@ export function WorldStage({
           rdc: [],
           grp: [],
           osLog: [],
+          locationLog: [],
           archivedThreadKeys: [],
         }
       : null;
@@ -93,6 +107,7 @@ export function WorldStage({
         recentMoveKeys={recentMoveKeys}
         recentRdcLinks={recentRdcLinks}
         onAgentClick={onAgentClick}
+        onPromptClick={openMessagePrompt}
       />
 
       <footer className="world-stage__input">{inputSlot}</footer>
@@ -103,8 +118,20 @@ export function WorldStage({
           inbox={activeInbox}
           nameMap={nameMap}
           onClose={onCloseAgentModal}
+          onOpenPromptTrace={(req) => void promptTrace.openTrace(req)}
         />
       ) : null}
+
+      <PromptTraceModal
+        open={promptTrace.open}
+        loading={promptTrace.loading}
+        error={promptTrace.error}
+        trace={promptTrace.trace}
+        noPromptReason={promptTrace.request?.noPromptReason}
+        label={promptTrace.request?.label}
+        nameMap={nameMap}
+        onClose={promptTrace.close}
+      />
 
       {pendingWorldEvent ? (
         <WorldEventModal event={pendingWorldEvent} onDismiss={onDismissWorldEvent} />

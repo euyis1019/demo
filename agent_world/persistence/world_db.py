@@ -779,6 +779,159 @@ class WorldDB:
 
     fetch_group_events = fetch_for_agent
 
+    # =====================================================================
+    # agent_llm_trace + agent_action_trace_link (F15)
+    # =====================================================================
+
+    def insert_llm_trace_draft(
+        self,
+        *,
+        trace_id: str,
+        agent_id: int,
+        at_tick: int,
+        phase: Optional[str],
+        player_turn: Optional[int],
+        model: str,
+        temperature: Optional[float],
+        max_tokens: Optional[int],
+        system_prompt: str,
+        user_prompt: str,
+        created_at: str,
+    ) -> None:
+        self._exec(
+            """
+            INSERT INTO agent_llm_trace (
+                trace_id, agent_id, at_tick, phase, player_turn,
+                model, temperature, max_tokens,
+                system_prompt, user_prompt,
+                tool_calls_json, assistant_content, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)
+            """,
+            (
+                str(trace_id),
+                int(agent_id),
+                int(at_tick),
+                phase,
+                player_turn,
+                str(model),
+                temperature,
+                max_tokens,
+                str(system_prompt),
+                str(user_prompt),
+                str(created_at),
+            ),
+        )
+
+    def update_llm_trace_result(
+        self,
+        trace_id: str,
+        *,
+        tool_calls_json: str,
+        assistant_content: Optional[str],
+    ) -> None:
+        self._exec(
+            """
+            UPDATE agent_llm_trace
+            SET tool_calls_json=?, assistant_content=?
+            WHERE trace_id=?
+            """,
+            (str(tool_calls_json), assistant_content, str(trace_id)),
+        )
+
+    def insert_action_trace_link(
+        self,
+        *,
+        link_id: str,
+        trace_id: str,
+        agent_id: int,
+        at_tick: int,
+        link_kind: str,
+        ref_key: str,
+    ) -> None:
+        self._exec(
+            """
+            INSERT INTO agent_action_trace_link (
+                link_id, trace_id, agent_id, at_tick, link_kind, ref_key
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(link_id),
+                str(trace_id),
+                int(agent_id),
+                int(at_tick),
+                str(link_kind),
+                str(ref_key),
+            ),
+        )
+
+    def count_llm_traces(self) -> int:
+        row = self._exec(
+            "SELECT COUNT(*) AS n FROM agent_llm_trace"
+        ).fetchone()
+        return int(row["n"]) if row else 0
+
+    def fetch_trace_by_id(self, trace_id: str) -> Optional[dict]:
+        row = self._exec(
+            "SELECT * FROM agent_llm_trace WHERE trace_id=?",
+            (str(trace_id),),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def fetch_trace_links_for_trace(self, trace_id: str) -> list[dict]:
+        rows = self._exec(
+            """
+            SELECT link_id, trace_id, agent_id, at_tick, link_kind, ref_key
+            FROM agent_action_trace_link
+            WHERE trace_id=?
+            ORDER BY at_tick, link_id
+            """,
+            (str(trace_id),),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def fetch_trace_id_by_ref_key(self, ref_key: str) -> Optional[str]:
+        row = self._exec(
+            """
+            SELECT trace_id FROM agent_action_trace_link
+            WHERE ref_key=?
+            ORDER BY at_tick DESC
+            LIMIT 1
+            """,
+            (str(ref_key),),
+        ).fetchone()
+        return str(row["trace_id"]) if row else None
+
+    def fetch_trace_links_since(
+        self, since_tick: int, t_now: int
+    ) -> list[dict]:
+        rows = self._exec(
+            """
+            SELECT link_id, trace_id, agent_id, at_tick, link_kind, ref_key
+            FROM agent_action_trace_link
+            WHERE at_tick > ? AND at_tick <= ?
+            ORDER BY at_tick, link_id
+            """,
+            (int(since_tick), int(t_now)),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def fetch_messages_for_recap(
+        self, since_tick: int, t_now: int, *, limit: int = 40
+    ) -> list[dict]:
+        rows = self._exec(
+            """
+            SELECT sender_id, recipient_id, group_id, channel_type,
+                   content, attempted_at, place_id
+            FROM direct_message
+            WHERE attempted_at > ? AND attempted_at <= ?
+              AND channel_type IN ('F2F', 'RDC', 'GRP')
+            ORDER BY attempted_at, message_id
+            LIMIT ?
+            """,
+            (int(since_tick), int(t_now), int(limit)),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
 
 # --------------------------------------------------------------------------- #
 # helpers

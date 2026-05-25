@@ -28,6 +28,8 @@ _VOLATILE_TABLES = (
     "script_event_log",
     "agent_location_log",
     "agent_state_log",
+    "agent_action_trace_link",
+    "agent_llm_trace",
 )
 
 

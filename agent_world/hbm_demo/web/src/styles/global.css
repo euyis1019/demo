@@ -1467,3 +1467,130 @@ body {
   font-size: 0.75rem;
   color: var(--hbm-muted);
 }
+
+.prompt-trace-btn {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0.1rem 0.25rem;
+  opacity: 0.85;
+}
+
+.prompt-trace-btn:hover {
+  opacity: 1;
+}
+
+.prompt-trace-modal {
+  width: min(920px, 92vw);
+  max-height: 88vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg, #111827);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.prompt-trace-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.prompt-trace-modal__subtitle {
+  margin: 0.25rem 0 0;
+  opacity: 0.75;
+  font-size: 0.9rem;
+}
+
+.prompt-trace-modal__meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+  padding: 0.75rem 1.25rem;
+  margin: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.prompt-trace-modal__meta div {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.prompt-trace-modal__meta dt {
+  opacity: 0.65;
+  font-size: 0.8rem;
+}
+
+.prompt-trace-modal__meta dd {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.prompt-trace-modal__tabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem 0;
+}
+
+.prompt-trace-modal__tabs button {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: inherit;
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  cursor: pointer;
+}
+
+.prompt-trace-modal__tabs button.is-active {
+  background: rgba(96, 165, 250, 0.18);
+  border-color: rgba(96, 165, 250, 0.45);
+}
+
+.prompt-trace-modal__body {
+  padding: 1rem 1.25rem 1.25rem;
+  overflow: auto;
+}
+
+.prompt-trace-modal__text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.prompt-trace-modal__notice,
+.prompt-trace-modal__error {
+  margin: 0;
+}
+
+.prompt-trace-modal__error {
+  color: #fca5a5;
+}
+
+.location-history-timeline__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.location-history-timeline__tick {
+  flex: 0 0 auto;
+  opacity: 0.7;
+  font-size: 0.82rem;
+}
+
+.location-history-timeline__hint {
+  font-size: 0.78rem;
+  opacity: 0.65;
+}

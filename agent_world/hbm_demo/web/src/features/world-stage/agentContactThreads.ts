@@ -1,10 +1,11 @@
-import type { GameMessage, StateChange } from "../../api/types";
+import type { GameMessage, LocationChange, StateChange } from "../../api/types";
 import { agentDisplayName } from "../../constants/agents";
 import { groupDisplayLabel } from "../../constants/groups";
 import type { AgentInbox } from "../../store/worldSync";
 import { threadKeyGrp, threadKeyRdc } from "../../store/worldSync";
+import { placeDisplayName } from "../../utils/places";
 
-export type ContactThreadKind = "rdc" | "grp" | "os";
+export type ContactThreadKind = "rdc" | "grp" | "os" | "location";
 
 export interface ContactThread {
   key: string;
@@ -15,6 +16,7 @@ export interface ContactThread {
   archived: boolean;
   messages: GameMessage[];
   osEntries: StateChange[];
+  locationEntries: LocationChange[];
 }
 
 function peerLabelFromRdcKey(key: string, nameMap: Record<string, string>): string {
@@ -67,6 +69,7 @@ export function buildContactThreads(
       archived: inbox.archivedThreadKeys.includes(key),
       messages,
       osEntries: [],
+      locationEntries: [],
     });
   }
 
@@ -93,6 +96,7 @@ export function buildContactThreads(
       archived: inbox.archivedThreadKeys.includes(key),
       messages,
       osEntries: [],
+      locationEntries: [],
     });
   }
 
@@ -107,6 +111,24 @@ export function buildContactThreads(
       archived: false,
       messages: [],
       osEntries: inbox.osLog,
+      locationEntries: [],
+    });
+  }
+
+  if (inbox.locationLog.length > 0) {
+    const last = inbox.locationLog.at(-1);
+    threads.push({
+      key: "location:self",
+      kind: "location",
+      title: "地点记录",
+      preview: last
+        ? `最后：${placeDisplayName(last.to_place)} @ tick ${last.at_tick}`
+        : "",
+      sortTick: last?.at_tick ?? 0,
+      archived: false,
+      messages: [],
+      osEntries: [],
+      locationEntries: inbox.locationLog,
     });
   }
 

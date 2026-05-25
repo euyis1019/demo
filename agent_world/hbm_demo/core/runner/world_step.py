@@ -162,6 +162,7 @@ class HbmWorldStep(WorldStep):
                 agent._batch_guard_state = None  # noqa: SLF001
                 agent._batch_temperature = None  # noqa: SLF001
                 agent._batch_max_tokens = None  # noqa: SLF001
+                agent._prompt_trace_id = None  # noqa: SLF001
 
         try:
             if hasattr(agent, "last_message_seen_at"):
@@ -178,6 +179,20 @@ class HbmWorldStep(WorldStep):
             try:
                 dispatch_result = await self.dispatcher.dispatch(
                     agent_id, atype, t, **(akwargs or {})
+                )
+                from agent_world.hbm_demo.features.f15_prompt_trace.linker import (
+                    record_action_links,
+                )
+
+                await record_action_links(
+                    self.world_db,
+                    trace_id=getattr(agent, "_prompt_trace_id", None),
+                    agent_id=int(agent_id),
+                    t=int(t),
+                    action_type=atype,
+                    action_kwargs=akwargs or {},
+                    dispatch_result=dispatch_result,
+                    place_id=self._agent_place_id(agent_id),
                 )
                 await self._handle_speak_to_local_f2f(
                     agent_id=agent_id,

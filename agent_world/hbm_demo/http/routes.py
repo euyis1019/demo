@@ -269,6 +269,79 @@ def world_loop_resume(sim_id: str):
     return jsonify({"success": True, "data": data})
 
 
+@hbm_bp.route("/simulations/<sim_id>/prompt-trace/<trace_id>", methods=["GET"])
+def prompt_trace_get(sim_id: str, trace_id: str):
+    """F15 — fetch full LLM trace by id."""
+    err = _check_sim_id(sim_id)
+    if err:
+        return err
+    try:
+        data = gs.get_prompt_trace(sim_dir=gs.get_sim_dir(), trace_id=str(trace_id))
+    except KeyError:
+        return _bad_request(f"trace not found: {trace_id}", 404)
+    except Exception as exc:  # noqa: BLE001
+        body, code = service_error_payload(exc)
+        return jsonify(body), code
+    return jsonify({"success": True, "data": data})
+
+
+@hbm_bp.route("/simulations/<sim_id>/prompt-trace/by-ref", methods=["GET"])
+def prompt_trace_by_ref(sim_id: str):
+    """F15 — UI path: resolve trace from ref_key."""
+    err = _check_sim_id(sim_id)
+    if err:
+        return err
+    ref_key = str(request.args.get("ref_key") or "").strip()
+    if not ref_key:
+        return _bad_request("ref_key query parameter is required")
+    try:
+        data = gs.get_prompt_trace_by_ref(sim_dir=gs.get_sim_dir(), ref_key=ref_key)
+    except KeyError:
+        return _bad_request(f"no trace for ref_key: {ref_key}", 404)
+    except Exception as exc:  # noqa: BLE001
+        body, code = service_error_payload(exc)
+        return jsonify(body), code
+    return jsonify({"success": True, "data": data})
+
+
+@hbm_bp.route("/simulations/<sim_id>/prompt-traces", methods=["GET"])
+def prompt_traces_list(sim_id: str):
+    """F15 — optional batch listing for scripts/curl."""
+    err = _check_sim_id(sim_id)
+    if err:
+        return err
+    agent_id_raw = request.args.get("agent_id")
+    since_tick_raw = request.args.get("since_tick")
+    limit_raw = request.args.get("limit", "50")
+    agent_id: int | None = None
+    since_tick: int | None = None
+    if agent_id_raw is not None and str(agent_id_raw).strip():
+        try:
+            agent_id = int(agent_id_raw)
+        except ValueError:
+            return _bad_request("agent_id must be an integer")
+    if since_tick_raw is not None and str(since_tick_raw).strip():
+        try:
+            since_tick = int(since_tick_raw)
+        except ValueError:
+            return _bad_request("since_tick must be an integer")
+    try:
+        limit = int(limit_raw)
+    except ValueError:
+        return _bad_request("limit must be an integer")
+    try:
+        data = gs.list_prompt_traces(
+            sim_dir=gs.get_sim_dir(),
+            agent_id=agent_id,
+            since_tick=since_tick,
+            limit=limit,
+        )
+    except Exception as exc:  # noqa: BLE001
+        body, code = service_error_payload(exc)
+        return jsonify(body), code
+    return jsonify({"success": True, "data": data})
+
+
 @hbm_bp.route("/simulations/<sim_id>/debug-inject", methods=["POST"])
 def debug_inject(sim_id: str):
     """Phase 2 temporary endpoint — kept for manual IPC testing."""

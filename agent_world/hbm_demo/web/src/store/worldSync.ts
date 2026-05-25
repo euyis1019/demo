@@ -1,6 +1,7 @@
 import type {
   AgentLocation,
   GameMessage,
+  LocationChange,
   SocialEvent,
   StateChange,
   TurnDelta,
@@ -17,11 +18,12 @@ export interface AgentInbox {
   rdc: GameMessage[];
   grp: GameMessage[];
   osLog: StateChange[];
+  locationLog: LocationChange[];
   archivedThreadKeys: string[];
 }
 
 export function emptyAgentInbox(): AgentInbox {
-  return { rdc: [], grp: [], osLog: [], archivedThreadKeys: [] };
+  return { rdc: [], grp: [], osLog: [], locationLog: [], archivedThreadKeys: [] };
 }
 
 export function normalizeAgentLocations(
@@ -154,6 +156,33 @@ function mergeStateChanges(
     );
     if (!exists) {
       inbox.osLog = [...inbox.osLog, change].sort(
+        (a, b) => a.at_tick - b.at_tick,
+      );
+    }
+    next[key] = inbox;
+  }
+  return next;
+}
+
+function mergeLocationChanges(
+  agentInbox: Record<string, AgentInbox>,
+  changes: LocationChange[] | undefined,
+): Record<string, AgentInbox> {
+  if (!changes?.length) {
+    return agentInbox;
+  }
+  const next = { ...agentInbox };
+  for (const change of changes) {
+    const key = String(change.agent_id);
+    const inbox = { ...(next[key] ?? emptyAgentInbox()) };
+    const exists = inbox.locationLog.some(
+      (row) =>
+        row.at_tick === change.at_tick &&
+        row.from_place === change.from_place &&
+        row.to_place === change.to_place,
+    );
+    if (!exists) {
+      inbox.locationLog = [...inbox.locationLog, change].sort(
         (a, b) => a.at_tick - b.at_tick,
       );
     }
@@ -305,6 +334,7 @@ export function applyWorldDelta(
   );
   agentInbox = applySocialEvents(agentInbox, delta.social_events);
   agentInbox = mergeStateChanges(agentInbox, delta.state_changes);
+  agentInbox = mergeLocationChanges(agentInbox, delta.location_changes);
 
   const agentLocations = delta.agent_locations
     ? normalizeAgentLocations(delta.agent_locations)

@@ -155,3 +155,25 @@ def is_manual_pause_allowed() -> bool:
 
 def pause_drains_queue() -> bool:
     return bool(world_loop_block().get("pause_drains_queue", False))
+
+
+def prompt_trace_block() -> Dict[str, Any]:
+    block = load_turn_control().get("prompt_trace") or {}
+    return dict(block) if isinstance(block, dict) else {}
+
+
+def is_prompt_trace_enabled() -> bool:
+    return bool(prompt_trace_block().get("enabled", False))
+
+
+def prompt_trace_max_per_session() -> int:
+    return int(prompt_trace_block().get("max_traces_per_session", 5000))
+
+
+def prompt_trace_truncate_chars() -> int:
+    return int(prompt_trace_block().get("truncate_prompt_chars", 0))
+
+
+def recap_window_ticks() -> int:
+    raw = load_turn_control().get("recap_window_ticks", 20)
+    return max(1, int(raw))
