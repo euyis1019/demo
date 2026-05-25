@@ -484,9 +484,10 @@ animatingMoves: LocationChange[];  // 可选，驱动 CSS 动画
 
 ### Phase 4 — 联调与回归
 
-- [ ] Turn1–4 手动走查（F2F 气泡、Jensen 移动、广播弹窗）
-- [ ] `test_message_visibility_gap.py` 改为断言 F12 无 hidden
-- [ ] `test_m0_acceptance` 全绿
+- [ ] Turn1–4 手动走查（F2F 气泡、Jensen 移动、广播弹窗）— 需人工 UI 验证
+- [x] `test_f12_visibility.py` 断言 F12 无 hidden（替代 test_message_visibility_gap）
+- [x] `test_m0_acceptance` 全绿
+- [x] `test_f12_full_acceptance.py` 一键全方案自动化回归
 
 ---
 
