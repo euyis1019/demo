@@ -1,4 +1,9 @@
-"""F03 action completion rules and message formatting."""
+"""F03 action completion rules and message formatting.
+
+v2 Phase 0 (dev_logs/31): continuous delta read model — polling uses ``since_tick``
+for incremental UI; ``check_action_complete`` no longer treats ``ipc_end_tick`` alone
+as batch-completed when experience hardening is off.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +18,6 @@ from agent_world.hbm_demo.features.f02_player_turn.task import (
     INJECT_STATUS_DONE,
     INJECT_STATUS_FAILED,
     INJECT_STATUS_PENDING,
-    INJECT_STATUS_RUNNING,
     PendingTask,
 )
 from agent_world.hbm_demo.features.f06_read_model.world_db import (
@@ -33,6 +37,9 @@ PHASE_RDC_PAIRS: Dict[str, List[Tuple[int, int]]] = {
     "Phase 4": [(2, 3), (3, 2)],
 }
 
+MIN_ACTIVITY_TICKS = 3
+DEFAULT_TIMEOUT_TICKS = 8
+
 
 def _rdc_pairs_for_phase(phase: str) -> List[Tuple[int, int]]:
     return list(PHASE_RDC_PAIRS.get(phase, PHASE_RDC_PAIRS[DEFAULT_PHASE]))
@@ -41,7 +48,6 @@ def _rdc_pairs_for_phase(phase: str) -> List[Tuple[int, int]]:
 def _inject_finished(task: PendingTask) -> bool:
     if task.inject_status == INJECT_STATUS_DONE:
         return True
-    # Legacy sync path: task saved with ipc_end_tick after inline inject.
     if task.inject_status == INJECT_STATUS_PENDING and task.ipc_end_tick is not None:
         return True
     return False
@@ -61,7 +67,7 @@ def _f2f_required_completion(
 ) -> bool:
     """E5 — experience hardening: complete only on F2F (no pure timeout)."""
     start = task.start_tick
-    if current_tick < start + 3:
+    if current_tick < start + MIN_ACTIVITY_TICKS:
         return False
     if db.has_f2f_after(place_id, start, current_tick):
         return True
@@ -70,16 +76,48 @@ def _f2f_required_completion(
     return False
 
 
+def _timeout_complete(task: PendingTask, current_tick: int) -> bool:
+    return current_tick >= task.start_tick + DEFAULT_TIMEOUT_TICKS
+
+
+def _f07_phase1_complete(
+    task: PendingTask,
+    start: int,
+    current_tick: int,
+    db: ReadOnlyWorldDB,
+) -> bool:
+    """§13.2 — Phase 1 completes on reception F2F or timeout; not RDC-only."""
+    if db.has_f2f_after(RECEPTION_PLACE, start, current_tick):
+        return True
+    return _timeout_complete(task, current_tick)
+
+
+def _f07_phase4_complete(
+    task: PendingTask,
+    start: int,
+    current_tick: int,
+    db: ReadOnlyWorldDB,
+) -> bool:
+    """§13.5 — Phase 4 completes on negotiation F2F or timeout; not VP RDC-only."""
+    place = task.place_id or NEGOTIATION_PLACE
+    if db.has_f2f_after(place, start, current_tick):
+        return True
+    return _timeout_complete(task, current_tick)
+
+
 def check_action_complete(
     task: PendingTask,
     current_tick: int,
     db: ReadOnlyWorldDB,
 ) -> bool:
+    """Return True when the client may stop polling for this turn."""
     start = task.start_tick
-    if current_tick < start + 3:
+    if current_tick < start + MIN_ACTIVITY_TICKS:
         return False
 
-    # E5 — F07-E: Phase 1/2/4 must have player-visible F2F; no timeout-only completion.
+    if task.inject_status == INJECT_STATUS_FAILED:
+        return True
+
     if is_experience_hardening() and task.phase == "Phase 1":
         return _f2f_required_completion(
             task, current_tick, db, place_id=RECEPTION_PLACE
@@ -91,28 +129,11 @@ def check_action_complete(
         place = task.place_id or NEGOTIATION_PLACE
         return _f2f_required_completion(task, current_tick, db, place_id=place)
 
-    # §13.2 — Phase 1: only reception F2F (not RDC/GRP) completes early when F07 on.
     if is_f07_enabled() and task.phase == "Phase 1":
-        if db.has_f2f_after(RECEPTION_PLACE, start, current_tick):
-            return True
-        if task.inject_status == INJECT_STATUS_FAILED:
-            return True
-        if not _inject_finished(task):
-            return current_tick >= start + 8
-        return current_tick >= start + 8
+        return _f07_phase1_complete(task, start, current_tick, db)
 
-    # §13.5 — Phase 4: only negotiation_room F2F (Jensen↔玩家); not VP RDC/GRP.
     if is_f07_enabled() and task.phase == "Phase 4":
-        place = task.place_id or NEGOTIATION_PLACE
-        if db.has_f2f_after(place, start, current_tick):
-            return True
-        if task.inject_status == INJECT_STATUS_FAILED:
-            return True
-        if not _inject_finished(task):
-            return current_tick >= start + 8
-        if task.ipc_end_tick is not None and current_tick >= task.ipc_end_tick:
-            return True
-        return current_tick >= start + 8
+        return _f07_phase4_complete(task, start, current_tick, db)
 
     if db.has_f2f_after(task.place_id, start, current_tick):
         return True
@@ -123,21 +144,14 @@ def check_action_complete(
     if db.has_grp_after({100, 200}, start, current_tick):
         return True
 
-    if task.inject_status == INJECT_STATUS_FAILED:
-        return True
-
     if not _inject_finished(task):
-        if current_tick >= start + 8:
+        return _timeout_complete(task, current_tick)
+
+    if is_experience_hardening():
+        if task.ipc_end_tick is not None and current_tick >= task.ipc_end_tick:
             return True
-        return False
 
-    # Inject batch finished — world tick won't advance until the next player-turn.
-    if task.ipc_end_tick is not None and current_tick >= task.ipc_end_tick:
-        return True
-
-    if current_tick >= start + 8:
-        return True
-    return False
+    return _timeout_complete(task, current_tick)
 
 
 def effective_tick_for_task(task: PendingTask, env_tick: int) -> int:

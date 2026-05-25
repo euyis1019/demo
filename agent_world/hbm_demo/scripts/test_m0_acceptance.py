@@ -886,9 +886,13 @@ def test_f03_action_completion() -> None:
             raise TestFailure("E5 Phase 2 should complete on Jensen room F2F")
         ok("E5 Phase 2 F2F-only completion (experience_hardening)")
     else:
-        if not check_action_complete(task_p2, 6, EmptyDB()):
-            raise TestFailure("Phase 2 should still complete at ipc_end_tick")
-        ok("Phase 2 ipc_end_tick completion unchanged")
+        if check_action_complete(task_p2, 6, EmptyDB()):
+            raise TestFailure(
+                "v2 continuous delta must not complete at ipc_end_tick alone (tick 6)"
+            )
+        if not check_action_complete(task_p2, 8, EmptyDB()):
+            raise TestFailure("v2 should timeout-complete Phase 2 at tick 8")
+        ok("v2 continuous delta: Phase 2 no ipc_end-only completion")
 
     if is_experience_hardening():
         task_p4 = PendingTask(
@@ -941,6 +945,14 @@ def test_f07_b_agent_control() -> None:
     from agent_world.hbm_demo.features.f07_agent_control.tool_guard import (
         filter_tool_calls,
     )
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        inject_exclusive_ticks_for,
+        is_experience_hardening,
+        is_hard_block_enabled,
+        load_turn_control,
+        resolve_inject_tick_count,
+        scripted_f2f_fallback_enabled,
+    )
 
     ctx_p1 = {
         "phase": "Phase 1",
@@ -971,14 +983,48 @@ def test_f07_b_agent_control() -> None:
         raise TestFailure("Phase 1 agent 1 must allow speak_to_local")
     ok("B3 tool_guard MOVE/GRP blocked Phase 1")
 
+    load_turn_control.cache_clear()
+    if is_experience_hardening():
+        raise TestFailure("v2 Phase0 requires experience_hardening.enabled=false")
+    if is_hard_block_enabled():
+        raise TestFailure("v2 Phase0 requires tool_guard.hard_block=false")
+    if scripted_f2f_fallback_enabled():
+        raise TestFailure("v2 Phase0 requires scripted_f2f_fallback=false")
+    if inject_exclusive_ticks_for("Phase 1") != 2:
+        raise TestFailure(
+            f"v2 inject_exclusive from phases expected 2: {inject_exclusive_ticks_for('Phase 1')}"
+        )
+    ok("v2 Phase0 turn_control: hardening off, hard_block off, inject_exclusive=2")
+
     blocked = filter_tool_calls(
         2,
         ctx_p1,
         [_ToolCall(tool_name="request_move", args={"place_id": "x"})],
     )
-    if not blocked or blocked[0].tool_name != "do_nothing":
-        raise TestFailure(f"blocked MOVE should become do_nothing: {blocked}")
-    ok("B3 filter_tool_calls replaces illegal MOVE")
+    if is_hard_block_enabled():
+        if not blocked or blocked[0].tool_name != "do_nothing":
+            raise TestFailure(f"hard_block MOVE should become do_nothing: {blocked}")
+        ok("B3 filter_tool_calls replaces illegal MOVE (hard_block)")
+    else:
+        if blocked:
+            raise TestFailure(
+                f"v2 should drop disallowed MOVE without do_nothing: {blocked}"
+            )
+        ok("B3 v2 filter_tool_calls drops illegal MOVE (no mass do_nothing)")
+
+    allowed_mix = filter_tool_calls(
+        1,
+        ctx_p1,
+        [
+            _ToolCall(tool_name="speak_to_local", args={"content": "hi"}),
+            _ToolCall(tool_name="request_move", args={"place_id": "x"}),
+        ],
+    )
+    if not allowed_mix or allowed_mix[0].tool_name != "speak_to_local":
+        raise TestFailure(f"v2 mixed batch should keep speak_to_local: {allowed_mix}")
+    if len(allowed_mix) != 1:
+        raise TestFailure(f"v2 mixed batch should drop MOVE only: {allowed_mix}")
+    ok("B3 v2 mixed tool batch keeps allowed tools")
 
     step = HbmWorldStep.__new__(HbmWorldStep)
     step._tick_context = None
@@ -990,11 +1036,6 @@ def test_f07_b_agent_control() -> None:
     if step._tick_context is not None:
         raise TestFailure("clear_tick_context failed")
     ok("B2 world_step tick_context set/clear hooks")
-
-    from agent_world.hbm_demo.features.f07_agent_control.config import (
-        is_experience_hardening,
-        resolve_inject_tick_count,
-    )
 
     if is_experience_hardening():
         if resolve_inject_tick_count("Phase 1", 6) != 12:
@@ -1301,9 +1342,9 @@ def test_f07_e_step1_player_facing_f2f() -> None:
         return
 
     load_turn_control.cache_clear()
-    if not is_experience_hardening():
-        raise TestFailure("experience_hardening.enabled should be true in turn_control.yaml")
-    ok("E0 is_experience_hardening() enabled")
+    if is_experience_hardening():
+        raise TestFailure("v2 Phase0 experience_hardening.enabled should be false")
+    ok("v2 Phase0 experience_hardening disabled (E0 runtime hook off)")
 
     if not is_speak_to_local_action("speak_to_local"):
         raise TestFailure("is_speak_to_local_action failed for string tool name")
@@ -1427,10 +1468,8 @@ def test_f07_e_step2_guard_and_fallback() -> None:
 
     load_turn_control.cache_clear()
     if not is_experience_hardening():
-        raise TestFailure("experience_hardening.enabled should be true")
-    if not scripted_f2f_fallback_enabled():
-        raise TestFailure("scripted_f2f_fallback should be enabled")
-    ok("E1/E5 experience_hardening config loaded")
+        ok("F07-E Step2 skipped (v2 experience_hardening off)")
+        return
 
     if first_f2f_required_agents("Phase 1") != [1]:
         raise TestFailure(f"Phase 1 first_f2f_required wrong: {first_f2f_required_agents('Phase 1')}")
@@ -1559,7 +1598,24 @@ def test_f07_e_step3_rdc_quota_and_tick_order() -> None:
 
     load_turn_control.cache_clear()
     if not is_experience_hardening():
-        raise TestFailure("experience_hardening.enabled should be true")
+        if inject_exclusive_ticks_for("Phase 1") != 2:
+            raise TestFailure(
+                f"v2 Phase1 inject_exclusive expected 2: {inject_exclusive_ticks_for('Phase 1')}"
+            )
+        ctx_ex = {
+            "phase": "Phase 1",
+            "player_turn": 1,
+            "inject_agent_ids": [1],
+        }
+        world_ex = SimpleNamespace(agents={1: object(), 2: object(), 3: object()})
+        if pick_active_ids(ctx_ex, world_ex, t=1, batch_tick_index=0) != [1]:
+            raise TestFailure(
+                "v2 inject_exclusive tick0 should be [1]: "
+                f"{pick_active_ids(ctx_ex, world_ex, t=1, batch_tick_index=0)}"
+            )
+        ok("v2 inject_exclusive L3 tick0 → [1]")
+        ok("F07-E Step3 skipped (v2 experience_hardening off)")
+        return
 
     if rdc_quota_for(1, "Phase 1") != 1:
         raise TestFailure(f"Phase 1 agent 1 RDC quota expected 1: {rdc_quota_for(1, 'Phase 1')}")
@@ -1664,8 +1720,7 @@ def test_f07_e_step4_turn_priority_and_offtopic() -> None:
         return
 
     load_turn_control.cache_clear()
-    if not is_experience_hardening():
-        raise TestFailure("experience_hardening.enabled should be true")
+    hardening = is_experience_hardening()
 
     l6 = format_l6_player_directive(
         agent_id=1,
@@ -1673,11 +1728,16 @@ def test_f07_e_step4_turn_priority_and_offtopic() -> None:
         player_turn=2,
         player_text="我给您带了杯咖啡，黄总在吗？",
     )
-    if "本 Turn 唯一权威" not in l6:
-        raise TestFailure("E3 L6 missing turn-scoped authority line")
-    if "闲聊" not in l6 and "玩梗" not in l6:
-        raise TestFailure("E3 L6 missing small-talk diversion line")
-    ok("E3 Agent1 Phase1 L6 turn-scoped + small-talk diversion")
+    if hardening:
+        if "本 Turn 唯一权威" not in l6:
+            raise TestFailure("E3 L6 missing turn-scoped authority line")
+        if "闲聊" not in l6 and "玩梗" not in l6:
+            raise TestFailure("E3 L6 missing small-talk diversion line")
+        ok("E3 Agent1 Phase1 L6 turn-scoped + small-talk diversion")
+    else:
+        if "必须先直接回应玩家" not in l6:
+            raise TestFailure("v2 L6 missing direct-response line")
+        ok("v2 Phase0 L6 core directive (E3 turn-scoped lines inactive)")
 
     notif = format_notification_directive(
         phase="Phase 1", player_turn=1, agent_id=2
@@ -1686,24 +1746,27 @@ def test_f07_e_step4_turn_priority_and_offtopic() -> None:
         raise TestFailure(f"E4 notification missing off-topic guard: {notif[:80]}")
     ok("E4 Phase1 Jensen notification narrowed")
 
-    class _ScriptEngine:
-        def __init__(self) -> None:
-            self.calls: list[tuple[int, str]] = []
+    if hardening:
+        class _ScriptEngine:
+            def __init__(self) -> None:
+                self.calls: list[tuple[int, str]] = []
 
-        def notify_agent(self, aid: int, snippet: str) -> None:
-            self.calls.append((int(aid), str(snippet)))
+            def notify_agent(self, aid: int, snippet: str) -> None:
+                self.calls.append((int(aid), str(snippet)))
 
-    se = _ScriptEngine()
-    notify_jensen_player_summary(
-        se,
-        {"phase": "Phase 1", "player_text": "送杯咖啡"},
-        "送杯咖啡",
-    )
-    if not se.calls or se.calls[0][0] != 2:
-        raise TestFailure(f"E3 notify_jensen_player_summary bad target: {se.calls}")
-    if "送杯咖啡" not in se.calls[0][1]:
-        raise TestFailure(f"E3 Jensen summary missing player_text: {se.calls[0][1]}")
-    ok("E3 notify_jensen_player_summary → Agent 2")
+        se = _ScriptEngine()
+        notify_jensen_player_summary(
+            se,
+            {"phase": "Phase 1", "player_text": "送杯咖啡"},
+            "送杯咖啡",
+        )
+        if not se.calls or se.calls[0][0] != 2:
+            raise TestFailure(f"E3 notify_jensen_player_summary bad target: {se.calls}")
+        if "送杯咖啡" not in se.calls[0][1]:
+            raise TestFailure(f"E3 Jensen summary missing player_text: {se.calls[0][1]}")
+        ok("E3 notify_jensen_player_summary → Agent 2")
+    else:
+        ok("v2 Phase0 E3 notify_jensen_player_summary inactive (hardening off)")
 
     passive = resolve_passive_llm_params("Phase 1")
     if not passive or passive.get("temperature") != 0.35:
@@ -1721,11 +1784,16 @@ def test_f07_e_step4_turn_priority_and_offtopic() -> None:
     ipc_src = (HBM_DIR / "core" / "runner" / "ipc_handlers.py").read_text(
         encoding="utf-8"
     )
-    if "notify_jensen_player_summary" not in ipc_src:
-        raise TestFailure("ipc_handlers should call notify_jensen_player_summary")
+    if hardening:
+        if "notify_jensen_player_summary" not in ipc_src:
+            raise TestFailure("ipc_handlers should call notify_jensen_player_summary")
+    elif "notify_jensen_player_summary(" in ipc_src:
+        raise TestFailure(
+            "v2 Phase0 ipc_handlers must not call notify_jensen_player_summary"
+        )
     if "clear_player_memory_for_agents" not in ipc_src:
         raise TestFailure("A6 clear_player_memory_for_agents regression")
-    ok("E3 ipc_handlers Jensen summary + A6 memory clear")
+    ok("v2 Phase0 ipc_handlers: no E3 summary hook; A6 memory clear kept")
 
     ws_src = (HBM_DIR / "core" / "runner" / "world_step.py").read_text(encoding="utf-8")
     if "_resolve_batch_llm_params" not in ws_src:
@@ -1771,7 +1839,8 @@ def test_f07_e_step5_final_acceptance() -> None:
         ok("F07-E Step5 skipped (F07 disabled)")
         return
     if not is_experience_hardening():
-        raise TestFailure("experience_hardening should remain enabled for Step 5")
+        ok("F07-E Step5 skipped (v2 experience_hardening off)")
+        return
 
     smoke_src = (
         HBM_DIR / "features" / "f07_agent_control" / "phase4_smoke.py"
@@ -1803,6 +1872,68 @@ def test_f07_e_step5_final_acceptance() -> None:
         )
     else:
         ok("E6 Phase4 IPC smoke skipped (runner not ready in unit pass)")
+
+
+def test_f07_v2_phase0_hard_control_retired() -> None:
+    """dev_logs/31 Phase 0 — retire F07-E hard guards; HBM MOVE is IPC-only."""
+    import asyncio
+
+    section("T2l v2 Phase0 hard control retired")
+    from types import SimpleNamespace
+
+    from agent_world.hbm_demo.core.runner.hbm_dispatcher import HbmActionDispatcher
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_experience_hardening,
+        is_f07_enabled,
+        is_hard_block_enabled,
+        load_turn_control,
+        scripted_f2f_fallback_enabled,
+    )
+
+    if not is_f07_enabled():
+        ok("v2 Phase0 skipped (F07 disabled)")
+        return
+
+    load_turn_control.cache_clear()
+    if is_experience_hardening():
+        raise TestFailure("Phase0: experience_hardening.enabled must be false")
+    if is_hard_block_enabled():
+        raise TestFailure("Phase0: tool_guard.hard_block must be false")
+    if scripted_f2f_fallback_enabled():
+        raise TestFailure("Phase0: scripted_f2f_fallback must be false")
+    ok("Phase0 turn_control: hardening/hard_block/fallback off")
+
+    ipc_src = (HBM_DIR / "core" / "runner" / "ipc_handlers.py").read_text(
+        encoding="utf-8"
+    )
+    if "apply_batch_f2f_fallback_at" in ipc_src:
+        raise TestFailure("Phase0: ipc_handlers must not call apply_batch_f2f_fallback_at")
+    ok("Phase0 ipc_handlers: batch F2F fallback removed")
+
+    kernel_src = (HBM_DIR / "core" / "runner" / "kernel.py").read_text(encoding="utf-8")
+    if "HbmActionDispatcher" not in kernel_src:
+        raise TestFailure("Phase0: kernel must wire HbmActionDispatcher")
+    ok("Phase0 kernel uses HbmActionDispatcher")
+
+    async def _move_noop() -> None:
+        disp = HbmActionDispatcher(
+            world_state=SimpleNamespace(),
+            f2f_bus=SimpleNamespace(),
+            rdc_bus=SimpleNamespace(),
+            grp_bus=SimpleNamespace(),
+            pool_manager=SimpleNamespace(),
+            script_engine=SimpleNamespace(),
+        )
+        result = await disp.dispatch(
+            2, "request_move", 5, place_id="jensen_private_room"
+        )
+        if result.get("noop") is not True:
+            raise TestFailure(f"Phase0 agent MOVE should noop: {result}")
+        if disp.pending_moves:
+            raise TestFailure("Phase0 MOVE must not enqueue pending_moves")
+
+    asyncio.run(_move_noop())
+    ok("Phase0 HbmActionDispatcher silently ignores request_move")
 
 
 def test_m6_frontend_features() -> None:
@@ -2468,11 +2599,26 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
 
     section("T4a-post F12 Phase 3 前端数据契约 (dev_logs/32 §八 Turn1)")
     reception_msgs = (result.get("room_f2f") or {}).get("nvidia_reception") or []
-    if len(reception_msgs) < 1:
-        raise TestFailure(
-            f"Phase 3: Turn1 room_f2f.nvidia_reception empty — frontend bubbles need F2F: {reception_msgs}"
+    from agent_world.hbm_demo.features.f07_agent_control.config import (
+        is_experience_hardening,
+    )
+
+    if is_experience_hardening():
+        if len(reception_msgs) < 1:
+            raise TestFailure(
+                f"Phase 3: Turn1 room_f2f.nvidia_reception empty — frontend bubbles need F2F: {reception_msgs}"
+            )
+        ok(f"Phase 3 room_f2f reception has {len(reception_msgs)} F2F message(s)")
+    else:
+        if len(reception_msgs) < 1 and len(observer) < 1:
+            raise TestFailure(
+                f"v2 Phase0 Turn1 needs F2F or RDC activity: "
+                f"reception={reception_msgs} observer={len(observer)}"
+            )
+        ok(
+            f"v2 Phase0 Turn1 activity — reception_f2f={len(reception_msgs)} "
+            f"observer={len(observer)} (no scripted fallback required)"
         )
-    ok(f"Phase 3 room_f2f reception has {len(reception_msgs)} F2F message(s)")
 
     agent_locs = result.get("agent_locations") or {}
     if not agent_locs:
@@ -2525,11 +2671,14 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
             f"F07 Phase 1 inject must reach tick≥{min_ipc_end}; ipc_end_tick={ipc_end}"
         )
     ok(f"Tier A: ipc_end_tick={ipc_end} (≥{min_ipc_end}, no processing deadlock)")
-    if len(grp) != 0:
-        raise TestFailure(
-            f"F07 Phase 1 Turn 1 GRP must be 0 (L3/L5); got GRP={len(grp)}"
-        )
-    ok("Tier A: Phase 1 Turn 1 GRP=0")
+    if is_experience_hardening():
+        if len(grp) != 0:
+            raise TestFailure(
+                f"F07 Phase 1 Turn 1 GRP must be 0 (L3/L5); got GRP={len(grp)}"
+            )
+        ok("Tier A: Phase 1 Turn 1 GRP=0")
+    else:
+        ok(f"v2 Phase0 Turn1 GRP={len(grp)} (hard_block off — LLM may emit GRP)")
     if llm_key:
         from agent_world.hbm_demo.features.f07_agent_control.config import (
             is_experience_hardening,
@@ -2857,6 +3006,7 @@ def main() -> int:
         test_f07_e_step3_rdc_quota_and_tick_order,
         test_f07_e_step4_turn_priority_and_offtopic,
         test_f07_e_step5_final_acceptance,
+        test_f07_v2_phase0_hard_control_retired,
         test_f05_routing_payload,
         test_f11_live_turn_sync,
         test_f11_c_frontend,

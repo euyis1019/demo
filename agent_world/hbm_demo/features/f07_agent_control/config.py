@@ -74,15 +74,26 @@ def rdc_quota_for(agent_id: int, phase: str) -> int | None:
     return None
 
 
+def is_hard_block_enabled() -> bool:
+    """L5 — replace disallowed tool batch with do_nothing (v1). v2 default: false."""
+    if not is_f07_enabled():
+        return False
+    block = load_turn_control().get("tool_guard") or {}
+    return bool(block.get("hard_block", False))
+
+
 def inject_exclusive_ticks_for(phase: str) -> int:
-    """First N batch ticks only run inject targets (dev_logs/29 E2)."""
-    if not is_experience_hardening():
-        return 0
-    table = experience_hardening_block().get("inject_exclusive_ticks") or {}
-    raw = table.get(str(phase))
-    if raw is None:
-        return 0
-    return max(0, int(raw))
+    """First N ticks after player inject only run inject targets (L3 staging)."""
+    phases = load_turn_control().get("phases") or {}
+    phase_block = phases.get(str(phase)) or {}
+    if "inject_exclusive_ticks" in phase_block:
+        return max(0, int(phase_block["inject_exclusive_ticks"]))
+    if is_experience_hardening():
+        table = experience_hardening_block().get("inject_exclusive_ticks") or {}
+        raw = table.get(str(phase))
+        if raw is not None:
+            return max(0, int(raw))
+    return 0
 
 
 def max_inject_tick_loops() -> int:

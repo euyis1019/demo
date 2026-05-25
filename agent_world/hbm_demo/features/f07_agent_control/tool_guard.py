@@ -13,6 +13,7 @@ from agent_world.hbm_demo.features.f07_agent_control.config import (
     first_f2f_required_agents,
     is_experience_hardening,
     is_f07_enabled,
+    is_hard_block_enabled,
     load_turn_control,
     rdc_quota_for,
 )
@@ -87,9 +88,15 @@ def filter_tool_calls(
     *,
     batch_guard: Optional[Any] = None,
 ) -> List[Any]:
-    """Replace disallowed tool calls with ``do_nothing``."""
+    """Filter disallowed tools.
+
+    v1 (hard_block=true): first violation → entire batch ``do_nothing``.
+    v2 (hard_block=false): drop individual disallowed tools; allowed tools proceed.
+    """
     if not is_f07_enabled() or not turn_context or not tool_calls:
         return list(tool_calls)
+
+    hard_block = is_hard_block_enabled()
 
     # E1 — before matrix guard: required agents must F2F before other tools.
     if is_experience_hardening() and batch_guard is not None:
@@ -143,15 +150,18 @@ def filter_tool_calls(
             out.append(tc)
         else:
             log.info(
-                "F07 tool_guard: agent %s blocked %s (phase=%s)",
+                "F07 tool_guard: agent %s blocked %s (phase=%s hard_block=%s)",
                 agent_id,
                 name,
                 turn_context.get("phase"),
+                hard_block,
             )
-            from agent_world.demo.demo_agent import _ToolCall
+            if hard_block:
+                from agent_world.demo.demo_agent import _ToolCall
 
-            return [_ToolCall(tool_name="do_nothing", args={})]
-    return out or list(tool_calls)
+                return [_ToolCall(tool_name="do_nothing", args={})]
+            continue
+    return list(out)
 
 
 def passive_tick_probability(phase: str) -> float:

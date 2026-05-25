@@ -1,9 +1,9 @@
 enabled: true
 
-# F07-E experience hardening (dev_logs/29 Step 1+)
+# v2 Phase 0 — experience hardening retired (dev_logs/31 §九 Phase 0)
 experience_hardening:
-  enabled: true
-  scripted_f2f_fallback: true
+  enabled: false
+  scripted_f2f_fallback: false
   first_f2f_required:
     Phase 1: [1]
     Phase 2: [2]
@@ -17,6 +17,10 @@ experience_hardening:
   inject_exclusive_ticks:
     Phase 1: 2
 
+# L5 hard block — when false, disallowed tools are dropped (not mass do_nothing)
+tool_guard:
+  hard_block: false
+
 phases:
   Phase 1:
     primary_active: [1, 2, 3]
@@ -25,6 +29,7 @@ phases:
     frozen: [7]
     passive_max_per_batch: 1
     passive_tick_probability: medium
+    inject_exclusive_ticks: 2
   Phase 2:
     primary_active: [2]
     passive_rdc_reply: [3]

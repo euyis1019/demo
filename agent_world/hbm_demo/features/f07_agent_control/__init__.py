@@ -3,6 +3,7 @@
 from agent_world.hbm_demo.features.f07_agent_control.config import (
     is_experience_hardening,
     is_f07_enabled,
+    is_hard_block_enabled,
     load_turn_control,
 )
 from agent_world.hbm_demo.features.f07_agent_control.knowledge import (
@@ -37,6 +38,7 @@ __all__ = [
     "format_inject_dialogue",
     "is_experience_hardening",
     "is_f07_enabled",
+    "is_hard_block_enabled",
     "is_tool_allowed",
     "load_turn_control",
     "pick_active_ids",

@@ -21,7 +21,7 @@ from agent_world.script.engine import ScriptEngine
 from agent_world.world.capability_table import CapabilityTable
 from agent_world.world.clock import Clock
 from agent_world.world.connectivity import ConnectivityResolver
-from agent_world.world.dispatcher import ActionDispatcher
+from agent_world.hbm_demo.core.runner.hbm_dispatcher import HbmActionDispatcher
 from agent_world.world.perception import PerceptionBuilder
 from agent_world.world.place_store import PlaceStore
 from agent_world.world.relation_graph import RelationGraph
@@ -279,7 +279,7 @@ async def build_kernel(
         ),
     )
 
-    dispatcher = ActionDispatcher(
+    dispatcher = HbmActionDispatcher(
         world_state=world_state,
         f2f_bus=f2f_bus,
         rdc_bus=rdc_bus,
