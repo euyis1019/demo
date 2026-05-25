@@ -1238,8 +1238,9 @@ def test_f07_c_agent_control() -> None:
     ok(f"C3 turn_hints all ≥80 chars (sample Turn 12={len(hints[12])})")
 
     class FakeDB:
-        def __init__(self, rows):
+        def __init__(self, rows, f2f_rows=None):
             self._rows = rows
+            self._f2f = f2f_rows or []
 
         def fetch_rdc_messages(
             self, *, sender_id, recipient_id, since_t, t_now  # noqa: ANN001
@@ -1251,31 +1252,57 @@ def test_f07_c_agent_control() -> None:
                 and int(r.get("recipient_id", -1)) == int(recipient_id)
             ]
 
+        def fetch_f2f_history_at(self, place_id, t_now, since_t):  # noqa: ANN001
+            return list(self._f2f)
+
+    from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
+        is_agent_driven,
+    )
+
     class SessB:
         player_turn = 12
         phase = "Phase 2"
         stats = {"execution": 22, "vision": 20, "trust": 10, "burnout": 0}
         phase2_start_tick = 40
+        start_tick = 0
 
     pos_row = {"content": "理论上可行，这是核武器", "sender_id": 3, "recipient_id": 2}
-    if not node_b_applies(SessB(), FakeDB([pos_row]), 50):
-        raise TestFailure("C4 node B should apply with E≥20 + positive VP RDC")
-    SessB.stats["execution"] = 10
-    if node_b_applies(SessB(), FakeDB([pos_row]), 50):
-        raise TestFailure("C4 node B must require execution≥20")
-    ok(f"C4 node B (keywords={list(POSITIVE_RDC_KEYWORDS[:2])}…)")
+    if is_agent_driven():
+        if not node_b_applies(SessB(), FakeDB([pos_row]), 50):
+            raise TestFailure("C4 agent_driven node B should apply on positive VP RDC")
+        SessB.stats["execution"] = 10
+        if not node_b_applies(SessB(), FakeDB([pos_row]), 50):
+            raise TestFailure("C4 agent_driven node B must ignore execution stat gate")
+        ok("C4 agent_driven node B (DB signal, no Stats gate)")
+    else:
+        if not node_b_applies(SessB(), FakeDB([pos_row]), 50):
+            raise TestFailure("C4 node B should apply with E≥20 + positive VP RDC")
+        SessB.stats["execution"] = 10
+        if node_b_applies(SessB(), FakeDB([pos_row]), 50):
+            raise TestFailure("C4 node B must require execution≥20")
+        ok(f"C4 node B (keywords={list(POSITIVE_RDC_KEYWORDS[:2])}…)")
 
     class SessC:
         player_turn = 20
         phase = "Phase 3"
         stats = {"vision": 35, "execution": 25, "trust": 30, "burnout": 50}
+        start_tick = 0
 
-    if not node_c_applies(SessC()):
-        raise TestFailure("C4 node C should apply at Turn 20 V≥30 Burnout<80")
-    SessC.stats["burnout"] = 90
-    if node_c_applies(SessC()):
-        raise TestFailure("C4 node C must require burnout<80")
-    ok("C4 node C threshold logic")
+    if is_agent_driven():
+        expel_row = {"content": "请离场", "sender_id": 2, "recipient_id": 4}
+        if not node_c_applies(SessC(), FakeDB([expel_row]), 50):
+            raise TestFailure("C4 agent_driven node C should apply on Jensen expel RDC")
+        SessC.stats["burnout"] = 90
+        if not node_c_applies(SessC(), FakeDB([expel_row]), 50):
+            raise TestFailure("C4 agent_driven node C must ignore burnout stat gate")
+        ok("C4 agent_driven node C (expel keyword in DB)")
+    else:
+        if not node_c_applies(SessC()):
+            raise TestFailure("C4 node C should apply at Turn 20 V≥30 Burnout<80")
+        SessC.stats["burnout"] = 90
+        if node_c_applies(SessC()):
+            raise TestFailure("C4 node C must require burnout<80")
+        ok("C4 node C threshold logic")
 
     probe_env: Dict[str, str] = {}
     apply_hbm_demo_env(probe_env)
@@ -2193,6 +2220,7 @@ def test_f07_v2_phase2_world_delta() -> None:
     from agent_world.hbm_demo.features import FEATURE_REGISTRY
     from agent_world.hbm_demo.features.f05_story_routing.watcher import (
         ROUTING_WATCHER_KEY,
+        consume_game_over_payload,
         consume_routing_world_events,
         scan_routing_if_needed,
     )
@@ -2213,6 +2241,8 @@ def test_f07_v2_phase2_world_delta() -> None:
         raise TestFailure("F14 handler missing get_world_delta")
     if not callable(scan_routing_if_needed):
         raise TestFailure("F05 watcher missing scan_routing_if_needed")
+    if not callable(consume_game_over_payload):
+        raise TestFailure("F05 watcher missing consume_game_over_payload")
     ok("F14 handler + F05 RoutingWatcher entrypoints present")
 
     if ROUTING_WATCHER_KEY != "hbm_routing_watcher":
@@ -2406,6 +2436,188 @@ def test_f07_v2_phase3_prompt_trace() -> None:
         ok("prompt_trace.enabled=true in turn_control.yaml")
     else:
         ok("prompt_trace.enabled=false (CI override OK)")
+
+
+def test_f07_v2_phase4_agent_driven() -> None:
+    """dev_logs/31 Phase 4 — agent_driven routing + bad_end via RoutingWatcher."""
+    section("T2q v2 Phase4 agent_driven routing + bad_end")
+    from types import SimpleNamespace
+
+    from agent_world.hbm_demo.features.f02_player_turn.inject import check_turn4_bad_end
+    from agent_world.hbm_demo.features.f05_story_routing.agent_signals import (
+        detect_bad_end,
+        detect_node_a,
+        detect_node_b,
+        detect_node_c,
+    )
+    from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
+        is_agent_driven,
+        load_routing_config,
+        routing_mode,
+    )
+    from agent_world.hbm_demo.features.f05_story_routing.watcher import (
+        consume_game_over_payload,
+        scan_routing_if_needed,
+    )
+
+    routing_yaml = HBM_DIR / "features" / "f05_story_routing" / "routing.yaml"
+    if not routing_yaml.is_file():
+        raise TestFailure("Phase4: missing routing.yaml")
+    ok("routing.yaml present")
+
+    if routing_mode() != "agent_driven":
+        raise TestFailure(f"Phase4: routing.mode expected agent_driven, got {routing_mode()!r}")
+    if not is_agent_driven():
+        raise TestFailure("Phase4: is_agent_driven() must be True")
+    ok("routing.mode=agent_driven")
+
+    cfg = load_routing_config()
+    signals = cfg.get("signals") or {}
+    if not signals.get("approve_keywords") or not signals.get("reject_keywords"):
+        raise TestFailure("Phase4: routing.yaml signals incomplete")
+    ok("routing.yaml signal keyword lists configured")
+
+    routing_src = (
+        HBM_DIR / "features" / "f05_story_routing" / "routing.py"
+    ).read_text(encoding="utf-8")
+    if "send_enqueue_script_event" not in routing_src:
+        raise TestFailure("Phase4: apply_routing must use send_enqueue_script_event")
+    if "send_inject_batch" in routing_src:
+        raise TestFailure("Phase4: routing.py must not call send_inject_batch")
+    ok("Node B PlaceMutation via send_enqueue_script_event (no inject_batch)")
+
+    inject_src = (HBM_DIR / "features" / "f02_player_turn" / "inject.py").read_text(
+        encoding="utf-8"
+    )
+    if "is_agent_driven" not in inject_src:
+        raise TestFailure("Phase4: check_turn4_bad_end missing agent_driven guard")
+    ok("check_turn4_bad_end defers to RoutingWatcher in agent_driven mode")
+
+    class SignalDB:
+        def __init__(
+            self,
+            *,
+            rdc_rows=None,
+            f2f_rows=None,
+        ):
+            self._rdc = rdc_rows or []
+            self._f2f = f2f_rows or []
+
+        def fetch_rdc_messages(
+            self, *, sender_id, recipient_id, since_t, t_now  # noqa: ANN001
+        ):
+            sid, rid = int(sender_id), int(recipient_id)
+            return [
+                r
+                for r in self._rdc
+                if int(r.get("sender_id", -1)) == sid
+                and int(r.get("recipient_id", -1)) == rid
+            ]
+
+        def fetch_f2f_history_at(self, place_id, t_now, since_t):  # noqa: ANN001
+            return list(self._f2f)
+
+    approve_chain = [
+        {"sender_id": 1, "recipient_id": 2, "content": "背景"},
+        {"sender_id": 2, "recipient_id": 3, "content": "评估"},
+        {"sender_id": 2, "recipient_id": 1, "content": "批准，这边请"},
+    ]
+    if not detect_node_a(SignalDB(rdc_rows=approve_chain), since_t=0, t_now=10):
+        raise TestFailure("detect_node_a failed on approve chain")
+    ok("detect_node_a RDC chain 1→2→3 + approve 2→1")
+
+    vp_row = [{"sender_id": 3, "recipient_id": 2, "content": "理论上可行"}]
+    if not detect_node_b(SignalDB(rdc_rows=vp_row), since_t=0, t_now=10):
+        raise TestFailure("detect_node_b failed on positive VP RDC")
+    ok("detect_node_b positive VP RDC signal")
+
+    expel_row = [{"sender_id": 2, "recipient_id": 4, "content": "请离场"}]
+    if not detect_node_c(SignalDB(rdc_rows=expel_row), since_t=0, t_now=10):
+        raise TestFailure("detect_node_c failed on expel RDC")
+    ok("detect_node_c Jensen expel keyword")
+
+    reject_f2f = [(5, 1, "m1", "保安，请离开")]
+    bad_session = SimpleNamespace(phase="Phase 1", player_turn=3, start_tick=0)
+    if not detect_bad_end(
+        bad_session,
+        SignalDB(f2f_rows=reject_f2f),
+        t_now=10,
+    ):
+        raise TestFailure("detect_bad_end failed on reception reject F2F")
+    ok("detect_bad_end reception reject F2F")
+
+    timeout_session = SimpleNamespace(phase="Phase 1", player_turn=10, start_tick=0)
+    if not detect_bad_end(timeout_session, SignalDB(), t_now=10):
+        raise TestFailure("detect_bad_end failed on Phase1 turn timeout without approve")
+    ok("detect_bad_end Phase1 timeout without approve chain")
+
+    legacy_bad = SimpleNamespace(
+        phase="Phase 1",
+        player_turn=4,
+        start_tick=0,
+        stats={"vision": 5, "execution": 5},
+    )
+    if check_turn4_bad_end(legacy_bad):
+        raise TestFailure("agent_driven: check_turn4_bad_end must return False")
+    ok("Turn4 Stats bad_end deferred from player-turn handler")
+
+    watcher_src = (
+        HBM_DIR / "features" / "f05_story_routing" / "watcher.py"
+    ).read_text(encoding="utf-8")
+    if "detect_bad_end" not in watcher_src or "pending_game_over" not in watcher_src:
+        raise TestFailure("Phase4: watcher missing bad_end / game_over path")
+    if "loop_state" not in watcher_src or "paused" not in watcher_src:
+        raise TestFailure("Phase4: watcher must skip routing when loop paused")
+    if not callable(consume_game_over_payload):
+        raise TestFailure("Phase4: consume_game_over_payload missing")
+    ok("RoutingWatcher bad_end + pause guard + consume_game_over_payload")
+
+    f14_src = (HBM_DIR / "features" / "f14_world_delta" / "handler.py").read_text(
+        encoding="utf-8"
+    )
+    if "consume_game_over_payload" not in f14_src or '"game_over"' not in f14_src:
+        raise TestFailure("Phase4: F14 handler missing game_over in delta")
+    ok("F14 delta exposes game_over payload")
+
+    models_src = (HBM_DIR / "features" / "f01_session" / "models.py").read_text(
+        encoding="utf-8"
+    )
+    if "ending_id" not in models_src:
+        raise TestFailure("Phase4: HbmSession missing ending_id field")
+    ok("HbmSession.ending_id persisted")
+
+    poll_src = (
+        HBM_DIR / "web" / "src" / "features" / "game-loop" / "useWorldDeltaPoll.ts"
+    ).read_text(encoding="utf-8")
+    if "game_over" not in poll_src or "SET_GAME_OVER" not in poll_src:
+        raise TestFailure("Phase4: useWorldDeltaPoll missing game_over handling")
+    ok("frontend useWorldDeltaPoll dispatches SET_GAME_OVER")
+
+    types_src = (HBM_DIR / "web" / "src" / "api" / "types.ts").read_text(
+        encoding="utf-8"
+    )
+    if "game_over?" not in types_src and "game_over:" not in types_src:
+        raise TestFailure("Phase4: WorldDeltaData missing game_over field")
+    ok("WorldDeltaData includes optional game_over")
+
+    flask_session: Dict[str, Any] = {}
+    flask_session.setdefault("hbm_routing_watcher", {})["pending_game_over"] = {
+        "status": "game_over",
+        "ending_id": "bad_reject",
+        "public_messages": [],
+        "stats_update": {},
+        "current_phase": "Phase 1",
+    }
+    payload = consume_game_over_payload(flask_session)
+    if not payload or payload.get("ending_id") != "bad_reject":
+        raise TestFailure(f"consume_game_over_payload failed: {payload}")
+    if consume_game_over_payload(flask_session) is not None:
+        raise TestFailure("consume_game_over_payload must be one-shot")
+    ok("consume_game_over_payload one-shot semantics")
+
+    if not callable(scan_routing_if_needed):
+        raise TestFailure("scan_routing_if_needed missing")
+    ok("scan_routing_if_needed entrypoint present")
 
 
 def test_m6_frontend_features() -> None:
@@ -2758,12 +2970,37 @@ def test_f05_routing_payload() -> None:
             raise TestFailure("Phase 4 inject events missing")
 
     class NodeA:
+        phase = "Phase 1"
         player_turn = 4
+        start_tick = 0
         stats = {"vision": 10, "execution": 5, "trust": 10, "burnout": 0}
 
-    if not node_a_applies(NodeA()):
-        raise TestFailure("node_a should apply at vision+execution=15")
-    ok("F05 node A threshold logic")
+    from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
+        is_agent_driven,
+    )
+
+    if is_agent_driven():
+
+        class FakeDBNodeA:
+            def fetch_rdc_messages(
+                self, *, sender_id, recipient_id, since_t, t_now  # noqa: ANN001
+            ):
+                sid, rid = int(sender_id), int(recipient_id)
+                if sid == 1 and rid == 2:
+                    return [{"content": "玩家背景"}]
+                if sid == 2 and rid == 3:
+                    return [{"content": "请评估"}]
+                if sid == 2 and rid == 1:
+                    return [{"content": "批准，这边请带进来"}]
+                return []
+
+        if not node_a_applies(NodeA(), FakeDBNodeA(), 10):
+            raise TestFailure("agent_driven node_a should apply on RDC approve chain")
+        ok("F05 agent_driven node A (RDC 1→2→3 + approve 2→1)")
+    else:
+        if not node_a_applies(NodeA()):
+            raise TestFailure("node_a should apply at vision+execution=15")
+        ok("F05 node A threshold logic")
 
 
 def test_runner_module_entry() -> None:
@@ -3715,6 +3952,7 @@ def main() -> int:
         test_f07_v2_phase1b_world_loop_pause,
         test_f07_v2_phase2_world_delta,
         test_f07_v2_phase3_prompt_trace,
+        test_f07_v2_phase4_agent_driven,
         test_f05_routing_payload,
         test_f11_live_turn_sync,
         test_f11_c_frontend,

@@ -224,6 +224,8 @@ export interface WorldDeltaData extends TurnDelta {
   stats_update: Stats;
   current_phase: string;
   player_turn: number;
+  /** F14 Phase 4 — bad_end from RoutingWatcher (dev_logs/31 §Phase 4) */
+  game_over?: PlayerTurnGameOver;
 }
 
 export interface TurnDelta {

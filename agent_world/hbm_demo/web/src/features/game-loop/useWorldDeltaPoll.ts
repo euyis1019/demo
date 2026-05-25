@@ -62,6 +62,11 @@ export function useWorldDeltaPoll(enabled: boolean, paused: boolean): void {
           sinceTickRef.current = through;
         }
 
+        if (data.game_over?.status === "game_over") {
+          dispatch({ type: "SET_GAME_OVER", data: data.game_over });
+          return;
+        }
+
         if (data.stats_update && data.current_phase && data.player_turn !== undefined) {
           dispatch({
             type: "APPLY_PLAYER_TURN_PROCESSING",

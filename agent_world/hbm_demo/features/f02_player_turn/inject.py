@@ -17,7 +17,18 @@ def build_inject_events(
     return routing.build_inject_payload(session, player_text, task_id=task_id)
 
 
-def check_turn4_bad_end(session: HbmSession) -> bool:
+def check_turn4_bad_end(
+    session: HbmSession,
+    db: Any = None,
+    current_tick: Optional[int] = None,
+) -> bool:
+    """Legacy Stats Turn4 gate; agent_driven defers to RoutingWatcher."""
+    from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
+        is_agent_driven,
+    )
+
+    if is_agent_driven():
+        return False
     return (
         session.player_turn == 4
         and session.stats["vision"] + session.stats["execution"] < 15

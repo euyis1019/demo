@@ -152,14 +152,30 @@ def has_positive_tech_vp_rdc(db: Any, *, since_tick: int, t_now: int) -> bool:
     return False
 
 
-def node_a_applies(session: Any) -> bool:
+def _legacy_node_a_applies(session: Any) -> bool:
     return (
         session.player_turn == 4
         and session.stats["vision"] + session.stats["execution"] >= 15
     )
 
 
-def node_b_applies(session: Any, db: Any, current_tick: int) -> bool:
+def node_a_applies(
+    session: Any,
+    db: Any = None,
+    current_tick: Optional[int] = None,
+) -> bool:
+    from agent_world.hbm_demo.features.f05_story_routing.agent_signals import detect_node_a
+    from agent_world.hbm_demo.features.f05_story_routing.routing_config import is_agent_driven
+
+    if is_agent_driven():
+        if db is None or current_tick is None or session.phase != "Phase 1":
+            return False
+        since_t = max(0, int(getattr(session, "start_tick", 0) or 0))
+        return detect_node_a(db, since_t=since_t, t_now=int(current_tick))
+    return _legacy_node_a_applies(session)
+
+
+def _legacy_node_b_applies(session: Any, db: Any, current_tick: int) -> bool:
     if session.player_turn != 12 or session.phase != "Phase 2":
         return False
     if session.stats["execution"] < 20:
@@ -170,13 +186,47 @@ def node_b_applies(session: Any, db: Any, current_tick: int) -> bool:
     return has_positive_tech_vp_rdc(db, since_tick=int(since), t_now=current_tick)
 
 
-def node_c_applies(session: Any) -> bool:
+def node_b_applies(
+    session: Any,
+    db: Any,
+    current_tick: int,
+) -> bool:
+    from agent_world.hbm_demo.features.f05_story_routing.agent_signals import detect_node_b
+    from agent_world.hbm_demo.features.f05_story_routing.routing_config import is_agent_driven
+
+    if is_agent_driven():
+        if session.phase != "Phase 2":
+            return False
+        since = session.phase2_start_tick
+        if since is None:
+            since = max(0, int(getattr(session, "start_tick", 0) or 0))
+        return detect_node_b(db, since_t=int(since), t_now=int(current_tick))
+    return _legacy_node_b_applies(session, db, current_tick)
+
+
+def _legacy_node_c_applies(session: Any) -> bool:
     return (
         session.player_turn == 20
         and session.phase == "Phase 3"
         and session.stats["burnout"] < 80
         and session.stats["vision"] >= 30
     )
+
+
+def node_c_applies(
+    session: Any,
+    db: Any = None,
+    current_tick: Optional[int] = None,
+) -> bool:
+    from agent_world.hbm_demo.features.f05_story_routing.agent_signals import detect_node_c
+    from agent_world.hbm_demo.features.f05_story_routing.routing_config import is_agent_driven
+
+    if is_agent_driven():
+        if db is None or current_tick is None or session.phase != "Phase 3":
+            return False
+        since_t = max(0, int(getattr(session, "start_tick", 0) or 0))
+        return detect_node_c(db, since_t=since_t, t_now=int(current_tick))
+    return _legacy_node_c_applies(session)
 
 
 def _llm_client() -> OpenAI:
@@ -252,11 +302,14 @@ def apply_routing(
     ipc_timeout: float = 600.0,
 ) -> Dict[str, Any]:
     """Apply routing side effects after main inject (§4.3 / §6.2.3)."""
-    from agent_world.hbm_demo.http.ipc_helper import send_inject_batch, send_move_agent
+    from agent_world.hbm_demo.http.ipc_helper import (
+        send_enqueue_script_event,
+        send_move_agent,
+    )
 
     applied: Dict[str, Any] = {"nodes": []}
 
-    if node_a_applies(session):
+    if node_a_applies(session, db=db, current_tick=current_tick):
         send_move_agent(
             ipc_client,
             agent_id=JENSEN_ID,
@@ -293,10 +346,9 @@ def apply_routing(
                 "attrs_patch": {"behavior_hint": NODE_B_BEHAVIOR_HINT},
             },
         }
-        send_inject_batch(
+        send_enqueue_script_event(
             ipc_client,
             events=[mutation_event],
-            tick_count=tick_count,
             timeout=ipc_timeout,
         )
 
@@ -308,7 +360,7 @@ def apply_routing(
         applied["place_mutation"] = True
         log.info("routing node B: Jensen→%s + PlaceMutation", PLACE_NEGOTIATION)
 
-    if node_c_applies(session):
+    if node_c_applies(session, db=db, current_tick=current_tick):
         for ceo_id in CEO_IDS:
             send_move_agent(
                 ipc_client,

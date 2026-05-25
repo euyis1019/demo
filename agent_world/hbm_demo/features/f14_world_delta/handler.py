@@ -9,6 +9,7 @@ from agent_world.hbm_demo.features.f01_session.lifecycle import load_session
 from agent_world.hbm_demo.features.f01_session.paths import get_name_map, get_sim_dir
 from agent_world.hbm_demo.features.f04_stats.deltas import initial_stats
 from agent_world.hbm_demo.features.f05_story_routing.watcher import (
+    consume_game_over_payload,
     consume_routing_world_events,
     scan_routing_if_needed,
 )
@@ -64,7 +65,7 @@ def get_world_delta(
         extra_world_events=routing_events,
     )
 
-    return {
+    result: Dict[str, Any] = {
         **delta,
         "current_tick": t_now,
         "loop_state": env.get("loop_state"),
@@ -72,6 +73,19 @@ def get_world_delta(
         "current_phase": hbm.phase if hbm else "Phase 1",
         "player_turn": hbm.player_turn if hbm else 1,
     }
+
+    game_over = consume_game_over_payload(flask_session)
+    if game_over:
+        result["game_over"] = game_over
+    elif hbm and hbm.ending_id:
+        result["game_over"] = {
+            "status": "game_over",
+            "ending_id": hbm.ending_id,
+            "stats_update": dict(hbm.stats),
+            "current_phase": hbm.phase,
+        }
+
+    return result
 
 
 __all__ = ["get_world_delta"]

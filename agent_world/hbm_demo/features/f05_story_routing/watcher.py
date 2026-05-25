@@ -1,4 +1,4 @@
-"""F05 RoutingWatcher — scan DB on tick advance during F14 poll (dev_logs/31 Phase 2)."""
+"""F05 RoutingWatcher — scan DB on tick advance during F14 poll (dev_logs/31 Phase 2/4)."""
 
 from __future__ import annotations
 
@@ -8,11 +8,19 @@ from typing import Any, Dict, List
 
 from agent_world.hbm_demo.features.f01_session.lifecycle import save_session
 from agent_world.hbm_demo.features.f01_session.models import HbmSession
+from agent_world.hbm_demo.features.f01_session.paths import get_name_map
 from agent_world.hbm_demo.features.f05_story_routing import routing
+from agent_world.hbm_demo.features.f05_story_routing.agent_signals import (
+    detect_bad_end,
+    fetch_bad_end_public_messages,
+)
+from agent_world.hbm_demo.features.f05_story_routing.routing_config import is_agent_driven
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
 from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop_enabled
 from agent_world.hbm_demo.features.f12_world_sync.formatter import format_routing_world_events
+from agent_world.hbm_demo.features.f13_world_loop_control.handler import pause_world_loop
 from agent_world.hbm_demo.http.ipc_helper import get_ipc_client, push_session_mirror
+from agent_world.hbm_demo.shared.env_status import read_env_status
 from agent_world.hbm_demo.shared.settings import DEFAULT_IPC_TIMEOUT
 
 log = logging.getLogger("agent_world.hbm_demo.f05")
@@ -54,6 +62,15 @@ def consume_routing_world_events(
     return selected
 
 
+def consume_game_over_payload(flask_session: Any) -> Dict[str, Any] | None:
+    """Return pending game_over payload once for F14 delta."""
+    state = _watcher_state(flask_session)
+    payload = state.pop("pending_game_over", None)
+    if payload:
+        _mark_session_modified(flask_session)
+    return dict(payload) if isinstance(payload, dict) else None
+
+
 def scan_routing_if_needed(
     flask_session: Any,
     hbm: HbmSession,
@@ -67,6 +84,13 @@ def scan_routing_if_needed(
     if not is_world_loop_enabled():
         return {}
 
+    env = read_env_status(sim_dir) or {}
+    if str(env.get("loop_state") or "") == "paused" and not hbm.ending_id:
+        return dict(_watcher_state(flask_session).get("last_routing_info") or {})
+
+    if hbm.ending_id:
+        return dict(_watcher_state(flask_session).get("last_routing_info") or {})
+
     state = _watcher_state(flask_session)
     last_scan = int(state.get("last_scan_tick", -1))
     tick = int(current_tick)
@@ -76,6 +100,31 @@ def scan_routing_if_needed(
     ipc_client = get_ipc_client(str(sim_dir))
     db = make_readonly_db(sim_dir)
     task_id = f"route_{tick}"
+
+    if is_agent_driven() and detect_bad_end(hbm, db, t_now=tick):
+        name_map = get_name_map()
+        public_messages = fetch_bad_end_public_messages(
+            db, t_now=tick, name_map=name_map, since_t=int(hbm.start_tick or 0)
+        )
+        hbm.ending_id = "bad_reject"
+        save_session(flask_session, hbm, sim_id)
+        try:
+            pause_world_loop(sim_dir=sim_dir)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("bad_end pause_world_loop failed: %s", exc)
+        state["pending_game_over"] = {
+            "status": "game_over",
+            "ending_id": "bad_reject",
+            "public_messages": public_messages,
+            "stats_update": dict(hbm.stats),
+            "current_phase": hbm.phase,
+            "at_tick": tick,
+        }
+        state["last_scan_tick"] = tick
+        state["last_routing_info"] = {"bad_end": True}
+        log.info("routing watcher bad_end at tick=%s", tick)
+        return dict(state["last_routing_info"])
+
     routing_info = routing.apply_routing(
         hbm,
         ipc_client=ipc_client,
@@ -110,6 +159,7 @@ def scan_routing_if_needed(
 
 __all__ = [
     "ROUTING_WATCHER_KEY",
+    "consume_game_over_payload",
     "consume_routing_world_events",
     "scan_routing_if_needed",
 ]

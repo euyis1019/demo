@@ -1,0 +1,25 @@
+# F05 story routing — Phase 4 agent_driven (dev_logs/31 §Phase 4 / dev_logs/30 PR3)
+routing:
+  mode: agent_driven              # legacy_stats | agent_driven
+  stats_display_only: true
+
+  signals:
+    approve_keywords:
+      - 私密会议室
+      - 可以见
+      - 带进来
+      - 批准
+      - 这边请
+      - 请跟我来
+    reject_keywords:
+      - 拒绝
+      - 请离开
+      - 保安
+    expel_keywords:
+      - 请离场
+      - 谈完了
+      - 出去
+    escort_keywords:
+      - 请跟我来
+      - 这边请
+    max_turns_phase1_without_approve: 10
