@@ -2446,6 +2446,52 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
         f"player_place={snap_after.get('player_place_id')}"
     )
 
+    section("T4a-post F12 Phase 3 前端数据契约 (dev_logs/32 §八 Turn1)")
+    reception_msgs = (result.get("room_f2f") or {}).get("nvidia_reception") or []
+    if len(reception_msgs) < 1:
+        raise TestFailure(
+            f"Phase 3: Turn1 room_f2f.nvidia_reception empty — frontend bubbles need F2F: {reception_msgs}"
+        )
+    ok(f"Phase 3 room_f2f reception has {len(reception_msgs)} F2F message(s)")
+
+    agent_locs = result.get("agent_locations") or {}
+    if not agent_locs:
+        raise TestFailure("Phase 3: agent_locations empty after Turn1 — AgentCircle needs locations")
+    ok(f"Phase 3 agent_locations populated ({len(agent_locs)} agents)")
+
+    agent_msgs = result.get("agent_messages") or {}
+    if observer and not agent_msgs:
+        raise TestFailure(
+            "Phase 3: observer_messages present but agent_messages empty — phone panel would miss RDC"
+        )
+    if observer:
+        rdc_agents = [
+            aid for aid, bucket in agent_msgs.items() if (bucket.get("rdc") or [])
+        ]
+        if not rdc_agents:
+            raise TestFailure(
+                f"Phase 3: agent_messages has no RDC buckets despite observer={len(observer)}"
+            )
+        ok(f"Phase 3 agent_messages RDC buckets for agents {rdc_agents}")
+
+    neg_f2f = (result.get("room_f2f") or {}).get("negotiation_room") or []
+    if observer and len(neg_f2f) > 0:
+        ok(
+            f"Phase 3 negotiation_room has {len(neg_f2f)} F2F (cross-room visible via grid)"
+        )
+    elif observer:
+        ok("Phase 3 Jensen RDC visible in agent_messages; negotiation F2F may be empty at Turn1")
+
+    for place_id in F12_ROOM_PLACES:
+        if place_id not in (result.get("room_f2f") or {}):
+            raise TestFailure(f"Phase 3: room_f2f missing place {place_id}")
+    ok("Phase 3 room_f2f covers all four ROOM_GRID places")
+
+    app_src = (HBM_DIR / "web" / "src" / "App.tsx").read_text(encoding="utf-8")
+    if "ObserverPanel" in app_src:
+        raise TestFailure("Phase 3: App.tsx still references ObserverPanel")
+    ok("Phase 3 two-column UI — no ObserverPanel in App.tsx")
+
     section("T4d F07 Phase 1 运行时验收 (dev_logs/24 §12.1 · Tier A/B)")
     ipc_end = int(task_runtime.get("ipc_end_tick") or 0)
     from agent_world.hbm_demo.features.f07_agent_control.config import (

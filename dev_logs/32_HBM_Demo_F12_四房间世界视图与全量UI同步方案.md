@@ -480,6 +480,7 @@ animatingMoves: LocationChange[];  // 可选，驱动 CSS 动画
 - [x] AgentPhoneModal + InnerOsTimeline
 - [x] WorldEventModal
 - [x] 删除 Observer（App 不再渲染右栏）
+- [x] `test_f12_phase3_regression.py` + worldSync 单元 + E2E 数据契约
 
 ### Phase 4 — 联调与回归
 

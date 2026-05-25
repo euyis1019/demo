@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""F12 Phase 2 regression — unit + acceptance + E2E (dev_logs/32 §七 Phase 2)."""
+"""F12 Phase 3 regression — frontend worldSync + full stack (dev_logs/32 §七 Phase 3)."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 HBM_DIR = ROOT / "agent_world" / "hbm_demo"
+WEB_DIR = HBM_DIR / "web"
 
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -52,66 +53,64 @@ def _run_script(name: str, rel_path: str) -> None:
     ok(f"{name} passed")
 
 
-def test_import_graph() -> None:
-    section("F12 Phase 2 import graph")
-    from agent_world.hbm_demo.features.f12_world_sync.delta import (
-        build_completed_payload,
-        build_world_delta,
-        empty_delta,
+def test_world_sync_ts() -> None:
+    section("F12 Phase 3 worldSync TypeScript unit tests")
+    script = WEB_DIR / "scripts" / "test_world_sync.ts"
+    if not script.is_file():
+        raise TestFailure(f"missing {script}")
+    proc = subprocess.run(
+        ["npx", "--yes", "tsx", str(script)],
+        cwd=str(WEB_DIR),
+        capture_output=True,
+        text=True,
     )
-    from agent_world.hbm_demo.features.f12_world_sync.handler import get_world_snapshot
-    from agent_world.hbm_demo.features.f11_live_turn_sync.delta import (
-        build_turn_delta,
-        empty_delta as f11_empty,
-    )
-    import agent_world.hbm_demo.game_service as gs
+    if proc.returncode != 0:
+        raise TestFailure(
+            proc.stdout + proc.stderr or "worldSync ts tests failed"
+        )
+    ok("worldSync.ts unit tests passed")
 
-    ed = empty_delta(0)
-    if "room_f2f" not in ed:
-        raise TestFailure("empty_delta missing room_f2f")
-    if gs.get_world_snapshot is not get_world_snapshot:
-        raise TestFailure("game_service.get_world_snapshot shim broken")
-    if f11_empty(1)["through_tick"] != 1:
-        raise TestFailure("F11 empty_delta delegate broken")
-    if build_turn_delta is build_world_delta:
-        raise TestFailure("F11 should wrap F12 build_world_delta")
-    ok("F12/F11/F03 import graph healthy")
+
+def test_phase3_static() -> None:
+    section("F12 Phase 3 static frontend checks")
+    from agent_world.hbm_demo.scripts.test_m0_acceptance import (
+        test_f12_phase3_world_stage,
+    )
+
+    test_f12_phase3_world_stage()
 
 
 def main() -> int:
-    print("F12 Phase 2 regression (dev_logs/32)")
+    print("F12 Phase 3 regression (dev_logs/32)")
     failures: list[str] = []
 
-    unit_scripts = (
+    for name, rel in (
         ("F12 Phase 1 persistence", "test_f12_phase1_persistence.py"),
         ("F12 Phase 2 world delta unit", "test_f12_world_delta.py"),
-    )
-
-    try:
-        test_import_graph()
-    except Exception as exc:  # noqa: BLE001
-        failures.append(f"import_graph: {exc}")
-        print(f"  ✗ {exc}")
-
-    for name, rel in unit_scripts:
+    ):
         try:
             _run_script(name, rel)
         except Exception as exc:  # noqa: BLE001
             failures.append(f"{rel}: {exc}")
             print(f"  ✗ {exc}")
 
-    section("M0 acceptance (includes F12 E2E + npm build)")
     try:
-        _run_script("test_m0_acceptance", "test_m0_acceptance.py")
+        test_phase3_static()
     except Exception as exc:  # noqa: BLE001
-        failures.append(f"test_m0_acceptance: {exc}")
+        failures.append(f"phase3_static: {exc}")
         print(f"  ✗ {exc}")
 
-    section("F12 Phase 3 frontend build smoke")
+    try:
+        test_world_sync_ts()
+    except Exception as exc:  # noqa: BLE001
+        failures.append(f"world_sync_ts: {exc}")
+        print(f"  ✗ {exc}")
+
+    section("npm run build")
     try:
         proc = subprocess.run(
             ["npm", "run", "build"],
-            cwd=str(HBM_DIR / "web"),
+            cwd=str(WEB_DIR),
             capture_output=True,
             text=True,
         )
@@ -122,14 +121,20 @@ def main() -> int:
         failures.append(f"npm_build: {exc}")
         print(f"  ✗ {exc}")
 
+    section("M0 acceptance (E2E + F12 API + npm build in suite)")
+    try:
+        _run_script("test_m0_acceptance", "test_m0_acceptance.py")
+    except Exception as exc:  # noqa: BLE001
+        failures.append(f"test_m0_acceptance: {exc}")
+        print(f"  ✗ {exc}")
+
     if failures:
         print(f"\nFAILED ({len(failures)}):")
         for item in failures:
             print(f"  - {item}")
         return 1
 
-    print("\nALL F12 PHASE 2 REGRESSION TESTS PASSED")
-    print("(For Phase 3 frontend, run scripts/test_f12_phase3_regression.py)")
+    print("\nALL F12 PHASE 3 REGRESSION TESTS PASSED")
     return 0
 
 
