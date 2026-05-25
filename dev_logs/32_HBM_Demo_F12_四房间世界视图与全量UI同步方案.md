@@ -470,6 +470,7 @@ animatingMoves: LocationChange[];  // 可选，驱动 CSS 动画
 - [x] 扩展 F11 delta + F03 handler
 - [x] routing → world_events
 - [x] `test_f12_world_delta.py` + 更新 acceptance
+- [x] `test_f12_phase2_regression.py` E2E（world-snapshot + delta 形状 + Turn1 回归）
 
 ### Phase 3 — 前端世界视图（~2–3 天）
 

@@ -95,6 +95,97 @@ def merge_message_lists(
     return merged
 
 
+F12_DELTA_KEYS = (
+    "through_tick",
+    "player_place_id",
+    "room_f2f",
+    "agent_messages",
+    "location_changes",
+    "social_events",
+    "state_changes",
+    "world_events",
+    "agent_locations",
+    "public_messages",
+    "observer_messages",
+    "group_messages",
+)
+
+F12_SNAPSHOT_KEYS = (
+    "through_tick",
+    "player_place_id",
+    "agent_locations",
+    "place_attrs",
+    "relations",
+    "group_members",
+    "name_map",
+)
+
+F12_ROOM_PLACES = (
+    "nvidia_reception",
+    "jensen_private_room",
+    "negotiation_room",
+    "openai_hq",
+)
+
+
+def assert_f12_delta_shape(
+    payload: Dict[str, Any],
+    *,
+    context: str,
+) -> None:
+    """Validate F12 TurnDelta fields on action-result delta or completed body."""
+    for key in F12_DELTA_KEYS:
+        if key not in payload:
+            raise TestFailure(f"{context}: missing F12 delta key {key}")
+    room_f2f = payload.get("room_f2f")
+    if not isinstance(room_f2f, dict):
+        raise TestFailure(f"{context}: room_f2f must be dict")
+    for place_id in F12_ROOM_PLACES:
+        if place_id not in room_f2f:
+            raise TestFailure(f"{context}: room_f2f missing place {place_id}")
+        if not isinstance(room_f2f[place_id], list):
+            raise TestFailure(f"{context}: room_f2f[{place_id}] must be list")
+    for list_key in (
+        "location_changes",
+        "social_events",
+        "state_changes",
+        "world_events",
+    ):
+        if not isinstance(payload.get(list_key), list):
+            raise TestFailure(f"{context}: {list_key} must be list")
+    if not isinstance(payload.get("agent_messages"), dict):
+        raise TestFailure(f"{context}: agent_messages must be dict")
+    if not isinstance(payload.get("agent_locations"), dict):
+        raise TestFailure(f"{context}: agent_locations must be dict")
+    player_place = str(payload.get("player_place_id") or "")
+    if player_place and player_place not in F12_ROOM_PLACES:
+        raise TestFailure(f"{context}: invalid player_place_id={player_place!r}")
+
+
+def assert_f12_snapshot_shape(
+    payload: Dict[str, Any],
+    *,
+    context: str,
+) -> None:
+    for key in F12_SNAPSHOT_KEYS:
+        if key not in payload:
+            raise TestFailure(f"{context}: missing snapshot key {key}")
+    place_attrs = payload.get("place_attrs")
+    if not isinstance(place_attrs, dict):
+        raise TestFailure(f"{context}: place_attrs must be dict")
+    for place_id in F12_ROOM_PLACES:
+        if place_id not in place_attrs:
+            raise TestFailure(f"{context}: place_attrs missing {place_id}")
+    if not isinstance(payload.get("agent_locations"), dict):
+        raise TestFailure(f"{context}: agent_locations must be dict")
+    if not isinstance(payload.get("relations"), list):
+        raise TestFailure(f"{context}: relations must be list")
+    if not isinstance(payload.get("group_members"), dict):
+        raise TestFailure(f"{context}: group_members must be dict")
+    if not isinstance(payload.get("name_map"), dict):
+        raise TestFailure(f"{context}: name_map must be dict")
+
+
 def section(title: str) -> None:
     print(f"\n=== {title} ===")
 
@@ -2045,6 +2136,20 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
         raise TestFailure(f"GET /session failed: {snap}")
     ok("GET /session → initialized")
 
+    section("T4a-pre F12 Phase 2 world-snapshot + delta shape (dev_logs/32 §八)")
+    code, world_snap, cookie = http_json(
+        "GET", f"{base}{BASE_PATH}/world-snapshot", cookie=cookie
+    )
+    if code != 200 or not world_snap.get("success"):
+        raise TestFailure(f"GET /world-snapshot failed HTTP {code}: {world_snap}")
+    snap_data = world_snap.get("data") or {}
+    assert_f12_snapshot_shape(snap_data, context="world-snapshot")
+    ok(
+        f"GET /world-snapshot → tick={snap_data.get('through_tick')} "
+        f"agents={len(snap_data.get('agent_locations') or {})} "
+        f"places={len(snap_data.get('place_attrs') or {})}"
+    )
+
     section("T4e-pre F07-E6 double session/start hygiene (dev_logs/29 §3.6.2)")
     from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import (
         async_state_path,
@@ -2120,6 +2225,7 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
     saw_processing = False
     saw_inject_running = False
     saw_delta = False
+    saw_f12_delta = False
     client_since = start_tick
     last_through = start_tick - 1
     deadline = time.time() + 180.0
@@ -2151,6 +2257,8 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
             delta = last_result.get("delta")
             if delta is None:
                 raise TestFailure("F11-B: processing response missing delta")
+            assert_f12_delta_shape(delta, context="processing delta")
+            saw_f12_delta = True
             saw_delta = True
             through = int(delta.get("through_tick", start_tick - 1))
             if through < last_through:
@@ -2189,7 +2297,10 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
 
     if not saw_delta:
         raise TestFailure("F11-B: never received delta on processing poll")
+    if not saw_f12_delta:
+        raise TestFailure("F12: never validated F12 delta shape during processing")
     ok(f"F11-B delta on processing (through_tick reached {last_through})")
+    ok("F12 processing delta carries room_f2f / agent_locations / legacy fields")
 
     result = last_result
     if result.get("status") != "completed":
@@ -2256,12 +2367,35 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
 
     if result.get("status") != "completed":
         raise TestFailure(f"Turn 1 not completed: {result}")
+    assert_f12_delta_shape(result, context="completed action-result")
     public = result.get("public_messages") or []
     observer = result.get("observer_messages") or []
     grp = result.get("group_messages") or []
+    reception_f2f = (result.get("room_f2f") or {}).get("nvidia_reception") or []
+    if len(public) != len(reception_f2f):
+        raise TestFailure(
+            f"F12 legacy public_messages ({len(public)}) != "
+            f"room_f2f.reception ({len(reception_f2f)})"
+        )
+    if public and "sender_id" not in public[0]:
+        raise TestFailure("F12 GameMessage missing sender_id on F2F")
     ok(
         f"GET /action-result completed — F2F={len(public)} observer={len(observer)} "
-        f"GRP={len(grp)} turn→{result.get('player_turn')}"
+        f"GRP={len(grp)} room_f2f_places="
+        f"{sum(len(v) for v in (result.get('room_f2f') or {}).values())} "
+        f"agent_locs={len(result.get('agent_locations') or {})}"
+    )
+
+    code, world_snap_after, cookie = http_json(
+        "GET", f"{base}{BASE_PATH}/world-snapshot", cookie=cookie
+    )
+    if code != 200 or not world_snap_after.get("success"):
+        raise TestFailure(f"post-turn world-snapshot failed: {world_snap_after}")
+    snap_after = world_snap_after.get("data") or {}
+    assert_f12_snapshot_shape(snap_after, context="post-turn world-snapshot")
+    ok(
+        f"GET /world-snapshot after Turn 1 — tick={snap_after.get('through_tick')} "
+        f"player_place={snap_after.get('player_place_id')}"
     )
 
     section("T4d F07 Phase 1 运行时验收 (dev_logs/24 §12.1 · Tier A/B)")
