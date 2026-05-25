@@ -1,15 +1,15 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   getActionResult,
   getSession,
-  getWorldDelta,
-  getWorldSnapshot,
   postPlayerTurn,
   resetSession,
   resumeWorldLoop,
   startSession,
 } from "../../api/hbm";
-import { applyWorldDeltaPayload } from "./worldDeltaApply";
+import { syncWorldDeltaCatchUp } from "./syncWorldDelta";
+import { hydrateWorldFromServer } from "./hydrateWorldSnapshot";
+import { computeNextSinceTick } from "./worldDeltaApply";
 import type {
   ActionResultCompleted,
   ActionResultProcessing,
@@ -24,6 +24,7 @@ import {
 } from "../../constants/gameLoop";
 import { useGameStoreContext } from "../../store/GameStoreProvider";
 import { errorMessage, isRunnerNotReadyError } from "../../utils/apiError";
+import { hardReloadPage } from "../../utils/hardReload";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -58,19 +59,8 @@ function isProcessingWithDelta(
   );
 }
 
-/** Hydrate room/agent inbox from F14 delta, then calibrate locations from snapshot. */
-async function hydrateWorldFromServer(
-  dispatch: ReturnType<typeof useGameStoreContext>["dispatch"],
-) {
-  const deltaResp = await getWorldDelta(0);
-  if (deltaResp.data) {
-    applyWorldDeltaPayload(dispatch, deltaResp.data, 0);
-  }
-  const snapResp = await getWorldSnapshot();
-  if (snapResp.data) {
-    dispatch({ type: "SET_WORLD_SNAPSHOT", snapshot: snapResp.data });
-  }
-}
+/** Hydrate full world state from snapshot (includes delta payload since tick 0). */
+export { hydrateWorldFromServer } from "./hydrateWorldSnapshot";
 
 /** F3-2 / F4-8 — start via session/start; full reset via session/reset. */
 export function useStartGame() {
@@ -82,12 +72,18 @@ export function useStartGame() {
       dispatch({ type: "DISMISS_PHASE_TOAST" });
       dispatch({ type: "SET_ERROR", message: undefined });
       try {
-        const response =
-          mode === "reset" ? await resetSession() : await startSession();
+        if (mode === "reset") {
+          const response = await resetSession();
+          if (!response.data) {
+            throw new Error("session/reset 未返回 data");
+          }
+          hardReloadPage();
+          return;
+        }
+
+        const response = await startSession();
         if (!response.data) {
-          throw new Error(
-            mode === "reset" ? "session/reset 未返回 data" : "session/start 未返回 data",
-          );
+          throw new Error("session/start 未返回 data");
         }
         applySessionStart(response.data);
         await hydrateWorldFromServer(dispatch);
@@ -120,7 +116,7 @@ export function useStartGame() {
   const resetDemo = useCallback(async () => {
     if (
       !window.confirm(
-        "确定要重开吗？将重置 Agent 世界、清空所有对话与进度，并从 Turn 1 重新开始。",
+        "确定要重开吗？将重置 Agent 世界、清空所有对话与进度，并从 Turn 1 重新开始（页面将自动刷新）。",
       )
     ) {
       return;
@@ -134,6 +130,11 @@ export function useStartGame() {
 /** F3-3 + Phase 2 — POST enqueue only; F14 poll merges world delta. */
 export function useGameLoop() {
   const { state, dispatch, setLoading } = useGameStoreContext();
+  const deltaSinceRef = useRef(state.deltaSinceTick);
+
+  useEffect(() => {
+    deltaSinceRef.current = state.deltaSinceTick;
+  }, [state.deltaSinceTick]);
 
   const refreshSession = useCallback(async () => {
     const response = await getSession();
@@ -204,6 +205,11 @@ export function useGameLoop() {
             playerTurn: data.player_turn,
           });
           keepImmediateMsg = true;
+          try {
+            await syncWorldDeltaCatchUp(dispatch, deltaSinceRef.current);
+          } catch (err) {
+            handleApiError(err, "世界同步失败");
+          }
           return;
         }
 
@@ -248,7 +254,11 @@ export function useGameLoop() {
 
           if (isProcessingWithDelta(pollData)) {
             const { delta } = pollData;
-            dispatch({ type: "APPLY_WORLD_DELTA", delta });
+            dispatch({
+              type: "APPLY_WORLD_DELTA",
+              delta,
+              nextSinceTick: computeNextSinceTick(delta, sinceTick),
+            });
             sinceTick = delta.through_tick;
           }
 

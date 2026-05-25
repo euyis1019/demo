@@ -104,7 +104,7 @@ export interface AgentMessageBucket {
   grp: GameMessage[];
 }
 
-export interface WorldSnapshot {
+export interface WorldSnapshot extends Partial<TurnDelta> {
   through_tick: number;
   player_place_id: string;
   agent_locations: Record<string, AgentLocation>;

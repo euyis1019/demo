@@ -55,12 +55,20 @@ class PlayerInputQueue:
         with self._lock:
             return len(self._player)
 
-    def drain_for_tick(self) -> tuple[List[PlayerInputItem], List[ScriptQueueItem]]:
-        """Drain all pending items at a tick boundary (player first, then script)."""
+    def drain_for_tick(
+        self, *, max_player_items: int = 1
+    ) -> tuple[List[PlayerInputItem], List[ScriptQueueItem]]:
+        """Drain pending items at a tick boundary.
+
+        Player inputs are FIFO with ``max_player_items`` per tick so each inject
+        gets its own LLM window. Script events still drain fully each tick.
+        """
         with self._lock:
-            players = list(self._player)
+            limit = max(0, int(max_player_items))
+            players = []
+            while self._player and len(players) < limit:
+                players.append(self._player.popleft())
             scripts = list(self._script)
-            self._player.clear()
             self._script.clear()
             self._total_drained += len(players) + len(scripts)
             return players, scripts

@@ -36,7 +36,7 @@ export function RoomCell({
           type="button"
           className="room-cell__history-btn"
           aria-label={`${placeDisplayName(placeId)} 聊天记录`}
-          title="聊天记录"
+          title={`聊天记录${messages.length > 0 ? ` (${messages.length})` : ""}`}
           onClick={() => setHistoryOpen(true)}
         >
           历史

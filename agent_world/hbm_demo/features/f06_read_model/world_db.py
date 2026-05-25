@@ -84,15 +84,17 @@ class ReadOnlyWorldDB:
         since_t: int,
         *,
         limit: int = 30,
+        exclusive_since: bool = False,
     ) -> List[Tuple[int, int, int, str]]:
         def _query(conn: sqlite3.Connection) -> List[Tuple[int, int, int, str]]:
+            since_op = ">" if exclusive_since else ">="
             rows = conn.execute(
-                """
+                f"""
                 SELECT MIN(message_id) AS message_id, sender_id,
                        attempted_at, content
                 FROM direct_message
                 WHERE channel_type='F2F' AND place_id=?
-                  AND attempted_at >= ? AND attempted_at <= ?
+                  AND attempted_at {since_op} ? AND attempted_at <= ?
                 GROUP BY sender_id, attempted_at, content
                 ORDER BY attempted_at, message_id
                 LIMIT ?
@@ -248,10 +250,13 @@ class ReadOnlyWorldDB:
     ) -> Dict[str, List[tuple]]:
         out: Dict[str, List[tuple]] = {}
         for place_id in place_ids:
-            history = self.fetch_f2f_history_at(
-                place_id, t_now, since_t, limit=limit
+            out[place_id] = self.fetch_f2f_history_at(
+                place_id,
+                t_now,
+                since_t,
+                limit=limit,
+                exclusive_since=True,
             )
-            out[place_id] = [h for h in history if h[0] > since_t]
         return out
 
     def fetch_rdc_for_agent(

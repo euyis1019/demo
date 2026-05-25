@@ -92,9 +92,14 @@ def wire_handlers(
                 {"events": events},
                 existing_ids=script_engine.loaded_event_ids,
             )
-            for ev in result.events:
+            loaded = list(result.events)
+            for ev in loaded:
                 script_engine.events_by_id[ev.id] = ev
                 script_engine.loaded_event_ids.add(ev.id)
+            if loaded:
+                await script_engine.apply(
+                    loaded, world_state, int(world_state.clock.t)
+                )
 
         n = int(payload.get("tick_count", 6))
         tick_loops = resolve_inject_tick_loops(n)
@@ -215,6 +220,8 @@ def wire_handlers(
             segment_store=segment_store,
             sim_dir=sim_dir_str,
         )
+        if hasattr(world_step, "clear_tick_context"):
+            world_step.clear_tick_context()
         if orchestrator is not None and orchestrator.enabled:
             orchestrator.update_session_mirror({})
             write_env_status(

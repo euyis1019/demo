@@ -8,6 +8,7 @@ from typing import Any, Dict
 from agent_world.hbm_demo.features.f01_session.lifecycle import load_session
 from agent_world.hbm_demo.features.f01_session.paths import get_name_map, get_sim_dir
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
+from agent_world.hbm_demo.features.f12_world_sync.delta import build_session_world_delta
 from agent_world.hbm_demo.features.f12_world_sync.snapshot import build_world_snapshot
 from agent_world.hbm_demo.shared.env_status import read_env_status
 
@@ -25,7 +26,7 @@ def get_world_snapshot(
     db = make_readonly_db(sim)
     name_map = get_name_map()
     player_place = hbm.place_id if hbm else "nvidia_reception"
-    return build_world_snapshot(
+    snapshot = build_world_snapshot(
         db,
         name_map,
         sim_dir=sim,
@@ -33,3 +34,14 @@ def get_world_snapshot(
         t_now=t_now,
         player_place_id=player_place,
     )
+    delta = build_session_world_delta(
+        since_tick=0,
+        t_now=t_now,
+        player_place_id=player_place,
+        db=db,
+        name_map=name_map,
+    )
+    return {
+        **snapshot,
+        **delta,
+    }

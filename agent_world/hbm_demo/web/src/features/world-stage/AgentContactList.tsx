@@ -31,7 +31,7 @@ export function AgentContactList({ threads, onSelect }: AgentContactListProps) {
               ].join(" ")}
               aria-hidden
             >
-              {thread.kind === "rdc" ? "私" : thread.kind === "grp" ? "群" : "OS"}
+              {thread.kind === "rdc" ? "私" : thread.kind === "grp" ? "群" : thread.kind === "f2f" ? "面" : "OS"}
             </span>
             <span className="agent-contact-list__main">
               <span className="agent-contact-list__title-row">

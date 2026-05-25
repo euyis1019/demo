@@ -2423,6 +2423,13 @@ def test_f07_v2_phase3_prompt_trace() -> None:
         raise TestFailure("F15 linker _action_name must read _ToolCall.tool_name")
     ok("F15 linker resolves _ToolCall.tool_name")
 
+    linker_src = (HBM_DIR / "features" / "f15_prompt_trace" / "linker.py").read_text(
+        encoding="utf-8"
+    )
+    if "comm_actions" not in linker_src or "send_message" not in linker_src:
+        raise TestFailure("F15 linker must link comm actions even when bus delivery fails")
+    ok("F15 linker links F2F/RDC/GRP regardless of dispatch success")
+
     world_sync = (HBM_DIR / "web" / "src" / "store" / "worldSync.ts").read_text(
         encoding="utf-8"
     )
@@ -3927,6 +3934,19 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
     if tick_after != 0:
         raise TestFailure(f"reset后 tick 应为 0，实际 {tick_after}")
     ok("F01 reset → env tick=0")
+
+    import sqlite3
+
+    db_path = SIM_DIR / "world.db"
+    with sqlite3.connect(str(db_path)) as conn:
+        trace_n = conn.execute("SELECT COUNT(*) FROM agent_llm_trace").fetchone()[0]
+        msg_n = conn.execute("SELECT COUNT(*) FROM direct_message").fetchone()[0]
+        state_n = conn.execute("SELECT COUNT(*) FROM agent_state_log").fetchone()[0]
+    if trace_n != 0 or msg_n != 0 or state_n != 0:
+        raise TestFailure(
+            f"reset后 world.db 仍有残留 trace={trace_n} msg={msg_n} state={state_n}"
+        )
+    ok("F01 reset clears agent_llm_trace / direct_message / agent_state_log")
 
     section("T4f F07-E6 Phase 4 IPC smoke (dev_logs/29 §3.6.4)")
     from agent_world.hbm_demo.features.f07_agent_control.phase4_smoke import (

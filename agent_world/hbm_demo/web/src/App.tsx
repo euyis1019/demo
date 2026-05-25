@@ -28,7 +28,7 @@ import {
 import { useEnvStatus } from "./features/observer/useEnvStatus";
 import { agentsInPlace } from "./store/worldSync";
 import { GameStoreProvider, useGameStoreContext } from "./store";
-import { placeDisplayName } from "./utils/places";
+import { placeDisplayName, type PlaceId } from "./utils/places";
 import { isPlayerSender } from "./utils/messages";
 
 function GameApp() {
@@ -46,7 +46,7 @@ function GameApp() {
     state.sessionInitialized && state.view === "playing",
   );
   useWorldDeltaSync(
-    state.sessionInitialized && state.view === "playing",
+    state.sessionInitialized && state.view === "playing" && state.worldSyncReady,
     worldLoopState === "paused",
     envTick,
   );
@@ -169,6 +169,7 @@ function GameApp() {
         main={
           <WorldStage
             roomF2f={roomF2f}
+            playerPlaceId={placeId as PlaceId}
             agentLocations={agentLocations}
             agentInbox={agentInbox}
             nameMap={nameMap}

@@ -27,6 +27,7 @@ from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import save_tas
 from agent_world.hbm_demo.http.ipc_helper import (
     get_ipc_client,
     push_session_mirror,
+    push_turn_context_mirror,
     resolve_loop_min_ticks,
     send_enqueue_player_input,
     send_inject_batch,
@@ -107,8 +108,13 @@ def run_background_turn(
                 turn_context=turn_context,
                 timeout=ipc_timeout,
             )
+            push_turn_context_mirror(
+                ipc_client,
+                turn_context,
+                stats=dict(hbm.stats),
+                timeout=ipc_timeout,
+            )
             hbm.player_turn += 1
-            push_session_mirror(ipc_client, hbm, timeout=ipc_timeout)
             loop_status = wait_for_loop_window(
                 ipc_client,
                 start_tick=start_tick,
@@ -116,6 +122,7 @@ def run_background_turn(
                 timeout=ipc_timeout,
             )
             ipc_end_tick = int(loop_status.get("current_tick", start_tick))
+            push_session_mirror(ipc_client, hbm, timeout=ipc_timeout)
         else:
             resp = send_inject_batch(
                 ipc_client,

@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { getHealth, getSession, isRunnerReady } from "../../api/hbm";
 import { HbmApiError } from "../../api/errors";
+import { hydrateWorldFromServer } from "../game-loop/hydrateWorldSnapshot";
 import { useGameStoreContext } from "../../store/GameStoreProvider";
 
 /** F3-1 — mount health check; 503 → BootScreen + manual retry. */
@@ -9,6 +10,7 @@ export function useHealthCheck() {
     setHealthChecking,
     setHealthResult,
     applySessionSnapshot,
+    dispatch,
   } = useGameStoreContext();
 
   const checkHealth = useCallback(async () => {
@@ -22,6 +24,7 @@ export function useHealthCheck() {
         const session = await getSession();
         if (session.data?.initialized) {
           applySessionSnapshot(session.data);
+          await hydrateWorldFromServer(dispatch);
         }
       }
     } catch (err) {
@@ -33,7 +36,7 @@ export function useHealthCheck() {
             : "健康检查失败";
       setHealthResult(false, message);
     }
-  }, [applySessionSnapshot, setHealthChecking, setHealthResult]);
+  }, [applySessionSnapshot, dispatch, setHealthChecking, setHealthResult]);
 
   useEffect(() => {
     void checkHealth();

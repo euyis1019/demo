@@ -327,7 +327,15 @@ def test_world_reset_clears_log_tables() -> None:
     from agent_world.hbm_demo.features.f01_session import world_reset
 
     volatile = world_reset._VOLATILE_TABLES
-    for table in ("agent_location_log", "agent_state_log"):
+    for table in (
+        "agent_location_log",
+        "agent_state_log",
+        "agent_llm_trace",
+        "agent_action_trace_link",
+        "group_event",
+        "group_member",
+        "capability",
+    ):
         if table not in volatile:
             raise TestFailure(f"{table} not in world_reset._VOLATILE_TABLES")
     ok("world_reset._VOLATILE_TABLES includes F12 log tables")

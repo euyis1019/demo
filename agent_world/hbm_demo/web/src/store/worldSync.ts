@@ -440,4 +440,4 @@ export function moveKeyForAgent(agentId: string, recentMoveKeys: string[]): bool
   return recentMoveKeys.some((key) => key.startsWith(`${agentId}:`));
 }
 
-export { threadKeyRdc, threadKeyGrp };
+export { extractRdcLinks, threadKeyRdc, threadKeyGrp };

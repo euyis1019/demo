@@ -10,7 +10,7 @@ import { applyWorldDeltaPayload } from "./worldDeltaApply";
 
 /**
  * F14 — HTTP poll for session world delta.
- * Also re-fetches immediately when backend env tick advances (tick-triggered sync).
+ * Uses deltaSinceTick (exclusive poll cursor), NOT display worldTick.
  */
 export function useWorldDeltaPoll(
   enabled: boolean,
@@ -18,13 +18,9 @@ export function useWorldDeltaPoll(
   envTick: number | null = null,
 ): void {
   const { state, dispatch } = useGameStoreContext();
-  const sinceTickRef = useRef(state.worldTick);
   const inFlightRef = useRef(false);
   const lastEnvTickRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    sinceTickRef.current = state.worldTick;
-  }, [state.worldTick]);
+  const sinceTick = state.deltaSinceTick;
 
   const poll = useCallback(async () => {
     if (inFlightRef.current) {
@@ -32,16 +28,12 @@ export function useWorldDeltaPoll(
     }
     inFlightRef.current = true;
     try {
-      const response = await getWorldDelta(sinceTickRef.current);
+      const response = await getWorldDelta(sinceTick);
       const data = response.data;
       if (!data) {
         return;
       }
-      sinceTickRef.current = applyWorldDeltaPayload(
-        dispatch,
-        data,
-        sinceTickRef.current,
-      );
+      applyWorldDeltaPayload(dispatch, data, sinceTick);
     } catch (err) {
       if (isRunnerNotReadyError(err)) {
         return;
@@ -53,7 +45,7 @@ export function useWorldDeltaPoll(
     } finally {
       inFlightRef.current = false;
     }
-  }, [dispatch]);
+  }, [dispatch, sinceTick]);
 
   useEffect(() => {
     if (!enabled) {

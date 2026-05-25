@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 import type { GameMessage, LocationChange, StateChange } from "../../api/types";
 import { agentDisplayName } from "../../constants/agents";
+import type { PlaceId } from "../../utils/places";
 import type { AgentInbox } from "../../store/worldSync";
+import { isPlayerSender } from "../../utils/messages";
 import { AgentContactList } from "./AgentContactList";
 import { AgentThreadDetail } from "./AgentThreadDetail";
 import {
@@ -13,6 +15,8 @@ export interface AgentPhoneModalProps {
   agentId: string;
   inbox: AgentInbox;
   nameMap: Record<string, string>;
+  playerPlaceId: PlaceId;
+  roomF2f: GameMessage[];
   onClose: () => void;
   onOpenPromptTrace?: (req: {
     refKey?: string;
@@ -25,14 +29,26 @@ export function AgentPhoneModal({
   agentId,
   inbox,
   nameMap,
+  playerPlaceId,
+  roomF2f,
   onClose,
   onOpenPromptTrace,
 }: AgentPhoneModalProps) {
   const [activeThread, setActiveThread] = useState<ContactThread | null>(null);
   const title = agentDisplayName(agentId, nameMap);
+  const agentF2f = useMemo(
+    () =>
+      roomF2f.filter(
+        (message) =>
+          message.place_id === playerPlaceId &&
+          !isPlayerSender(message.sender) &&
+          String(message.sender_id ?? "") === agentId,
+      ),
+    [roomF2f, playerPlaceId, agentId],
+  );
   const threads = useMemo(
-    () => buildContactThreads(inbox, nameMap, agentId),
-    [inbox, nameMap, agentId],
+    () => buildContactThreads(inbox, nameMap, agentId, agentF2f),
+    [inbox, nameMap, agentId, agentF2f],
   );
 
   const openMessageTrace = useCallback(

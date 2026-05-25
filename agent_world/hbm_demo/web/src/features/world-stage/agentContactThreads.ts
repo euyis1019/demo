@@ -5,7 +5,7 @@ import type { AgentInbox } from "../../store/worldSync";
 import { threadKeyGrp, threadKeyRdc } from "../../store/worldSync";
 import { placeDisplayName } from "../../utils/places";
 
-export type ContactThreadKind = "rdc" | "grp" | "os" | "location";
+export type ContactThreadKind = "rdc" | "grp" | "os" | "location" | "f2f";
 
 export interface ContactThread {
   key: string;
@@ -44,6 +44,7 @@ export function buildContactThreads(
   inbox: AgentInbox,
   nameMap: Record<string, string>,
   ownerAgentId: string,
+  f2fMessages: GameMessage[] = [],
 ): ContactThread[] {
   const threads: ContactThread[] = [];
   const rdcBuckets = new Map<string, GameMessage[]>();
@@ -95,6 +96,21 @@ export function buildContactThreads(
       sortTick: lastTick,
       archived: inbox.archivedThreadKeys.includes(key),
       messages,
+      osEntries: [],
+      locationEntries: [],
+    });
+  }
+
+  if (f2fMessages.length > 0) {
+    const lastTick = f2fMessages.at(-1)?.attempted_at ?? 0;
+    threads.push({
+      key: "f2f:player",
+      kind: "f2f",
+      title: "面对面对话",
+      preview: previewFromMessages(f2fMessages),
+      sortTick: lastTick,
+      archived: false,
+      messages: f2fMessages,
       osEntries: [],
       locationEntries: [],
     });

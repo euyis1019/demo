@@ -7,7 +7,6 @@ import { applyWorldDeltaPayload } from "./worldDeltaApply";
 
 function worldStreamUrl(): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  // API_PREFIX already includes `/api/hbm/simulations/${SIM_ID}` (see api/config.ts).
   return `${proto}//${window.location.host}${API_PREFIX}/world-stream`;
 }
 
@@ -18,12 +17,12 @@ export function useWorldDeltaStream(
   onConnected: (connected: boolean) => void,
 ): void {
   const { state, dispatch } = useGameStoreContext();
-  const sinceTickRef = useRef(state.worldTick);
+  const sinceTickRef = useRef(state.deltaSinceTick);
   const onConnectedRef = useRef(onConnected);
 
   useEffect(() => {
-    sinceTickRef.current = state.worldTick;
-  }, [state.worldTick]);
+    sinceTickRef.current = state.deltaSinceTick;
+  }, [state.deltaSinceTick]);
 
   useEffect(() => {
     onConnectedRef.current = onConnected;

@@ -39,6 +39,7 @@ from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop
 from agent_world.hbm_demo.http.ipc_helper import (
     get_ipc_client,
     push_session_mirror,
+    push_turn_context_mirror,
     resolve_loop_min_ticks,
     send_enqueue_player_input,
     send_inject_batch,
@@ -95,8 +96,13 @@ def run_debug_inject(
             turn_context=turn_context,
             timeout=timeout,
         )
+        push_turn_context_mirror(
+            ipc_client,
+            turn_context,
+            stats=dict(session.stats),
+            timeout=timeout,
+        )
         session.player_turn += 1
-        push_session_mirror(ipc_client, session, timeout=timeout)
         loop_status = wait_for_loop_window(
             ipc_client,
             start_tick=start_tick,
@@ -151,8 +157,13 @@ def _handle_sync_inject(
             turn_context=turn_context,
             timeout=ipc_timeout,
         )
+        push_turn_context_mirror(
+            ipc_client,
+            turn_context,
+            stats=dict(hbm.stats),
+            timeout=ipc_timeout,
+        )
         hbm.player_turn += 1
-        push_session_mirror(ipc_client, hbm, timeout=ipc_timeout)
         loop_status = wait_for_loop_window(
             ipc_client,
             start_tick=start_tick,
@@ -161,6 +172,7 @@ def _handle_sync_inject(
         )
         ipc_end_tick = int(loop_status.get("current_tick", start_tick))
         ipc_result = dict(loop_status)
+        push_session_mirror(ipc_client, hbm, timeout=ipc_timeout)
     else:
         resp = send_inject_batch(
             ipc_client,
@@ -306,8 +318,13 @@ def _handle_v2_player_turn(
         turn_context=turn_context,
         timeout=ipc_timeout,
     )
+    push_turn_context_mirror(
+        ipc_client,
+        turn_context,
+        stats=dict(hbm.stats),
+        timeout=ipc_timeout,
+    )
     hbm.player_turn += 1
-    push_session_mirror(ipc_client, hbm, timeout=ipc_timeout)
     save_session(flask_session, hbm, sim_id)
 
     log_turn_event(

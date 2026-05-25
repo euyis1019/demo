@@ -73,6 +73,9 @@ def _passive_candidates(
             continue
         if has_unread_inbound(aid, agent, world, t):
             out.append(aid)
+            continue
+        if phase == "Phase 1" and _in_negotiation_room(world, aid):
+            out.append(aid)
 
     if phase == "Phase 3" and player_turn >= int(cfg.get("sam_rdc_from_turn", 16)):
         if SAM_ID not in out and SAM_ID not in _primary_ids(phase, player_turn):
@@ -82,6 +85,13 @@ def _passive_candidates(
                     out.append(SAM_ID)
 
     return out
+
+
+def _in_negotiation_room(world: Any, agent_id: int) -> bool:
+    places = getattr(world, "places", None)
+    if places is None:
+        return False
+    return str(places.L_t(int(agent_id)) or "") == "negotiation_room"
 
 
 def _resolve_agent(agents: Any, agent_id: int) -> Any:
@@ -167,7 +177,7 @@ def pick_active_ids(
             if aid not in inject_set:
                 _add(aid)
 
-    # 4) Passive agents (unread-driven, probabilistic).
+    # 4) Passive agents (unread-driven; Phase 1 negotiation room skips random drop).
     cfg = _phase_cfg(phase)
     max_passive = int(cfg.get("passive_max_per_batch", 1))
     remaining = max(0, max_passive - passive_ticks_so_far)
@@ -177,12 +187,28 @@ def pick_active_ids(
         for aid in _passive_candidates(phase, player_turn, world, t, agents):
             if aid in seen:
                 continue
+            if phase == "Phase 1" and _in_negotiation_room(world, aid):
+                _add(aid)
+                remaining -= 1
+                if remaining <= 0:
+                    break
+                continue
             if rng.random() > prob:
                 continue
             _add(aid)
             remaining -= 1
             if remaining <= 0:
                 break
+
+    # 5) Phase 1 negotiation room — keep Jensen/VP + CEOs in rotation.
+    if phase == "Phase 1":
+        for aid in (2, 3):
+            if _in_negotiation_room(world, aid):
+                _add(aid)
+        ceo_ids = [4, 5, 6]
+        _add(ceo_ids[int(t) % len(ceo_ids)])
+        if int(t) % 2 == 0:
+            _add(ceo_ids[(int(t) + 1) % len(ceo_ids)])
 
     log.debug(
         "F07 pick_active phase=%s turn=%s t=%s batch=%s active=%s",

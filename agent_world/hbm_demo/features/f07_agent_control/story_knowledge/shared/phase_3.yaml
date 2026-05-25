@@ -14,3 +14,4 @@ plot_beats: |
 forbidden_actions: |
   节点 C 前 CEO 禁止 MOVE。Sam Turn<16 冻结。禁止 NVIDIA 阵营帮 CEO 攻击玩家。
   禁止脱离玩家议题自说自话；Jensen/VP 须引用玩家刚才的观点帮圆场。
+  收到他人 RDC 私信须 send_message 回复（1–3 句），优先于 do_nothing。

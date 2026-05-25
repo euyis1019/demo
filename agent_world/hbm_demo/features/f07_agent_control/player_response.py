@@ -36,12 +36,20 @@ def agent_display_name(agent_id: int) -> str:
 def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
     """Phase/agent-specific L6 bullets (§8.2 / F07-C)."""
     aid = int(agent_id)
-    lines: list[str] = []
+    lines: list[str] = [
+        "★ 收到其他 Agent 的 RDC 私信时，本拍须 send_message 回复对方（1–3 句），"
+        "优先于 do_nothing / update_state；同一话题勿重复刷屏。"
+    ]
 
     if aid == 1 and phase == "Phase 1":
         lines.append(
             "★ 在前台必须用 speak_to_local 先回应玩家，再 send_message RDC→Jensen。"
         )
+        if not is_experience_hardening():
+            lines.append(
+                "★ 每句玩家 inject 必须先 speak_to_local 回应；LLM 跳过时会由系统代发短句，"
+                "但你仍应优先自己开口。"
+            )
         if is_experience_hardening():
             lines.append(
                 "★ 本 Turn 唯一权威输入是下方「玩家说：…」——必须优先回应该句。"
@@ -116,6 +124,7 @@ def format_l6_player_directive(
         f"【系统约束·{phase} Turn {player_turn}】\n"
         f"★ 角色扮演：你是{role}。下面【世界态】【剧情】【你的目标】务必读完再行动。\n"
         f"★ 本拍必须先直接回应玩家下面这句话（复述或引用关键词），再考虑 RDC/其他动作。\n"
+        f"★ 收到他人 RDC 私信时须 send_message 回复对方，优先于 do_nothing。\n"
         f"★ 你【说出口】的内容：{output_hint}，禁止演讲腔；上下文详 ≠ 你可以长篇大论。\n"
         f"{extra}"
         f"★ 禁止：替其他角色做决定、无关议题、本阶段禁止的 MOVE/GRP。\n"
@@ -152,8 +161,12 @@ def format_notification_directive(
         return (
             header
             + "通过同室 F2F 或 group 200 感知局势；攻击玩家方案，"
-            "不帮 NVIDIA 阵营说话。\n"
+            "不帮 NVIDIA 阵营说话。收到 RDC 私信须 send_message 回复。\n"
         )
+    if phase == "Phase 4" and aid == 3:
+        return header + "本 Phase 旁听 silent_observer，禁止任何输出。\n"
     return (
-        header + "若需了解玩家说了什么，请等待同阵营同事 RDC 转发。\n"
+        header
+        + "收到其他 Agent 的 RDC 私信时须 send_message 回复（1–3 句）；"
+        "同室可用 speak_to_local。勿对同一话题重复刷屏。\n"
     )

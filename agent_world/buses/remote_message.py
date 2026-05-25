@@ -84,6 +84,8 @@ class RemoteMessageBus:
         ``arrive_at`` (``t`` on failure, ``t + delay`` on success) and the
         new ``direct_message.message_id``.
         """
+        sender_id = int(sender_id)
+        recipient_id = int(recipient_id)
         src_place = self.places.L_t(sender_id)
         # ``dst_place`` is best-effort: φ_RDC false short-circuits if it is None.
         dst_place = self.places.L_t(recipient_id)

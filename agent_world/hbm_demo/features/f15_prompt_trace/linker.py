@@ -53,8 +53,12 @@ async def record_action_links(
 
     name = _action_name(action_type)
     result = dispatch_result or {}
-    if not result.get("success") and not result.get("noop"):
-        return
+    # F2F/RDC/GRP: link the LLM decision even when bus delivery fails (φ reject).
+    # Prompt Inspector shows what the agent chose to send, not deliverability.
+    comm_actions = frozenset({"speak_to_local", "send_message", "send_to_group"})
+    if name not in comm_actions:
+        if not result.get("success") and not result.get("noop"):
+            return
 
     try:
         if name == "speak_to_local":

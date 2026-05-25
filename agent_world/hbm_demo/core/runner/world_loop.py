@@ -290,6 +290,10 @@ class WorldLoopOrchestrator:
         tick_after = int(self._get_current_tick())
         if tick_after > tick_before:
             self._last_activity_t = tick_after
+        if mirror and is_f07_enabled() and hasattr(
+            self._world_step, "apply_batch_f2f_fallback_at"
+        ):
+            await self._world_step.apply_batch_f2f_fallback_at(tick_after)
         self._write_status(loop_running=True)
 
     async def _drain_queue(self) -> Optional[Dict[str, Any]]:
@@ -347,9 +351,20 @@ class WorldLoopOrchestrator:
             {"events": events},
             existing_ids=self._script_engine.loaded_event_ids,
         )
-        for ev in result.events:
+        loaded = list(result.events)
+        for ev in loaded:
             self._script_engine.events_by_id[ev.id] = ev
             self._script_engine.loaded_event_ids.add(ev.id)
+        if not loaded:
+            return
+        t = int(self._get_current_tick())
+        await self._script_engine.apply(loaded, self._world_state, t)
+        log.debug(
+            "world loop applied %d script events at t=%s ids=%s",
+            len(loaded),
+            t,
+            [ev.id for ev in loaded],
+        )
 
     def _write_status(self, *, loop_running: bool) -> None:
         paused_iso: Optional[str] = None

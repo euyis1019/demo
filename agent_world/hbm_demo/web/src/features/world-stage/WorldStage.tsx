@@ -9,6 +9,7 @@ import { WorldEventModal } from "./WorldEventModal";
 
 export interface WorldStageProps {
   roomF2f: Record<PlaceId, GameMessage[]>;
+  playerPlaceId: PlaceId;
   agentLocations: Record<string, { placeId: string; arrivedAt: number }>;
   agentInbox: Record<string, AgentInbox>;
   nameMap: Record<string, string>;
@@ -28,6 +29,7 @@ export interface WorldStageProps {
 
 export function WorldStage({
   roomF2f,
+  playerPlaceId,
   agentLocations,
   agentInbox,
   nameMap,
@@ -87,6 +89,11 @@ export function WorldStage({
         }
       : null;
 
+  const activeAgentPlaceId =
+    activeAgentModal != null
+      ? ((agentLocations[activeAgentModal]?.placeId ?? playerPlaceId) as PlaceId)
+      : playerPlaceId;
+
   return (
     <div className="world-stage">
       {immediateMsg ? (
@@ -117,6 +124,8 @@ export function WorldStage({
           agentId={activeAgentModal}
           inbox={activeInbox}
           nameMap={nameMap}
+          playerPlaceId={playerPlaceId}
+          roomF2f={roomF2f[activeAgentPlaceId] ?? []}
           onClose={onCloseAgentModal}
           onOpenPromptTrace={(req) => void promptTrace.openTrace(req)}
         />

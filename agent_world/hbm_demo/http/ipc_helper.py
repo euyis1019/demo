@@ -101,6 +101,22 @@ def push_session_mirror(
     send_update_session_mirror(client, turn_context=mirror, timeout=timeout)
 
 
+def push_turn_context_mirror(
+    client: SimulationIPCClient,
+    turn_context: Dict[str, Any],
+    *,
+    stats: Optional[Dict[str, Any]] = None,
+    timeout: float = DEFAULT_MOVE_TIMEOUT,
+) -> None:
+    """Push the active inject batch turn_context — before Flask player_turn increment."""
+    if not is_world_loop_enabled():
+        return
+    mirror = dict(turn_context)
+    if stats is not None:
+        mirror["stats"] = dict(stats)
+    send_update_session_mirror(client, turn_context=mirror, timeout=timeout)
+
+
 def send_enqueue_player_input(
     client: SimulationIPCClient,
     *,

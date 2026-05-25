@@ -17,6 +17,7 @@ import { emptyRoomF2f } from "../utils/places";
 import {
   applyWorldDelta,
   applyWorldSnapshot,
+  extractRdcLinks,
   pushPlayerBubbleToRoom,
   type AgentInbox,
   type RdcLink,
@@ -39,7 +40,12 @@ export interface GameState {
   phase: string;
   playerTurn: number;
   placeId: string;
+  /** Display / env tick — not used as delta poll cursor. */
   worldTick: number;
+  /** Exclusive lower bound for GET /world-delta since_tick. */
+  deltaSinceTick: number;
+  /** True after initial snapshot hydrate — avoids racing poll during startup. */
+  worldSyncReady: boolean;
   worldLoopState: WorldLoopState;
   worldLoopPausedAtTick?: number;
   nameMap: Record<string, string>;
@@ -76,6 +82,8 @@ export function createInitialState(): GameState {
     playerTurn: 1,
     placeId: "nvidia_reception",
     worldTick: 0,
+    deltaSinceTick: 0,
+    worldSyncReady: false,
     worldLoopState: "unknown",
     nameMap: {},
     roomF2f: emptyRoomF2f(),
@@ -100,7 +108,9 @@ export type GameAction =
   | { type: "APPLY_PLAYER_TURN_PROCESSING"; stats: Stats; phase: string; playerTurn: number }
   | { type: "PUSH_PLAYER_BUBBLE"; message: GameMessage }
   | { type: "APPEND_TURN_DELTA"; delta: TurnDelta }
-  | { type: "APPLY_WORLD_DELTA"; delta: TurnDelta }
+  | { type: "APPLY_WORLD_DELTA"; delta: TurnDelta; nextSinceTick: number }
+  | { type: "SET_DELTA_SINCE"; nextSinceTick: number }
+  | { type: "WORLD_SYNC_READY"; deltaSinceTick: number }
   | { type: "APPEND_ACTION_RESULT"; data: ActionResultCompleted }
   | { type: "SET_GAME_OVER"; data: PlayerTurnGameOver }
   | { type: "SET_ENDING"; data: PlayerTurnCompleted }
@@ -139,12 +149,17 @@ function applyPhaseChange(
   };
 }
 
-function withWorldDelta(state: GameState, delta: TurnDelta): GameState {
+function withWorldDelta(
+  state: GameState,
+  delta: TurnDelta,
+  nextSinceTick: number,
+): GameState {
   const patch = applyWorldDelta(state, delta);
   return {
     ...state,
     placeId: patch.placeId ?? state.placeId,
-    worldTick: patch.worldTick,
+    worldTick: Math.max(state.worldTick, patch.worldTick),
+    deltaSinceTick: nextSinceTick,
     roomF2f: patch.roomF2f,
     agentLocations: patch.agentLocations,
     agentInbox: patch.agentInbox,
@@ -172,10 +187,14 @@ function resetWorldState(): Pick<
   | "recentMoveKeys"
   | "recentRdcLinks"
   | "worldTick"
+  | "deltaSinceTick"
+  | "worldSyncReady"
   | "nameMap"
 > {
   return {
     worldTick: 0,
+    deltaSinceTick: 0,
+    worldSyncReady: false,
     nameMap: {},
     roomF2f: emptyRoomF2f(),
     agentLocations: {},
@@ -209,6 +228,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         phase: action.data.phase,
         playerTurn: action.data.player_turn,
         placeId: action.data.place_id,
+        worldLoopState: "running",
+        worldLoopPausedAtTick: undefined,
+        loading: false,
         ...resetWorldState(),
         immediateMsg: undefined,
         phaseToast: null,
@@ -255,12 +277,22 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ),
       };
     case "APPEND_TURN_DELTA":
+      return withWorldDelta(state, action.delta, action.delta.through_tick);
     case "APPLY_WORLD_DELTA":
-      return withWorldDelta(state, action.delta);
+      return withWorldDelta(state, action.delta, action.nextSinceTick);
+    case "SET_DELTA_SINCE":
+      return { ...state, deltaSinceTick: action.nextSinceTick };
+    case "WORLD_SYNC_READY":
+      return {
+        ...state,
+        worldSyncReady: true,
+        deltaSinceTick: action.deltaSinceTick,
+        worldTick: Math.max(state.worldTick, action.deltaSinceTick),
+      };
     case "APPEND_ACTION_RESULT": {
       const phaseUpdate = applyPhaseChange(state, action.data.current_phase);
       return {
-        ...withWorldDelta(state, action.data),
+        ...withWorldDelta(state, action.data, action.data.through_tick),
         stats: { ...action.data.stats_update },
         ...phaseUpdate,
         immediateMsg: undefined,
@@ -268,13 +300,17 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
     case "SET_GAME_OVER":
       return {
-        ...withWorldDelta(state, {
-          through_tick: state.worldTick,
-          public_messages: action.data.public_messages,
-          observer_messages: [],
-          group_messages: [],
-          player_place_id: state.placeId,
-        }),
+        ...withWorldDelta(
+          state,
+          {
+            through_tick: state.worldTick,
+            public_messages: action.data.public_messages,
+            observer_messages: [],
+            group_messages: [],
+            player_place_id: state.placeId,
+          },
+          state.deltaSinceTick,
+        ),
         view: "game_over",
         loading: false,
         immediateMsg: undefined,
@@ -299,11 +335,46 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return { ...state, phaseToast: null };
     case "SET_WORLD_SNAPSHOT": {
       const snap = applyWorldSnapshot(action.snapshot);
+      const snapshotDelta = action.snapshot;
+      const deltaPatch = applyWorldDelta(
+        {
+          placeId: snap.placeId,
+          worldTick: state.worldTick,
+          roomF2f: state.roomF2f,
+          agentLocations: snap.agentLocations,
+          agentInbox: state.agentInbox,
+          worldEvents: state.worldEvents,
+          pendingWorldEvent: state.pendingWorldEvent,
+        },
+        {
+          through_tick: snapshotDelta.through_tick,
+          player_place_id: snapshotDelta.player_place_id,
+          room_f2f: snapshotDelta.room_f2f,
+          agent_messages: snapshotDelta.agent_messages,
+          location_changes: snapshotDelta.location_changes,
+          social_events: snapshotDelta.social_events,
+          state_changes: snapshotDelta.state_changes,
+          world_events: snapshotDelta.world_events,
+          agent_locations: snapshotDelta.agent_locations,
+          public_messages: snapshotDelta.public_messages ?? [],
+          observer_messages: snapshotDelta.observer_messages ?? [],
+          group_messages: snapshotDelta.group_messages ?? [],
+        },
+      );
       return {
         ...state,
-        placeId: snap.placeId,
-        // worldTick is the F14 delta cursor — only ADVANCE via APPLY_WORLD_DELTA.
-        agentLocations: snap.agentLocations,
+        placeId: deltaPatch.placeId ?? snap.placeId,
+        worldTick: Math.max(state.worldTick, deltaPatch.worldTick),
+        deltaSinceTick: Math.max(state.deltaSinceTick, snapshotDelta.through_tick ?? 0),
+        roomF2f: deltaPatch.roomF2f,
+        agentLocations: deltaPatch.agentLocations,
+        agentInbox: deltaPatch.agentInbox,
+        worldEvents: deltaPatch.worldEvents,
+        pendingWorldEvent: deltaPatch.pendingWorldEvent ?? state.pendingWorldEvent,
+        recentRdcLinks: extractRdcLinks(
+          snapshotDelta.agent_messages,
+          snapshotDelta.observer_messages ?? [],
+        ),
         nameMap: snap.nameMap,
       };
     }

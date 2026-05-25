@@ -2,7 +2,7 @@ import type { Dispatch } from "react";
 import type { WorldDeltaData } from "../../api/types";
 import type { GameAction } from "../../store/gameStore";
 
-function hasDeltaActivity(data: WorldDeltaData): boolean {
+function hasDeltaActivity(data: Partial<WorldDeltaData>): boolean {
   const roomF2f = data.room_f2f ?? {};
   const hasF2f = Object.values(roomF2f).some(
     (messages) => (messages?.length ?? 0) > 0,
@@ -16,8 +16,34 @@ function hasDeltaActivity(data: WorldDeltaData): boolean {
     (data.observer_messages?.length ?? 0) > 0 ||
     (data.group_messages?.length ?? 0) > 0 ||
     (data.location_changes?.length ?? 0) > 0 ||
+    (data.state_changes?.length ?? 0) > 0 ||
+    (data.social_events?.length ?? 0) > 0 ||
     (data.world_events?.length ?? 0) > 0
   );
+}
+
+function loopSettled(loopState: string | undefined): boolean {
+  return (
+    loopState === undefined ||
+    loopState === "paused" ||
+    loopState === "stopped" ||
+    loopState === "unknown"
+  );
+}
+
+/** Advance poll cursor — avoid skipping in-flight ticks while loop is running. */
+export function computeNextSinceTick(
+  data: Pick<WorldDeltaData, "through_tick" | "loop_state"> & Partial<WorldDeltaData>,
+  sinceTick: number,
+): number {
+  const through = data.through_tick;
+  if (hasDeltaActivity(data)) {
+    return Math.max(sinceTick, through);
+  }
+  if (through > sinceTick && loopSettled(data.loop_state)) {
+    return through;
+  }
+  return sinceTick;
 }
 
 /** Shared delta apply logic for F14 poll and F16 WebSocket. */
@@ -27,11 +53,15 @@ export function applyWorldDeltaPayload(
   sinceTick: number,
 ): number {
   const through = data.through_tick;
+  const nextSince = computeNextSinceTick(data, sinceTick);
+
   if (through > sinceTick || hasDeltaActivity(data)) {
-    dispatch({ type: "APPLY_WORLD_DELTA", delta: data });
+    dispatch({ type: "APPLY_WORLD_DELTA", delta: data, nextSinceTick: nextSince });
     if (hasDeltaActivity(data)) {
       dispatch({ type: "SET_IMMEDIATE", message: undefined });
     }
+  } else if (nextSince > sinceTick) {
+    dispatch({ type: "SET_DELTA_SINCE", nextSinceTick: nextSince });
   }
 
   if (data.game_over?.status === "game_over") {
@@ -48,5 +78,5 @@ export function applyWorldDeltaPayload(
     });
   }
 
-  return through > sinceTick ? through : sinceTick;
+  return nextSince;
 }

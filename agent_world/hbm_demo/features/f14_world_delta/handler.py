@@ -15,7 +15,7 @@ from agent_world.hbm_demo.features.f05_story_routing.watcher import (
 )
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
 from agent_world.hbm_demo.features.f12_world_sync.delta import build_session_world_delta
-from agent_world.hbm_demo.shared.env_status import is_runner_ready, read_env_status
+from agent_world.hbm_demo.shared.env_status import read_env_status
 from agent_world.hbm_demo.shared.errors import RunnerNotReadyError
 
 
@@ -28,13 +28,13 @@ def get_world_delta(
 ) -> Dict[str, Any]:
     """Return incremental world delta for the current Flask session."""
     sim = sim_dir or get_sim_dir()
-    if not is_runner_ready(sim):
+    env = read_env_status(sim)
+    if env is None:
         raise RunnerNotReadyError(
-            "Runner not ready: start run_hbm first and wait for env_status.status=running"
+            "Runner not ready: start run_hbm first and wait for env_status.json"
         )
 
     hbm = load_session(flask_session, sim_id)
-    env = read_env_status(sim) or {}
     t_now = int(env.get("current_tick", 0))
     client_since = max(0, int(since_tick)) if since_tick is not None else 0
 

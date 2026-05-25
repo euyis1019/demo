@@ -51,9 +51,28 @@ def first_f2f_required_agents(phase: str) -> List[int]:
 
 def scripted_f2f_fallback_enabled() -> bool:
     block = experience_hardening_block()
-    if not block:
+    if block:
+        return block.get("scripted_f2f_fallback", True) is not False
+    player_block = player_input_block()
+    return player_block.get("reception_f2f_fallback", True) is not False
+
+
+def is_reception_f2f_fallback_enabled() -> bool:
+    """Scripted reception F2F when LLM skips speak_to_local (v2 default on)."""
+    if not is_f07_enabled():
         return False
-    return block.get("scripted_f2f_fallback", True) is not False
+    if is_experience_hardening():
+        return scripted_f2f_fallback_enabled()
+    return player_input_block().get("reception_f2f_fallback", True) is not False
+
+
+def is_reception_rdc_companion_enabled() -> bool:
+    """Auto RDC 1→2 after reception F2F on tech breakthrough."""
+    if not is_f07_enabled():
+        return False
+    if is_experience_hardening():
+        return True
+    return player_input_block().get("reception_rdc_companion", True) is not False
 
 
 def rdc_quota_for(agent_id: int, phase: str) -> int | None:

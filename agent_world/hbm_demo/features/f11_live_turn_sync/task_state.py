@@ -37,9 +37,13 @@ def async_state_path(sim_dir: Path) -> Path:
 
 
 def clear_async_state(sim_dir: Path) -> None:
-    path = async_state_path(sim_dir)
-    if path.exists():
-        path.unlink()
+    """Remove F11 runtime overlay (tasks, session mirror, turn outcomes)."""
+    async_dir = sim_dir / "async_state"
+    if not async_dir.is_dir():
+        return
+    for path in async_dir.iterdir():
+        if path.is_file():
+            path.unlink(missing_ok=True)
 
 
 def _read_runtime(sim_dir: Path) -> Dict[str, Any]:

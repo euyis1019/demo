@@ -146,6 +146,9 @@ class GroupMessageBus:
         ``phi_grp(sender, group_id)`` or coverage from the sender's place to
         the recipient's place fails get ``delivered=0`` so the next
         ``sweep_undelivered`` can retry.  Returns ``group_message.message_id``."""
+        sender_id = int(sender_id)
+        group_id = int(group_id)
+        self._touch_connectivity_members(group_id)
         msg_id = await self.world_db.insert_group_message(
             group_id, sender_id, content
         )
@@ -181,13 +184,40 @@ class GroupMessageBus:
         ``direct_message`` whose recipient is now reachable via ``phi_grp``,
         flip ``delivered=1`` and set ``arrive_at=t``.  Returns the number of
         rows promoted.  Called by ``WorldStep`` step 5."""
-        candidates = self.world_db.fetch_undelivered_group_messages()
-        if not candidates:
+        rows = self.world_db._exec(
+            """
+            SELECT message_id, sender_id, recipient_id, group_id, place_id
+            FROM direct_message
+            WHERE delivered=0 AND group_id IS NOT NULL
+            """
+        ).fetchall()
+        if not rows:
             return 0
+
+        group_ids = {int(r["group_id"]) for r in rows}
+        for group_id in group_ids:
+            self._touch_connectivity_members(group_id)
+
         ready: list[tuple[int, int]] = []
-        for message_id, recipient_id, group_id in candidates:
-            if self.connectivity.phi_grp(recipient_id, group_id):
-                ready.append((message_id, t))
+        for row in rows:
+            message_id = int(row["message_id"])
+            sender_id = int(row["sender_id"])
+            recipient_id = int(row["recipient_id"])
+            group_id = int(row["group_id"])
+            sender_place = row["place_id"]
+            sender_reachable = (
+                sender_place is not None
+                and self.connectivity.phi_grp(sender_id, group_id)
+            )
+            delivered, arrive_at = self._resolve_delivery(
+                sender_place,
+                bool(sender_reachable),
+                recipient_id,
+                group_id,
+                t,
+            )
+            if delivered:
+                ready.append((message_id, arrive_at))
         if not ready:
             return 0
         return await self.world_db.sweep_undelivered(ready)

@@ -229,8 +229,11 @@ class ActionDispatcher:
             return {"success": True, "recipients": recipients}
 
         if action_type == ActionType.SEND_MESSAGE:
+            target = kwargs.get("target")
+            if target is None:
+                raise KeyError("target")
             res = await self.rdc.send(
-                agent_id, kwargs["target"], kwargs["content"], t
+                agent_id, int(target), kwargs["content"], t
             )
             ok = bool(getattr(res, "success", True))
             return {
@@ -241,8 +244,11 @@ class ActionDispatcher:
 
         # 2. Group bus ----------------------------------------------------
         if action_type == ActionType.SEND_TO_GROUP:
+            group_id = kwargs.get("group_id")
+            if group_id is None:
+                raise KeyError("group_id")
             msg_id = await self.grp.send_to_group(
-                agent_id, kwargs["group_id"], kwargs["content"], t
+                agent_id, int(group_id), kwargs["content"], t
             )
             return {"success": True, "message_id": msg_id}
 

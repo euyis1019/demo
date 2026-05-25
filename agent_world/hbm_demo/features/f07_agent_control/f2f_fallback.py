@@ -8,7 +8,8 @@ from typing import Any, Dict, Optional
 from agent_world.hbm_demo.features.f07_agent_control.batch_guard import BatchGuardState
 from agent_world.hbm_demo.features.f07_agent_control.config import (
     first_f2f_required_agents,
-    is_experience_hardening,
+    is_f07_enabled,
+    is_reception_f2f_fallback_enabled,
     scripted_f2f_fallback_enabled,
 )
 from agent_world.hbm_demo.features.f07_agent_control.player_facing_f2f import (
@@ -32,6 +33,8 @@ _FALLBACK_AGENT_BY_PHASE: Dict[str, int] = {
     "Phase 2": 2,
     "Phase 4": 2,
 }
+
+RECEPTION_AGENT_ID = 1
 
 _KEYWORD_HINTS = (
     "显存",
@@ -69,6 +72,20 @@ def build_fallback_content(phase: str, player_text: str) -> str:
     return template.format(kw=extract_player_keyword(player_text))
 
 
+def _fallback_agent_for_phase(phase: str) -> Optional[int]:
+    required = first_f2f_required_agents(phase)
+    if required:
+        return int(required[0])
+    return _FALLBACK_AGENT_BY_PHASE.get(str(phase))
+
+
+def _inject_expects_reception_f2f(turn_context: Dict[str, Any]) -> bool:
+    if not str(turn_context.get("player_text") or "").strip():
+        return False
+    inject_ids = {int(x) for x in (turn_context.get("inject_agent_ids") or [])}
+    return RECEPTION_AGENT_ID in inject_ids
+
+
 async def apply_batch_f2f_fallback(
     world_db: Any,
     *,
@@ -77,16 +94,16 @@ async def apply_batch_f2f_fallback(
     t: int,
 ) -> int:
     """Emit one scripted F2F for the phase inject target if still missing."""
-    if not is_experience_hardening() or not turn_context:
+    if not is_f07_enabled() or not turn_context:
         return 0
-    if not scripted_f2f_fallback_enabled():
+    if not is_reception_f2f_fallback_enabled() and not scripted_f2f_fallback_enabled():
+        return 0
+    if not _inject_expects_reception_f2f(turn_context):
         return 0
 
     phase = str(turn_context.get("phase", "Phase 1"))
-    agent_id = _FALLBACK_AGENT_BY_PHASE.get(phase)
+    agent_id = _fallback_agent_for_phase(phase)
     if agent_id is None:
-        return 0
-    if agent_id not in first_f2f_required_agents(phase):
         return 0
     if batch_guard.has_f2f(agent_id):
         return 0

@@ -231,8 +231,29 @@ class HbmAgent(DemoAgent):
         reception_extra = ""
         if aid == 1:
             reception_extra = (
-                "3) 你在前台：优先 speak_to_local 回应玩家，必要时 send_message RDC→Jensen；"
-                "已汇报且老板未回时选 do_nothing，勿重复催。\n"
+                "3) 你在前台：每句玩家 inject 须 speak_to_local 回应；"
+                "有技术突破再 send_message RDC→Jensen；已汇报且老板未回时选 do_nothing。\n"
+            )
+        elif phase == "Phase 1" and aid == 2:
+            reception_extra = (
+                "3) 谈判室：speak_to_local 与 VP/CEO 谈 HBM；"
+                "收到前台 RDC 后须 send_message→1 一句回执，再 send_message→3；"
+                "勿复读「私人会议室」。\n"
+            )
+        elif phase == "Phase 1" and aid == 1:
+            reception_extra = (
+                "3) 收到 Jensen RDC 后须 send_message→2 确认，并 speak_to_local 转告玩家。\n"
+            )
+        elif phase == "Phase 1" and aid == 3:
+            reception_extra = (
+                "3) 谈判室：Jensen RDC 求证时须 send_message→2；"
+                "其余 tick speak_to_local 插话或主动 RDC→2，保持与 Jensen 联动；"
+                "禁止说「去私人会议室」。\n"
+            )
+        elif phase == "Phase 1" and aid in (4, 5, 6):
+            reception_extra = (
+                "3) 谈判室：speak_to_local 1–2 句与 Jensen/VP/其他 CEO 互怼 HBM 价格；"
+                "勿联系玩家。\n"
             )
         elif phase == "Phase 2" and aid == 2:
             reception_extra = (
@@ -280,13 +301,25 @@ class HbmAgent(DemoAgent):
             )
         elif phase == "Phase 1" and aid in (2, 3) and not self.player_memory:
             respond_rule = (
-                "1) 无未读 RDC/新 inject 时选 do_nothing；"
-                "收到前台 RDC 后本拍须 send_message 回复 Jensen 或相关同事。\n"
+                "1) 有未读 RDC 时本拍须 send_message 回复发件人（1–3 句），"
+                "优先于 update_state / do_nothing。\n"
             )
+            if aid == 2:
+                respond_rule += (
+                    "   前台 Agent1 首次 RDC 汇报后须 send_message→1 一句回执，"
+                    "再 send_message→3 求证；勿复读私人会议室指令。\n"
+                )
+            else:
+                respond_rule += (
+                    "   Jensen RDC 求证时 send_message→2；否则 speak_to_local 或主动 RDC→2。\n"
+                )
         elif phase == "Phase 2" and aid == 3:
             respond_rule = "1) 本拍仅回复 Jensen RDC，无需回应玩家（你看不到玩家原话）。\n"
-        elif not self.player_memory and phase == "Phase 3" and aid in (4, 5, 6):
-            respond_rule = "1) 本拍根据谈判室局势发言，攻击玩家方案或密谋压价。\n"
+        elif not self.player_memory and phase not in ("Phase 4",):
+            respond_rule = (
+                "1) 有未读 RDC 时本拍须 send_message 回复发件人；"
+                "无未读时可 speak_to_local / update_state / do_nothing。\n"
+            )
 
         length_rule = "2) 说出口的内容：短句口语（1–4 句），禁止演讲腔；上下文详 ≠ 长篇大论。\n"
         if phase == "Phase 3" and aid in (2, 3):
@@ -301,10 +334,12 @@ class HbmAgent(DemoAgent):
             f"{respond_rule}"
             f"{length_rule}"
             f"{reception_extra}"
-            "4) 遵守系统约束中的阶段禁止项（MOVE/GRP 等）；无效操作会被引擎忽略。\n"
+            "4) 遵守系统约束中的阶段禁止项（MOVE/GRP 等）；request_move 被引擎忽略，"
+            "台词里不要说「我去XX室」——位置不会变。\n"
             "5) 每一拍只调用一个工具，参数严格符合 schema。\n"
-            "6) 无新消息、无新 inject、且本批已说过话 → 优先 do_nothing，禁止复读。\n"
-            "7) incoming_messages / 未读 RDC 出现 → 本拍必须回复，不要拖到下一拍。\n"
+            "6) 无未读 RDC、无新 inject、且本批已说过话 → 可 do_nothing；有未读 RDC 时禁止 do_nothing。\n"
+            "7) incoming_messages / 未读 RDC → 本拍必须 send_message 回复发件人，不要拖到下一拍。\n"
+            "8) 他人给你 RDC 后你也应回复——全角色通用；同一指令勿连发多条相同 RDC。\n"
             "\n可选工具：\n"
             f"{_HBM_TOOLS_LIST}\n"
             "保持人物性格——输入上下文可长，实际发言必须短。"
