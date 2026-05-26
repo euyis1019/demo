@@ -231,7 +231,13 @@ def _handle_sync_inject(
 
     if is_final_turn:
         intent = routing.classify_turn25_intent(player_text)
-        ending_id = routing.resolve_ending_id(intent, hbm.stats["trust"])
+        ending_id = routing.resolve_turn25_ending(
+            intent,
+            hbm.stats["trust"],
+            db,
+            since_t=start_tick,
+            t_now=current_tick,
+        )
         log_turn_event(
             event="player_turn_completed",
             task_id=task_id,

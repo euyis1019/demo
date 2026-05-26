@@ -522,6 +522,9 @@ def test_f11_live_turn_sync() -> None:
         def has_f2f_after(self, *a, **k):
             return False
 
+        def has_npc_f2f_after(self, *a, **k):
+            return False
+
         def has_rdc_pair_after(self, *a, **k):
             return False
 
@@ -530,6 +533,9 @@ def test_f11_live_turn_sync() -> None:
 
     class F2fReceptionDB(EmptyDB):
         def has_f2f_after(self, place_id, *a, **k):
+            return place_id == RECEPTION_PLACE
+
+        def has_npc_f2f_after(self, place_id, *a, **k):
             return place_id == RECEPTION_PLACE
 
     running = PendingTask(
@@ -905,6 +911,9 @@ def test_f03_action_completion() -> None:
         def has_f2f_after(self, *a, **k):
             return False
 
+        def has_npc_f2f_after(self, *a, **k):
+            return False
+
         def has_rdc_pair_after(self, *a, **k):
             return False
 
@@ -919,9 +928,19 @@ def test_f03_action_completion() -> None:
         def has_f2f_after(self, place_id, *a, **k):
             return place_id == RECEPTION_PLACE
 
+        def has_npc_f2f_after(self, place_id, *a, **k):
+            return place_id == RECEPTION_PLACE
+
     class F2fNegotiationDB(EmptyDB):
         def has_f2f_after(self, place_id, *a, **k):
             return place_id == NEGOTIATION_PLACE
+
+        def has_npc_f2f_after(self, place_id, *a, **k):
+            return place_id == NEGOTIATION_PLACE
+
+    class PlayerOnlyReceptionDB(EmptyDB):
+        def has_f2f_after(self, place_id, *a, **k):
+            return place_id == RECEPTION_PLACE
 
     task_p1 = PendingTask(
         task_id="t1",
@@ -950,6 +969,8 @@ def test_f03_action_completion() -> None:
             raise TestFailure("F07 Phase 1 should timeout-complete at tick 8")
         if not check_action_complete(task_p1, 5, F2fReceptionDB()):
             raise TestFailure("F07 Phase 1 should complete on reception F2F")
+        if check_action_complete(task_p1, 5, PlayerOnlyReceptionDB()):
+            raise TestFailure("F07 Phase 1 must not complete on player-only F2F (§13.2)")
         ok("F07 Phase 1 F2F-priority completion (§13.2)")
     else:
         if not check_action_complete(task_p1, 6, EmptyDB()):
@@ -2585,14 +2606,31 @@ def test_f07_v2_phase4_agent_driven() -> None:
         {"sender_id": 2, "recipient_id": 3, "content": "评估"},
         {"sender_id": 2, "recipient_id": 1, "content": "批准，这边请"},
     ]
-    if not detect_node_a(SignalDB(rdc_rows=approve_chain), since_t=0, t_now=10):
-        raise TestFailure("detect_node_a failed on approve chain")
-    ok("detect_node_a RDC chain 1→2→3 + approve 2→1")
+    escort_f2f = [(5, 1, "m1", "请跟我来，Jensen在等")]
+    if not detect_node_a(
+        SignalDB(rdc_rows=approve_chain, f2f_rows=escort_f2f), since_t=0, t_now=10
+    ):
+        raise TestFailure("detect_node_a failed on approve chain + escort F2F")
+    ok("detect_node_a RDC chain 1→2→3 + approve 2→1 + escort F2F")
+
+    if detect_node_a(SignalDB(rdc_rows=approve_chain), since_t=0, t_now=10):
+        raise TestFailure("detect_node_a must require reception escort F2F when configured")
+    ok("detect_node_a rejects approve RDC without escort F2F")
 
     vp_row = [{"sender_id": 3, "recipient_id": 2, "content": "理论上可行"}]
     if not detect_node_b(SignalDB(rdc_rows=vp_row), since_t=0, t_now=10):
         raise TestFailure("detect_node_b failed on positive VP RDC")
     ok("detect_node_b positive VP RDC signal")
+
+    jensen_opening_f2f = [(5, 2, "m1", "凭什么省80%")]
+    if detect_node_b(SignalDB(f2f_rows=jensen_opening_f2f), since_t=0, t_now=10):
+        raise TestFailure("detect_node_b must not fire on Jensen opening F2F alone")
+    ok("detect_node_b ignores Jensen F2F without return keywords")
+
+    return_f2f = [(6, 2, "m2", "方案可行，回谈判室")]
+    if not detect_node_b(SignalDB(f2f_rows=return_f2f), since_t=0, t_now=10):
+        raise TestFailure("detect_node_b failed on Jensen return-to-negotiation F2F")
+    ok("detect_node_b accepts Jensen return F2F keywords")
 
     expel_row = [{"sender_id": 2, "recipient_id": 4, "content": "请离场"}]
     if not detect_node_c(SignalDB(rdc_rows=expel_row), since_t=0, t_now=10):
@@ -3220,6 +3258,11 @@ def test_f05_routing_payload() -> None:
                     return [{"content": "请评估"}]
                 if sid == 2 and rid == 1:
                     return [{"content": "批准，这边请带进来"}]
+                return []
+
+            def fetch_f2f_history_at(self, place_id, t_now, since_t):  # noqa: ANN001
+                if str(place_id) == "nvidia_reception":
+                    return [(5, 1, "m1", "请跟我来，Jensen在等")]
                 return []
 
         if not node_a_applies(NodeA(), FakeDBNodeA(), 10):

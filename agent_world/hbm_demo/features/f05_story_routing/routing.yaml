@@ -22,6 +22,13 @@ routing:
     escort_keywords:
       - 请跟我来
       - 这边请
+    return_to_negotiation_keywords:
+      - 回谈判室
+      - 回到谈判
+      - 回主谈判
+      - 方案可行
+      - 认可
+    require_reception_escort_f2f: true
     max_turns_phase1_without_approve: 10
   story_advance:
     enabled: true

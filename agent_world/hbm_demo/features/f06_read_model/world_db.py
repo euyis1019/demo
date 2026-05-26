@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from agent_world.hbm_demo.features.f01_session.paths import get_world_db_path
 from agent_world.hbm_demo.shared.errors import DatabaseReadError
@@ -149,6 +149,48 @@ class ReadOnlyWorldDB:
                 """,
                 (place_id, start_tick, t_now),
             ).fetchone()
+            return row is not None
+
+        return bool(self._with_retry(_query))
+
+    def has_npc_f2f_after(
+        self,
+        place_id: str,
+        start_tick: int,
+        t_now: int,
+        *,
+        npc_sender_ids: Optional[Iterable[int]] = None,
+    ) -> bool:
+        """F2F from NPC agents only (excludes virtual player sender_id=0)."""
+
+        def _query(conn: sqlite3.Connection) -> bool:
+            if npc_sender_ids is not None:
+                ids = tuple(int(x) for x in npc_sender_ids)
+                if not ids:
+                    return False
+                placeholders = ",".join("?" * len(ids))
+                row = conn.execute(
+                    f"""
+                    SELECT 1 FROM direct_message
+                    WHERE channel_type='F2F' AND place_id=?
+                      AND attempted_at > ? AND attempted_at <= ?
+                      AND sender_id IN ({placeholders})
+                      AND sender_id != 0
+                    LIMIT 1
+                    """,
+                    (place_id, start_tick, t_now, *ids),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    """
+                    SELECT 1 FROM direct_message
+                    WHERE channel_type='F2F' AND place_id=?
+                      AND attempted_at > ? AND attempted_at <= ?
+                      AND sender_id IS NOT NULL AND sender_id != 0
+                    LIMIT 1
+                    """,
+                    (place_id, start_tick, t_now),
+                ).fetchone()
             return row is not None
 
         return bool(self._with_retry(_query))

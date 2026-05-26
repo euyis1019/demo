@@ -284,11 +284,35 @@ def classify_turn25_intent(player_text: str) -> str:
 
 
 def resolve_ending_id(intent: str, trust: int) -> str:
-    if intent == "join_nvidia" and trust >= 40:
+    if intent == "join_nvidia" and trust >= 25:
         return "ending_join_nvidia"
-    if intent == "seed_round" and trust >= 25:
+    if intent == "seed_round" and trust >= 15:
         return "ending_seed_round"
     return "ending_cold_deal"
+
+
+def resolve_turn25_ending(
+    intent: str,
+    trust: int,
+    db: Any,
+    *,
+    since_t: int,
+    t_now: int,
+) -> str:
+    """Node D — story_advance offer_* overrides intent/trust heuristics."""
+    from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
+        is_story_advance_enabled,
+    )
+    from agent_world.hbm_demo.features.f05_story_routing.story_signals import (
+        has_story_signal,
+    )
+
+    if is_story_advance_enabled():
+        if has_story_signal(db, "offer_join", since_t=since_t, t_now=t_now):
+            return "ending_join_nvidia"
+        if has_story_signal(db, "offer_seed", since_t=since_t, t_now=t_now):
+            return "ending_seed_round"
+    return resolve_ending_id(intent, trust)
 
 
 def apply_routing(

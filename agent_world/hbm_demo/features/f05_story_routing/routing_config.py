@@ -66,6 +66,18 @@ def escort_keywords() -> Tuple[str, ...]:
     return _signal_list("escort_keywords", ("请跟我来", "这边请"))
 
 
+def return_to_negotiation_keywords() -> Tuple[str, ...]:
+    return _signal_list(
+        "return_to_negotiation_keywords",
+        ("回谈判室", "回到谈判", "回主谈判", "进去谈", "方案可行", "认可"),
+    )
+
+
+def require_reception_escort_f2f() -> bool:
+    signals = load_routing_config().get("signals") or {}
+    return bool(signals.get("require_reception_escort_f2f", True))
+
+
 def max_turns_phase1_without_approve() -> int:
     signals = load_routing_config().get("signals") or {}
     raw = signals.get("max_turns_phase1_without_approve", 10)

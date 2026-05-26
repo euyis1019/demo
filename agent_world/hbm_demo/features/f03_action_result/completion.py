@@ -86,8 +86,10 @@ def _f07_phase1_complete(
     current_tick: int,
     db: ReadOnlyWorldDB,
 ) -> bool:
-    """§13.2 — Phase 1 completes on reception F2F or timeout; not RDC-only."""
-    if db.has_f2f_after(RECEPTION_PLACE, start, current_tick):
+    """§13.2 — Phase 1 completes on reception NPC F2F or timeout; not RDC-only."""
+    if db.has_npc_f2f_after(
+        RECEPTION_PLACE, start, current_tick, npc_sender_ids={1}
+    ):
         return True
     return _timeout_complete(task, current_tick)
 
@@ -98,9 +100,9 @@ def _f07_phase4_complete(
     current_tick: int,
     db: ReadOnlyWorldDB,
 ) -> bool:
-    """§13.5 — Phase 4 completes on negotiation F2F or timeout; not VP RDC-only."""
+    """§13.5 — Phase 4 completes on Jensen negotiation F2F or timeout."""
     place = task.place_id or NEGOTIATION_PLACE
-    if db.has_f2f_after(place, start, current_tick):
+    if db.has_npc_f2f_after(place, start, current_tick, npc_sender_ids={2}):
         return True
     return _timeout_complete(task, current_tick)
 

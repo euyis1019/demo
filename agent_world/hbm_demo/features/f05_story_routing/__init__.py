@@ -12,6 +12,7 @@ from agent_world.hbm_demo.features.f05_story_routing.routing import (
     node_b_applies,
     node_c_applies,
     resolve_ending_id,
+    resolve_turn25_ending,
 )
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "node_b_applies",
     "node_c_applies",
     "resolve_ending_id",
+    "resolve_turn25_ending",
 ]

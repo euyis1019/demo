@@ -11,6 +11,8 @@ from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
     is_story_advance_enabled,
     max_turns_phase1_without_approve,
     reject_keywords,
+    require_reception_escort_f2f,
+    return_to_negotiation_keywords,
 )
 from agent_world.hbm_demo.features.f05_story_routing.story_signals import has_story_signal
 from agent_world.hbm_demo.features.f06_read_model.world_db import sender_display_name
@@ -40,8 +42,30 @@ def _has_rdc_pair(db: Any, *, sender_id: int, recipient_id: int, since_t: int, t
     return len(rows) > 0
 
 
+def _reception_escort_f2f(db: Any, *, since_t: int, t_now: int) -> bool:
+    """Node A NL path: reception F2F with escort wording before phase transition."""
+    history = db.fetch_f2f_history_at(PLACE_RECEPTION, int(t_now), int(since_t))
+    for _at_t, sender_id, _mid, content in history:
+        if int(sender_id) != RECEPTION_AGENT_ID:
+            continue
+        if _content_matches(content, escort_keywords()):
+            return True
+    return False
+
+
+def _jensen_return_f2f(db: Any, *, since_t: int, t_now: int) -> bool:
+    """Node B NL path: Jensen explicit return-to-negotiation wording (not any F2F)."""
+    history = db.fetch_f2f_history_at(PLACE_JENSEN_ROOM, int(t_now), int(since_t))
+    for _at_t, sender_id, _mid, content in history:
+        if int(sender_id) != JENSEN_ID:
+            continue
+        if _content_matches(content, return_to_negotiation_keywords()):
+            return True
+    return False
+
+
 def detect_node_a(db: Any, *, since_t: int, t_now: int) -> bool:
-    """Phase 1 → 2: RDC chain 1→2, 2→3, 2→1 approve or story_advance(approve_visitor)."""
+    """Phase 1 → 2: RDC chain + optional escort F2F, or story_advance(approve_visitor)."""
     if is_story_advance_enabled() and has_story_signal(
         db, "approve_visitor", since_t=since_t, t_now=t_now
     ):
@@ -56,27 +80,33 @@ def detect_node_a(db: Any, *, since_t: int, t_now: int) -> bool:
         since_t=since_t,
         t_now=t_now,
     )
+    approved = False
     for row in rows:
         if _content_matches(str(row["content"] or ""), approve_keywords()):
-            return True
-    return False
+            approved = True
+            break
+    if not approved:
+        return False
+    if require_reception_escort_f2f() and not _reception_escort_f2f(
+        db, since_t=since_t, t_now=t_now
+    ):
+        return False
+    return True
 
 
 def detect_node_b(db: Any, *, since_t: int, t_now: int) -> bool:
-    """Phase 2 → 3: Jensen F2F / VP RDC / story_advance(return_to_negotiation)."""
+    """Phase 2 → 3: story_advance, VP positive RDC, or Jensen return F2F keywords."""
     if is_story_advance_enabled() and has_story_signal(
         db, "return_to_negotiation", since_t=since_t, t_now=t_now
     ):
         return True
     from agent_world.hbm_demo.features.f05_story_routing.routing import (
-        POSITIVE_RDC_KEYWORDS,
         has_positive_tech_vp_rdc,
     )
 
-    history = db.fetch_f2f_history_at(PLACE_JENSEN_ROOM, t_now, since_t)
-    if any(int(sender_id) == JENSEN_ID for _t, sender_id, _mid, _content in history):
+    if has_positive_tech_vp_rdc(db, since_tick=since_t, t_now=t_now):
         return True
-    return has_positive_tech_vp_rdc(db, since_tick=since_t, t_now=t_now)
+    return _jensen_return_f2f(db, since_t=since_t, t_now=t_now)
 
 
 def detect_node_c(db: Any, *, since_t: int, t_now: int) -> bool:
