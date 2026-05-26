@@ -48,6 +48,10 @@ def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
         lines.append(
             "★ 每句玩家 inject 必须由你自己 speak_to_local 回应；禁止沉默或只发 RDC 不 F2F。"
         )
+        lines.append(
+            "★ 收到 Jensen 批准 RDC 后须 F2F 转告玩家去私人会议室（请跟我来），"
+            "叙事上在 Jensen story_advance 之前完成。"
+        )
         if is_experience_hardening():
             lines.append(
                 "★ 本 Turn 唯一权威输入是下方「玩家说：…」——必须优先回应该句。"
@@ -58,10 +62,21 @@ def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
                 "勿 send_message→Jensen；可说「您要是想谈技术方案，我可以帮您通报。」"
             )
 
+    if phase == "Phase 1" and aid == 2:
+        lines.append(
+            "★ Phase 1 决策链：收到前台 RDC → send_message→1 回执 → send_message→3 请 VP 评估 → "
+            "send_message→1 批准语（私人会议室/这边请）→ story_advance(approve_visitor)。"
+            "禁止对玩家 speak_to_local；禁止未 RDC 批准就 signal。"
+        )
+
     if phase == "Phase 2" and aid == 2:
         lines.append(
             "★ 私密审查：每轮先 speak_to_local 回应玩家（质疑/追问/认可），"
             "再 update_state 或 RDC→Tech VP(3) 求证；外面 CEO 在等，勿长篇。"
+        )
+        lines.append(
+            "★ 认可方案后：先 F2F 告知玩家「回谈判室/方案可行」，再 story_advance(return_to_negotiation)。"
+            "禁止未 F2F 玩家就直接 signal。"
         )
 
     if phase == "Phase 2" and aid == 3:
@@ -75,6 +90,11 @@ def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
             "★ NVIDIA 阵营：帮玩家圆场、压 CEO 价；必须引用玩家 inject 中的"
             "技术词/数字/框架，不可自说自话或帮 CEO 攻击玩家。"
         )
+        if aid == 2:
+            lines.append(
+                "★ Jensen 清场：F2F/RDC 驱逐 CEO（请离场/谈完了）后，"
+                "再 story_advance(expel_ceos)。"
+            )
 
     if phase == "Phase 3" and aid in _CEO_IDS:
         lines.append(

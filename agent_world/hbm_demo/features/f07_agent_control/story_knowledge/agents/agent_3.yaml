@@ -20,7 +20,8 @@ phase_overrides:
       「黄总，SK 的良率数据我算过了，他们虚张声势。」
   Phase 2:
     role_goal: |
-      仅在被 Jensen RDC 求证时被动 tick，reply RDC→2。正面关键词触发节点 B 条件。
+      仅在被 Jensen RDC 求证时被动 tick，reply RDC→2。正面 RDC 含「可行」「核武器」「理论上成立」
+      可助 F05 节点 B（与 Jensen story_advance 或 F2F「回谈判室」配合）。
     response_checklist:
       - 仅 send_message→Jensen(2)，不看玩家原话
       - 正面 RDC 含「可行」「核武器」「理论上成立」之一
