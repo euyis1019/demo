@@ -1538,6 +1538,128 @@ def test_f07_e_step1_player_facing_f2f() -> None:
     ok("E0 HbmWorldStep speak_to_local dispatch hook present")
 
 
+def test_f08_virtual_player() -> None:
+    """F08 — virtual player agent 0, F2F payload, Phase MOVE sync (dev_log/34 PR2)."""
+    section("T2g-pre F08 virtual player entity")
+    from types import SimpleNamespace
+
+    from agent_world.hbm_demo.features.f01_session.paths import get_name_map
+    from agent_world.hbm_demo.features.f08_virtual_player.config import (
+        is_f08_enabled,
+        player_agent_id,
+    )
+    from agent_world.hbm_demo.features.f08_virtual_player.player_entity import (
+        PLAYER_AGENT_ID,
+        sync_player_place_on_routing,
+        target_place_for_phase,
+    )
+    from agent_world.hbm_demo.features.f08_virtual_player.player_f2f import (
+        build_player_f2f_payload,
+        f2f_recipient_for_phase,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.pick_active import (
+        pick_active_ids,
+    )
+
+    f08_dir = HBM_DIR / "features" / "f08_virtual_player"
+    for name in ("config.yaml", "phase_places.yaml", "player_entity.py", "player_f2f.py"):
+        if not (f08_dir / name).is_file():
+            raise TestFailure(f"F08 missing {name}")
+    ok("F08 module files present")
+
+    if not is_f08_enabled():
+        raise TestFailure("F08 config.yaml enabled expected true")
+    if int(player_agent_id()) != 0:
+        raise TestFailure(f"F08 player_agent_id expected 0: {player_agent_id()}")
+    ok("F08 enabled, player_agent_id=0")
+
+    from agent_world.hbm_demo.shared import config_loader
+
+    scenario = config_loader.load_scenario(HBM_DIR / "hbm_scenario.yaml")
+    agent0 = next(
+        (a for a in scenario.get("agents", []) if int(a.get("agent_id", -1)) == 0),
+        None,
+    )
+    if agent0 is None or str(agent0.get("name")) != "玩家":
+        raise TestFailure(f"hbm_scenario agent 0 missing or wrong name: {agent0}")
+    ok("hbm_scenario.yaml agent 0 @ 玩家")
+
+    name_map = get_name_map()
+    if name_map.get(0) != "玩家":
+        raise TestFailure(f"name_map[0] expected 玩家: {name_map.get(0)}")
+    ok("get_name_map includes agent 0 → 玩家")
+
+    if target_place_for_phase("Phase 2") != "jensen_private_room":
+        raise TestFailure("target_place_for_phase Phase 2 wrong")
+    if target_place_for_phase("Phase 4") != "negotiation_room":
+        raise TestFailure("target_place_for_phase Phase 4 wrong")
+    ok("phase_places.yaml mapping")
+
+    session = SimpleNamespace(
+        phase="Phase 1",
+        place_id="nvidia_reception",
+        player_turn=1,
+    )
+    payload = build_player_f2f_payload(session, "  我的算法能省 80% 显存  ")
+    if not payload or payload.get("sender_id") != 0:
+        raise TestFailure(f"build_player_f2f_payload bad: {payload}")
+    if payload.get("recipient_id") != f2f_recipient_for_phase("Phase 1"):
+        raise TestFailure(f"recipient mismatch: {payload}")
+    if payload.get("content") != "我的算法能省 80% 显存":
+        raise TestFailure(f"content not stripped: {payload}")
+    ok("build_player_f2f_payload Phase 1")
+
+    moves: list[tuple[int, str]] = []
+
+    class _Ipc:
+        pass
+
+    def _fake_move(_client, *, agent_id, place_id, timeout=600.0):  # noqa: ANN001, ARG001
+        moves.append((int(agent_id), str(place_id)))
+        return SimpleNamespace(status=SimpleNamespace(value="completed"), result={})
+
+    import agent_world.hbm_demo.http.ipc_helper as ipc_mod
+
+    real_move = ipc_mod.send_move_agent
+    ipc_mod.send_move_agent = _fake_move  # type: ignore[assignment]
+    try:
+        sync_player_place_on_routing(
+            session,
+            ipc_client=_Ipc(),
+            new_phase="Phase 2",
+            node="A",
+            ipc_timeout=1.0,
+        )
+        if session.phase != "Phase 2" or session.place_id != "jensen_private_room":
+            raise TestFailure(f"node A session wrong: {session.phase} {session.place_id}")
+        if moves != [(0, "jensen_private_room")]:
+            raise TestFailure(f"node A MOVE wrong: {moves}")
+        moves.clear()
+        session.place_id = "jensen_private_room"
+        sync_player_place_on_routing(
+            session,
+            ipc_client=_Ipc(),
+            new_phase="Phase 4",
+            node="C",
+            ipc_timeout=1.0,
+        )
+        if session.phase != "Phase 4" or session.place_id != "jensen_private_room":
+            raise TestFailure(f"node C session wrong: {session.phase} {session.place_id}")
+        if moves:
+            raise TestFailure(f"node C must not MOVE player: {moves}")
+    finally:
+        ipc_mod.send_move_agent = real_move
+
+    ok("sync_player_place_on_routing nodes A/C")
+
+    ctx = {"phase": "Phase 1", "player_turn": 1, "inject_agent_ids": [1]}
+    world = SimpleNamespace(agents={1: object()}, world_db=None)
+    active = pick_active_ids(ctx, world, t=10, batch_tick_index=0)
+    if PLAYER_AGENT_ID in active:
+        raise TestFailure(f"virtual player must not be pick_active: {active}")
+    ok("pick_active excludes agent 0")
+
+
 def test_f07_e_step2_no_scripted_fallback() -> None:
     """Agent-native policy — no scripted F2F/RDC companion; prompt-only guidance."""
     section("T2h F07 no scripted player-facing fallback")
@@ -4062,6 +4184,7 @@ def main() -> int:
         test_f07_c_agent_control,
         test_f07_d_agent_control,
         test_f07_e_step1_player_facing_f2f,
+        test_f08_virtual_player,
         test_f07_e_step2_no_scripted_fallback,
         test_f07_e_step3_rdc_quota_and_tick_order,
         test_f07_e_step4_turn_priority_and_offtopic,

@@ -33,6 +33,9 @@ from agent_world.hbm_demo.features.f04_stats.scoring import (
 )
 from agent_world.hbm_demo.features.f05_story_routing import routing
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
+from agent_world.hbm_demo.features.f08_virtual_player.player_f2f import (
+    build_player_f2f_payload,
+)
 from agent_world.hbm_demo.features.f11_live_turn_sync.handler import start_background_turn
 from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import sync_runtime_state
 from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop_enabled
@@ -89,11 +92,13 @@ def run_debug_inject(
     ipc_client = get_ipc_client(str(sim))
     env_before = read_env_status(sim) or {}
     start_tick = int(env_before.get("current_tick", 0))
+    player_f2f = build_player_f2f_payload(session, player_text)
     if is_world_loop_enabled():
         send_enqueue_player_input(
             ipc_client,
             events=events,
             turn_context=turn_context,
+            player_f2f=player_f2f,
             timeout=timeout,
         )
         push_turn_context_mirror(
@@ -116,6 +121,7 @@ def run_debug_inject(
             events=events,
             tick_count=tick_count,
             turn_context=turn_context,
+            player_f2f=player_f2f,
             timeout=timeout,
         )
         session.player_turn += 1
@@ -148,6 +154,7 @@ def _handle_sync_inject(
     """Synchronous inject path — Turn 25 (and legacy inline flow)."""
     ipc_client = get_ipc_client(str(sim))
     min_ticks = resolve_loop_min_ticks(hbm.phase, tick_count)
+    player_f2f = build_player_f2f_payload(hbm, player_text)
 
     if is_world_loop_enabled():
         send_enqueue_player_input(
@@ -155,6 +162,7 @@ def _handle_sync_inject(
             events=events,
             broadcast=broadcast,
             turn_context=turn_context,
+            player_f2f=player_f2f,
             timeout=ipc_timeout,
         )
         push_turn_context_mirror(
@@ -180,6 +188,7 @@ def _handle_sync_inject(
             broadcast=broadcast,
             turn_context=turn_context,
             tick_count=tick_count,
+            player_f2f=player_f2f,
             timeout=ipc_timeout,
         )
         ipc_result = dict(resp.result or {})
@@ -311,11 +320,13 @@ def _handle_v2_player_turn(
         )
 
     ipc_client = get_ipc_client(str(sim))
+    player_f2f = build_player_f2f_payload(hbm, player_text)
     send_enqueue_player_input(
         ipc_client,
         events=events,
         broadcast=broadcast,
         turn_context=turn_context,
+        player_f2f=player_f2f,
         timeout=ipc_timeout,
     )
     push_turn_context_mirror(

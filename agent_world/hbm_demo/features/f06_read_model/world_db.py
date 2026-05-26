@@ -20,6 +20,8 @@ def sender_display_name(sender_id: Optional[int], name_map: dict[int, str]) -> s
     sid = int(sender_id)
     if sid == -1:
         return SYSTEM_SENDER_NAME
+    if sid == 0:
+        return str(name_map.get(0, "玩家"))
     return name_map.get(sid, f"agent_{sid}")
 
 

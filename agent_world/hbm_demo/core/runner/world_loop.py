@@ -193,10 +193,12 @@ class WorldLoopOrchestrator:
             events = [payload["event"]]
         turn_context = dict(payload.get("turn_context") or {})
         broadcast = payload.get("broadcast")
+        player_f2f = payload.get("player_f2f")
         item = PlayerInputItem(
             events=events,
             turn_context=turn_context,
             broadcast=broadcast if isinstance(broadcast, dict) else None,
+            player_f2f=player_f2f if isinstance(player_f2f, dict) else None,
         )
         if not self._queue.enqueue_player(item):
             return {"accepted": False, "reason": "queue_full"}
@@ -303,6 +305,16 @@ class WorldLoopOrchestrator:
         frozen_turn_context: Optional[Dict[str, Any]] = None
 
         for item in players:
+            if item.player_f2f:
+                from agent_world.hbm_demo.features.f08_virtual_player.player_f2f import (
+                    apply_player_f2f_payload,
+                )
+
+                await apply_player_f2f_payload(
+                    self._world_db,
+                    item.player_f2f,
+                    t=int(self._world_state.clock.t),
+                )
             if item.broadcast:
                 await broadcast_helper.broadcast_place(
                     self._world_db,

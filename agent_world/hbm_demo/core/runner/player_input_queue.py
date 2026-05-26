@@ -13,6 +13,7 @@ class PlayerInputItem:
     events: List[Dict[str, Any]]
     turn_context: Dict[str, Any]
     broadcast: Optional[Dict[str, Any]] = None
+    player_f2f: Optional[Dict[str, Any]] = None
 
 
 @dataclass

@@ -309,6 +309,10 @@ def apply_routing(
 
     applied: Dict[str, Any] = {"nodes": []}
 
+    from agent_world.hbm_demo.features.f08_virtual_player.player_entity import (
+        sync_player_place_on_routing,
+    )
+
     if node_a_applies(session, db=db, current_tick=current_tick):
         send_move_agent(
             ipc_client,
@@ -316,8 +320,13 @@ def apply_routing(
             place_id=PLACE_JENSEN_ROOM,
             timeout=ipc_timeout,
         )
-        session.phase = "Phase 2"
-        session.place_id = PLACE_JENSEN_ROOM
+        sync_player_place_on_routing(
+            session,
+            ipc_client=ipc_client,
+            new_phase="Phase 2",
+            node="A",
+            ipc_timeout=ipc_timeout,
+        )
         session.phase2_start_tick = current_tick
         applied["nodes"].append("A")
         applied["phase"] = session.phase
@@ -352,8 +361,13 @@ def apply_routing(
             timeout=ipc_timeout,
         )
 
-        session.phase = "Phase 3"
-        session.place_id = PLACE_NEGOTIATION
+        sync_player_place_on_routing(
+            session,
+            ipc_client=ipc_client,
+            new_phase="Phase 3",
+            node="B",
+            ipc_timeout=ipc_timeout,
+        )
         applied["nodes"].append("B")
         applied["phase"] = session.phase
         applied["place_id"] = session.place_id
@@ -368,9 +382,16 @@ def apply_routing(
                 place_id=PLACE_RECEPTION,
                 timeout=ipc_timeout,
             )
-        session.phase = "Phase 4"
+        sync_player_place_on_routing(
+            session,
+            ipc_client=ipc_client,
+            new_phase="Phase 4",
+            node="C",
+            ipc_timeout=ipc_timeout,
+        )
         applied["nodes"].append("C")
         applied["phase"] = session.phase
+        applied["place_id"] = session.place_id
         log.info("routing node C: CEOs 4/5/6→%s", PLACE_RECEPTION)
 
     return applied

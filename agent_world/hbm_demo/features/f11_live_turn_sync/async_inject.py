@@ -22,6 +22,9 @@ from agent_world.hbm_demo.features.f04_stats.deltas import apply_stat_deltas
 from agent_world.hbm_demo.features.f04_stats.scoring import score_player_turn
 from agent_world.hbm_demo.features.f05_story_routing import routing
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
+from agent_world.hbm_demo.features.f08_virtual_player.player_f2f import (
+    build_player_f2f_payload,
+)
 from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop_enabled
 from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import save_task_runtime
 from agent_world.hbm_demo.http.ipc_helper import (
@@ -99,6 +102,7 @@ def run_background_turn(
 
         ipc_client = get_ipc_client(str(sim_dir))
         min_ticks = resolve_loop_min_ticks(task_phase, tick_count)
+        player_f2f = build_player_f2f_payload(hbm, player_text)
 
         if is_world_loop_enabled():
             send_enqueue_player_input(
@@ -106,6 +110,7 @@ def run_background_turn(
                 events=events,
                 broadcast=broadcast,
                 turn_context=turn_context,
+                player_f2f=player_f2f,
                 timeout=ipc_timeout,
             )
             push_turn_context_mirror(
@@ -130,6 +135,7 @@ def run_background_turn(
                 broadcast=broadcast,
                 turn_context=turn_context,
                 tick_count=tick_count,
+                player_f2f=player_f2f,
                 timeout=ipc_timeout,
             )
             ipc_result = dict(resp.result or {})

@@ -56,6 +56,17 @@ def wire_handlers(
         from agent_world.script.loader import ScriptLoader
 
         bc = payload.get("broadcast")
+        player_f2f = payload.get("player_f2f")
+        if player_f2f:
+            from agent_world.hbm_demo.features.f08_virtual_player.player_f2f import (
+                apply_player_f2f_payload,
+            )
+
+            await apply_player_f2f_payload(
+                world_db,
+                player_f2f,
+                t=int(world_state.clock.t),
+            )
         if bc:
             await broadcast_helper.broadcast_place(
                 world_db,

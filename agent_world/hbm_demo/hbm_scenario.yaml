@@ -99,6 +99,13 @@ groups:
     creator_id: 4
 
 agents:
+  - agent_id: 0
+    name: "玩家"
+    location: nvidia_reception
+    soul: ""
+    long_term_goal: ""
+    current_state: ""
+
   - agent_id: 1
     name: "接待前台"
     location: nvidia_reception

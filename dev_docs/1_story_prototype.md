@@ -19,7 +19,7 @@
 ### 2. 出场角色 (Agents — 3 大阵营, 7 个实体 Agent)
 
 **【玩家阵营】**
-*   **玩家 (Player)**：无实体 Agent。Flask **`game_service`** 组装 `DialogueInjectionEffect`，由 Runner 注入当前 `place_id` 内 NPC；**`HbmAgent.update_memory()`** 负责让 LLM 看见玩家台词（见 `2_architecture.md` 1.2 节）。
+*   **玩家 (Player, Agent 0)**：轻量虚拟 Agent，位于 `place_store`；Flask `player-turn` 写入 F2F（sender=0），**永不 tick LLM**。Phase 切换由 F05 IPC MOVE 同步 `session.place_id`。
 
 **【英伟达阵营 (防守方)】**
 1.  **接待前台 (Agent 1)**：位于 `nvidia_reception`。负责拦截与通报。
@@ -106,12 +106,14 @@
 
 ## 四、 Phase / place_id 速查
 
-| Phase | Turn（剧情规划） | 玩家 `place_id` | DialogueInjection 目标（`WorldDB.agents_at`） | inject 方式 |
-|-------|------------------|-----------------|-----------------------------------------------|-------------|
-| 1 | 1–4 | `nvidia_reception` | Agent 1 | 单条 event |
-| 2 | 5–12（可延长，见节点 B 未达标） | `jensen_private_room` | Agent 2 | 单条 event |
-| 3 | 13–20（可延长，见节点 C 未达标） | `negotiation_room` | Agent 2, 3, 4, 5, 6 | **batch** `events[]` |
-| 4 | 21–25 | `negotiation_room` | Agent 2 | batch `events[]`（**仅 Agent 2**；Tech VP 留室旁听，见 F07 §5.4） |
+| Phase | Turn（剧情规划） | 玩家 `place_id` | 引擎 Agent 0 | DialogueInjection 目标 | inject 方式 |
+|-------|------------------|-----------------|--------------|-----------------------------------------------|-------------|
+| 1 | 1–4（可延长） | `nvidia_reception` | @ reception | Agent 1 | 单条 event |
+| 2 | 5–12（可延长） | `jensen_private_room` | @ jensen_private_room | Agent 2 | 单条 event |
+| 3 | 13–20（可延长） | `negotiation_room` | @ negotiation_room | Agent 2, 3, 4, 5, 6 | **batch** `events[]` |
+| 4 | 21–25 | `negotiation_room` | @ negotiation_room | Agent 2 | batch `events[]`（**仅 Agent 2**） |
+
+*玩家 F2F 与 inject 短期双通道（Phase 1）；Phase 2+ 以 F2F sender=0 为主。Agent 0 MOVE 仅 F05 路由节点 A/B 触发（节点 C 不移动）。*
 
 *Turn 列为剧情规划区间；**实际 Phase 以 session 为准**，路由未触发时可超出区间仍停留在上一 Phase。*
 

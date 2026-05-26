@@ -19,6 +19,10 @@ from agent_world.hbm_demo.features.f07_agent_control.conversation_control import
     primary_notify_ticks,
 )
 
+from agent_world.hbm_demo.features.f08_virtual_player.player_entity import (
+    is_virtual_player_agent,
+)
+
 log = logging.getLogger("agent_world.hbm_demo.f07.pick_active")
 
 SAM_ID = 7
@@ -142,6 +146,8 @@ def pick_active_ids(
     seen: Set[int] = set()
 
     def _add(aid: int) -> None:
+        if is_virtual_player_agent(aid):
+            return
         if aid in frozen or aid in seen:
             return
         active.append(int(aid))
@@ -234,14 +240,18 @@ def _all_active_agent_ids(agents: Any) -> List[int]:
     if hasattr(agents, "items"):
         for key, agent in agents.items():
             try:
-                out.append(int(key))
+                aid = int(key)
             except (TypeError, ValueError):
                 aid = getattr(agent, "agent_id", None)
-                if aid is not None:
-                    out.append(int(aid))
+                if aid is None:
+                    continue
+                aid = int(aid)
+            if is_virtual_player_agent(aid):
+                continue
+            out.append(aid)
         return sorted(out)
     for agent in agents:
         aid = getattr(agent, "agent_id", None)
-        if aid is not None:
+        if aid is not None and not is_virtual_player_agent(int(aid)):
             out.append(int(aid))
     return sorted(out)

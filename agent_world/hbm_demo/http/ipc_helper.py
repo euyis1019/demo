@@ -123,6 +123,7 @@ def send_enqueue_player_input(
     events: List[Dict[str, Any]],
     turn_context: Optional[Dict[str, Any]] = None,
     broadcast: Optional[Dict[str, Any]] = None,
+    player_f2f: Optional[Dict[str, Any]] = None,
     timeout: float = DEFAULT_IPC_TIMEOUT,
 ) -> IPCResponse:
     payload: Dict[str, Any] = {"events": events}
@@ -130,6 +131,8 @@ def send_enqueue_player_input(
         payload["broadcast"] = broadcast
     if turn_context:
         payload["turn_context"] = turn_context
+    if player_f2f:
+        payload["player_f2f"] = player_f2f
     try:
         resp = client.send_command(
             CommandType.ENQUEUE_PLAYER_INPUT,
@@ -193,6 +196,7 @@ def send_inject_batch(
     tick_count: int = 6,
     broadcast: Optional[Dict[str, Any]] = None,
     turn_context: Optional[Dict[str, Any]] = None,
+    player_f2f: Optional[Dict[str, Any]] = None,
     timeout: float = DEFAULT_IPC_TIMEOUT,
 ) -> IPCResponse:
     """Legacy batch inject, or enqueue-only when world loop is enabled."""
@@ -203,6 +207,7 @@ def send_inject_batch(
                 events=events,
                 broadcast=broadcast,
                 turn_context=turn_context,
+                player_f2f=player_f2f,
                 timeout=timeout,
             )
         return send_enqueue_script_event(
@@ -217,6 +222,8 @@ def send_inject_batch(
         payload["broadcast"] = broadcast
     if turn_context:
         payload["turn_context"] = turn_context
+    if player_f2f:
+        payload["player_f2f"] = player_f2f
     try:
         resp = client.send_command(
             CommandType.INJECT_SCRIPT_EVENT,

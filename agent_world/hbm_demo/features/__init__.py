@@ -76,6 +76,13 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         ],
         "phase": "F07-E Step5 (final acceptance + Phase4 smoke)",
     },
+    "F08V": {
+        "name": "虚拟玩家 Agent（Virtual Player Entity）",
+        "status": "implemented",
+        "path": "features/f08_virtual_player/",
+        "modules": ["player_entity", "player_f2f", "config", "phase_places"],
+        "phase": "dev_log/34 PR2",
+    },
     "F08": {
         "name": "HTTP 传输",
         "status": "implemented",

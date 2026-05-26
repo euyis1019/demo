@@ -7,6 +7,9 @@ export function resolveSpeakerAgentId(
   message: GameMessage,
   nameMap: Record<string, string>,
 ): string | null {
+  if (message.sender_id != null && Number(message.sender_id) === 0) {
+    return PLAYER_AGENT_ID;
+  }
   if (isPlayerSender(message.sender)) {
     return PLAYER_AGENT_ID;
   }
