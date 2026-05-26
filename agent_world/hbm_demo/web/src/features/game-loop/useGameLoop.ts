@@ -86,7 +86,9 @@ export function useStartGame() {
           throw new Error("session/start 未返回 data");
         }
         applySessionStart(response.data);
-        await hydrateWorldFromServer(dispatch);
+        await hydrateWorldFromServer(dispatch, {
+          startTick: response.data.start_tick,
+        });
       } catch (err) {
         dispatch({
           type: "SET_ERROR",

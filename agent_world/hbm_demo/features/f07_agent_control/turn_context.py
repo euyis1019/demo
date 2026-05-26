@@ -26,6 +26,7 @@ def build_turn_context(session: Any, player_text: str) -> Dict[str, Any]:
         "enabled": True,
         "phase": phase,
         "player_turn": player_turn,
+        "start_tick": int(getattr(session, "start_tick", 0) or 0),
         "place_id": str(getattr(session, "place_id", "")),
         "inject_agent_ids": list(inject_ids),
         "player_text": player_text.strip(),

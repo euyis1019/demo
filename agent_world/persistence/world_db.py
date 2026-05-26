@@ -957,13 +957,36 @@ class WorldDB:
     def fetch_messages_for_recap(
         self, since_tick: int, t_now: int, *, limit: int = 40
     ) -> list[dict]:
+        """Recent dialogue for L4 recap.
+
+        F2F broadcasts and GRP fan-out insert one ``direct_message`` row per
+        recipient with identical ``(sender_id, attempted_at, content)``; collapse
+        those copies so prompts show one line per utterance (same as
+        ``fetch_f2f_history_at``).
+        """
         rows = self._exec(
             """
-            SELECT sender_id, recipient_id, group_id, channel_type,
-                   content, attempted_at, place_id
+            SELECT sender_id,
+                   MIN(recipient_id) AS recipient_id,
+                   group_id,
+                   channel_type,
+                   content,
+                   attempted_at,
+                   place_id,
+                   MIN(message_id) AS message_id
             FROM direct_message
             WHERE attempted_at > ? AND attempted_at <= ?
               AND channel_type IN ('F2F', 'RDC', 'GRP')
+              AND delivered = 1
+            GROUP BY sender_id,
+                     channel_type,
+                     attempted_at,
+                     content,
+                     COALESCE(place_id, ''),
+                     CASE
+                       WHEN channel_type = 'RDC' THEN recipient_id
+                       ELSE COALESCE(group_id, 0)
+                     END
             ORDER BY attempted_at, message_id
             LIMIT ?
             """,

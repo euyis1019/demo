@@ -54,6 +54,7 @@ export interface GameState {
   agentInbox: Record<string, AgentInbox>;
   worldEvents: WorldEvent[];
   pendingWorldEvent: WorldEvent | null;
+  processedWorldEventIds: string[];
   activeAgentModal: string | null;
   recentMoveKeys: string[];
   recentRdcLinks: RdcLink[];
@@ -91,6 +92,7 @@ export function createInitialState(): GameState {
     agentInbox: {},
     worldEvents: [],
     pendingWorldEvent: null,
+    processedWorldEventIds: [],
     activeAgentModal: null,
     recentMoveKeys: [],
     recentRdcLinks: [],
@@ -165,6 +167,7 @@ function withWorldDelta(
     agentInbox: patch.agentInbox,
     worldEvents: patch.worldEvents,
     pendingWorldEvent: patch.pendingWorldEvent,
+    processedWorldEventIds: patch.processedWorldEventIds,
     recentMoveKeys: patch.recentMoveKeys.length
       ? patch.recentMoveKeys
       : state.recentMoveKeys,
@@ -183,6 +186,7 @@ function resetWorldState(): Pick<
   | "agentInbox"
   | "worldEvents"
   | "pendingWorldEvent"
+  | "processedWorldEventIds"
   | "activeAgentModal"
   | "recentMoveKeys"
   | "recentRdcLinks"
@@ -201,6 +205,7 @@ function resetWorldState(): Pick<
     agentInbox: {},
     worldEvents: [],
     pendingWorldEvent: null,
+    processedWorldEventIds: [],
     activeAgentModal: null,
     recentMoveKeys: [],
     recentRdcLinks: [],
@@ -345,6 +350,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           agentInbox: state.agentInbox,
           worldEvents: state.worldEvents,
           pendingWorldEvent: state.pendingWorldEvent,
+          processedWorldEventIds: state.processedWorldEventIds,
         },
         {
           through_tick: snapshotDelta.through_tick,
@@ -365,12 +371,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         placeId: deltaPatch.placeId ?? snap.placeId,
         worldTick: Math.max(state.worldTick, deltaPatch.worldTick),
-        deltaSinceTick: Math.max(state.deltaSinceTick, snapshotDelta.through_tick ?? 0),
         roomF2f: deltaPatch.roomF2f,
         agentLocations: deltaPatch.agentLocations,
         agentInbox: deltaPatch.agentInbox,
         worldEvents: deltaPatch.worldEvents,
         pendingWorldEvent: deltaPatch.pendingWorldEvent ?? state.pendingWorldEvent,
+        processedWorldEventIds: deltaPatch.processedWorldEventIds,
         recentRdcLinks: extractRdcLinks(
           snapshotDelta.agent_messages,
           snapshotDelta.observer_messages ?? [],
@@ -390,8 +396,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case "CLOSE_AGENT_MODAL":
       return { ...state, activeAgentModal: null };
     case "DISMISS_WORLD_EVENT": {
+      const dismissedId = state.pendingWorldEvent?.id;
       const remaining = state.worldEvents.filter(
-        (event) => event.id !== state.pendingWorldEvent?.id,
+        (event) => event.id !== dismissedId,
       );
       return {
         ...state,

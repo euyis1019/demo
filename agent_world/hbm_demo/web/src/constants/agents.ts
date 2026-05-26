@@ -16,6 +16,9 @@ export const AGENT_DISPLAY_NAMES: Record<number, string> = {
 
 export const PLAYER_AGENT_ID = "player";
 
+/** F08 后端虚拟玩家实体 id；UI 位置以 {@link PLAYER_AGENT_ID} + player_place_id 为准。 */
+export const VIRTUAL_PLAYER_AGENT_ID = "0";
+
 export function agentDisplayName(
   agentId: string | number,
   nameMap?: Record<string, string>,

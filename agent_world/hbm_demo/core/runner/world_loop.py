@@ -226,12 +226,19 @@ class WorldLoopOrchestrator:
         }
 
     def update_session_mirror(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        prev = self._mirror.latest()
+        prev_start = prev.get("start_tick")
         mirror = mirror_from_payload(payload) if payload else bootstrap_mirror()
         if payload.get("turn_context"):
-            mirror = merge_mirror_update(self._mirror.latest(), payload["turn_context"])
+            mirror = merge_mirror_update(prev, payload["turn_context"])
         elif payload:
-            mirror = merge_mirror_update(self._mirror.latest(), payload)
+            mirror = merge_mirror_update(prev, payload)
         updated = self._mirror.replace(mirror)
+        new_start = updated.get("start_tick")
+        if new_start is not None and new_start != prev_start:
+            self._last_player_inject_tick = None
+            if hasattr(self._world_step, "set_tick_context"):
+                self._world_step.set_tick_context(updated, reset_l3_window=True)
         return {"ok": True, "mirror": updated}
 
     def get_loop_status(self) -> Dict[str, Any]:

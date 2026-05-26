@@ -26,6 +26,12 @@ from agent_world.hbm_demo.features.f08_virtual_player.player_entity import (
 log = logging.getLogger("agent_world.hbm_demo.f07.pick_active")
 
 SAM_ID = 7
+RECEPTION_AGENT_ID = 1
+
+
+def _inject_live(turn_context: Dict[str, Any]) -> bool:
+    """Player turn was enqueued — inject batch / notify windows apply."""
+    return turn_context.get("player_inject_tick") is not None
 
 
 def _phase_cfg(phase: str) -> Dict[str, Any]:
@@ -107,6 +113,42 @@ def _resolve_agent(agents: Any, agent_id: int) -> Any:
     return None
 
 
+def _reception_already_welcomed(world: Any, since_t: int) -> bool:
+    db = getattr(world, "world_db", None)
+    if db is None:
+        return False
+    try:
+        rows = db.fetch_f2f_history_at(
+            "nvidia_reception",
+            t_now=10**9,
+            since_t=max(0, int(since_t)),
+            limit=8,
+        )
+    except Exception:  # noqa: BLE001
+        return False
+    for _attempted_at, sender_id, _mid, _content in rows:
+        if int(sender_id) == RECEPTION_AGENT_ID:
+            return True
+    return False
+
+
+def _reception_opening_pending(
+    turn_context: Dict[str, Any],
+    world: Any,
+    t: int,
+    batch_tick_index: int,
+) -> bool:
+    if batch_tick_index != 0:
+        return False
+    start_tick = int(turn_context.get("start_tick", 0) or 0)
+    if _reception_already_welcomed(world, start_tick):
+        return False
+    db = getattr(world, "world_db", None)
+    if db is None:
+        return int(t) <= start_tick + 1
+    return int(t) >= start_tick
+
+
 def pick_active_ids(
     turn_context: Dict[str, Any],
     world: Any,
@@ -127,9 +169,10 @@ def pick_active_ids(
     inject_set = set(inject_ids)
     exclusive = inject_exclusive_ticks_for(phase)
     agents = getattr(world, "agents", None) or {}
+    inject_live = _inject_live(turn_context)
 
     # inject_exclusive — first N ticks after player inject: inject targets only.
-    if exclusive > batch_tick_index and inject_ids:
+    if inject_live and exclusive > batch_tick_index and inject_ids:
         primary = _primary_ids(phase, player_turn)
         active = [
             aid for aid in primary if aid in inject_set and aid not in frozen
@@ -172,14 +215,24 @@ def pick_active_ids(
         if mem and len(mem) > 0:
             _add(aid)
 
-    # 3) Inject batch window (align with IPC inject length) + script notification.
+    # 3) Inject batch window — only after real player inject (not bootstrap mirror).
     inject_batch_len = resolve_inject_tick_count(phase, inject_response_ticks(phase))
     notify_until = exclusive + primary_notify_ticks(phase)
-    in_player_turn_window = batch_tick_index < max(inject_batch_len, notify_until)
-    if batch_tick_index < inject_batch_len:
+    in_player_turn_window = (
+        inject_live and batch_tick_index < max(inject_batch_len, notify_until)
+    )
+    if inject_live and batch_tick_index < inject_batch_len:
         for aid in inject_set:
             _add(aid)
-    if batch_tick_index < notify_until:
+    elif (
+        not inject_live
+        and phase == "Phase 1"
+        and RECEPTION_AGENT_ID in inject_set
+        and _reception_opening_pending(turn_context, world, t, batch_tick_index)
+    ):
+        # One pre-player opening beat after session/start resets the L3 window.
+        _add(RECEPTION_AGENT_ID)
+    if inject_live and batch_tick_index < notify_until:
         for aid in primary:
             if aid not in inject_set:
                 _add(aid)

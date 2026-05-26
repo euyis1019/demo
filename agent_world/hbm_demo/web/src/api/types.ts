@@ -27,6 +27,8 @@ export interface GameMessage {
   is_system?: boolean;
   prompt_trace_id?: string;
   ref_key?: string;
+  /** Client-only: optimistic bubble before world-delta confirms player F2F. */
+  _optimistic?: boolean;
 }
 
 export interface LocationChange {

@@ -50,6 +50,7 @@ STORY_ADVANCE_TOOL: Dict[str, Any] = {
         "name": "story_advance",
         "description": (
             "标记结构化剧情信号（不替你说台词）。"
+            "Phase 1 节点 A：Jensen 发批准 RDC 给前台后调用 approve_visitor 进入 Phase 2。"
             "在已用 speak/RDC 完成对话后，当剧情应进入下一幕时调用。"
         ),
         "parameters": {
@@ -229,7 +230,14 @@ class HbmAgent(DemoAgent):
         aid = int(self.agent_id)
 
         reception_extra = ""
-        if aid == 1:
+        if aid == 1 and phase == "Phase 1":
+            reception_extra = (
+                "3) 你在前台：每句玩家 inject 须 speak_to_local 回应；"
+                "同批或下一拍须 send_message RDC→Jensen 简报（不可只 F2F）；"
+                "收到 Jensen 批准 RDC 后 speak_to_local 请跟我来；"
+                "Jensen「稍等/评估」RDC 只 speak_to_local 转告，勿 RDC→2。\n"
+            )
+        elif aid == 1:
             reception_extra = (
                 "3) 你在前台：每句玩家 inject 须 speak_to_local 回应；"
                 "有技术突破再 send_message RDC→Jensen；已汇报且老板未回时选 do_nothing。\n"
@@ -237,12 +245,9 @@ class HbmAgent(DemoAgent):
         elif phase == "Phase 1" and aid == 2:
             reception_extra = (
                 "3) 谈判室：speak_to_local 与 VP/CEO 谈 HBM；"
-                "收到前台 RDC 后须 send_message→1 一句回执，再 send_message→3；"
-                "勿复读「私人会议室」。\n"
-            )
-        elif phase == "Phase 1" and aid == 1:
-            reception_extra = (
-                "3) 收到 Jensen RDC 后须 send_message→2 确认，并 speak_to_local 转告玩家。\n"
+                "收到前台 RDC 后须 send_message→1 回执，再 send_message→3 求证；"
+                "VP 回评估后 send_message→1 批准语（私人会议室/这边请），"
+                "再 story_advance(approve_visitor) 进 Phase 2；勿复读「稍等」。\n"
             )
         elif phase == "Phase 1" and aid == 3:
             reception_extra = (
@@ -315,6 +320,18 @@ class HbmAgent(DemoAgent):
                 )
         elif phase == "Phase 2" and aid == 3:
             respond_rule = "1) 本拍仅回复 Jensen RDC，无需回应玩家（你看不到玩家原话）。\n"
+        elif phase == "Phase 1" and aid == 1 and not self.player_memory:
+            ctx = getattr(self, "_batch_turn_context", None) or {}
+            if ctx.get("player_inject_tick") is None:
+                respond_rule = (
+                    "1) 玩家尚未发言——本拍 speak_to_local 一句欢迎即可；"
+                    "禁止赶客、禁止 RDC。\n"
+                )
+            else:
+                respond_rule = (
+                    "1) 有未读 RDC 时本拍须 send_message 回复发件人；"
+                    "无未读时 do_nothing。\n"
+                )
         elif not self.player_memory and phase not in ("Phase 4",):
             respond_rule = (
                 "1) 有未读 RDC 时本拍须 send_message 回复发件人；"
@@ -368,6 +385,33 @@ class HbmAgent(DemoAgent):
                 prefix.append(f"  - {scripted}")
 
         world_db = getattr(world, "world_db", None) if world is not None else None
+        ctx = getattr(self, "_batch_turn_context", None) or {}
+        phase = str(ctx.get("phase", ""))
+        if (
+            int(self.agent_id) == 1
+            and phase == "Phase 1"
+            and not self.player_memory
+            and ctx.get("player_inject_tick") is None
+        ):
+            from types import SimpleNamespace
+
+            from agent_world.hbm_demo.features.f07_agent_control.knowledge import (
+                build_agent_knowledge,
+            )
+
+            session = SimpleNamespace(
+                phase=phase,
+                player_turn=int(ctx.get("player_turn", 1)),
+            )
+            opening_block = build_agent_knowledge(
+                session,
+                int(self.agent_id),
+                "",
+                channel="opening",
+            )
+            if opening_block:
+                prefix.append(opening_block)
+
         if world_db is not None:
             from agent_world.hbm_demo.features.f01_session.paths import get_name_map
             from agent_world.hbm_demo.features.f07_agent_control.knowledge import (

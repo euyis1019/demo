@@ -42,7 +42,11 @@ def has_unread_inbound(
         rows = []
 
     if rdc_from is not None:
-        return any(int(getattr(r, "sender_id", -1)) == int(rdc_from) for r in rows)
+        return any(
+            int(getattr(row, "sender_id", -1)) == int(rdc_from)
+            for row in rows
+            if str(getattr(row, "channel_type", "RDC") or "RDC").upper() == "RDC"
+        )
 
     if rows:
         return True
@@ -169,6 +173,11 @@ def _move_and_location_hints(agent_id: int, phase: str, place: str) -> List[str]
             "【Tech VP】你在 negotiation_room 验逻辑/回 Jensen 请用 send_message→2，"
             "禁止说「我去私人会议室验代码」——你不会离开谈判室。"
         )
+    if agent_id == 1 and phase == "Phase 1" and place == "nvidia_reception":
+        lines.append(
+            "【前台·转场】收到 Jensen 批准 RDC 后，F2F 说「请跟我来/这边请/私人会议室」"
+            "即可；场景切换由系统 routing 处理，勿向玩家解释「系统限制无法移动」。"
+        )
     return lines
 
 
@@ -247,25 +256,24 @@ def _rdc_reply_obligation_hints(
     ]
 
     if aid == 2 and 1 in senders:
-        window_start = max(0, int(t) - 20)
-        already = _recent_rdc_count(
-            db, sender_id=2, recipient_id=1, since_t=window_start, t_now=int(t)
-        )
-        if already == 0:
+        chain_since = max(0, int(t) - 50)
+        if _jensen_should_issue_approve(db, since_t=chain_since, t_now=int(t)):
             lines.append(
-                "【前台必回·Jensen】Agent1 已 RDC 汇报访客，你尚未回信——"
-                "本拍须 send_message→1 一句（收到/让访客稍等/正与 VP 评估），"
-                "可同拍或下一拍再 send_message→3；禁止跳过对前台的首次回复。"
+                "【Jensen·批准】Tech VP 已正面评估——本拍 send_message→1 须含"
+                "「私人会议室/这边请/可以见」，并 story_advance(approve_visitor)；"
+                "禁止再写「稍等/十分钟」。"
             )
-        elif already >= 1:
+        else:
             lines.append(
-                "【前台已回】对 Agent1 已回过 RDC，本拍勿再重复「私人会议室/带访客」；"
-                "处理其他未读或 speak_to_local。"
+                "【Jensen·前台】Agent1 访客通报须 send_message→1 一句回执（稍等/评估），"
+                "同一话题只回一次；前台「收到」类消息无需再 RDC。"
             )
 
     if aid == 1 and 2 in senders:
         lines.append(
-            "【前台】收到 Jensen RDC 后须 send_message→2 确认，并可 speak_to_local 转告玩家。"
+            "【前台·Jensen】批准语（私人会议室/这边请）→ send_message→2 确认 + "
+            "speak_to_local 请跟我来；「稍等/评估中」→ 只 speak_to_local 转告玩家，"
+            "勿 send_message→2 回执。"
         )
 
     if aid == 3 and 2 in senders:
@@ -290,22 +298,29 @@ def _jensen_reception_spam_hints(
     if phase != "Phase 1" or int(agent_id) != 2 or db is None:
         return []
 
+    chain_since = max(0, int(t) - 50)
+    approve_hints = _jensen_approve_urgency_hints(
+        agent, db, since_t=chain_since, t_now=int(t)
+    )
+    if approve_hints:
+        return approve_hints
+
     window_start = max(0, int(t) - 12)
     to_reception = _recent_rdc_count(
         db, sender_id=2, recipient_id=1, since_t=window_start, t_now=int(t)
     )
-    if to_reception < 2:
+    if to_reception < 1:
         return []
 
     lines = [
-        "【止复读·前台】已向 Agent1 发过 RDC，禁止再次 send_message→1 重复"
-        "「私人会议室/带访客/十分钟」等指令；改 speak_to_local 与 VP/CEO 谈 HBM，"
-        "或 send_message→3，或 do_nothing。"
+        "【止复读·前台】已向 Agent1 发过「稍等/再等」类 RDC 时，禁止再次 send_message→1 "
+        "复读相同催促；改 speak_to_local 与 VP/CEO 谈 HBM，或 send_message→3，或 do_nothing。"
+        "（尚未批准访客时，VP 正面评估后仍须 send_message→1 含「私人会议室/这边请」+ story_advance。）"
     ]
-    if to_reception >= 3:
+    if to_reception >= 2:
         lines.append(
-            "【强制】你已多次私信前台相同内容——本拍禁止 send_message→1，"
-            "必须 speak_to_local 或 send_message→3。"
+            "【强制】你已多次私信前台「稍等」——本拍禁止再 send_message→1 催等，"
+            "须 speak_to_local 或 send_message→3；若 VP 已认可方案则改发批准语 + story_advance。"
         )
     pending = dict(getattr(agent, "_pending_rdc_out", {}) or {})
     if 1 in pending and not _has_rdc_reply_from(
@@ -321,6 +336,7 @@ def _jensen_reception_spam_hints(
 
 def _jensen_vp_link_hints(
     agent_id: int,
+    agent: Any,
     phase: str,
     world: Any,
     t: int,
@@ -356,7 +372,7 @@ def _jensen_vp_link_hints(
         if jensen_to_vp >= 1 and vp_to_jensen == 0:
             return [
                 "【等 VP】已向 Tech VP 求证，本拍 speak_to_local 与 CEO 互怼 HBM 或 do_nothing；"
-                "若前台仍有未读 RDC 且尚未回过 →1，先 send_message→1 一句。"
+                "禁止再 send_message→1 催前台「稍等」。"
             ]
         if jensen_to_vp == 0 and vp_to_jensen == 0:
             return [
@@ -377,6 +393,36 @@ def _jensen_vp_link_hints(
     return []
 
 
+def _reception_jensen_spam_hints(
+    agent_id: int,
+    phase: str,
+    t: int,
+    db: Any,
+) -> List[str]:
+    if phase != "Phase 1" or int(agent_id) != 1 or db is None:
+        return []
+
+    chain_since = max(0, int(t) - 50)
+    if _has_approve_rdc_to_reception(db, since_t=chain_since, t_now=int(t)):
+        return [
+            "【已批准·escort】Jensen 已 RDC 批准——本拍 speak_to_local 须含"
+            "「请跟我来/这边请/私人会议室」，带玩家去见黄总；"
+            "禁止再安抚「稍等/系统限制无法移动」。"
+        ]
+
+    window_start = max(0, int(t) - 12)
+    to_jensen = _recent_rdc_count(
+        db, sender_id=1, recipient_id=2, since_t=window_start, t_now=int(t)
+    )
+    if to_jensen < 1:
+        return []
+
+    return [
+        "【已通报】已向 Jensen RDC 汇报访客，本拍 speak_to_local 安抚玩家或 do_nothing，"
+        "禁止再 send_message→2 重复催黄总。"
+    ]
+
+
 def _negotiation_room_hints(
     agent_id: int,
     agent: Any,
@@ -395,7 +441,8 @@ def _negotiation_room_hints(
         return [
             "【谈判室·Jensen】与 VP、CEO 同室——本拍须 speak_to_local 1–3 句"
             "（HBM 涨价/CEO 串标/访客方案择一），形成可见讨论；"
-            "收到前台 RDC 后须先 send_message→1 一句回执，→3 求证；勿复读私人会议室指令。"
+            "收到前台 RDC 后须先 send_message→1 一句回执，→3 求证；"
+            "VP 正面评估后须 send_message→1 含「私人会议室/这边请」并 story_advance(approve_visitor)。"
         ]
     if aid == 3:
         return [
@@ -408,6 +455,224 @@ def _negotiation_room_hints(
             "可点名 Jensen 或 VP，也可与其他 CEO 互呛；勿 RDC 玩家。"
         ]
     return []
+
+
+def _content_has_keywords(content: str, keywords: tuple[str, ...]) -> bool:
+    text = str(content or "")
+    return any(kw in text for kw in keywords)
+
+
+_VP_POSITIVE_RDC_KEYWORDS: Tuple[str, ...] = (
+    "可行",
+    "核武器",
+    "理论上成立",
+    "数学上成立",
+    "放他进来",
+    "值得见",
+    "靠谱",
+)
+
+
+def _rdc_row_content(row: Any) -> str:
+    if isinstance(row, dict):
+        return str(row.get("content") or "")
+    try:
+        return str(row["content"] or "")
+    except (KeyError, TypeError):
+        pass
+    return str(getattr(row, "content", "") or "")
+
+
+def _has_approve_rdc_to_reception(db: Any, *, since_t: int, t_now: int) -> bool:
+    from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
+        approve_keywords,
+    )
+
+    try:
+        rows = db.fetch_rdc_messages(
+            sender_id=2, recipient_id=1, since_t=int(since_t), t_now=int(t_now)
+        )
+    except Exception:  # noqa: BLE001
+        return False
+    for row in rows:
+        if _content_has_keywords(_rdc_row_content(row), approve_keywords()):
+            return True
+    return False
+
+
+def _vp_positive_rdc_to_jensen(db: Any, *, since_t: int, t_now: int) -> bool:
+    try:
+        rows = db.fetch_rdc_messages(
+            sender_id=3, recipient_id=2, since_t=int(since_t), t_now=int(t_now)
+        )
+    except Exception:  # noqa: BLE001
+        return False
+    for row in rows:
+        if _content_has_keywords(_rdc_row_content(row), _VP_POSITIVE_RDC_KEYWORDS):
+            return True
+    return False
+
+
+def _player_f2f_count_at_reception(db: Any, *, since_t: int, t_now: int) -> int:
+    try:
+        history = db.fetch_f2f_history_at(
+            "nvidia_reception", int(t_now), int(since_t)
+        )
+    except Exception:  # noqa: BLE001
+        return 0
+    return sum(1 for _at_t, sender_id, _mid, _content in history if int(sender_id) == 0)
+
+
+def _jensen_node_a_chain_ready(db: Any, *, since_t: int, t_now: int) -> bool:
+    return (
+        _recent_rdc_count(db, sender_id=1, recipient_id=2, since_t=since_t, t_now=t_now)
+        > 0
+        and _recent_rdc_count(db, sender_id=2, recipient_id=3, since_t=since_t, t_now=t_now)
+        > 0
+        and _recent_rdc_count(db, sender_id=3, recipient_id=2, since_t=since_t, t_now=t_now)
+        > 0
+    )
+
+
+def _jensen_should_issue_approve(db: Any, *, since_t: int, t_now: int) -> bool:
+    if _has_approve_rdc_to_reception(db, since_t=since_t, t_now=t_now):
+        return False
+    if not _jensen_node_a_chain_ready(db, since_t=since_t, t_now=t_now):
+        return False
+    return _vp_positive_rdc_to_jensen(db, since_t=since_t, t_now=t_now)
+
+
+def _jensen_approve_urgency_hints(
+    agent: Any,
+    db: Any,
+    *,
+    since_t: int,
+    t_now: int,
+) -> List[str]:
+    if not _jensen_should_issue_approve(db, since_t=since_t, t_now=t_now):
+        return []
+    ctx = getattr(agent, "_batch_turn_context", None) or {}
+    player_turn = int(ctx.get("player_turn", 1))
+    player_msgs = _player_f2f_count_at_reception(db, since_t=since_t, t_now=t_now)
+    urgency = ""
+    if player_turn >= 3 or player_msgs >= 2:
+        urgency = "玩家已在前台多次发言等候——"
+    return [
+        f"【节点 A·必须批准】{urgency}Tech VP 已正面评估访客方案，RDC 链已齐。"
+        "本拍须 send_message→1，正文含「私人会议室/这边请/可以见」之一，"
+        "并同批调用 story_advance(approve_visitor)。"
+        "禁止再写「稍等/十分钟/还在谈」；禁止本拍只 speak_to_local 拖延。"
+    ]
+
+
+def _node_a_progress_hints(
+    agent_id: int,
+    agent: Any,
+    phase: str,
+    db: Any,
+    t: int,
+    *,
+    mem: Any,
+) -> List[str]:
+    """Phase 1 soft checklist toward node A (prompt-only, reads world.db)."""
+    if phase != "Phase 1" or db is None:
+        return []
+
+    from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
+        approve_keywords,
+        escort_keywords,
+        is_story_advance_enabled,
+    )
+    from agent_world.hbm_demo.features.f05_story_routing.story_signals import (
+        has_story_signal,
+    )
+
+    since_t = max(0, int(t) - 50)
+    tick = int(t)
+    aid = int(agent_id)
+
+    if is_story_advance_enabled() and has_story_signal(
+        db, "approve_visitor", since_t=since_t, t_now=tick
+    ):
+        return []
+
+    has_1_2 = (
+        _recent_rdc_count(
+            db, sender_id=1, recipient_id=2, since_t=since_t, t_now=tick
+        )
+        > 0
+    )
+    has_2_3 = (
+        _recent_rdc_count(
+            db, sender_id=2, recipient_id=3, since_t=since_t, t_now=tick
+        )
+        > 0
+    )
+    has_3_2 = (
+        _recent_rdc_count(
+            db, sender_id=3, recipient_id=2, since_t=since_t, t_now=tick
+        )
+        > 0
+    )
+
+    has_approve_rdc = _has_approve_rdc_to_reception(db, since_t=since_t, t_now=tick)
+    vp_positive = _vp_positive_rdc_to_jensen(db, since_t=since_t, t_now=tick)
+
+    has_escort = False
+    try:
+        history = db.fetch_f2f_history_at("nvidia_reception", tick, since_t)
+    except Exception:  # noqa: BLE001
+        history = []
+    for _at_t, sender_id, _mid, content in history:
+        if int(sender_id) != 1:
+            continue
+        if _content_has_keywords(str(content or ""), escort_keywords()):
+            has_escort = True
+            break
+
+    lines: List[str] = []
+
+    if aid == 1:
+        if mem and not has_1_2:
+            lines.append(
+                "【节点 A·第1步】已/将 F2F 回应玩家后，本批仍须 send_message→2 向 Jensen "
+                "简报访客与 HBM/显存方案（不可只 F2F 不 RDC）。"
+            )
+        elif has_approve_rdc and not has_escort:
+            lines.append(
+                "【节点 A·前台 escort】Jensen 已 RDC 批准——本拍 speak_to_local 须含"
+                "「请跟我来/这边请/私人会议室」，带玩家去见黄总。"
+            )
+        elif has_1_2 and not has_approve_rdc:
+            lines.append(
+                "【节点 A·等候】已向 Jensen 简报——speak_to_local 安抚玩家稍等；"
+                "收到批准 RDC 后再 escort，勿重复 RDC→2。"
+            )
+
+    if aid == 2:
+        if has_1_2 and not has_2_3:
+            lines.append(
+                "【节点 A·第2步】前台已报访客——本拍 send_message→1 一句回执，"
+                "并 send_message→3 请 Tech VP 评估（可同批连发）。"
+            )
+        elif has_2_3 and has_3_2 and not has_approve_rdc and not vp_positive:
+            lines.append(
+                "【节点 A·第3步】VP 已回 RDC——若评估正面，本拍 send_message→1 批准语"
+                "（须含「私人会议室/这边请/可以见」），然后 story_advance(approve_visitor)。"
+            )
+        elif has_approve_rdc:
+            lines.append(
+                "【节点 A·推进 Phase 2】批准 RDC 已发——本拍或下一拍须调用 "
+                "story_advance(approve_visitor)；勿再 send_message→1 复读批准。"
+            )
+
+    if aid == 3 and has_2_3 and not has_3_2:
+        lines.append(
+            "【节点 A·VP】Jensen 已 RDC 求证——本拍 send_message→2，1–3 句技术判断"
+            "（含「可行/核武器/理论上成立」之一）。"
+        )
+
+    return lines
 
 
 def build_conversation_hints(
@@ -427,24 +692,22 @@ def build_conversation_hints(
         phase = str(ctx.get("phase") or "")
 
     place = _agent_place(world, aid)
+    mem = getattr(agent, "player_memory", None)
     lines.extend(_move_and_location_hints(aid, phase, place))
     lines.extend(_negotiation_room_hints(aid, agent, world, tick, phase, place))
     if db is not None:
+        lines.extend(_node_a_progress_hints(aid, agent, phase, db, tick, mem=mem))
         lines.extend(_rdc_reply_obligation_hints(aid, agent, world, tick, phase, db))
         lines.extend(_jensen_reception_spam_hints(aid, agent, world, tick, phase, db))
-        lines.extend(_jensen_vp_link_hints(aid, phase, world, tick, db))
+        lines.extend(_jensen_vp_link_hints(aid, agent, phase, world, tick, db))
+        lines.extend(_reception_jensen_spam_hints(aid, phase, tick, db))
 
     if has_unread_inbound(aid, agent, world, tick):
         lines.append(
             "【收件箱】未读消息须本拍处理：RDC 用 send_message 回复发件人，"
             "同室 F2F 用 speak_to_local；不要空过。"
         )
-        if aid == 2 and has_unread_inbound(aid, agent, world, tick, rdc_from=1):
-            lines.append(
-                "【前台汇报】Agent1 RDC 汇报访客——本拍 send_message→1 确认收到"
-                "（一句即可），再视情况 send_message→3 或 speak_to_local。"
-            )
-        elif aid == 3 and has_unread_inbound(aid, agent, world, tick, rdc_from=2):
+        if aid == 3 and has_unread_inbound(aid, agent, world, tick, rdc_from=2):
             lines.append(
                 "【Jensen 求证】send_message→2，1–3 句技术评估；"
                 "正面含「可行/核武器/理论上成立」。"
@@ -487,19 +750,44 @@ def build_conversation_hints(
         if still_pending != pending:
             agent._pending_rdc_out = still_pending  # noqa: SLF001
 
-    mem = getattr(agent, "player_memory", None)
     if mem:
         lines.append(
             "【玩家 inject】本批对话你尚未完成首次回应；回应玩家后不必每拍重复相同简报。"
         )
+        if aid == 1 and phase == "Phase 1" and db is not None:
+            since_t = max(0, tick - 50)
+            if (
+                _recent_rdc_count(
+                    db, sender_id=1, recipient_id=2, since_t=since_t, t_now=tick
+                )
+                == 0
+            ):
+                lines.append(
+                    "【节点 A·同批 RDC】F2F 回应玩家后，本批仍须 send_message→2 简报 Jensen，"
+                    "不可 speak_to_local 后就 do_nothing。"
+                )
     elif getattr(agent, "_inject_responded", False) and not has_unread_inbound(
         aid, agent, world, tick
     ):
-        lines.append(
-            "【本批已回应】你已处理过本轮玩家 inject 且无新未读消息。"
-            "不必重复相同 F2F/RDC；若玩家仍在场或场景有变化，可 update_state 或短句跟进；"
-            "确无新信息时再 do_nothing。"
-        )
+        if (
+            aid == 1
+            and phase == "Phase 1"
+            and db is not None
+            and _recent_rdc_count(
+                db, sender_id=1, recipient_id=2, since_t=max(0, tick - 20), t_now=tick
+            )
+            == 0
+        ):
+            lines.append(
+                "【节点 A·补 RDC】你已 F2F 回应玩家但尚未 send_message→2 简报 Jensen——"
+                "本拍须 RDC→2（一句即可），然后再 do_nothing。"
+            )
+        else:
+            lines.append(
+                "【本批已回应】你已处理过本轮玩家 inject 且无新未读消息。"
+                "不必重复相同 F2F/RDC；若玩家仍在场或场景有变化，可 update_state 或短句跟进；"
+                "确无新信息时再 do_nothing。"
+            )
 
     if not lines:
         return ""

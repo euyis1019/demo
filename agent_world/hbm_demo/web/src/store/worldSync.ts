@@ -8,7 +8,7 @@ import type {
   WorldEvent,
   WorldSnapshot,
 } from "../api/types";
-import { PLAYER_AGENT_ID } from "../constants/agents";
+import { PLAYER_AGENT_ID, VIRTUAL_PLAYER_AGENT_ID } from "../constants/agents";
 import { PLAYER_SENDER } from "../constants/gameLoop";
 import type { PlaceId } from "../utils/places";
 import { ROOM_GRID } from "../utils/places";
@@ -34,7 +34,12 @@ export function normalizeAgentLocations(
   }
   const out: Record<string, { placeId: string; arrivedAt: number }> = {};
   for (const [agentId, info] of Object.entries(raw)) {
-    out[String(agentId)] = {
+    const id = String(agentId);
+    // Backend F08 agent 0 duplicates UI player pseudo-id; skip to avoid twin circles.
+    if (id === VIRTUAL_PLAYER_AGENT_ID) {
+      continue;
+    }
+    out[id] = {
       placeId: String(info.place_id),
       arrivedAt: Number(info.arrived_at ?? 0),
     };
@@ -208,7 +213,11 @@ function mergeRoomF2f(
   }
   if (legacyPublic?.length) {
     const place = (playerPlaceId as PlaceId) in next ? (playerPlaceId as PlaceId) : "nvidia_reception";
-    next[place] = mergeMessages(next[place], legacyPublic);
+    // F12: public_messages mirrors room_f2f[player_place] — skip when already in this delta.
+    const alreadyInRoomF2f = Boolean(incoming?.[place]?.length);
+    if (!alreadyInRoomF2f) {
+      next[place] = mergeMessages(next[place], legacyPublic);
+    }
   }
   return next;
 }
@@ -304,8 +313,45 @@ export interface WorldDeltaPatch {
   agentInbox: Record<string, AgentInbox>;
   worldEvents: WorldEvent[];
   pendingWorldEvent: WorldEvent | null;
+  processedWorldEventIds: string[];
   recentMoveKeys: string[];
   recentRdcLinks: RdcLink[];
+}
+
+function mergeWorldEvents(
+  currentEvents: WorldEvent[],
+  pending: WorldEvent | null,
+  processedIds: string[],
+  incoming: WorldEvent[] | undefined,
+): {
+  worldEvents: WorldEvent[];
+  pendingWorldEvent: WorldEvent | null;
+  processedWorldEventIds: string[];
+} {
+  const processed = new Set(processedIds);
+  const worldEvents = [...currentEvents];
+  let pendingWorldEvent = pending;
+
+  for (const event of incoming ?? []) {
+    const eventId = String(event.id ?? "");
+    if (!eventId || processed.has(eventId)) {
+      continue;
+    }
+    if (worldEvents.some((existing) => existing.id === eventId)) {
+      continue;
+    }
+    worldEvents.push(event);
+    processed.add(eventId);
+    if (!pendingWorldEvent) {
+      pendingWorldEvent = event;
+    }
+  }
+
+  return {
+    worldEvents,
+    pendingWorldEvent,
+    processedWorldEventIds: [...processed],
+  };
 }
 
 export function applyWorldDelta(
@@ -317,6 +363,7 @@ export function applyWorldDelta(
     agentInbox: Record<string, AgentInbox>;
     worldEvents: WorldEvent[];
     pendingWorldEvent: WorldEvent | null;
+    processedWorldEventIds: string[];
   },
   delta: TurnDelta,
 ): WorldDeltaPatch {
@@ -345,16 +392,12 @@ export function applyWorldDelta(
     arrivedAt: delta.through_tick,
   };
 
-  const worldEvents = [...current.worldEvents];
-  let pendingWorldEvent = current.pendingWorldEvent;
-  for (const event of delta.world_events ?? []) {
-    if (!worldEvents.some((existing) => existing.id === event.id)) {
-      worldEvents.push(event);
-      if (!pendingWorldEvent) {
-        pendingWorldEvent = event;
-      }
-    }
-  }
+  const eventPatch = mergeWorldEvents(
+    current.worldEvents,
+    current.pendingWorldEvent,
+    current.processedWorldEventIds,
+    delta.world_events,
+  );
 
   const recentMoveKeys: string[] = [];
   for (const change of delta.location_changes ?? []) {
@@ -371,8 +414,9 @@ export function applyWorldDelta(
     roomF2f,
     agentLocations,
     agentInbox,
-    worldEvents,
-    pendingWorldEvent,
+    worldEvents: eventPatch.worldEvents,
+    pendingWorldEvent: eventPatch.pendingWorldEvent,
+    processedWorldEventIds: eventPatch.processedWorldEventIds,
     recentMoveKeys,
     recentRdcLinks,
   };

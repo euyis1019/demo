@@ -299,7 +299,7 @@ class ReadOnlyWorldDB:
                 t_now,
                 since_t,
                 limit=limit,
-                exclusive_since=True,
+                exclusive_since=False,
             )
         return out
 

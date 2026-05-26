@@ -50,7 +50,7 @@ def _signal_list(key: str, default: Tuple[str, ...]) -> Tuple[str, ...]:
 def approve_keywords() -> Tuple[str, ...]:
     return _signal_list(
         "approve_keywords",
-        ("私密会议室", "可以见", "带进来", "批准", "这边请", "请跟我来"),
+        ("私人会议室", "私密会议室", "可以见", "带进来", "批准", "这边请", "请跟我来"),
     )
 
 
@@ -75,7 +75,7 @@ def return_to_negotiation_keywords() -> Tuple[str, ...]:
 
 def require_reception_escort_f2f() -> bool:
     signals = load_routing_config().get("signals") or {}
-    return bool(signals.get("require_reception_escort_f2f", True))
+    return bool(signals.get("require_reception_escort_f2f", False))
 
 
 def max_turns_phase1_without_approve() -> int:

@@ -11,8 +11,10 @@ scene_atmosphere: |
   接待员知道老板心情极差，不敢用小事打扰；但若真有「砍显存 80%」级突破又不敢耽误。
   时间感：每一轮玩家发言都是一次短暂的接待窗口，前台必须快速判断。
 plot_beats: |
+  **开场**：前台 Agent1 在玩家 inject 前仅 speak_to_local 一句欢迎，等玩家开口后再评估。
   Turn 1–N：前台评估玩家是骗子还是天才；有价值则 RDC→Jensen 简报「有人带了…可能很重要」。
   Jensen 收到后须 send_message→1 一句回执，再 RDC→Tech VP 评估；谈判室内须 speak_to_local 互怼 HBM 涨价。
+  Jensen 对前台「稍等/评估」只 RDC 一次；前台收到后只 F2F 转告玩家，勿 RDC 回 Jensen（防 ping-pong）。
   **节点 A（Agent 驱动，非 Stats）**：RDC 链 1→2、2→3、2→1（批准/请跟我来）**或** Jensen 调用 story_advance(approve_visitor)。
   叙事顺序：Jensen RDC 批准 → 前台 F2F 转告玩家「黄总想私人会议室见您，请跟我来」→ 再 signal → F05 IPC MOVE。
   未批准则 Bad End：前台 F2F 拒绝 / story_advance(reject_visitor) / Phase 1 超时（10 Turn）。

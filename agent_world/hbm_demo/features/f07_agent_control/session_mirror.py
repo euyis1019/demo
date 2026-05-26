@@ -29,6 +29,7 @@ def bootstrap_mirror() -> Dict[str, Any]:
         "enabled": True,
         "phase": phase,
         "player_turn": player_turn,
+        "start_tick": 0,
         "place_id": DEFAULT_PLACE_ID,
         "stats": dict(INITIAL_STATS),
         "inject_agent_ids": list(inject_agent_ids_for_phase(phase)),
@@ -58,6 +59,7 @@ def merge_mirror_update(current: Dict[str, Any], patch: Dict[str, Any]) -> Dict[
     for key in (
         "phase",
         "player_turn",
+        "start_tick",
         "place_id",
         "stats",
         "inject_agent_ids",

@@ -129,7 +129,7 @@ def format_routing_world_events(
             continue
         out.append(
             {
-                "id": f"route_{node}_{task_id}",
+                "id": f"route_node_{node}",
                 "at_tick": int(at_tick),
                 "kind": "phase_route",
                 "title": f"路由节点 {node}",
@@ -140,7 +140,7 @@ def format_routing_world_events(
     if routing_info.get("place_mutation"):
         out.append(
             {
-                "id": f"place_mutation_{task_id}",
+                "id": "place_mutation_negotiation_room",
                 "at_tick": int(at_tick),
                 "kind": "place_mutation",
                 "title": "谈判室氛围变化",

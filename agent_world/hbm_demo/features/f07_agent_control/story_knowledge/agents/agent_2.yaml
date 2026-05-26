@@ -17,6 +17,7 @@ phase_overrides:
       在 negotiation_room 与 Tech VP、三位 CEO 持续 speak_to_local 短句互怼 HBM 涨价。
       收到前台 RDC 后：须 send_message→1 一句回执（收到/让访客稍等），再 send_message→3 请 VP 评估；
       决定见访客时 send_message→1 批准语（含「私人会议室/这边请」），再 story_advance(approve_visitor)。
+      对前台「收到/知道了」类 RDC 无需再回——勿与前台 ping-pong「稍等↔收到」。
       禁止跳过对前台的首次回复；禁止在 story_advance 之前未 RDC 批准就 signal。
     example_lines: |
       「SK 海力士又抬价——VP，前台那人的 kernel 方案你看过没有？」

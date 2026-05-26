@@ -48,11 +48,17 @@ def consume_routing_world_events(
     pending = list(state.get("pending_world_events") or [])
     since_t = int(since_tick)
     end_t = int(t_now)
-    selected = [
-        event
-        for event in pending
-        if since_t < int(event.get("at_tick", 0)) <= end_t
-    ]
+    selected: List[Dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for event in pending:
+        at_tick = int(event.get("at_tick", 0))
+        if since_t < at_tick <= end_t:
+            event_id = str(event.get("id") or "")
+            if event_id and event_id in seen_ids:
+                continue
+            if event_id:
+                seen_ids.add(event_id)
+            selected.append(event)
     state["pending_world_events"] = [
         event
         for event in pending
@@ -138,13 +144,25 @@ def scan_routing_if_needed(
     if routing_info.get("nodes"):
         save_session(flask_session, hbm, sim_id)
         push_session_mirror(ipc_client, hbm, timeout=ipc_timeout)
-        events = format_routing_world_events(
-            routing_info,
-            at_tick=tick,
-            task_id=task_id,
-        )
-        pending = state.setdefault("pending_world_events", [])
-        pending.extend(events)
+        applied_nodes = set(state.get("applied_routing_nodes") or [])
+        new_nodes = [n for n in routing_info.get("nodes") or [] if n not in applied_nodes]
+        if new_nodes:
+            applied_nodes.update(new_nodes)
+            state["applied_routing_nodes"] = sorted(applied_nodes)
+            events = format_routing_world_events(
+                {**routing_info, "nodes": new_nodes},
+                at_tick=tick,
+                task_id=task_id,
+            )
+            pending = state.setdefault("pending_world_events", [])
+            known_ids = {str(e.get("id") or "") for e in pending}
+            for event in events:
+                event_id = str(event.get("id") or "")
+                if event_id and event_id in known_ids:
+                    continue
+                pending.append(event)
+                if event_id:
+                    known_ids.add(event_id)
         log.info(
             "routing watcher applied nodes=%s at tick=%s",
             routing_info.get("nodes"),

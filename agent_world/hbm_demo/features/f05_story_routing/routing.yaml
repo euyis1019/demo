@@ -5,6 +5,7 @@ routing:
 
   signals:
     approve_keywords:
+      - 私人会议室
       - 私密会议室
       - 可以见
       - 带进来
@@ -28,7 +29,7 @@ routing:
       - 回主谈判
       - 方案可行
       - 认可
-    require_reception_escort_f2f: true
+    require_reception_escort_f2f: false
     max_turns_phase1_without_approve: 10
   story_advance:
     enabled: true

@@ -38,7 +38,11 @@ export function computeNextSinceTick(
 ): number {
   const through = data.through_tick;
   if (hasDeltaActivity(data)) {
-    return Math.max(sinceTick, through);
+    if (loopSettled(data.loop_state)) {
+      return Math.max(sinceTick, through);
+    }
+    // Player F2F and NPC reply often share the same engine tick; keep re-reading it.
+    return Math.max(sinceTick, Math.max(0, through - 1));
   }
   if (through > sinceTick && loopSettled(data.loop_state)) {
     return through;

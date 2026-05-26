@@ -1041,6 +1041,60 @@ def test_f07_b_agent_control() -> None:
         raise TestFailure(f"idle tick with no stimulus should not activate agents: {active}")
     ok("B1 pick_active idle → [] (stimulus-driven L3)")
 
+    from agent_world.hbm_demo.core.runner.hbm_agent import HbmAgent
+
+    agent1 = HbmAgent(agent_id=1, name="前台")
+    ctx_boot = {
+        "phase": "Phase 1",
+        "player_turn": 1,
+        "place_id": "nvidia_reception",
+        "inject_agent_ids": [1],
+        "player_inject_tick": None,
+    }
+    world_boot = SimpleNamespace(
+        agents={1: agent1, 2: object(), 3: object()},
+        world_db=None,
+    )
+    opening_tick0 = pick_active_ids(ctx_boot, world_boot, t=1, batch_tick_index=0)
+    if opening_tick0 != [1]:
+        raise TestFailure(f"Phase 1 opening tick0 expected [1]: {opening_tick0}")
+    opening_tick1 = pick_active_ids(ctx_boot, world_boot, t=2, batch_tick_index=1)
+    if opening_tick1:
+        raise TestFailure(
+            f"Phase 1 post-opening idle should not tick reception: {opening_tick1}"
+        )
+    reopen = pick_active_ids(ctx_boot, world_boot, t=3, batch_tick_index=0)
+    if 1 in reopen:
+        raise TestFailure(f"opening should not re-tick reception on later batch0: {reopen}")
+    ctx_inject = {
+        **ctx_boot,
+        "player_inject_tick": 5,
+    }
+    inject_tick0 = pick_active_ids(ctx_inject, world_boot, t=5, batch_tick_index=0)
+    if inject_tick0 != [1]:
+        raise TestFailure(f"player inject exclusive tick0 expected [1]: {inject_tick0}")
+    ok("B1b Phase 1 opening tick once (L3), then wait for player inject")
+
+    from agent_world.hbm_demo.features.f07_agent_control.knowledge import (
+        build_agent_knowledge,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.player_response import (
+        format_opening_directive,
+    )
+
+    opening_l6 = format_opening_directive(agent_id=1, phase="Phase 1", player_turn=1)
+    if "一句" not in opening_l6 or "禁止" not in opening_l6:
+        raise TestFailure(f"opening L6 should constrain one welcome: {opening_l6!r}")
+    opening_l4 = build_agent_knowledge(
+        SimpleNamespace(phase="Phase 1", player_turn=1),
+        1,
+        "",
+        channel="opening",
+    )
+    if "开场" not in opening_l4 or "欢迎来到" not in opening_l4:
+        raise TestFailure(f"opening L4 should include welcome guidance: {opening_l4[:200]!r}")
+    ok("B1c opening prompt-first L4/L6 (no business flag)")
+
     class _UnreadDB:
         def fetch_arrived_for(self, recipient_id, t, last_seen):  # noqa: ARG002
             if int(recipient_id) == 2:
@@ -1358,21 +1412,31 @@ def test_f07_d_agent_control() -> None:
         raise TestFailure(f"D1 Phase 4 build_inject_payload agents wrong: {inject_aids}")
     ok("D1 Phase 4 single inject event → Agent 2")
 
-    ctx_p4 = {
+    ctx_p4_idle = {
         "phase": "Phase 4",
         "player_turn": 21,
         "place_id": "negotiation_room",
         "llm_params": {"temperature": 0.48, "max_tokens": 200},
     }
-    if primary_active_ids(ctx_p4) != [2]:
-        raise TestFailure(f"D1 primary_active Phase 4 must be [2]: {primary_active_ids(ctx_p4)}")
+    if primary_active_ids(ctx_p4_idle) != [2]:
+        raise TestFailure(
+            f"D1 primary_active Phase 4 must be [2]: {primary_active_ids(ctx_p4_idle)}"
+        )
     world = SimpleNamespace(agents={2: object(), 3: object()})
-    active = pick_active_ids(ctx_p4, world, t=10)
+    idle_active = pick_active_ids(ctx_p4_idle, world, t=10, batch_tick_index=99)
+    if idle_active:
+        raise TestFailure(f"D1 Phase 4 idle without inject should not tick: {idle_active}")
+    ctx_p4_inject = {
+        **ctx_p4_idle,
+        "inject_agent_ids": [2],
+        "player_inject_tick": 5,
+    }
+    active = pick_active_ids(ctx_p4_inject, world, t=5, batch_tick_index=0)
     if 3 in active:
         raise TestFailure(f"D1 Agent 3 present_silent must not tick: {active}")
     if active != [2]:
-        raise TestFailure(f"D1 Phase 4 active should be [2]: {active}")
-    ok("D1 Phase 4 L3 primary [2], Agent 3 present_silent (no tick)")
+        raise TestFailure(f"D1 Phase 4 inject exclusive should be [2]: {active}")
+    ok("D1 Phase 4 L3 inject→[2], idle→[], Agent 3 present_silent")
 
     f07_dir = HBM_DIR / "features" / "f07_agent_control"
     if (f07_dir / "tool_guard.py").is_file():
@@ -1789,6 +1853,7 @@ def test_f07_e_step3_rdc_quota_and_tick_order() -> None:
             "phase": "Phase 1",
             "player_turn": 1,
             "inject_agent_ids": [1],
+            "player_inject_tick": 1,
         }
         world_ex = SimpleNamespace(agents={1: object(), 2: object(), 3: object()})
         if pick_active_ids(ctx_ex, world_ex, t=1, batch_tick_index=0) != [1]:
@@ -1828,6 +1893,7 @@ def test_f07_e_step3_rdc_quota_and_tick_order() -> None:
         "player_turn": 1,
         "place_id": "nvidia_reception",
         "inject_agent_ids": [1],
+        "player_inject_tick": 1,
     }
     world = SimpleNamespace(agents={1: object(), 2: object(), 3: object()})
 
@@ -2443,6 +2509,37 @@ def test_f07_v2_phase3_prompt_trace() -> None:
     if recap_window_ticks() < 1:
         raise TestFailure("recap_window_ticks invalid")
 
+    class _RecapDB:
+        def fetch_messages_for_recap(self, since_t, t_now, *, limit=40):  # noqa: ANN001
+            _ = since_t, t_now, limit
+            base = {
+                "sender_id": 6,
+                "group_id": None,
+                "channel_type": "F2F",
+                "content": "Jensen，14:42了。我最后说一次——30%，今天签。",
+                "attempted_at": 21,
+                "place_id": "negotiation_room",
+            }
+            return [
+                {**base, "recipient_id": 2},
+                {**base, "recipient_id": 3},
+                {**base, "recipient_id": 4},
+            ]
+
+        def fetch_state_logs_since(self, since_t, t_now, agent_id=None):  # noqa: ANN001
+            _ = since_t, t_now, agent_id
+            return []
+
+    recap = build_thread_recap(
+        2,
+        22,
+        _RecapDB(),
+        {6: "SK海力士 CEO"},
+    )
+    if recap.count("14:42") != 1:
+        raise TestFailure(f"build_thread_recap should dedupe F2F fan-out: {recap!r}")
+    ok("build_thread_recap dedupes F2F fan-out per utterance")
+
     for fn_name in ("get_prompt_trace", "get_prompt_trace_by_ref", "list_prompt_traces"):
         if not hasattr(gs, fn_name):
             raise TestFailure(f"game_service missing {fn_name}")
@@ -2652,9 +2749,56 @@ def test_f07_v2_phase4_agent_driven() -> None:
         raise TestFailure("detect_node_a failed on approve chain + escort F2F")
     ok("detect_node_a RDC chain 1→2→3 + approve 2→1 + escort F2F")
 
-    if detect_node_a(SignalDB(rdc_rows=approve_chain), since_t=0, t_now=10):
-        raise TestFailure("detect_node_a must require reception escort F2F when configured")
-    ok("detect_node_a rejects approve RDC without escort F2F")
+    private_room_chain = [
+        {"sender_id": 1, "recipient_id": 2, "content": "访客简报"},
+        {"sender_id": 2, "recipient_id": 3, "content": "请评估"},
+        {"sender_id": 2, "recipient_id": 1, "content": "让访客去私人会议室等着"},
+    ]
+    if not detect_node_a(
+        SignalDB(rdc_rows=private_room_chain, f2f_rows=escort_f2f),
+        since_t=0,
+        t_now=10,
+    ):
+        raise TestFailure("detect_node_a must match 私人会议室 approve wording")
+    ok("detect_node_a accepts 私人会议室 Jensen RDC + escort F2F")
+
+    if not detect_node_a(SignalDB(rdc_rows=approve_chain), since_t=0, t_now=10):
+        raise TestFailure(
+            "detect_node_a must apply on approve RDC chain without escort F2F (default config)"
+        )
+    ok("detect_node_a applies on Jensen approve RDC without escort F2F")
+
+    class RequireEscortDB(SignalDB):
+        pass
+
+    load_routing_config.cache_clear()
+    orig_cfg = load_routing_config()
+    patched = dict(orig_cfg)
+    patched["signals"] = dict(patched.get("signals") or {})
+    patched["signals"]["require_reception_escort_f2f"] = True
+
+    import agent_world.hbm_demo.features.f05_story_routing.routing_config as rc
+
+    _orig_load = rc.load_routing_config
+
+    def _load_require_escort():
+        return patched
+
+    rc.load_routing_config = _load_require_escort  # type: ignore[assignment]
+    try:
+        from importlib import reload
+        import agent_world.hbm_demo.features.f05_story_routing.agent_signals as sig_mod
+
+        reload(sig_mod)
+        if sig_mod.detect_node_a(SignalDB(rdc_rows=approve_chain), since_t=0, t_now=10):
+            raise TestFailure(
+                "detect_node_a must require reception escort F2F when configured"
+            )
+    finally:
+        rc.load_routing_config = _orig_load
+        rc.load_routing_config.cache_clear()
+        reload(sig_mod)
+    ok("detect_node_a rejects approve RDC without escort F2F when require=true")
 
     vp_row = [{"sender_id": 3, "recipient_id": 2, "content": "理论上可行"}]
     if not detect_node_b(SignalDB(rdc_rows=vp_row), since_t=0, t_now=10):

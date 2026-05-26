@@ -38,8 +38,8 @@ def has_story_signal(
     if not norm:
         return False
     rows = db.fetch_story_advance_since(
-        since_t=int(since_t),
-        t_now=int(t_now),
+        int(since_t),
+        int(t_now),
         signal=norm,
         agent_id=agent_id,
     )
@@ -54,7 +54,7 @@ def fetch_story_signals_since(
 ) -> FrozenSet[str]:
     if db is None or not hasattr(db, "fetch_story_advance_since"):
         return frozenset()
-    rows = db.fetch_story_advance_since(since_t=int(since_t), t_now=int(t_now))
+    rows = db.fetch_story_advance_since(int(since_t), int(t_now))
     out = set()
     for row in rows:
         norm = normalize_story_signal(row.get("signal"))

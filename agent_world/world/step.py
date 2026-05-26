@@ -292,7 +292,14 @@ class WorldStep:
     async def _decide(self, agent: Any, agent_id: int, t: int) -> Any:
         try:
             return await agent.perform_action_by_llm(self.world, t)
-        except TypeError:
+        except TypeError as exc:
+            # Legacy no-arg agents only — do not swallow TypeErrors from inside LLM code.
+            msg = str(exc)
+            if "missing" not in msg and "positional" not in msg and "unexpected keyword" not in msg:
+                logger.warning(
+                    "agent %s perform_action_by_llm failed: %s", agent_id, exc
+                )
+                return None
             try:
                 return await agent.perform_action_by_llm()
             except Exception as e:  # noqa: BLE001

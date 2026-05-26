@@ -16,6 +16,7 @@ from agent_world.hbm_demo.features.f07_agent_control.player_response import (
     format_f2f_aware_inject_directive,
     format_l6_player_directive,
     format_notification_directive,
+    format_opening_directive,
     inject_channel_uses_player_f2f,
 )
 
@@ -101,6 +102,7 @@ def build_thread_recap(
     aid = int(agent_id)
 
     lines: List[str] = []
+    seen_utterances: set[tuple[Any, ...]] = set()
     try:
         rows = world_db.fetch_messages_for_recap(since_t, t_now, limit=40)
     except Exception:
@@ -114,6 +116,17 @@ def build_thread_recap(
         if not content or sender_id is None:
             continue
         sid = int(sender_id)
+        dedupe_key = (
+            ch,
+            at_tick,
+            sid,
+            str(row.get("place_id") or ""),
+            int(row.get("recipient_id") or 0) if ch == "RDC" else int(row.get("group_id") or 0),
+            content,
+        )
+        if dedupe_key in seen_utterances:
+            continue
+        seen_utterances.add(dedupe_key)
 
         if ch == "F2F":
             place = str(row.get("place_id") or "room")
@@ -184,7 +197,7 @@ def build_agent_knowledge(
     *,
     channel: str,
 ) -> str:
-    """Assemble L4 knowledge block. channel: ``inject`` | ``notification``."""
+    """Assemble L4 knowledge block. channel: ``inject`` | ``notification`` | ``opening``."""
     phase = str(getattr(session, "phase", "Phase 1"))
     player_turn = int(getattr(session, "player_turn", 1))
     shared = load_phase_shared(phase)
@@ -194,7 +207,15 @@ def build_agent_knowledge(
     turn_block = turn_hints.get(player_turn, "")
 
     sections: List[str] = []
-    if channel == "inject":
+    if channel == "opening":
+        opening = format_opening_directive(
+            agent_id=agent_id,
+            phase=phase,
+            player_turn=player_turn,
+        )
+        if opening:
+            sections.append(opening)
+    elif channel == "inject":
         if inject_channel_uses_player_f2f(phase):
             sections.append(
                 format_f2f_aware_inject_directive(

@@ -1,16 +1,16 @@
 # Turn→剧本片段（dev_logs/19 对齐；agent_driven 路由 · F07-C · dev_log/34 PR1）
 turns:
   1: |
-    玩家首次到 nvidia_reception 前台。预期：前台判断来访是闲聊还是携带 HBM/显存/KV Cache 等硬技术方案。
-    若玩家提到量化收益、kernel demo 或 repro 结果，应短句 F2F 回应并 RDC→Jensen 简报，推进节点 A RDC 链。
-    禁止长篇接待词；先回应玩家关键词再汇报。
+    Turn 1 前台：玩家 inject 前先 speak_to_local 一句欢迎，然后等玩家开口。
+    玩家开口后判断闲聊 vs HBM/显存/KV 等技术方案；有价值则 F2F 回应并 RDC→Jensen。
+    禁止无输入赶客、禁止开场第二句或 RDC→Jensen；先回应玩家关键词再汇报。
   2: |
     深化价值判断。玩家可能补充稀疏注意力、分层量化 KV 或带宽线性化等技术细节。
     前台仍不必懂深技术，但须捕捉数字与名词写入 RDC。Jensen 在谈判室收到 RDC 后可 RDC→VP 评估是否值得见面。
     仍禁止 GRP/MOVE。
   3: |
-    节点 A 前：RDC 链 1→2→3→2→1 应逐步成形。Jensen 若认可须 RDC→前台批准语，等前台 F2F 转告玩家后再 story_advance(approve_visitor)。
-    本 Turn 玩家发言宜含具体 demo 数字或竞品语境（SK/镁光抬价）。
+    节点 A 前：RDC 链 1→2→3→2→1 应成形。Jensen 认可后 RDC→前台批准语，前台 F2F escort，Jensen 再 story_advance(approve_visitor)。
+    本 Turn 玩家宜含具体 demo 数字；前台 F2F 后须 RDC→Jensen，不可只回应不通报。
   4: |
     节点 A 窗口：RDC 链或 approve_visitor signal 触发 F05 MOVE Jensen+玩家→私人室；未批准则 Bad End（拒绝/超时）。
     前台须 F2F 回应玩家；Jensen 勿抢前台中屏。通过后进入 Phase 2。

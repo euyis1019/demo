@@ -46,11 +46,22 @@ def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
             "★ 在前台必须用 speak_to_local 先回应玩家，再 send_message RDC→Jensen。"
         )
         lines.append(
+            "★ F2F 回应后同批或下一拍须 RDC→2 简报（节点 A 第1步）；禁止只 F2F 不 RDC。"
+        )
+        lines.append(
             "★ 每句玩家 inject 必须由你自己 speak_to_local 回应；禁止沉默或只发 RDC 不 F2F。"
+        )
+        lines.append(
+            "★ 开局（玩家尚未 inject）仅允许一句欢迎 F2F，说完 do_nothing 等玩家开口；"
+            "禁止无输入时赶客或 RDC→Jensen。"
         )
         lines.append(
             "★ 收到 Jensen 批准 RDC 后须 F2F 转告玩家去私人会议室（请跟我来），"
             "叙事上在 Jensen story_advance 之前完成。"
+        )
+        lines.append(
+            "★ Jensen 的「稍等/评估中」RDC 只需 speak_to_local 转告玩家，"
+            "禁止 send_message→2 回执（会触发黄总复读）。"
         )
         if is_experience_hardening():
             lines.append(
@@ -64,9 +75,12 @@ def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
 
     if phase == "Phase 1" and aid == 2:
         lines.append(
-            "★ Phase 1 决策链：收到前台 RDC → send_message→1 回执 → send_message→3 请 VP 评估 → "
+            "★ Phase 1 节点 A 链：前台 RDC→你 send_message→1 回执→send_message→3 请 VP→"
             "send_message→1 批准语（私人会议室/这边请）→ story_advance(approve_visitor)。"
-            "禁止对玩家 speak_to_local；禁止未 RDC 批准就 signal。"
+            "禁止对玩家 speak_to_local。"
+        )
+        lines.append(
+            "★ 对前台访客通报只 RDC→1 回执一次（稍等/评估）；VP 回评估后须批准 RDC + story_advance。"
         )
 
     if phase == "Phase 2" and aid == 2:
@@ -121,6 +135,26 @@ def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
         )
 
     return "\n".join(lines)
+
+
+def format_opening_directive(
+    *,
+    agent_id: int,
+    phase: str,
+    player_turn: int,
+) -> str:
+    """L6-style header for pre-player opening beat (no inject yet)."""
+    role = agent_display_name(agent_id)
+    if int(agent_id) == 1 and phase == "Phase 1":
+        return (
+            f"【开场·{phase} Turn {player_turn}】\n"
+            f"★ 角色扮演：你是{role}。玩家尚未开口（本世界尚无 inject）。\n"
+            f"★ 本拍唯一任务：speak_to_local **仅一句**简短欢迎"
+            f"（如「欢迎来到 NVIDIA，有什么可以帮您？」）。\n"
+            f"★ 禁止：第二句追问、预约登记、赶客、打发、RDC→Jensen、update_state。\n"
+            f"★ 说完欢迎后静默等玩家——勿假设玩家已说话或已拒绝。\n"
+        )
+    return ""
 
 
 def format_l6_player_directive(
@@ -202,6 +236,18 @@ def format_notification_directive(
             header
             + "你只能依据「前台 RDC」与「本 Turn 摘要」行动；"
             "禁止编造未在 RDC/摘要中出现的公司名、数据、roadmap。\n"
+        )
+    if phase == "Phase 1" and aid == 2:
+        return (
+            header
+            + "节点 A：前台 RDC→你回执→你 RDC→VP 评估→批准 RDC→前台 escort→"
+            "story_advance(approve_visitor)。收到前台 RDC 后本批须 send_message→1 与 →3。\n"
+        )
+    if phase == "Phase 1" and aid == 3:
+        return (
+            header
+            + "节点 A：Jensen RDC 求证时 send_message→2，1–3 句技术评估"
+            "（可行/核武器/理论上成立）；否则 speak_to_local 插话。\n"
         )
     if phase == "Phase 2" and aid == 3:
         return (
