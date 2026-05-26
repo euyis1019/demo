@@ -13,13 +13,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 HBM_DIR = ROOT / "agent_world" / "hbm_demo"
 FIXTURE_PATH = HBM_DIR / "scripts" / "fixtures" / "f12_synthetic_fixture.json"
 SIM_ID = "hbm_memory_war"
@@ -546,11 +547,14 @@ def test_frontend_fixture_replay() -> None:
     if not FIXTURE_PATH.is_file():
         raise TestFailure(f"missing fixture {FIXTURE_PATH}")
     ts_script = HBM_DIR / "web" / "scripts" / "test_f12_synthetic_fixture.ts"
+    env = dict(os.environ)
+    env.setdefault("VITE_WORLD_STREAM", "false")
     proc = subprocess.run(
         ["npx", "--yes", "tsx", str(ts_script)],
         cwd=str(HBM_DIR / "web"),
         capture_output=True,
         text=True,
+        env=env,
     )
     if proc.returncode != 0:
         raise TestFailure(proc.stdout + proc.stderr or "frontend fixture replay failed")
@@ -559,7 +563,7 @@ def test_frontend_fixture_replay() -> None:
 
 def test_flask_delta_matches_db_visibility() -> None:
     """Reuse visibility audit — synthetic DB has zero hidden messages."""
-    from agent_world.hbm_demo.scripts.test_f12_visibility import audit_f12_delta
+    from agent_world.hbm_demo.scripts.acceptance.f12_visibility import audit_f12_delta
 
     _, ro, _ = _make_synthetic_db()
     report = audit_f12_delta(

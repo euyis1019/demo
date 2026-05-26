@@ -779,41 +779,21 @@ def test_f11_c_frontend() -> None:
 
 def test_f12_phase1_persistence() -> None:
     section("T1k F12 Phase 1 Runner persistence logs")
-    script = HBM_DIR / "scripts" / "test_f12_phase1_persistence.py"
-    if not script.is_file():
-        raise TestFailure(f"missing {script}")
-    env = apply_hbm_demo_env(dict(os.environ))
-    proc = subprocess.run(
-        [sys.executable, str(script)],
-        cwd=str(ROOT),
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    if proc.returncode != 0:
-        raise TestFailure(
-            proc.stdout + proc.stderr or "F12 Phase 1 tests failed"
-        )
+    from agent_world.hbm_demo.scripts.acceptance import f12_phase1
+
+    rc = f12_phase1.main()
+    if rc != 0:
+        raise TestFailure("F12 Phase 1 persistence tests failed")
     ok("F12 Phase 1 persistence script passed")
 
 
 def test_f12_phase2_world_delta() -> None:
     section("T1l F12 Phase 2 Flask world delta API")
-    script = HBM_DIR / "scripts" / "test_f12_world_delta.py"
-    if not script.is_file():
-        raise TestFailure(f"missing {script}")
-    env = apply_hbm_demo_env(dict(os.environ))
-    proc = subprocess.run(
-        [sys.executable, str(script)],
-        cwd=str(ROOT),
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    if proc.returncode != 0:
-        raise TestFailure(
-            proc.stdout + proc.stderr or "F12 Phase 2 tests failed"
-        )
+    from agent_world.hbm_demo.scripts.acceptance import f12_world_delta
+
+    rc = f12_world_delta.main()
+    if rc != 0:
+        raise TestFailure("F12 Phase 2 world delta tests failed")
     ok("F12 Phase 2 world delta script passed")
 
     routes = (HBM_DIR / "http" / "routes.py").read_text(encoding="utf-8")
@@ -873,21 +853,11 @@ def test_f12_phase3_world_stage() -> None:
 
 def test_f12_visibility_no_hidden() -> None:
     section("T1n F12 Phase 4 message visibility (no hidden under F12 delta)")
-    script = HBM_DIR / "scripts" / "test_f12_visibility.py"
-    if not script.is_file():
-        raise TestFailure(f"missing {script}")
-    env = apply_hbm_demo_env(dict(os.environ))
-    proc = subprocess.run(
-        [sys.executable, str(script)],
-        cwd=str(ROOT),
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    if proc.returncode != 0:
-        raise TestFailure(
-            proc.stdout + proc.stderr or "F12 visibility tests failed"
-        )
+    from agent_world.hbm_demo.scripts.acceptance import f12_visibility
+
+    rc = f12_visibility.main()
+    if rc != 0:
+        raise TestFailure("F12 visibility tests failed")
     ok("F12 visibility audit — cross-room F2F/RDC/GRP/broadcast exposed")
 
 

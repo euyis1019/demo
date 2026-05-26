@@ -30,7 +30,9 @@ cp agent_world/hbm_demo/.env.example agent_world/hbm_demo/.env
 python agent_world/hbm_demo/scripts/test_m0_acceptance.py
 ```
 
-25 轮参考台词：[`dev_logs/19_HBM_Demo_25轮参考台词.md`](../../dev_logs/19_HBM_Demo_25轮参考台词.md)
+25 轮人工试玩台词（SAN 方案 · agent_driven + 虚拟玩家 F2F）：
+
+[`scripts/player_playthrough.md`](scripts/player_playthrough.md)
 
 ---
 

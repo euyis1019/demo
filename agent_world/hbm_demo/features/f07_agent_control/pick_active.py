@@ -175,6 +175,7 @@ def pick_active_ids(
     # 3) Inject batch window (align with IPC inject length) + script notification.
     inject_batch_len = resolve_inject_tick_count(phase, inject_response_ticks(phase))
     notify_until = exclusive + primary_notify_ticks(phase)
+    in_player_turn_window = batch_tick_index < max(inject_batch_len, notify_until)
     if batch_tick_index < inject_batch_len:
         for aid in inject_set:
             _add(aid)
@@ -206,8 +207,8 @@ def pick_active_ids(
             if remaining <= 0:
                 break
 
-    # 5) Phase 1 negotiation room — keep Jensen/VP + CEOs in rotation.
-    if phase == "Phase 1":
+    # 5) Phase 1 negotiation room — background ticks only during inject window.
+    if phase == "Phase 1" and in_player_turn_window:
         for aid in (2, 3):
             if _in_negotiation_room(world, aid):
                 _add(aid)
