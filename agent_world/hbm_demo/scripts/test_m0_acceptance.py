@@ -1031,7 +1031,6 @@ def test_f07_b_agent_control() -> None:
         is_experience_hardening,
         load_turn_control,
         resolve_inject_tick_count,
-        scripted_f2f_fallback_enabled,
     )
 
     ctx_p1 = {
@@ -1103,8 +1102,6 @@ def test_f07_b_agent_control() -> None:
     load_turn_control.cache_clear()
     if is_experience_hardening():
         raise TestFailure("v2 Phase0 requires experience_hardening.enabled=false")
-    if scripted_f2f_fallback_enabled():
-        raise TestFailure("v2 Phase0 requires scripted_f2f_fallback=false")
     if inject_exclusive_ticks_for("Phase 1") != 2:
         raise TestFailure(
             f"v2 inject_exclusive from phases expected 2: {inject_exclusive_ticks_for('Phase 1')}"
@@ -1541,100 +1538,35 @@ def test_f07_e_step1_player_facing_f2f() -> None:
     ok("E0 HbmWorldStep speak_to_local dispatch hook present")
 
 
-def test_f07_e_step2_guard_and_fallback() -> None:
-    """F07-E Step2 — E1 first-action guard + E5 completion + scripted fallback (dev_logs/29)."""
-    import asyncio
-    import tempfile
-
-    section("T2h F07-E Step2 E1 guard + E5 + f2f_fallback")
+def test_f07_e_step2_no_scripted_fallback() -> None:
+    """Agent-native policy — no scripted F2F/RDC companion; prompt-only guidance."""
+    section("T2h F07 no scripted player-facing fallback")
     from agent_world.hbm_demo.features import FEATURE_REGISTRY
-    from agent_world.hbm_demo.features.f07_agent_control.config import (
-        first_f2f_required_agents,
-        is_experience_hardening,
-        is_f07_enabled,
-        load_turn_control,
-        scripted_f2f_fallback_enabled,
-    )
-    from agent_world.hbm_demo.features.f07_agent_control.f2f_fallback import (
-        apply_batch_f2f_fallback,
-        build_fallback_content,
-        extract_player_keyword,
-    )
-    from agent_world.hbm_demo.features.f06_read_model.world_db import ReadOnlyWorldDB
-    from agent_world.persistence.world_db import WorldDB
 
     phase = FEATURE_REGISTRY.get("F07", {}).get("phase", "")
     if "F07-E" not in phase:
         raise TestFailure(f"F07 registry phase should mention F07-E: {phase!r}")
     ok(f"FEATURE_REGISTRY F07 phase: {phase}")
 
-    if not is_f07_enabled():
-        ok("F07-E Step2 tests skipped (F07 disabled)")
-        return
-
-    load_turn_control.cache_clear()
-    if not is_experience_hardening():
-        ok("F07-E Step2 skipped (v2 experience_hardening off)")
-        return
-
-    if first_f2f_required_agents("Phase 1") != [1]:
-        raise TestFailure(f"Phase 1 first_f2f_required wrong: {first_f2f_required_agents('Phase 1')}")
-    ok("E1 first_f2f_required Phase 1 → [1]")
-
-    kw = extract_player_keyword("玩家说：我们能把显存占用压到 40% 吗？")
-    if "40%" not in kw and "显存" not in kw:
-        raise TestFailure(f"extract_player_keyword unexpected: {kw!r}")
-    content = build_fallback_content("Phase 1", "玩家说：我们能把显存占用压到 40% 吗？")
-    if "40%" not in content and "显存" not in content:
-        raise TestFailure(f"build_fallback_content unexpected: {content!r}")
-    ok("E1 fallback template uses player keyword")
-
     f07_dir = HBM_DIR / "features" / "f07_agent_control"
-    if (f07_dir / "tool_guard.py").is_file():
-        raise TestFailure("L5 removed: E1 first_action_guard must not use tool_guard")
-    ok("E1 first_action_guard retired with L5 removal")
+    if (f07_dir / "f2f_fallback.py").is_file():
+        raise TestFailure("f2f_fallback.py must be removed (no template F2F)")
+    if (f07_dir / "reception_rdc_companion.py").is_file():
+        raise TestFailure("reception_rdc_companion.py must be removed (no scripted RDC)")
+    ok("scripted fallback modules absent")
 
-    ipc_src = (HBM_DIR / "core" / "runner" / "ipc_handlers.py").read_text(encoding="utf-8")
-    if "apply_batch_f2f_fallback_at" not in ipc_src:
-        raise TestFailure("ipc_handlers should call apply_batch_f2f_fallback_at")
-    ok("E1 ipc_handlers batch-end fallback hook present")
-
-    async def _fallback_emit() -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            db_path = Path(tmp) / "world.db"
-            wdb = WorldDB(str(db_path))
-            wdb.init_schema()
-            batch = BatchGuardState()
-            turn_ctx = {
-                "phase": "Phase 1",
-                "place_id": "nvidia_reception",
-                "player_text": "玩家说：KV cache 优化",
-            }
-            n = await apply_batch_f2f_fallback(
-                wdb,
-                turn_context=turn_ctx,
-                batch_guard=batch,
-                t=9,
-            )
-            if n != 1:
-                raise TestFailure(f"apply_batch_f2f_fallback expected 1 emit, got {n}")
-            if not batch.has_f2f(1):
-                raise TestFailure("fallback should mark_f2f(1)")
-            ro = ReadOnlyWorldDB(db_path)
-            rows = ro.fetch_f2f_history_at("nvidia_reception", 9, 0, limit=5)
-            if len(rows) < 1:
-                raise TestFailure("fallback F2F not visible in ReadOnlyWorldDB")
-            n2 = await apply_batch_f2f_fallback(
-                wdb,
-                turn_context=turn_ctx,
-                batch_guard=batch,
-                t=10,
-            )
-            if n2 != 0:
-                raise TestFailure("fallback should not double-emit")
-
-    asyncio.run(_fallback_emit())
-    ok("E1 apply_batch_f2f_fallback emits scripted F2F once per batch")
+    ws_src = (HBM_DIR / "core" / "runner" / "world_step.py").read_text(encoding="utf-8")
+    loop_src = (HBM_DIR / "core" / "runner" / "world_loop.py").read_text(encoding="utf-8")
+    pr_src = (f07_dir / "player_response.py").read_text(encoding="utf-8")
+    if "apply_batch_f2f_fallback" in ws_src or "apply_batch_f2f_fallback_at" in ws_src:
+        raise TestFailure("world_step must not reference batch F2F fallback")
+    if "apply_batch_f2f_fallback_at" in loop_src:
+        raise TestFailure("world_loop must not call batch F2F fallback")
+    if "_ensure_reception_rdc_companion" in ws_src:
+        raise TestFailure("world_step must not auto-send reception RDC companion")
+    if "系统代发" in pr_src:
+        raise TestFailure("L6 prompt must not mention system-generated F2F fallback")
+    ok("runner + L6: no scripted player-facing fallback hooks")
 
 
 def test_f07_e_step3_rdc_quota_and_tick_order() -> None:
@@ -1953,7 +1885,6 @@ def test_f07_v2_phase0_hard_control_retired() -> None:
         is_experience_hardening,
         is_f07_enabled,
         load_turn_control,
-        scripted_f2f_fallback_enabled,
     )
 
     if not is_f07_enabled():
@@ -1963,16 +1894,13 @@ def test_f07_v2_phase0_hard_control_retired() -> None:
     load_turn_control.cache_clear()
     if is_experience_hardening():
         raise TestFailure("Phase0: experience_hardening.enabled must be false")
-    if scripted_f2f_fallback_enabled():
-        raise TestFailure("Phase0: scripted_f2f_fallback must be false")
-    ok("Phase0 turn_control: hardening/fallback off; L5 tool filter removed")
+    ok("Phase0 turn_control: hardening off; L5 tool filter removed")
 
-    ipc_src = (HBM_DIR / "core" / "runner" / "ipc_handlers.py").read_text(
-        encoding="utf-8"
-    )
-    if "apply_batch_f2f_fallback_at" in ipc_src:
-        raise TestFailure("Phase0: ipc_handlers must not call apply_batch_f2f_fallback_at")
-    ok("Phase0 ipc_handlers: batch F2F fallback removed")
+    ws_src = (HBM_DIR / "core" / "runner" / "world_step.py").read_text(encoding="utf-8")
+    loop_src = (HBM_DIR / "core" / "runner" / "world_loop.py").read_text(encoding="utf-8")
+    if "apply_batch_f2f_fallback" in ws_src or "apply_batch_f2f_fallback_at" in loop_src:
+        raise TestFailure("Phase0: runner must not call scripted F2F fallback")
+    ok("Phase0 runner: batch F2F fallback removed")
 
     kernel_src = (HBM_DIR / "core" / "runner" / "kernel.py").read_text(encoding="utf-8")
     if "HbmActionDispatcher" not in kernel_src:
@@ -4134,7 +4062,7 @@ def main() -> int:
         test_f07_c_agent_control,
         test_f07_d_agent_control,
         test_f07_e_step1_player_facing_f2f,
-        test_f07_e_step2_guard_and_fallback,
+        test_f07_e_step2_no_scripted_fallback,
         test_f07_e_step3_rdc_quota_and_tick_order,
         test_f07_e_step4_turn_priority_and_offtopic,
         test_f07_e_step5_final_acceptance,

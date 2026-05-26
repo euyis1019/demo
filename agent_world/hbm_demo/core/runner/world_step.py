@@ -55,20 +55,6 @@ class HbmWorldStep(WorldStep):
     def batch_guard(self) -> Any:
         return self._batch_guard
 
-    async def apply_batch_f2f_fallback_at(self, t: int) -> int:
-        from agent_world.hbm_demo.features.f07_agent_control.f2f_fallback import (
-            apply_batch_f2f_fallback,
-        )
-
-        if not self._tick_context:
-            return 0
-        return await apply_batch_f2f_fallback(
-            self.world_db,
-            turn_context=self._tick_context,
-            batch_guard=self._batch_guard,
-            t=int(t),
-        )
-
     async def run_one_tick(self) -> Dict[str, Any]:
         result = await super().run_one_tick()
         if self._tick_context is not None and self._tick_context.get("player_inject_tick") is None:
@@ -250,11 +236,6 @@ class HbmWorldStep(WorldStep):
         recipients = dispatch_result.get("recipients")
         if isinstance(recipients, list) and len(recipients) > 0:
             self._batch_guard.mark_f2f(int(agent_id))
-            await self._ensure_reception_rdc_companion(
-                agent_id=int(agent_id),
-                action_kwargs=action_kwargs or {},
-                t=int(t),
-            )
             return
 
         if not should_emit_player_facing_f2f(dispatch_result):
@@ -280,65 +261,12 @@ class HbmWorldStep(WorldStep):
                 place_id,
                 t,
             )
-            await self._ensure_reception_rdc_companion(
-                agent_id=int(agent_id),
-                action_kwargs=action_kwargs or {},
-                t=int(t),
-            )
         except Exception as exc:  # noqa: BLE001
             log.warning(
                 "player_facing_f2f failed agent=%s: %s",
                 agent_id,
                 exc,
             )
-
-    async def _ensure_reception_rdc_companion(
-        self,
-        *,
-        agent_id: int,
-        action_kwargs: Dict[str, Any],
-        t: int,
-    ) -> None:
-        from agent_world.hbm_demo.features.f07_agent_control.reception_rdc_companion import (
-            ensure_reception_rdc_companion,
-        )
-
-        ctx = self._tick_context
-        if not ctx:
-            return
-        player_text = str(ctx.get("player_text") or "")
-        f2f_content = str(action_kwargs.get("content") or "")
-        result = await ensure_reception_rdc_companion(
-            self.dispatcher,
-            agent_id=int(agent_id),
-            t=int(t),
-            turn_context=ctx,
-            batch_guard=self._batch_guard,
-            player_text=player_text,
-            f2f_content=f2f_content,
-        )
-        if not result or not result.get("success"):
-            return
-        from agent_world.hbm_demo.features.f07_agent_control.conversation_control import (
-            mark_communication_action,
-        )
-
-        agent = self._resolve_agent(agent_id)
-        if agent is None:
-            return
-        try:
-            from agent_world.world.dispatcher import ActionType
-
-            action_type = ActionType.SEND_MESSAGE
-        except Exception:  # noqa: BLE001
-            action_type = "send_message"
-        mark_communication_action(
-            agent,
-            action_type=action_type,
-            action_kwargs={"target": 2, "content": f2f_content},
-            dispatch_result=result,
-            t=int(t),
-        )
 
     def _mark_rdc_if_sent(
         self,

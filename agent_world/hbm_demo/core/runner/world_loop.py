@@ -290,10 +290,6 @@ class WorldLoopOrchestrator:
         tick_after = int(self._get_current_tick())
         if tick_after > tick_before:
             self._last_activity_t = tick_after
-        if mirror and is_f07_enabled() and hasattr(
-            self._world_step, "apply_batch_f2f_fallback_at"
-        ):
-            await self._world_step.apply_batch_f2f_fallback_at(tick_after)
         self._write_status(loop_running=True)
 
     async def _drain_queue(self) -> Optional[Dict[str, Any]]:

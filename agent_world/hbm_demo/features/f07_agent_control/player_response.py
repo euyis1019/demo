@@ -45,11 +45,9 @@ def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
         lines.append(
             "★ 在前台必须用 speak_to_local 先回应玩家，再 send_message RDC→Jensen。"
         )
-        if not is_experience_hardening():
-            lines.append(
-                "★ 每句玩家 inject 必须先 speak_to_local 回应；LLM 跳过时会由系统代发短句，"
-                "但你仍应优先自己开口。"
-            )
+        lines.append(
+            "★ 每句玩家 inject 必须由你自己 speak_to_local 回应；禁止沉默或只发 RDC 不 F2F。"
+        )
         if is_experience_hardening():
             lines.append(
                 "★ 本 Turn 唯一权威输入是下方「玩家说：…」——必须优先回应该句。"

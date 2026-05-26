@@ -3,7 +3,6 @@ enabled: true
 # v2 Phase 0 — experience hardening retired (dev_logs/31 §九 Phase 0)
 experience_hardening:
   enabled: false
-  scripted_f2f_fallback: false
   first_f2f_required:
     Phase 1: [1]
     Phase 2: [2]
@@ -64,8 +63,6 @@ world_loop:
 player_input:
   max_queue_depth: 32
   inject_on_tick_boundary: true
-  reception_f2f_fallback: true
-  reception_rdc_companion: true
 
 # F15 Prompt Inspector + L4 thread recap (dev_logs/31 §十六 · Phase 3)
 prompt_trace:
