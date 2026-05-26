@@ -1,6 +1,7 @@
 /**
  * F5 — 错误处理、loading elapsed、Runner 503 Modal（PLAN2 F5）。
  * F12 — 两栏 WorldStage + Agent 手机面板（dev_logs/32 §6）。
+ * Story — 沉浸式剧情模式（dev_logs/feature/frontend-immersive-view）。
  */
 
 import "./styles/global.css";
@@ -16,11 +17,14 @@ import {
   PlayerInput,
   RunnerNotReadyModal,
   StatusPanel,
+  StoryModeStage,
+  StoryPlayerInput,
   TwoColumnLayout,
   useGameLoop,
   useHealthCheck,
   useLoadingElapsed,
   useStartGame,
+  useViewMode,
   useWorldDeltaSync,
   useWorldLoopControl,
   WorldStage,
@@ -33,6 +37,7 @@ import { isPlayerSender } from "./utils/messages";
 
 function GameApp() {
   const { state, dispatch } = useGameStoreContext();
+  const { viewMode, toggleViewMode } = useViewMode();
   const { retryHealth } = useHealthCheck();
   const { startGame, restartGame, resetDemo } = useStartGame();
   const { sendTurn } = useGameLoop();
@@ -87,6 +92,31 @@ function GameApp() {
     [agentLocations, placeId, nameMap],
   );
 
+  const godModeInput = (
+    <PlayerInput
+      onSend={(text) => void sendTurn(text)}
+      disabled={loading || view !== "playing"}
+      placeholder="输入你的台词…"
+    />
+  );
+
+  const storyModeInput = (
+    <StoryPlayerInput
+      onSend={(text) => void sendTurn(text)}
+      disabled={loading || view !== "playing"}
+      placeholder="输入你的台词…"
+    />
+  );
+
+  const worldControls = {
+    worldLoopState,
+    pauseDisabled: pauseDisabled || view !== "playing",
+    resetDisabled: loading,
+    onPauseWorld: () => void pauseWorld(),
+    onResumeWorld: () => void resumeWorld(),
+    onReset: () => void resetDemo(),
+  };
+
   if (healthChecking) {
     return (
       <>
@@ -135,6 +165,8 @@ function GameApp() {
           .at(-1)?.content
       : undefined;
 
+  const isStoryMode = viewMode === "story";
+
   return (
     <>
       <PhaseToast
@@ -148,54 +180,69 @@ function GameApp() {
         onRetryHealth={() => void retryHealth()}
       />
 
-      <TwoColumnLayout
-        status={
-          <StatusPanel
-            stats={stats}
-            phase={phase}
-            playerTurn={playerTurn}
-            maxTurns={MAX_TURNS}
-            placeLabel={placeDisplayName(placeId)}
-            presentAgents={presentAgents}
-            worldTick={envTick ?? worldTick}
-            worldLoopState={worldLoopState}
-            onPauseWorld={() => void pauseWorld()}
-            onResumeWorld={() => void resumeWorld()}
-            pauseDisabled={pauseDisabled || view !== "playing"}
-            onReset={() => void resetDemo()}
-            resetDisabled={loading}
-          />
-        }
-        main={
-          <WorldStage
-            roomF2f={roomF2f}
-            playerPlaceId={placeId as PlaceId}
-            agentLocations={agentLocations}
-            agentInbox={agentInbox}
-            nameMap={nameMap}
-            recentMoveKeys={recentMoveKeys}
-            recentRdcLinks={recentRdcLinks}
-            activeAgentModal={activeAgentModal}
-            pendingWorldEvent={pendingWorldEvent}
-            immediateMsg={immediateMsg}
-            lastError={lastError}
-            onAgentClick={(agentId) =>
-              dispatch({ type: "OPEN_AGENT_MODAL", agentId })
+      {isStoryMode ? (
+        <StoryModeStage
+          viewMode={viewMode}
+          placeId={placeId as PlaceId}
+          roomF2f={roomF2f}
+          nameMap={nameMap}
+          pendingWorldEvent={pendingWorldEvent}
+          immediateMsg={immediateMsg}
+          lastError={lastError}
+          inputSlot={storyModeInput}
+          onToggleViewMode={toggleViewMode}
+          onDismissWorldEvent={() => dispatch({ type: "DISMISS_WORLD_EVENT" })}
+          {...worldControls}
+        />
+      ) : (
+        <TwoColumnLayout
+            status={
+              <StatusPanel
+                stats={stats}
+                phase={phase}
+                playerTurn={playerTurn}
+                maxTurns={MAX_TURNS}
+                placeLabel={placeDisplayName(placeId)}
+                presentAgents={presentAgents}
+                worldTick={envTick ?? worldTick}
+                worldLoopState={worldLoopState}
+                onPauseWorld={() => void pauseWorld()}
+                onResumeWorld={() => void resumeWorld()}
+                pauseDisabled={pauseDisabled || view !== "playing"}
+                onReset={() => void resetDemo()}
+                resetDisabled={loading}
+                onSwitchToStoryMode={toggleViewMode}
+              />
             }
-            onCloseAgentModal={() => dispatch({ type: "CLOSE_AGENT_MODAL" })}
-            onDismissWorldEvent={() => dispatch({ type: "DISMISS_WORLD_EVENT" })}
-            onClearRecentMoves={() => dispatch({ type: "CLEAR_RECENT_MOVES" })}
-            onClearRecentRdcLinks={() => dispatch({ type: "CLEAR_RECENT_RDC_LINKS" })}
-            inputSlot={
-              <PlayerInput
-                onSend={(text) => void sendTurn(text)}
-                disabled={loading || view !== "playing"}
-                placeholder="输入你的台词…"
+            main={
+              <WorldStage
+                roomF2f={roomF2f}
+                playerPlaceId={placeId as PlaceId}
+                agentLocations={agentLocations}
+                agentInbox={agentInbox}
+                nameMap={nameMap}
+                recentMoveKeys={recentMoveKeys}
+                recentRdcLinks={recentRdcLinks}
+                activeAgentModal={activeAgentModal}
+                pendingWorldEvent={pendingWorldEvent}
+                immediateMsg={immediateMsg}
+                lastError={lastError}
+                onAgentClick={(agentId) =>
+                  dispatch({ type: "OPEN_AGENT_MODAL", agentId })
+                }
+                onCloseAgentModal={() => dispatch({ type: "CLOSE_AGENT_MODAL" })}
+                onDismissWorldEvent={() =>
+                  dispatch({ type: "DISMISS_WORLD_EVENT" })
+                }
+                onClearRecentMoves={() => dispatch({ type: "CLEAR_RECENT_MOVES" })}
+                onClearRecentRdcLinks={() =>
+                  dispatch({ type: "CLEAR_RECENT_RDC_LINKS" })
+                }
+                inputSlot={godModeInput}
               />
             }
           />
-        }
-      />
+      )}
 
       <LoadingOverlay
         visible={loading}

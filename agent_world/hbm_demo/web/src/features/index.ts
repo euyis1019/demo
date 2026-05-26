@@ -9,6 +9,7 @@ export const FEATURE_REGISTRY = {
   F09g: { name: "API 客户端", path: "api/" },
   F09h: { name: "全局状态", path: "store/" },
   F12: { name: "四房间世界视图", path: "features/world-stage/" },
+  Story: { name: "沉浸式剧情模式", path: "features/story-mode/" },
 } as const;
 
 export * from "./boot";
@@ -19,3 +20,4 @@ export * from "./endings";
 export * from "./shared";
 export * from "./world-stage";
 export * from "./prompt-trace";
+export * from "./story-mode";

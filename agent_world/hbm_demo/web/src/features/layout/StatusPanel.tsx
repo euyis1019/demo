@@ -15,6 +15,7 @@ export interface StatusPanelProps {
   pauseDisabled?: boolean;
   onReset?: () => void;
   resetDisabled?: boolean;
+  onSwitchToStoryMode?: () => void;
 }
 
 const STAT_ROWS: { key: keyof Stats; label: string }[] = [
@@ -39,6 +40,7 @@ export function StatusPanel({
   pauseDisabled = false,
   onReset,
   resetDisabled = false,
+  onSwitchToStoryMode,
 }: StatusPanelProps) {
   const prevStatsRef = useRef(stats);
   const [pulseKeys, setPulseKeys] = useState<Set<keyof Stats>>(new Set());
@@ -133,8 +135,17 @@ export function StatusPanel({
           ) : null}
         </section>
         </div>
-        {showPauseControl || onReset ? (
+        {showPauseControl || onReset || onSwitchToStoryMode ? (
           <div className="status-panel__footer">
+            {onSwitchToStoryMode ? (
+              <button
+                type="button"
+                className="status-panel__mode-btn"
+                onClick={onSwitchToStoryMode}
+              >
+                剧情模式
+              </button>
+            ) : null}
             {showPauseControl ? (
               <button
                 type="button"
