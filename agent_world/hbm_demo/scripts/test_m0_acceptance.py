@@ -1681,6 +1681,75 @@ def test_f08_virtual_player() -> None:
     ok("pick_active excludes agent 0")
 
 
+def test_f08_pr4_inject_and_f2f_delivery() -> None:
+    """F08 PR4 — Phase 2+ F2F inject channel; Bus vs emit_player_facing_f2f (dev_log/34)."""
+    section("T2g-post F08 PR4 inject channel + Bus/emit split")
+    from types import SimpleNamespace
+
+    from agent_world.hbm_demo.features.f05_story_routing.routing import build_inject_payload
+    from agent_world.hbm_demo.features.f07_agent_control.knowledge import build_agent_knowledge
+    from agent_world.hbm_demo.features.f07_agent_control.player_facing_f2f import (
+        bus_delivered_player_facing_f2f,
+        should_emit_player_facing_f2f,
+    )
+    from agent_world.hbm_demo.features.f07_agent_control.player_response import (
+        inject_channel_uses_player_f2f,
+    )
+    from agent_world.hbm_demo.features.f08_virtual_player.config import is_f08_enabled
+
+    if not is_f08_enabled():
+        ok("F08 PR4 tests skipped (F08 disabled)")
+        return
+
+    if not inject_channel_uses_player_f2f("Phase 2"):
+        raise TestFailure("Phase 2 should use F2F inject channel when F08 enabled")
+    if inject_channel_uses_player_f2f("Phase 1"):
+        raise TestFailure("Phase 1 must keep dual-channel inject + F2F")
+    ok("inject_channel_uses_player_f2f Phase gating")
+
+    class FakeSession:
+        phase = "Phase 1"
+        player_turn = 1
+        place_id = "nvidia_reception"
+        stats = {"vision": 0, "execution": 0, "trust": 10, "burnout": 0}
+
+    p1_events, _, _ = build_inject_payload(FakeSession(), "你好前台", task_id="t1")
+    p1_text = p1_events[0]["effect"].get("text") or ""
+    if "玩家说：「你好前台」" not in p1_text:
+        raise TestFailure("Phase 1 inject must still include verbatim 玩家说")
+    ok("Phase 1 dual-channel inject retains 玩家说")
+
+    FakeSession.phase = "Phase 2"
+    FakeSession.player_turn = 5
+    FakeSession.place_id = "jensen_private_room"
+    p2_events, _, _ = build_inject_payload(FakeSession(), "凭什么省80%", task_id="t2")
+    p2_text = p2_events[0]["effect"].get("text") or ""
+    if "F2F 通道" not in p2_text:
+        raise TestFailure("Phase 2 inject must use F2F channel header")
+    if "玩家说：「" in p2_text:
+        raise TestFailure("Phase 2 inject must not duplicate player verbatim")
+    ok("Phase 2+ inject uses F2F channel without 玩家说 duplicate")
+
+    FakeSession.phase = "Phase 4"
+    FakeSession.player_turn = 21
+    p4_block = build_agent_knowledge(
+        FakeSession(), 2, "加入 NVIDIA", channel="inject"
+    )
+    if "终局 1v1" not in p4_block:
+        raise TestFailure("Phase 4 F2F inject missing 终局 1v1 directive")
+    if "玩家说：「" in p4_block:
+        raise TestFailure("Phase 4 F2F inject must not include 玩家说")
+    ok("Phase 4 F2F-aware inject knowledge")
+
+    if not bus_delivered_player_facing_f2f({"success": True, "recipients": [101]}):
+        raise TestFailure("bus_delivered should be true when FaceToFaceBus inserted rows")
+    if should_emit_player_facing_f2f({"success": True, "recipients": [101]}):
+        raise TestFailure("should not emit when Bus already delivered")
+    if not should_emit_player_facing_f2f({"success": True, "recipients": []}):
+        raise TestFailure("should emit when Bus recipients empty")
+    ok("Bus vs emit_player_facing_f2f mutual exclusion")
+
+
 def test_f07_e_step2_no_scripted_fallback() -> None:
     """Agent-native policy — no scripted F2F/RDC companion; prompt-only guidance."""
     section("T2h F07 no scripted player-facing fallback")
@@ -4228,6 +4297,7 @@ def main() -> int:
         test_f07_d_agent_control,
         test_f07_e_step1_player_facing_f2f,
         test_f08_virtual_player,
+        test_f08_pr4_inject_and_f2f_delivery,
         test_f07_e_step2_no_scripted_fallback,
         test_f07_e_step3_rdc_quota_and_tick_order,
         test_f07_e_step4_turn_priority_and_offtopic,

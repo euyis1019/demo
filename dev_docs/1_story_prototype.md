@@ -113,7 +113,7 @@
 | 3 | 13–20（可延长） | `negotiation_room` | @ negotiation_room | Agent 2, 3, 4, 5, 6 | **batch** `events[]` |
 | 4 | 21–25 | `negotiation_room` | @ negotiation_room | Agent 2 | batch `events[]`（**仅 Agent 2**） |
 
-*玩家 F2F 与 inject 短期双通道（Phase 1）；Phase 2+ 以 F2F sender=0 为主。Agent 0 MOVE 仅 F05 路由节点 A/B 触发（节点 C 不移动）。*
+*玩家 F2F 与 inject 双通道仅 Phase 1（前台 L6 全文 + F2F sender=0）；Phase 2+ inject 为 F2F 通道摘要（不含「玩家说」重复）。Agent 0 MOVE 仅 F05 路由节点 A/B 触发（节点 C 不移动）。*
 
 *Turn 列为剧情规划区间；**实际 Phase 以 session 为准**，路由未触发时可超出区间仍停留在上一 Phase。*
 

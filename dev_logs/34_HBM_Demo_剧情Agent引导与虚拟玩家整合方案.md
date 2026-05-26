@@ -539,7 +539,7 @@ session.phase = "Phase 4"
 | P3.4 | Phase 1/4 F2F 优先 completed（§13.2/13.5 dev_log/24） |
 | P3.5 | Turn 25 结局弱化 Trust 或接 `offer_*` 信号 |
 
-### PR4 — 可选收尾
+### PR4 — 可选收尾 ✅
 
 - Phase 2+ 减少 `player_memory` inject 双通道（§5.3 Phase 1 双通道）
 - 简化 `emit_player_facing_f2f`（§5.9）

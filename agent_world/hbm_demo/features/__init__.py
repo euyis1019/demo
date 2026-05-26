@@ -81,7 +81,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "status": "implemented",
         "path": "features/f08_virtual_player/",
         "modules": ["player_entity", "player_f2f", "config", "phase_places"],
-        "phase": "dev_log/34 PR2",
+        "phase": "dev_log/34 PR4",
     },
     "F08": {
         "name": "HTTP 传输",

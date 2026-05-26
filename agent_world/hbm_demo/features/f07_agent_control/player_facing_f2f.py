@@ -18,14 +18,23 @@ def is_speak_to_local_action(action_type: Any) -> bool:
     return name.lower().replace("-", "_") == "speak_to_local"
 
 
-def should_emit_player_facing_f2f(dispatch_result: Optional[Dict[str, Any]]) -> bool:
-    """True when FaceToFaceBus wrote no rows (typically no co-located NPCs)."""
+def bus_delivered_player_facing_f2f(
+    dispatch_result: Optional[Dict[str, Any]],
+) -> bool:
+    """True when FaceToFaceBus already inserted F2F rows (incl. virtual player @ co-locate).
+
+    ``recipients`` in dispatch_result holds inserted message_ids, not agent ids.
+    When agent 0 is co-located, Bus delivers NPC→player without emit fallback.
+    """
     if not dispatch_result or not dispatch_result.get("success"):
         return False
-    recipients = dispatch_result.get("recipients")
-    if not isinstance(recipients, list):
-        return False
-    return len(recipients) == 0
+    inserted = dispatch_result.get("recipients")
+    return isinstance(inserted, list) and len(inserted) > 0
+
+
+def should_emit_player_facing_f2f(dispatch_result: Optional[Dict[str, Any]]) -> bool:
+    """Emit fallback only when Bus wrote no co-located F2F rows."""
+    return not bus_delivered_player_facing_f2f(dispatch_result)
 
 
 def co_located_peer_count(world: Any, agent_id: int) -> int:
@@ -50,7 +59,7 @@ async def emit_player_facing_f2f(
     content: str,
     t: int,
 ) -> int:
-    """Insert one F2F row visible to Flask ``public_messages`` for the player place."""
+    """Insert one F2F row when FaceToFaceBus had no co-located recipients (Phase 1 reception)."""
     text = str(content or "").strip()
     if not text:
         raise ValueError("player-facing F2F content must be non-empty")
@@ -69,6 +78,7 @@ async def emit_player_facing_f2f(
 
 __all__ = [
     "PLAYER_RECIPIENT_ID",
+    "bus_delivered_player_facing_f2f",
     "co_located_peer_count",
     "emit_player_facing_f2f",
     "is_speak_to_local_action",

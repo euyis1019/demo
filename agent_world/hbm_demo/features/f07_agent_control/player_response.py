@@ -71,7 +71,7 @@ def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
 
     if phase == "Phase 2" and aid == 2:
         lines.append(
-            "★ 私密审查：每轮先 speak_to_local 回应玩家（质疑/追问/认可），"
+            "★ 私密审查：每轮先 speak_to_local 回应玩家（从同室 F2F 读原话），"
             "再 update_state 或 RDC→Tech VP(3) 求证；外面 CEO 在等，勿长篇。"
         )
         lines.append(
@@ -87,7 +87,7 @@ def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
 
     if phase == "Phase 3" and aid in _NVIDIA_IDS:
         lines.append(
-            "★ NVIDIA 阵营：帮玩家圆场、压 CEO 价；必须引用玩家 inject 中的"
+            "★ NVIDIA 阵营：帮玩家圆场、压 CEO 价；必须引用玩家 F2F 中的"
             "技术词/数字/框架，不可自说自话或帮 CEO 攻击玩家。"
         )
         if aid == 2:
@@ -147,6 +147,41 @@ def format_l6_player_directive(
         f"{extra}"
         f"★ 禁止：替其他角色做决定、无关议题、本阶段禁止的 MOVE/GRP。\n"
         f"\n玩家说：「{player_text.strip()}」"
+    )
+
+
+def inject_channel_uses_player_f2f(phase: str) -> bool:
+    """Phase 2+ with F08: player text is in world.db F2F (sender=0), not inject verbatim."""
+    from agent_world.hbm_demo.features.f08_virtual_player.config import is_f08_enabled
+
+    if not is_f08_enabled():
+        return False
+    return str(phase) in ("Phase 2", "Phase 3", "Phase 4")
+
+
+def format_f2f_aware_inject_directive(
+    *,
+    agent_id: int,
+    phase: str,
+    player_turn: int,
+) -> str:
+    """L6 for Phase 2+ — no duplicate「玩家说」; NPC reads co-located F2F thread."""
+    role = agent_display_name(agent_id)
+    output_hint = _PHASE_OUTPUT_HINTS.get(phase, "1–3 句口语")
+    extra = _phase_agent_extra(
+        agent_id=agent_id, phase=phase, player_turn=player_turn
+    )
+    if extra:
+        extra = extra + "\n"
+    return (
+        f"【系统约束·F2F 通道·{phase} Turn {player_turn}】\n"
+        f"★ 角色扮演：你是{role}。下面【世界态】【剧情】【你的目标】务必读完再行动。\n"
+        f"★ 玩家已在同室 F2F 发言（sender=玩家）；本 inject 不含玩家原话。"
+        f"请从【近期对话摘要】或 tick 内 F2F 历史读取并回应（复述或引用关键词）。\n"
+        f"★ 收到他人 RDC 私信时须 send_message 回复对方，优先于 do_nothing。\n"
+        f"★ 你【说出口】的内容：{output_hint}，禁止演讲腔；上下文详 ≠ 你可以长篇大论。\n"
+        f"{extra}"
+        f"★ 禁止：替其他角色做决定、无关议题、本阶段禁止的 MOVE/GRP。\n"
     )
 
 

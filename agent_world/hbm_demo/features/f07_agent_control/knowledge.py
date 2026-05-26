@@ -13,8 +13,10 @@ from agent_world.hbm_demo.features.f07_agent_control.config import (
     story_knowledge_dir,
 )
 from agent_world.hbm_demo.features.f07_agent_control.player_response import (
+    format_f2f_aware_inject_directive,
     format_l6_player_directive,
     format_notification_directive,
+    inject_channel_uses_player_f2f,
 )
 
 _STORY = story_knowledge_dir()
@@ -193,14 +195,23 @@ def build_agent_knowledge(
 
     sections: List[str] = []
     if channel == "inject":
-        sections.append(
-            format_l6_player_directive(
-                agent_id=agent_id,
-                phase=phase,
-                player_turn=player_turn,
-                player_text=player_text,
+        if inject_channel_uses_player_f2f(phase):
+            sections.append(
+                format_f2f_aware_inject_directive(
+                    agent_id=agent_id,
+                    phase=phase,
+                    player_turn=player_turn,
+                )
             )
-        )
+        else:
+            sections.append(
+                format_l6_player_directive(
+                    agent_id=agent_id,
+                    phase=phase,
+                    player_turn=player_turn,
+                    player_text=player_text,
+                )
+            )
     else:
         sections.append(
             format_notification_directive(

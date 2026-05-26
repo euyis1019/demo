@@ -1,13 +1,13 @@
 # 开发日志 33：HBM Demo Agent 控制机制完整报告
 
-**记录时间**：2026-05-23  
-**分支**：`feature/agent-control`  
-**状态**：**代码现状定稿**（基于 `agent_world/hbm_demo` 当前实现：F07 控制层 + v2 常驻 World Loop + Phase 4 `agent_driven` 路由 + Phase 5 `story_advance` + F16 WebSocket）  
+**记录时间**：2026-05-26（PR4 同步）  
+**分支**：`feature/story-scenario-edit`  
+**状态**：**代码现状定稿**（基于 `agent_world/hbm_demo` 当前实现：F07 控制层 + F08 虚拟玩家 + v2 常驻 World Loop + Phase 4 `agent_driven` 路由 + Phase 5 `story_advance` + F16 WebSocket）  
 **文档性质**：运行时可观测行为的 **完整解释报告**（非方案草案）
 
 **前置文档**：
 
-- [`dev_logs/31_HBM_Demo_Runner控制层详解与引导式Agent方案.md`](31_HBM_Demo_Runner控制层详解与引导式Agent方案.md) — v2 控制层目标架构与分阶段实施
+- [`dev_logs/34_HBM_Demo_剧情Agent引导与虚拟玩家整合方案.md`](34_HBM_Demo_剧情Agent引导与虚拟玩家整合方案.md) — SAN 方案（F08 虚拟玩家、PR3 路由收紧、PR4 收尾）
 - [`dev_logs/24_HBM_Demo_Agent行为控制整合方案.md`](24_HBM_Demo_Agent行为控制整合方案.md) — ABCS（L2–L6）原设计
 - [`dev_logs/30_HBM_Demo_F07-F_Agent原生输出与全量同步方案.md`](30_HBM_Demo_F07-F_Agent原生输出与全量同步方案.md) — agent_driven 路由、F12 UI
 - [`dev_logs/27_agent_world引擎与HBM_Demo_Agent行为与玩家干预机制全景.md`](27_agent_world引擎与HBM_Demo_Agent行为与玩家干预机制全景.md) — 早期全景（部分已过时，以本文为准）
@@ -74,7 +74,7 @@ F07 是 demo 的 agent 控制核心，在 `turn_control.yaml` 中 `enabled: true
 | **L5** | 工具白名单 | `tool_guard.py` + `tool_matrix.yaml` | Phase×Agent 允许哪些 tool |
 | **L6** | 玩家回应指令 | `player_response.py` | inject 内「你必须如何回应玩家」的硬性模板 |
 
-另外还有 **E 系列 experience hardening**（首 F2F 强制、RDC 配额、scripted fallback），当前配置为 **`experience_hardening.enabled: false`**，代码在但默认不生效。
+另外还有 **E 系列 experience hardening**（首 F2F 强制、RDC 配额）。**scripted fallback（`f2f_fallback.py` / `reception_rdc_companion.py`）已在 dev_log/34 PR0 删除**，不再代写 Agent 台词；当前 `experience_hardening.enabled: false`，其余 E 守卫代码在但默认不生效。
 
 ---
 
@@ -144,13 +144,16 @@ if exclusive > batch_tick_index and inject_ids:
 
 ```
 POST /player-turn
-  → score_player_turn（F04 改 stats）
+  → score_player_turn（F04 改 stats，不进 Agent Prompt）
+  → F08 build_player_f2f_payload → Runner insert F2F（sender=0）
   → routing.build_inject_payload（F05）
-  → IPC ENQUEUE_PLAYER_INPUT { events, turn_context, broadcast? }
+  → IPC ENQUEUE_PLAYER_INPUT { events, turn_context, player_f2f?, broadcast? }
   → 下一 tick 边界 drain
   → DialogueInjection → agent.player_memory
   → turn_context 驱动 L2/L3/L5/L6
 ```
+
+**F08 虚拟玩家（agent 0）**：在 `place_store` 注册、**从不**进入 L3 `pick_active`、无 LLM client。玩家话写入 `direct_message`（F2F, sender=0）；同室 NPC 从 recap/F2F 线程读取。
 
 v2 模式下 `handle_player_turn` **立即返回 `accepted: true`**，不等 LLM 跑完；前端通过 F14 world-delta / F16 WebSocket 拉取活动。
 
@@ -169,12 +172,25 @@ v2 模式下 `handle_player_turn` **立即返回 `accepted: true`**，不等 LLM
 
 ### 4.3 Inject 文本内容（L4 + L6）
 
-F07 开启时，inject 不是简单「玩家说：xxx」，而是 `build_agent_knowledge(..., channel="inject")` 组装的完整剧本块，包含：
+F07 开启时，inject 由 `build_agent_knowledge(..., channel="inject")` 组装，包含 L6 约束 + Phase 共享 yaml + Agent overlay + Turn hints。
 
-- L6 玩家回应硬性指令
-- Phase 共享 yaml（`story_knowledge/shared/phase_N.yaml`）
-- Agent 专属 overlay（`agents/agent_N.yaml`）
-- Turn hints、禁止事项、当前 Turn/Phase 事实
+**玩家输入双通道（PR4 后）**：
+
+| Phase | 玩家 F2F（F08） | inject / L6 |
+|-------|-----------------|-------------|
+| **1** | ✅ sender=0 @ reception | 完整 L6 + `玩家说：「…」`（与 F2F 短期双通道） |
+| **2–4** | ✅ sender=0 同室 | **F2F 通道** inject：不含玩家 verbatim，指引从【近期对话摘要】读原话 |
+
+实现：`player_response.inject_channel_uses_player_f2f()` + `format_f2f_aware_inject_directive()`（Phase 2+）。
+
+### 4.3.1 NPC→玩家 F2F 投递（Bus vs emit）
+
+| 条件 | 路径 |
+|------|------|
+| agent 0 **未**与 NPC 同室（Phase 1 早期） | NPC `speak_to_local` → `emit_player_facing_f2f`（recipient=0） |
+| agent 0 **已**注册且同室（F08 后 Phase 1/2/4） | `FaceToFaceBus` 直投 → `bus_delivered_player_facing_f2f` 为 true，**禁止** emit 重复写库 |
+
+模块：`features/f07_agent_control/player_facing_f2f.py`；Hook：`core/runner/world_step.py` → `_handle_speak_to_local_f2f`。
 
 ### 4.4 turn_context 字段
 
@@ -446,19 +462,24 @@ flowchart LR
 | `core/runner/kernel.py` | 组装 world/agents/perception |
 | `agent_world/world/step.py` | 通用 tick pipeline |
 | `agent_world/demo/demo_agent.py` | 基类 agent + perception 文本化 |
+| `features/f07_agent_control/player_facing_f2f.py` | E0 Bus/emit 分工 |
+| `features/f08_virtual_player/player_f2f.py` | 玩家 F2F sender=0 |
+| `features/f08_virtual_player/player_entity.py` | agent 0 MOVE / routing sync |
 | `agent_world/script/effects/dialogue_injection.py` | inject 写 player_memory |
 | `features/f16_world_stream/handler.py` | WebSocket world-delta 推送 |
 
 ---
 
-## 十四、当前运行态要点（2026-05-23 代码快照）
+## 十四、当前运行态要点（2026-05-26 代码快照）
 
 | 配置项 | 当前值 |
 |--------|--------|
 | F07 ABCS | 全开（L2–L6） |
+| F08 虚拟玩家 | **enabled**（agent 0，无 LLM tick） |
 | World Loop | v2 常驻，1 tick/s，`pause_drains_queue: false` |
-| 路由模式 | `agent_driven` |
+| 路由模式 | `agent_driven`（PR3 收紧 detect_node_b / escort F2F） |
 | experience_hardening | **关闭** |
+| scripted F2F/RDC fallback | **已删除**（PR0） |
 | tool_guard.hard_block | **false**（丢弃非法 tool，不整批 do_nothing） |
 | story_advance | **enabled** |
 | world_stream (F16) | **enabled**（需 `flask-sock` 依赖） |
@@ -471,14 +492,17 @@ flowchart LR
 | dev_logs/31 设计意图 | 当前实现状态 |
 |----------------------|--------------|
 | 常驻 world loop，玩家 insert 下一 tick 边界 | ✅ `world_loop.enabled: true` |
-| L3 硬控制「谁活跃」 | ✅ `pick_active.py` |
+| L3 硬控制「谁活跃」 | ✅ `pick_active.py`（hard exclude agent 0） |
 | L5 软过滤（非 hard_block） | ✅ `hard_block: false` |
 | 取消 E1/E2/E3 硬守卫 | ✅ `experience_hardening: false` |
-| agent_driven 路由 + RoutingWatcher | ✅ Phase 4 |
+| 删除 scripted fallback 代写台词 | ✅ PR0（dev_log/34） |
+| F08 虚拟玩家 F2F sender=0 | ✅ PR2 |
+| Phase 2+ inject 弱化双通道 | ✅ PR4 F2F 通道 inject |
+| agent_driven 路由 + RoutingWatcher | ✅ PR3 收紧 |
 | story_advance 结构化信号 | ✅ Phase 5 |
+| Turn 25 offer_* / 弱化 Trust | ✅ PR3 `resolve_turn25_ending` |
 | F16 WebSocket delta | ✅ Phase 5 |
 | idle_pause_after_sec | ❌ 未实现 |
-| offer_join/offer_seed → Node D | ❌ 仅落库 |
 
 ---
 

@@ -223,9 +223,9 @@ class HbmWorldStep(WorldStep):
         t: int,
     ) -> None:
         from agent_world.hbm_demo.features.f07_agent_control.player_facing_f2f import (
+            bus_delivered_player_facing_f2f,
             emit_player_facing_f2f,
             is_speak_to_local_action,
-            should_emit_player_facing_f2f,
         )
 
         if not is_speak_to_local_action(action_type):
@@ -233,13 +233,10 @@ class HbmWorldStep(WorldStep):
         if not dispatch_result or not dispatch_result.get("success"):
             return
 
-        recipients = dispatch_result.get("recipients")
-        if isinstance(recipients, list) and len(recipients) > 0:
+        if bus_delivered_player_facing_f2f(dispatch_result):
             self._batch_guard.mark_f2f(int(agent_id))
             return
 
-        if not should_emit_player_facing_f2f(dispatch_result):
-            return
         content = str(action_kwargs.get("content") or "").strip()
         if not content:
             return
