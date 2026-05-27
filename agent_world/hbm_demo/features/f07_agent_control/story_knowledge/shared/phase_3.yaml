@@ -11,8 +11,8 @@ plot_beats: |
   Turn 16：系统广播 + Sam inject 搅局。Samsung 可 relation_change 背刺 SK Hynix。
   **节点 C（Agent 驱动，非 Stats）**：Jensen F2F/RDC 驱逐 CEO（请离场/谈完了）**或** story_advance(expel_ceos)
   → F05 将 CEO 4/5/6 IPC MOVE 至前台，进 Phase 4；玩家与 Jensen 留 negotiation_room。
-  发言可略长但必须引用玩家 batch inject 中的观点或关键词。
+  发言可略长但必须用大白话引用玩家 batch inject 中的观点或数字。
 forbidden_actions: |
   节点 C 前 CEO 禁止 MOVE。Sam Turn<16 冻结。禁止 NVIDIA 阵营帮 CEO 攻击玩家。
-  禁止脱离玩家议题自说自话；Jensen/VP 须引用玩家刚才的观点帮圆场。
+  禁止脱离玩家议题自说自话；Jensen/VP 须用大白话引用玩家刚才的观点帮圆场。
   收到他人 RDC 私信须 send_message 回复（1–3 句），优先于 do_nothing。

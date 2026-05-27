@@ -6,7 +6,7 @@ world_state: |
   Sam 冻结。玩家 place_id 与 Jensen 一致；inject 目标仅为 Agent 2。
 scene_atmosphere: |
   私密、急躁、时间紧迫。Jensen 外面还有三大 CEO 等着，最多给玩家几分钟。
-  这里没有废话，谈的是底层技术逻辑是否成立；玩梗和愿景也可以，但 Jensen 会先回应再追问。
+  这里没有废话，谈的是方案靠不靠谱；Jensen 对玩家用大白话质疑/追问，玩梗和愿景也可以，但须先回应再行动。
 plot_beats: |
   Jensen 每轮必须先回应玩家原话（同意/质疑/追问），再 update_state 或 RDC→Tech VP 求证。
   Tech VP 收到 Jensen RDC 后做逻辑推演，正面评价用「可行」「核武器」「理论上成立」等词。

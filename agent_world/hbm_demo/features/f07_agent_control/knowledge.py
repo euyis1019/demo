@@ -47,6 +47,20 @@ def load_phase_shared(phase: str) -> Dict[str, Any]:
     return _load_yaml(str(_STORY / "shared" / f"{_phase_key(phase)}.yaml"))
 
 
+@lru_cache(maxsize=1)
+def load_plain_language_directive() -> str:
+    raw = _load_yaml(str(_STORY / "shared" / "plain_language.yaml"))
+    return str(raw.get("directive") or "").strip()
+
+
+def plain_language_section(agent_id: int) -> str:
+    """Accessibility block for NPCs 2–7 (reception already tuned in agent_1 overlay)."""
+    if int(agent_id) in (0, 1):
+        return ""
+    block = load_plain_language_directive()
+    return _section("通俗表达", block) if block else ""
+
+
 def load_agent_overlay(agent_id: int) -> Dict[str, Any]:
     return _load_yaml(str(_STORY / "agents" / f"agent_{agent_id}.yaml"))
 
@@ -271,6 +285,7 @@ def build_agent_knowledge(
                     if s
                 ),
             ),
+            plain_language_section(agent_id),
             _section("本 Turn 剧本参考", turn_block),
             _section("关系与术语", overlay.get("relationships")),
             _section(

@@ -338,13 +338,15 @@ class HbmAgent(DemoAgent):
                 "无未读时可 speak_to_local / update_state / do_nothing。\n"
             )
 
-        length_rule = "2) 说出口的内容：短句口语（1–4 句），禁止演讲腔；上下文详 ≠ 长篇大论。\n"
+        length_rule = "2) 说出口的内容：短句大白话（1–4 句），像面对面聊天；禁止论文腔/演讲腔；上下文详 ≠ 长篇大论。\n"
         if phase == "Phase 3" and aid in (2, 3):
             length_rule = (
-                "2) 说出口 2–5 句，可略长但必须引用玩家观点；禁止演讲腔。\n"
+                "2) 说出口 2–5 句大白话，可略长但必须用简单话引用玩家观点；禁止演讲腔。\n"
             )
         elif phase == "Phase 4" and aid == 2:
             length_rule = "2) 终局 1–3 句口语，一句一句回应玩家；禁止长篇独白。\n"
+        elif aid in (2, 3, 4, 5, 6, 7):
+            length_rule += "   技术词最多 1 个，且须紧跟「说白了就是……」。\n"
 
         return (
             "【本回合行动要求（HBM Demo · F07）】\n"
@@ -359,7 +361,7 @@ class HbmAgent(DemoAgent):
             "8) 他人给你 RDC 后你也应回复——全角色通用；同一指令勿连发多条相同 RDC。\n"
             "\n可选工具：\n"
             f"{_HBM_TOOLS_LIST}\n"
-            "保持人物性格——输入上下文可长，实际发言必须短。"
+            "保持人物性格——输入上下文可长，实际发言必须短、必须让普通玩家听得懂。"
         )
 
     def _replace_demo_tail(self, text: str) -> str:

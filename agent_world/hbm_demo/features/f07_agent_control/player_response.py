@@ -85,7 +85,7 @@ def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
 
     if phase == "Phase 2" and aid == 2:
         lines.append(
-            "★ 私密审查：每轮先 speak_to_local 回应玩家（从同室 F2F 读原话），"
+            "★ 私密审查：每轮先 speak_to_local 用大白话回应玩家（从同室 F2F 读原话），"
             "再 update_state 或 RDC→Tech VP(3) 求证；外面 CEO 在等，勿长篇。"
         )
         lines.append(
@@ -95,14 +95,20 @@ def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
 
     if phase == "Phase 2" and aid == 3:
         lines.append(
-            "★ 被动回复 Jensen RDC：仅 send_message→2，1–3 句技术评估。"
+            "★ 被动回复 Jensen RDC：仅 send_message→2，1–3 句评估；用 Jensen 听得懂的话，"
             "正面须含「可行」「核武器」「理论上成立」之一以助节点 B。"
+        )
+
+    if aid in (2, 3, 4, 5, 6, 7):
+        lines.append(
+            "★ 通俗表达：对玩家 F2F 用大白话，禁止论文腔和英文缩写堆砌；"
+            "技术词最多 1 个且须紧跟白话解释。"
         )
 
     if phase == "Phase 3" and aid in _NVIDIA_IDS:
         lines.append(
-            "★ NVIDIA 阵营：帮玩家圆场、压 CEO 价；必须引用玩家 F2F 中的"
-            "技术词/数字/框架，不可自说自话或帮 CEO 攻击玩家。"
+            "★ NVIDIA 阵营：帮玩家圆场、压 CEO 价；必须用大白话引用玩家 F2F 中的"
+            "数字/说法，不可自说自话或帮 CEO 攻击玩家。"
         )
         if aid == 2:
             lines.append(
@@ -112,7 +118,7 @@ def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
 
     if phase == "Phase 3" and aid in _CEO_IDS:
         lines.append(
-            "★ CEO 进攻方：用产能/市占/ fear premium 攻击玩家方案；"
+            "★ CEO 进攻方：用涨价/交货慢/有钱买不到货等大白话攻击玩家方案；"
             "可 send_to_group→200 密谋，但不得帮 NVIDIA 说话。"
         )
 
@@ -177,7 +183,7 @@ def format_l6_player_directive(
         f"★ 角色扮演：你是{role}。下面【世界态】【剧情】【你的目标】务必读完再行动。\n"
         f"★ 本拍必须先直接回应玩家下面这句话（复述或引用关键词），再考虑 RDC/其他动作。\n"
         f"★ 收到他人 RDC 私信时须 send_message 回复对方，优先于 do_nothing。\n"
-        f"★ 你【说出口】的内容：{output_hint}，禁止演讲腔；上下文详 ≠ 你可以长篇大论。\n"
+        f"★ 你【说出口】的内容：{output_hint}，大白话、禁止演讲腔；上下文详 ≠ 你可以长篇大论。\n"
         f"{extra}"
         f"★ 禁止：替其他角色做决定、无关议题、本阶段禁止的 MOVE/GRP。\n"
         f"\n玩家说：「{player_text.strip()}」"
@@ -213,7 +219,7 @@ def format_f2f_aware_inject_directive(
         f"★ 玩家已在同室 F2F 发言（sender=玩家）；本 inject 不含玩家原话。"
         f"请从【近期对话摘要】或 tick 内 F2F 历史读取并回应（复述或引用关键词）。\n"
         f"★ 收到他人 RDC 私信时须 send_message 回复对方，优先于 do_nothing。\n"
-        f"★ 你【说出口】的内容：{output_hint}，禁止演讲腔；上下文详 ≠ 你可以长篇大论。\n"
+        f"★ 你【说出口】的内容：{output_hint}，大白话、禁止演讲腔；上下文详 ≠ 你可以长篇大论。\n"
         f"{extra}"
         f"★ 禁止：替其他角色做决定、无关议题、本阶段禁止的 MOVE/GRP。\n"
     )
