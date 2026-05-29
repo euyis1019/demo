@@ -5,9 +5,10 @@ import { placeDisplayName } from "../../utils/places";
 import { WorldEventModal } from "../world-stage";
 import { storyPlaceBackground } from "./storyAssets";
 import { StorySubtitle } from "./StorySubtitle";
+import { StoryDialogueHistory } from "./StoryDialogueHistory";
 import { StoryModeToolbar } from "./StoryModeToolbar";
 import type { ViewMode } from "./viewMode";
-import { playerRoomMessages, useStoryDialogue } from "./useStoryDialogue";
+import { playerRoomMessages, useStoryDialogueQueue } from "./useStoryDialogue";
 
 export interface StoryModeStageProps {
   viewMode: ViewMode;
@@ -45,7 +46,7 @@ export function StoryModeStage({
   onDismissWorldEvent,
 }: StoryModeStageProps) {
   const roomMessages = playerRoomMessages(roomF2f, placeId);
-  const dialogueLine = useStoryDialogue(roomMessages, nameMap);
+  const dialogue = useStoryDialogueQueue(roomMessages, nameMap);
   const backgroundUrl = storyPlaceBackground(placeId);
 
   const subtitlePlaceholder = `【${placeDisplayName(placeId)}】`;
@@ -78,7 +79,19 @@ export function StoryModeStage({
 
       <div className="story-mode-stage__input">{inputSlot}</div>
 
-      <StorySubtitle line={dialogueLine} placeholder={subtitlePlaceholder} />
+      <StorySubtitle
+        line={dialogue.line}
+        placeholder={subtitlePlaceholder}
+        hasNext={dialogue.hasNext}
+        remaining={dialogue.remaining}
+        onAdvance={dialogue.advance}
+      />
+
+      <StoryDialogueHistory
+        messages={roomMessages}
+        nameMap={nameMap}
+        placeId={placeId}
+      />
 
       {pendingWorldEvent ? (
         <WorldEventModal event={pendingWorldEvent} onDismiss={onDismissWorldEvent} />
