@@ -3,7 +3,7 @@ import type { GameMessage } from "../../api/types";
 import { PLAYER_AGENT_ID, agentDisplayName } from "../../constants/agents";
 import { messageReactKey, sortMessages, TERMINAL_SENDER } from "../../utils/messages";
 import { placeDisplayName, type PlaceId } from "../../utils/places";
-import { resolveSpeakerAgentId } from "../world-stage/lib/resolveSpeakerAgentId";
+import { resolveSpeakerAgentId } from "../world-stage";
 
 export interface StoryDialogueHistoryProps {
   /** Current-room F2F messages (already scoped to the player's place). */

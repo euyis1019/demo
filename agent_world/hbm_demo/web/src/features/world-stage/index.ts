@@ -13,3 +13,4 @@ export { WorldEventModal } from "./components/WorldEventModal";
 export { LocationHistoryTimeline } from "./components/LocationHistoryTimeline";
 export { WorldStage } from "./components/WorldStage";
 export { buildContactThreads } from "./lib/agentContactThreads";
+export { resolveSpeakerAgentId } from "./lib/resolveSpeakerAgentId";
