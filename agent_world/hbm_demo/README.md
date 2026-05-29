@@ -1,185 +1,141 @@
 # HBM 显存价格保卫战 — Web Demo
 
-《HBM 显存价格保卫战》本地可玩 Demo：**Runner**（LLM Agent + 世界仿真）+ **Flask**（回合编排 + HTTP API）+ **React 前端**（双栏 UI：世界舞台 + 状态侧栏）。
+一个**本地可玩的叙事谈判 Demo**：玩家扮演创业者，在 NVIDIA 接待 / 谈判场景中通过约
+25 轮台词推动剧情，目标是走向三种结局之一（加入 NVIDIA / 拿种子轮独立 / 冷场破局）。
 
-详细产品/剧情规范见仓库 `dev_docs/`；Feature 化架构见 [`dev_logs/26`](../../dev_logs/26_HBM_Demo_Feature规划与代码结构重整方案.md)；结构重整见 [`dev_logs/38`](../../dev_logs/38_HBM_Demo_项目结构重整方案.md) 与 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
+底层是一个**通用 LLM 多 Agent 世界仿真引擎**（`agent_world/`），本 Demo 是它的一个
+scenario。运行时由三部分组成：
+
+- **Runner** — `python -m agent_world.hbm_demo.run_hbm`：跑 LLM 多 Agent 世界仿真，
+  写 `sim/hbm_memory_war/world.db`，按 tick 推进。
+- **Flask**（`agent_world.app` + `hbm_bp`）：会话、玩家回合 API、只读 DB、增量同步。
+- **React + Vite 前端**（`web/`，默认 `:5173`）：双栏世界舞台 + 可选沉浸式剧情模式。
+
+```text
+浏览器(Vite:5173) → Flask(hbm_bp) → features/* handler → IPC → Runner(run_hbm)
+                                                              → sim/hbm_memory_war/world.db
+玩家每发一句 → 打分(F04) → inject 到 Runner(F11/F07) → 世界 tick → 前端靠 F14
+/world-delta 轮询(+F16 WS)合并增量,回放各 Agent 动作。
+```
 
 ---
 
 ## 快速开始
 
-在**仓库根目录**：
+在**仓库根目录**执行：
 
 ```bash
 # 1. Python 依赖（首次）
 pip install -e .
 
-# 2. API Key
+# 2. API Key（DeepSeek，经 DMXAPI_KEY）
 cp agent_world/hbm_demo/.env.example agent_world/hbm_demo/.env
 # 编辑 .env：DMXAPI_KEY=sk-...
 
 # 3. 一行启动 Runner + Flask + Vite
-./agent_world/hbm_demo/scripts/start_demo.sh
+./agent_world/hbm_demo/scripts/ops/start_demo.sh
 ```
 
-浏览器打开 **http://localhost:5173**。按 **Ctrl+C** 停止；或执行 `./agent_world/hbm_demo/scripts/stop_demo.sh`。
+浏览器打开 **http://localhost:5173**。`Ctrl+C` 或 `./agent_world/hbm_demo/scripts/ops/stop_demo.sh` 停止。
 
-**验收测试**（不启动长期 dev server，自动起停 Runner/Flask）：
+**验收门禁**（自动起停 Runner/Flask，跑 E2E + 前端构建）：
 
 ```bash
-python agent_world/hbm_demo/scripts/test_m0_acceptance.py
-# 或
-./agent_world/hbm_demo/scripts/tests/run_tests.sh
+python3 agent_world/hbm_demo/scripts/test_m0_acceptance.py
+cd agent_world/hbm_demo/web && npm run build
 ```
 
-25 轮人工试玩台词（SAN 方案 · agent_driven + 虚拟玩家 F2F）：
-
-[`scripts/docs/player_playthrough.md`](scripts/docs/player_playthrough.md)
+25 轮人工试玩台词：[`scripts/docs/player_playthrough.md`](scripts/docs/player_playthrough.md)
 
 ---
 
-## 运行时架构
+## 四层架构
 
 ```text
-浏览器 (Vite :5173)
-    │  POST player-turn / GET action-result / GET session …
-    ▼
-Flask  (agent_world.app + hbm_bp)     ← L3：HTTP、Flask Session、只读 world.db
-    │  IPC: inject_batch / MOVE / RESET_WORLD
-    ▼
-Runner (python -m agent_world.hbm_demo.run_hbm)   ← L1：写 world.db、推进 tick、Agent LLM
-    │
-    ▼
-sim/hbm_memory_war/   world.db · ipc/ · env_status.json
+L0 配置     config/prompts/*, hbm_scenario.yaml, .env        ← 场景/Prompt/路由/Key
+L1 Runner   core/runner/  (+ integration/ 白名单桥)          ← 写 world.db、tick、Agent LLM、IPC
+L2 编排     features/f01–f17                                  ← 回合规则、路由、打分、世界同步
+L3 传输/UI  http/ (REST + WS), web/src/                       ← Flask Blueprint + React 双栏 UI
+shared/     config_loader / env_status / errors / settings / messages / prompt_paths / routing_events
 ```
 
-- 玩家每发一条台词 → **API 1**（打分 + DialogueInjection + 若干 world tick）→ **API 2** 轮询直到本回合 NPC 动作完成。
-- **必须先有 Runner**，Flask 与 Runner 共用同一 `HBM_SIM_DIR`。
+依赖硬规则与运行时数据流详见 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
 
 ---
 
-## 代码结构（四层 + Feature）
+## 目录结构
 
 ```text
 agent_world/hbm_demo/
-├── hbm_scenario.yaml      # L0 场景：地点、Agent soul、LLM、群聊
-├── .env / .env.example    # L0 API Key（.env 不提交）
+├── README.md                 # 本文件（总览）
+├── ARCHITECTURE.md           # 四层架构 + 依赖规则 + 运行时数据流
+├── run_hbm.py                # 入口 shim → core/runner/run_hbm.py
+├── routes.py                 # 入口 shim → http/routes.hbm_bp
+├── game_service.py           # 历史 re-export facade（F01–F04/F06，逐步退役）
+├── hbm_scenario.yaml         # L0 场景：地点 / Agent soul / LLM / 群聊
+├── .env / .env.example       # L0 API Key（.env 不入库）
 │
-├── run_hbm.py             # 入口 shim → core/runner/run_hbm.py
-├── routes.py              # 入口 shim → http/routes.py (hbm_bp)
-├── game_service.py        # 入口 shim → re-export features（F01–F04、F06、F12–F15）
-│
-├── shared/                # 跨 Feature 工具（配置加载、env_status、错误、超时）
-├── core/runner/           # F00 平台 Runner（内核、Agent、IPC、tick）
-├── features/              # F01–F16 业务编排（见下表）
-├── http/                  # F08 HTTP 传输（Blueprint、health、IPC 客户端）
-│
-├── web/                   # F09 前端（src/features/ 按屏拆分）
-├── scripts/               # F10 运维 + 验收（ops/、tests/、docs/）
-└── sim/hbm_memory_war/    # 运行时产物（gitignore）
+├── config/                   # L0 配置（见 config/prompts/README.md）
+│   ├── manifest.yaml         #   prompt 路径索引
+│   └── prompts/              #   Agent prompt / 路由 / 虚拟玩家 YAML
+├── core/runner/              # L1 Runner（见 core/runner/README.md）
+├── features/                 # L2 业务编排 f01–f17（见 features/README.md）
+├── http/                     # L3 HTTP 传输（见 http/README.md）
+├── shared/                   # 跨层工具（见 shared/README.md）
+├── scripts/                  # 运维 + 验收（见 scripts/README.md）
+├── web/                      # L3 React 前端（见 web/README.md）
+└── sim/hbm_memory_war/       # 运行时产物（world.db / ipc / env_status.json，gitignore）
 ```
 
-### 根目录三个 shim 为何保留
-
-| 文件 | 指向 | 用途 |
-|------|------|------|
-| `run_hbm.py` | `core/runner/run_hbm.py` | `python -m agent_world.hbm_demo.run_hbm` |
-| `routes.py` | `http/routes.hbm_bp` | `agent_world.app` 注册 Blueprint |
-| `game_service.py` | `features/*` 聚合 export | 历史 import 路径、HTTP 层委托 |
-
-业务逻辑均在 `features/`、`core/`、`http/`；根目录不再放置重复实现。
+> 根目录三个 shim（`run_hbm.py` / `routes.py` / `game_service.py`）只做转发/再导出，
+> 业务实现都在 `core/`、`features/`、`http/`。
 
 ---
 
-## Feature 说明（F00–F16）
+## Feature 速查表（F00–F17）
 
-后端注册表：`features/__init__.py` → `FEATURE_REGISTRY`。  
-前端注册表：`web/src/features/index.ts`。
-
-| ID | 名称 | 目录 | 职责 |
+| ID | 名称 | 位置 | 职责 |
 |----|------|------|------|
-| **F00** | 平台 Runner | `core/runner/` | 仿真内核、Agent LLM、IPC、world loop |
+| **F00** | 平台 Runner | `core/runner/` | 仿真内核、Agent LLM、IPC、常驻 world loop |
 | **F01** | 会话与重开 | `features/f01_session/` | HbmSession、Flask session、RESET_WORLD |
-| **F02** | 玩家回合 API1 | `features/f02_player_turn/` | 打分 + inject + tick；PendingTask |
+| **F02** | 玩家回合 API1 | `features/f02_player_turn/` | 打分→路由→inject；turn_pipeline |
 | **F03** | 动作结果 API2 | `features/f03_action_result/` | 完成判定；world_loop 时委托 F14 |
-| **F04** | 数值与打分 | `features/f04_stats/` | Stats 四维打分（`score_player_turn`） |
-| **F05** | 剧情路由 | `features/f05_story_routing/` | Phase 节点、RoutingWatcher、agent_driven |
-| **F06** | 只读世界模型 | `features/f06_read_model/` | ReadOnlyWorldDB |
-| **F07** | ABCS | `features/f07_agent_control/` | turn_control、选角、inject 窗口（运行时开启） |
-| **F08** | HTTP 传输 | `http/` | Blueprint、health、IPC 客户端 |
-| **F17** | 虚拟玩家 | `features/f17_virtual_player/` | 虚拟玩家 F2F（canonical；旧 `f08_virtual_player/` shim 已移除） |
-| **F09** | 前端 UI | `web/src/features/` | 见下节 |
-| **F10** | 运维 | `scripts/ops/`、`scripts/tests/` | start/stop、验收测试 |
-| **F11** | 回合内增量 | `features/f11_live_turn_sync/` | 异步 inject、task_state |
-| **F12** | 世界 UI 同步 | `features/f12_world_sync/` | snapshot、delta、四房间格式化 |
-| **F13** | Loop 控制 | `features/f13_world_loop_control/` | pause/resume |
-| **F14** | 常驻 delta | `features/f14_world_delta/` | world-delta 轮询 + 路由扫描 |
-| **F15** | Prompt 追溯 | `features/f15_prompt_trace/` | trace DB + Inspector UI |
-| **F16** | WS 推送 | `features/f16_world_stream/` | WebSocket world-stream |
+| **F04** | 数值与打分 | `features/f04_stats/` | Stats 四维 LLM 打分 |
+| **F05** | 剧情路由 | `features/f05_story_routing/` | Phase 节点 A/B/C/D、RoutingWatcher、结局裁定 |
+| **F06** | 只读世界模型 | `features/f06_read_model/` | ReadOnlyWorldDB（queries/ 子模块） |
+| **F07** | ABCS Agent 控制 | `features/f07_agent_control/` | 选角(L3)、story knowledge(L4)、对话节奏 |
+| **F08** | HTTP 传输 | `http/` | Blueprint、IPC 客户端、健康、WS |
+| **F17** | 虚拟玩家 | `features/f17_virtual_player/` | 玩家作为 agent 0、F2F 注入 |
+| **F09** | 前端 UI | `web/src/features/` | 双栏世界舞台 + 剧情模式 |
+| **F10** | 运维 | `scripts/ops/`、`scripts/tests/` | start/stop、验收 |
+| **F11** | 回合内增量 | `features/f11_live_turn_sync/` | 后台异步 inject、task_state |
+| **F12** | 世界 UI 同步 | `features/f12_world_sync/` | snapshot + delta + 四房间格式化 |
+| **F13** | Loop 控制 | `features/f13_world_loop_control/` | pause/resume/resume_if_paused |
+| **F14** | 常驻 delta | `features/f14_world_delta/` | `/world-delta` 轮询 + 路由扫描 + 结局 |
+| **F15** | Prompt 追溯 | `features/f15_prompt_trace/` | LLM trace 审计 + Inspector |
+| **F16** | WS 推送 | `features/f16_world_stream/` + `http/ws.py` | WebSocket world-stream |
 
-### 前端子 Feature（F09 + F11–F16 映射）
-
-| ID | 目录 | 说明 |
-|----|------|------|
-| F09a | `features/boot/` | 启动屏、健康检查、Runner 503 |
-| F09b | `features/game-loop/` | 回合循环；**含 F11/F13/F14/F16 前端逻辑** |
-| F09c | `features/layout/` | 双栏布局、StatusPanel |
-| F09d | `features/player-input/` | 玩家输入（`PlayerInput`） |
-| F09e | `features/world-stage/` | 四房间世界视图（F12） |
-| F09f | `features/endings/` | Bad End、Turn 25 结局 |
-| F09g | `features/shared/` | MessageBubble 等共享 UI |
-| F09h | `api/` | HTTP 客户端 |
-| F09i | `store/` | gameStore |
-| F15 | `features/prompt-trace/` | Prompt Inspector 弹窗 |
-| Story | `features/story-mode/` | 沉浸式剧情模式 |
-
----
-
-## 配置
-
-### 环境变量
-
-| 变量 | 默认 | 说明 |
-|------|------|------|
-| `DMXAPI_KEY` | — | DeepSeek 官方 Key（见 `hbm_scenario.yaml` 中 `llm.model`） |
-| `HBM_SIM_DIR` | `sim/hbm_memory_war/` | 仿真目录 |
-| `FLASK_RUN_PORT` | 5050–5059 自动选取 | Flask 端口 |
-| `VITE_PORT` | 5173 | 前端 dev 端口 |
-| `HBM_IPC_TIMEOUT` | 600 | IPC inject 超时（秒） |
-
-完整列表见 `.env.example`。
-
-### `hbm_scenario.yaml`
-
-- 7 个 Agent、4 个地点、2 个群聊
-- `llm`：`base_url`、`model`（当前 `deepseek-chat`）
-
-### Agent 行为控制（ABCS / F07）
-
-运行时实现位于 `features/f07_agent_control/`，配置见 `turn_control.yaml`（L3 选角、inject 窗口、world loop、prompt trace 等）。
-
-剧情路由采用 **agent_driven** 模式（`features/f05_story_routing/routing.yaml`）：节点 A/B/C 由 Agent 对话信号触发，Stats 仅作 UI 展示。
-
-设计与演进记录见 [`dev_logs/24`](../../dev_logs/24_HBM_Demo_Agent行为控制整合方案.md)、[`dev_logs/37`](../../dev_logs/37_HBM_Demo_代码重整与清理记录.md)、[`dev_logs/38`](../../dev_logs/38_HBM_Demo_项目结构重整方案.md)。
+> 注：曾用的 `f08_virtual_player/` 兼容 shim 已删除，虚拟玩家统一为 **F17**；
+> **F08 专指 HTTP 传输（`http/`）**。
 
 ---
 
 ## HTTP API
 
-前缀：`/api/hbm/simulations/hbm_memory_war/`
+前缀：`/api/hbm/simulations/hbm_memory_war/`（端点细节见 [`http/README.md`](http/README.md)）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `session/start` | 初始化 Flask session |
-| GET | `session` | 当前 stats / phase / turn |
+| POST | `session/start` | 初始化 Flask session（必要时自动 resume loop） |
 | POST | `session/reset` | 重开（IPC RESET + session 清零） |
+| GET | `session` | 当前 stats / phase / turn |
 | GET | `health` | Runner + world.db 就绪探针 |
-| GET | `env-status` | Runner tick / status |
-| POST | `player-turn` | API 1 |
-| GET | `action-result?task_id=` | API 2 轮询（world_loop 时同 world-delta） |
+| GET | `env-status` | Runner tick / loop 状态 |
+| POST | `player-turn` | API 1：玩家台词 → 打分 + inject |
+| GET | `action-result` | API 2 轮询（world_loop 时同 world-delta） |
 | GET | `world-snapshot` | F12 全量世界快照 |
-| GET | `world-delta?since_tick=` | F14 增量同步 |
-| GET/POST | `world-loop/status|pause|resume` | F13 loop 控制 |
+| GET | `world-delta?since_tick=` | F14 增量同步（路由/结局也走此处） |
+| GET/POST | `world-loop/status\|pause\|resume` | F13 loop 控制 |
 | GET | `prompt-trace/*` | F15 Prompt Inspector |
 | POST | `debug-inject` | 调试 inject |
 
@@ -189,49 +145,39 @@ agent_world/hbm_demo/
 
 | 阶段 | Turn | 说明 |
 |------|------|------|
-| Phase 1 | 1–4 | 前台接待；Turn 4 需 vision+execution≥15，否则 Bad End |
-| Phase 2 | 5–12 | Jensen 私密审查；Turn 12 节点 B → Phase 3 |
-| Phase 3 | 13–20 | 谈判室；Turn 16 AMD 广播 + Sam；Turn 20 节点 C → Phase 4 |
-| Phase 4 | 21–25 | 终局；Turn 25 返回结局 ID |
+| Phase 1 | 1–4 | 前台接待破局；前台向 Jensen 简报、批准访客（节点 A → Phase 2） |
+| Phase 2 | 5–12 | Jensen 私密审查；Tech VP 正面评估（节点 B → Phase 3） |
+| Phase 3 | 13–20 | 谈判室；Turn 16 AMD 广播 + Sam；Jensen 清场 CEO（节点 C → Phase 4） |
+| Phase 4 | 21–25 | 终局 1v1 谈 offer；**谈成即结束**（节点 D / 早结局），否则 Turn 25 裁定 |
 
-单回合含多次 LLM 调用，墙钟约 **15–90 秒**（7 Agent 并行 tick 时可能更慢）。
+**结局裁定（节点 D）**：Phase 4 中一旦谈成（Jensen 给出 offer 且玩家接受，由 F05
+经 LLM 判定）即触发对应结局；否则到 Turn 25 由 LLM 意图分类 + trust 阈值裁定：
 
----
+- `ending_join_nvidia` / `ending_seed_round` / `ending_cold_deal`
 
-## 手动分进程启动
-
-```bash
-# 终端 1 — Runner
-python -m agent_world.hbm_demo.run_hbm \
-  --config agent_world/hbm_demo/hbm_scenario.yaml \
-  --sim-dir agent_world/hbm_demo/sim/hbm_memory_war/
-
-# 终端 2 — Flask
-export HBM_SIM_DIR=agent_world/hbm_demo/sim/hbm_memory_war/
-export FLASK_APP=agent_world.app:create_app
-flask run --host 127.0.0.1 --port 5050
-
-# 终端 3 — 前端
-cd agent_world/hbm_demo/web && npm run dev
-```
+单回合含多次 LLM 调用，墙钟约 **15–90 秒**。
 
 ---
 
-## 相关文档
+## 文档索引
 
 | 文档 | 内容 |
 |------|------|
-| [`dev_logs/26`](../../dev_logs/26_HBM_Demo_Feature规划与代码结构重整方案.md) | Feature 规划与 M0–M7 迁移 |
-| [`dev_logs/22`](../../dev_logs/22_HBM_Demo目录结构与功能说明.md) | 历史目录说明（部分已过时，以本文为准） |
-| [`dev_logs/23`](../../dev_logs/23_HBM_Demo启动重置与运行指南.md) | 启动 / 重置 / 排错 |
-| [`dev_logs/38`](../../dev_logs/38_HBM_Demo_项目结构重整方案.md) | 结构重整方案（Phase R0–R5） |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | 四层架构一页纸 |
-| [`dev_logs/19`](../../dev_logs/19_HBM_Demo_25轮参考台词.md) | 25 轮试玩台词 |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | 四层架构、依赖硬规则、运行时数据流、tick/路由/结局机制 |
+| [`config/prompts/README.md`](config/prompts/README.md) | L0：Agent prompt / 路由 / 虚拟玩家 YAML 布局 |
+| [`core/runner/README.md`](core/runner/README.md) | L1 Runner：各文件职责、boot 流程、integration 桥 |
+| [`features/README.md`](features/README.md) | L2：f01–f17 每个 Feature 的功能与内部文件作用 |
+| [`http/README.md`](http/README.md) | L3 HTTP：路由/端点、IPC 客户端、WS、健康、错误 |
+| [`shared/README.md`](shared/README.md) | 跨层工具各文件 |
+| [`web/README.md`](web/README.md) | 前端结构、features/store/api、运行 |
+| [`scripts/README.md`](scripts/README.md) | 运维脚本与验收测试 |
+| [`scripts/docs/player_playthrough.md`](scripts/docs/player_playthrough.md) | 25 轮人工试玩台词参考 |
 
 ---
 
-## 维护说明
+## 维护约定
 
 - **不要**在根目录新增业务 `.py`；新能力放入对应 `features/fXX_*` 或 `core/runner/`。
-- Agent 行为边界见 F07 `turn_control.yaml` 与 dev_logs/24、38。
-- 提交前运行 `python agent_world/hbm_demo/scripts/test_m0_acceptance.py` 与 `cd web && npm run build`。
+- 改 Agent prompt 只动 `config/prompts/` 与各 Feature `config.py`，勿把 YAML 放回 `features/` 根目录。
+- 提交前跑门禁：`python3 scripts/test_m0_acceptance.py` 与 `cd web && npm run build`。
+- 依赖边界见 [`ARCHITECTURE.md`](ARCHITECTURE.md)（L3→L2、L1 经 integration、前端 app→features→shared）。
