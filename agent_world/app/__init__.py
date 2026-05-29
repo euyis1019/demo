@@ -34,20 +34,9 @@ def create_app(config_class: type = Config) -> Flask:
 
     # F16 WebSocket — optional; requires flask-sock when world_stream.enabled.
     try:
-        from agent_world.hbm_demo.features.f16_world_stream.config import (
-            is_world_stream_enabled,
-        )
+        from agent_world.hbm_demo.http.ws import register_hbm_world_stream
 
-        if is_world_stream_enabled():
-            from flask_sock import Sock
-
-            from agent_world.hbm_demo.features.f16_world_stream import (
-                register_world_stream_routes,
-            )
-
-            sock = Sock()
-            sock.init_app(app)
-            register_world_stream_routes(sock, url_prefix="/api/hbm")
+        register_hbm_world_stream(app)
     except ImportError as exc:
         log.warning("F16 world-stream disabled (missing dependency): %s", exc)
 

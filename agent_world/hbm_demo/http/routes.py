@@ -7,6 +7,18 @@ from typing import Any, Dict
 from flask import Blueprint, jsonify, request, session
 
 from agent_world.hbm_demo import game_service as gs
+from agent_world.hbm_demo.features.f12_world_sync.handler import get_world_snapshot
+from agent_world.hbm_demo.features.f13_world_loop_control.handler import (
+    get_world_loop_status,
+    pause_world_loop,
+    resume_world_loop,
+)
+from agent_world.hbm_demo.features.f14_world_delta.handler import get_world_delta
+from agent_world.hbm_demo.features.f15_prompt_trace.handler import (
+    get_prompt_trace,
+    get_prompt_trace_by_ref,
+    list_prompt_traces,
+)
 from agent_world.hbm_demo.http.health import check_stack_health
 from agent_world.hbm_demo.http.http_errors import service_error_payload
 from agent_world.hbm_demo.shared.env_status import is_runner_ready, read_env_status
@@ -204,7 +216,7 @@ def world_snapshot(sim_id: str):
         return err
 
     try:
-        data = gs.get_world_snapshot(session, sim_id=sim_id)
+        data = get_world_snapshot(session, sim_id=sim_id)
     except Exception as exc:  # noqa: BLE001
         body, code = service_error_payload(exc)
         return jsonify(body), code
@@ -228,7 +240,7 @@ def world_delta(sim_id: str):
             return _bad_request("since_tick must be an integer")
 
     try:
-        data = gs.get_world_delta(
+        data = get_world_delta(
             session,
             sim_id=sim_id,
             since_tick=since_tick,
@@ -247,7 +259,7 @@ def world_loop_status(sim_id: str):
     if err:
         return err
     try:
-        data = gs.get_world_loop_status(sim_dir=gs.get_sim_dir())
+        data = get_world_loop_status(sim_dir=gs.get_sim_dir())
     except Exception as exc:  # noqa: BLE001
         body, code = service_error_payload(exc)
         return jsonify(body), code
@@ -261,7 +273,7 @@ def world_loop_pause(sim_id: str):
     if err:
         return err
     try:
-        data = gs.pause_world_loop(sim_dir=gs.get_sim_dir())
+        data = pause_world_loop(sim_dir=gs.get_sim_dir())
     except Exception as exc:  # noqa: BLE001
         body, code = service_error_payload(exc)
         return jsonify(body), code
@@ -275,7 +287,7 @@ def world_loop_resume(sim_id: str):
     if err:
         return err
     try:
-        data = gs.resume_world_loop(sim_dir=gs.get_sim_dir())
+        data = resume_world_loop(sim_dir=gs.get_sim_dir())
     except Exception as exc:  # noqa: BLE001
         body, code = service_error_payload(exc)
         return jsonify(body), code
@@ -289,7 +301,7 @@ def prompt_trace_get(sim_id: str, trace_id: str):
     if err:
         return err
     try:
-        data = gs.get_prompt_trace(sim_dir=gs.get_sim_dir(), trace_id=str(trace_id))
+        data = get_prompt_trace(sim_dir=gs.get_sim_dir(), trace_id=str(trace_id))
     except KeyError:
         return _bad_request(f"trace not found: {trace_id}", 404)
     except Exception as exc:  # noqa: BLE001
@@ -308,7 +320,7 @@ def prompt_trace_by_ref(sim_id: str):
     if not ref_key:
         return _bad_request("ref_key query parameter is required")
     try:
-        data = gs.get_prompt_trace_by_ref(sim_dir=gs.get_sim_dir(), ref_key=ref_key)
+        data = get_prompt_trace_by_ref(sim_dir=gs.get_sim_dir(), ref_key=ref_key)
     except KeyError:
         return _bad_request(f"no trace for ref_key: {ref_key}", 404)
     except Exception as exc:  # noqa: BLE001
@@ -343,7 +355,7 @@ def prompt_traces_list(sim_id: str):
     except ValueError:
         return _bad_request("limit must be an integer")
     try:
-        data = gs.list_prompt_traces(
+        data = list_prompt_traces(
             sim_dir=gs.get_sim_dir(),
             agent_id=agent_id,
             since_tick=since_tick,

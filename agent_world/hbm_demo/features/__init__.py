@@ -93,7 +93,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "HTTP 传输",
         "status": "implemented",
         "path": "http/",
-        "modules": ["routes", "ipc_helper", "health", "http_errors"],
+        "modules": ["routes", "ipc_helper", "health", "http_errors", "ws"],
     },
     "F09": {
         "name": "前端 UI（双栏 WorldStage）",

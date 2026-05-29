@@ -797,14 +797,15 @@ def test_f12_phase2_world_delta() -> None:
         raise TestFailure("routes.py missing GET /world-snapshot")
     ok("routes.py registers GET /world-snapshot")
 
-    import agent_world.hbm_demo.game_service as root_gs
     from agent_world.hbm_demo.features.f12_world_sync.handler import (
         get_world_snapshot as feat_get_world_snapshot,
     )
 
-    if root_gs.get_world_snapshot is not feat_get_world_snapshot:
-        raise TestFailure("game_service.get_world_snapshot shim != F12 handler")
-    ok("game_service.get_world_snapshot shim")
+    if "f12_world_sync.handler import get_world_snapshot" not in routes:
+        raise TestFailure("routes.py should import get_world_snapshot from F12 handler")
+    if feat_get_world_snapshot.__name__ not in routes:
+        raise TestFailure("routes.py should call F12 get_world_snapshot directly")
+    ok("routes.py delegates world-snapshot to F12 handler")
 
 
 def test_f12_phase3_world_stage() -> None:
@@ -2237,15 +2238,15 @@ def test_f07_v2_phase2_world_delta() -> None:
     from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop_enabled
     from agent_world.hbm_demo.features.f12_world_sync.delta import build_session_world_delta
     from agent_world.hbm_demo.features.f14_world_delta.handler import get_world_delta
-    from agent_world.hbm_demo import game_service as gs
 
     if "F14" not in FEATURE_REGISTRY:
         raise TestFailure("Phase2: FEATURE_REGISTRY missing F14")
     ok("FEATURE_REGISTRY includes F14")
 
-    if not hasattr(gs, "get_world_delta"):
-        raise TestFailure("game_service missing get_world_delta export")
-    ok("game_service exports get_world_delta")
+    routes_src = (HBM_DIR / "http" / "routes.py").read_text(encoding="utf-8")
+    if "f14_world_delta.handler import get_world_delta" not in routes_src:
+        raise TestFailure("routes.py should import get_world_delta from F14 handler")
+    ok("routes.py delegates world-delta to F14 handler")
 
     if not callable(get_world_delta):
         raise TestFailure("F14 handler missing get_world_delta")
@@ -2347,7 +2348,6 @@ def test_f07_v2_phase3_prompt_trace() -> None:
         format_session_facts,
     )
     from agent_world.hbm_demo.features.f15_prompt_trace.refs import enrich_world_delta
-    from agent_world.hbm_demo import game_service as gs
 
     if "F15" not in FEATURE_REGISTRY:
         raise TestFailure("Phase3: FEATURE_REGISTRY missing F15")
@@ -2416,15 +2416,13 @@ def test_f07_v2_phase3_prompt_trace() -> None:
         raise TestFailure(f"build_thread_recap should dedupe F2F fan-out: {recap!r}")
     ok("build_thread_recap dedupes F2F fan-out per utterance")
 
-    for fn_name in ("get_prompt_trace", "get_prompt_trace_by_ref", "list_prompt_traces"):
-        if not hasattr(gs, fn_name):
-            raise TestFailure(f"game_service missing {fn_name}")
-    ok("game_service exports F15 API helpers")
-
     routes_src = (HBM_DIR / "http" / "routes.py").read_text(encoding="utf-8")
     if "/prompt-trace/by-ref" not in routes_src:
         raise TestFailure("routes missing prompt-trace/by-ref")
-    ok("Flask routes register prompt-trace endpoints")
+    for fn_name in ("get_prompt_trace", "get_prompt_trace_by_ref", "list_prompt_traces"):
+        if f"f15_prompt_trace.handler import" not in routes_src and fn_name not in routes_src:
+            raise TestFailure(f"routes.py missing F15 handler import for {fn_name}")
+    ok("routes.py delegates prompt-trace to F15 handlers")
 
     delta_src = (HBM_DIR / "features" / "f12_world_sync" / "delta.py").read_text(
         encoding="utf-8"
@@ -2945,10 +2943,15 @@ def test_f07_v2_phase5_story_advance_and_ws() -> None:
         raise TestFailure("Phase5: F16 handler missing world-stream route")
     ok("F16 handler pushes get_world_delta over WebSocket")
 
+    ws_src = (HBM_DIR / "http" / "ws.py").read_text(encoding="utf-8")
+    if "register_world_stream_routes" not in ws_src:
+        raise TestFailure("Phase5: http/ws.py missing F16 registration")
+    ok("http/ws.py registers F16 world-stream")
+
     app_src = (ROOT / "agent_world" / "app" / "__init__.py").read_text(encoding="utf-8")
-    if "flask_sock" not in app_src or "register_world_stream_routes" not in app_src:
-        raise TestFailure("Phase5: Flask app missing WebSocket registration")
-    ok("Flask create_app registers F16 WebSocket routes")
+    if "http.ws" not in app_src or "register_hbm_world_stream" not in app_src:
+        raise TestFailure("Phase5: Flask app missing http.ws F16 registration")
+    ok("Flask create_app registers F16 via http/ws.py")
 
     sync_src = (
         HBM_DIR / "web" / "src" / "features" / "game-loop" / "useWorldDeltaSync.ts"

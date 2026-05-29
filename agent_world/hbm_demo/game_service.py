@@ -1,4 +1,4 @@
-"""Compatibility shim — game logic split into features/f01–f04, f06 (M2)."""
+"""Compatibility shim — re-export F01–F04, F06 (M2). F12–F15: import via http/routes or features."""
 
 from agent_world.hbm_demo.features.f01_session.constants import (
     DEFAULT_CONFIG,
@@ -40,18 +40,6 @@ from agent_world.hbm_demo.features.f03_action_result.completion import (
     format_messages,
 )
 from agent_world.hbm_demo.features.f03_action_result.handler import get_action_result
-from agent_world.hbm_demo.features.f12_world_sync.handler import get_world_snapshot
-from agent_world.hbm_demo.features.f13_world_loop_control.handler import (
-    get_world_loop_status,
-    pause_world_loop,
-    resume_world_loop,
-)
-from agent_world.hbm_demo.features.f14_world_delta.handler import get_world_delta
-from agent_world.hbm_demo.features.f15_prompt_trace.handler import (
-    get_prompt_trace,
-    get_prompt_trace_by_ref,
-    list_prompt_traces,
-)
 from agent_world.hbm_demo.features.f04_stats.deltas import apply_stat_deltas, initial_stats
 from agent_world.hbm_demo.features.f04_stats.scoring import (
     IMMEDIATE_MSG_PLACEHOLDER,
@@ -89,14 +77,6 @@ __all__ = [
     "format_messages",
     "generate_immediate_msg",
     "get_action_result",
-    "get_world_snapshot",
-    "get_world_delta",
-    "get_prompt_trace",
-    "get_prompt_trace_by_ref",
-    "list_prompt_traces",
-    "get_world_loop_status",
-    "pause_world_loop",
-    "resume_world_loop",
     "get_name_map",
     "get_or_create_session",
     "get_scenario",
