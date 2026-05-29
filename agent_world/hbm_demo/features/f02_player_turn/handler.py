@@ -18,19 +18,17 @@ from agent_world.hbm_demo.features.f01_session.paths import get_sim_dir
 from agent_world.hbm_demo.features.f02_player_turn.inject import (
     BAD_END_PUBLIC_MESSAGES,
     build_inject_events,
-    check_turn4_bad_end,
 )
 from agent_world.hbm_demo.features.f02_player_turn.task import (
     INJECT_STATUS_RUNNING,
     PendingTask,
     save_task,
 )
-from agent_world.hbm_demo.features.f04_stats.deltas import apply_stat_deltas
-from agent_world.hbm_demo.features.f04_stats.scoring import score_player_turn
 from agent_world.hbm_demo.features.f05_story_routing import routing
 from agent_world.hbm_demo.features.f02_player_turn.turn_pipeline import (
     apply_routing_side_effects,
     execute_inject,
+    prepare_turn,
 )
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
 from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop_enabled
@@ -261,10 +259,8 @@ def _handle_v2_player_turn(
     ipc_timeout: float,
 ) -> Dict[str, Any]:
     """Phase 2 — score, enqueue, mirror; F14 poll captures world activity."""
-    deltas = score_player_turn(hbm, player_text)
-    apply_stat_deltas(hbm, deltas)
-
-    if check_turn4_bad_end(hbm):
+    prep = prepare_turn(hbm, player_text, task_id=task_id)
+    if prep.bad_end:
         save_session(flask_session, hbm, sim_id)
         _pause_loop_after_terminal(sim=sim)
         return {
@@ -275,13 +271,7 @@ def _handle_v2_player_turn(
             "current_phase": hbm.phase,
         }
 
-    events, broadcast, turn_context = build_inject_events(
-        hbm, player_text, task_id=task_id
-    )
-    if not events:
-        raise RuntimeError(
-            f"no inject events for phase={hbm.phase!r} turn={hbm.player_turn}"
-        )
+    events, broadcast, turn_context = prep.events, prep.broadcast, prep.turn_context
 
     ipc_client = get_ipc_client(str(sim))
     player_f2f = build_player_f2f_payload(hbm, player_text)
@@ -371,10 +361,8 @@ def handle_player_turn(
     is_final_turn = hbm.player_turn == 25
 
     if is_final_turn:
-        deltas = score_player_turn(hbm, player_text)
-        apply_stat_deltas(hbm, deltas)
-
-        if check_turn4_bad_end(hbm):
+        prep = prepare_turn(hbm, player_text, task_id=task_id)
+        if prep.bad_end:
             save_session(flask_session, hbm, sim_id)
             _pause_loop_after_terminal(sim=sim)
             return {
@@ -385,13 +373,6 @@ def handle_player_turn(
                 "current_phase": hbm.phase,
             }
 
-        events, broadcast, turn_context = build_inject_events(
-            hbm, player_text, task_id=task_id
-        )
-        if not events:
-            raise RuntimeError(
-                f"no inject events for phase={hbm.phase!r} turn={hbm.player_turn}"
-            )
         return _handle_sync_inject(
             flask_session,
             hbm,
@@ -399,9 +380,9 @@ def handle_player_turn(
             sim_id=sim_id,
             task_id=task_id,
             start_tick=start_tick,
-            events=events,
-            broadcast=broadcast,
-            turn_context=turn_context,
+            events=prep.events,
+            broadcast=prep.broadcast,
+            turn_context=prep.turn_context,
             tick_count=tick_count,
             ipc_timeout=ipc_timeout,
             is_final_turn=True,

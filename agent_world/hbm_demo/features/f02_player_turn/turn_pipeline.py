@@ -3,10 +3,17 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from agent_world.hbm_demo.features.f01_session.models import HbmSession
+from agent_world.hbm_demo.features.f02_player_turn.inject import (
+    build_inject_events,
+    check_turn4_bad_end,
+)
+from agent_world.hbm_demo.features.f04_stats.deltas import apply_stat_deltas
+from agent_world.hbm_demo.features.f04_stats.scoring import score_player_turn
 from agent_world.hbm_demo.features.f05_story_routing import routing
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
 from agent_world.hbm_demo.features.f17_virtual_player.player_f2f import (
@@ -25,6 +32,41 @@ from agent_world.hbm_demo.http.ipc_helper import (
 from agent_world.hbm_demo.shared.env_status import read_env_status
 
 log = logging.getLogger("agent_world.hbm_demo.turn_pipeline")
+
+
+@dataclass
+class TurnPrep:
+    """Outcome of the shared turn-prep prefix."""
+
+    bad_end: bool
+    events: List[Dict[str, Any]]
+    broadcast: Optional[Dict[str, Any]]
+    turn_context: Optional[Dict[str, Any]]
+
+
+def prepare_turn(hbm: HbmSession, player_text: str, *, task_id: str) -> TurnPrep:
+    """Shared turn-prep for the sync (F02) and async (F11) paths.
+
+    Runs F04 score + apply, the Turn-4 bad-end gate, then builds inject events
+    (with the no-events guard). On the bad-end gate returns ``bad_end=True`` with
+    empty events — the caller owns the divergent side effect (HTTP game_over vs
+    F11 task persist). De-duplicates the prep prefix previously copied across
+    handle_player_turn / _handle_v2_player_turn / run_background_turn.
+    """
+    deltas = score_player_turn(hbm, player_text)
+    apply_stat_deltas(hbm, deltas)
+    if check_turn4_bad_end(hbm):
+        return TurnPrep(bad_end=True, events=[], broadcast=None, turn_context=None)
+    events, broadcast, turn_context = build_inject_events(
+        hbm, player_text, task_id=task_id
+    )
+    if not events:
+        raise RuntimeError(
+            f"no inject events for phase={hbm.phase!r} turn={hbm.player_turn}"
+        )
+    return TurnPrep(
+        bad_end=False, events=events, broadcast=broadcast, turn_context=turn_context
+    )
 
 
 def execute_inject(

@@ -9,8 +9,6 @@ from agent_world.hbm_demo.features.f01_session.logging import log_turn_event
 from agent_world.hbm_demo.features.f01_session.models import HbmSession
 from agent_world.hbm_demo.features.f02_player_turn.inject import (
     BAD_END_PUBLIC_MESSAGES,
-    build_inject_events,
-    check_turn4_bad_end,
 )
 from agent_world.hbm_demo.features.f02_player_turn.task import (
     INJECT_STATUS_DONE,
@@ -21,9 +19,8 @@ from agent_world.hbm_demo.features.f02_player_turn.task import (
 from agent_world.hbm_demo.features.f02_player_turn.turn_pipeline import (
     apply_routing_side_effects,
     execute_inject,
+    prepare_turn,
 )
-from agent_world.hbm_demo.features.f04_stats.deltas import apply_stat_deltas
-from agent_world.hbm_demo.features.f04_stats.scoring import score_player_turn
 from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import save_task_runtime
 
 log = logging.getLogger("agent_world.hbm_demo.f11")
@@ -53,10 +50,8 @@ def run_background_turn(
         inject_status=INJECT_STATUS_RUNNING,
     )
     try:
-        deltas = score_player_turn(hbm, player_text)
-        apply_stat_deltas(hbm, deltas)
-
-        if check_turn4_bad_end(hbm):
+        prep = prepare_turn(hbm, player_text, task_id=task_id)
+        if prep.bad_end:
             task.inject_status = INJECT_STATUS_DONE
             save_task_runtime(
                 sim_dir,
@@ -80,13 +75,7 @@ def run_background_turn(
             )
             return
 
-        events, broadcast, turn_context = build_inject_events(
-            hbm, player_text, task_id=task_id
-        )
-        if not events:
-            raise RuntimeError(
-                f"no inject events for phase={hbm.phase!r} turn={hbm.player_turn}"
-            )
+        events, broadcast, turn_context = prep.events, prep.broadcast, prep.turn_context
 
         ipc_end_tick, _, current_tick = execute_inject(
             sim_dir=sim_dir,
