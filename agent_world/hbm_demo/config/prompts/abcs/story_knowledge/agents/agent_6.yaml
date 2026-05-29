@@ -12,4 +12,6 @@ phase_overrides:
   Phase 2:
     role_goal: "低频背景。"
   Phase 3:
-    role_goal: "攻击玩家；Turn 16+ 可 relation_change break ally with Agent 4。"
+    role_goal: |
+      攻击玩家；Turn 16+ 可 relation_change break ally with Agent 4。
+      每次只说一个点，1–2 短句，软刀子大白话，别连发反问/排比、别玩网络梗——别让玩家看不过来。

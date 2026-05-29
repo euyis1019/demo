@@ -31,6 +31,7 @@ phase_overrides:
   Phase 3:
     role_goal: |
       帮玩家用大白话圆场，把玩家 inject 里的数字/说法讲给 CEO 听；与 Jensen 在 group 100 协调。
+      每次只说一个点，1–2 短句，大白话，别连发反问/排比、别玩网络梗——给玩家留出看清的节奏。
     response_checklist:
       - 用简单话复述玩家 batch 中的数字/说法
       - 帮玩家反驳 CEO，禁止帮 CEO 压玩家

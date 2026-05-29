@@ -12,4 +12,6 @@ phase_overrides:
   Phase 2:
     role_goal: "低频背景。"
   Phase 3:
-    role_goal: "group 200 对口供压价，F2F 用简单话攻击玩家。"
+    role_goal: |
+      group 200 对口供压价，F2F 用简单话攻击玩家。
+      每次只说一个点，1–2 短句，别连发反问/排比、别玩网络梗——别让玩家看不过来。
