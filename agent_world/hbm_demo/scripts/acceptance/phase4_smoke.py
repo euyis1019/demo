@@ -1,4 +1,4 @@
-"""F07-E6 — Phase 4 IPC smoke (dev_logs/29 §3.6.4, §10.6)."""
+"""Phase 4 IPC smoke — acceptance helper (dev_logs/29 §3.6.4)."""
 
 from __future__ import annotations
 

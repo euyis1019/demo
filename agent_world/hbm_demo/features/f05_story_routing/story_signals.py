@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, FrozenSet, Iterable, Optional, Tuple
+from typing import Any, FrozenSet, Optional, Tuple
 
 VALID_STORY_SIGNALS: Tuple[str, ...] = (
     "approve_visitor",
@@ -46,26 +46,8 @@ def has_story_signal(
     return len(rows) > 0
 
 
-def fetch_story_signals_since(
-    db: Any,
-    *,
-    since_t: int,
-    t_now: int,
-) -> FrozenSet[str]:
-    if db is None or not hasattr(db, "fetch_story_advance_since"):
-        return frozenset()
-    rows = db.fetch_story_advance_since(int(since_t), int(t_now))
-    out = set()
-    for row in rows:
-        norm = normalize_story_signal(row.get("signal"))
-        if norm:
-            out.add(norm)
-    return frozenset(out)
-
-
 __all__ = [
     "VALID_STORY_SIGNALS",
-    "fetch_story_signals_since",
     "has_story_signal",
     "normalize_story_signal",
 ]

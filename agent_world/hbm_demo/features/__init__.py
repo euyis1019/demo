@@ -90,7 +90,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "modules": ["routes", "ipc_helper", "health", "http_errors"],
     },
     "F09": {
-        "name": "前端三屏 UI",
+        "name": "前端 UI（双栏 WorldStage）",
         "status": "implemented",
         "path": "web/src/features/",
         "modules": [
@@ -98,9 +98,11 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
             "game-loop",
             "layout",
             "main-chat",
-            "observer",
+            "world-stage",
+            "story-mode",
+            "prompt-trace",
             "endings",
-            "api",
+            "shared",
             "store",
         ],
     },

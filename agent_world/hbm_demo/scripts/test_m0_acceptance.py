@@ -815,7 +815,7 @@ def test_f12_phase3_world_stage() -> None:
         "RoomGrid.tsx",
         "RoomCell.tsx",
         "AgentCircle.tsx",
-        "RoomSpeechBubble.tsx",
+        "AgentEphemeralBubble.tsx",
         "AgentPhoneModal.tsx",
         "WorldEventModal.tsx",
     )
@@ -1958,7 +1958,7 @@ def test_f07_e_step5_phase4_smoke_module() -> None:
     section("T2k F07 Phase4 smoke module")
     from agent_world.hbm_demo.features import FEATURE_REGISTRY
     from agent_world.hbm_demo.features.f07_agent_control.config import is_f07_enabled
-    from agent_world.hbm_demo.features.f07_agent_control.phase4_smoke import (
+    from agent_world.hbm_demo.scripts.acceptance.phase4_smoke import (
         Phase4SmokeResult,
         run_phase4_ipc_smoke,
     )
@@ -1974,7 +1974,7 @@ def test_f07_e_step5_phase4_smoke_module() -> None:
         return
 
     smoke_src = (
-        HBM_DIR / "features" / "f07_agent_control" / "phase4_smoke.py"
+        HBM_DIR / "scripts" / "acceptance" / "phase4_smoke.py"
     ).read_text(encoding="utf-8")
     if "run_phase4_ipc_smoke" not in smoke_src:
         raise TestFailure("phase4_smoke.py missing run_phase4_ipc_smoke")
@@ -4039,7 +4039,7 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
     ok("F01 reset clears agent_llm_trace / direct_message / agent_state_log")
 
     section("T4f F07-E6 Phase 4 IPC smoke (dev_logs/29 §3.6.4)")
-    from agent_world.hbm_demo.features.f07_agent_control.phase4_smoke import (
+    from agent_world.hbm_demo.scripts.acceptance.phase4_smoke import (
         run_phase4_ipc_smoke,
     )
 

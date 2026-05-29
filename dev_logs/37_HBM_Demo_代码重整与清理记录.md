@@ -86,12 +86,27 @@
 
 - 根 shim：`run_hbm.py`、`routes.py`、`game_service.py`
 - F01–F16 Feature 主体、`test_m0_acceptance.py` 主门禁
-- `features/f07_agent_control/phase4_smoke.py`（可选 IPC 冒烟，测试仍引用）
-- `web/scripts/test_world_sync.ts`（worldSync 单元测试）
+- `scripts/acceptance/`（f12 子模块 + `phase4_smoke.py` IPC 冒烟）
+- `web/scripts/process_story_avatars.py`（Story 头像资产流水线）
 
 ---
 
-## 五、验收
+## 五、第二轮深度清理（2026-05-23）
+
+| 路径 | 原因 |
+|------|------|
+| `web/.../RoomSpeechBubble.tsx` | 已由 `AgentEphemeralBubble` 取代，零引用 |
+| `web/.../shared/useAutoScroll.ts` | 全树无 consumer |
+| `web/src/api/index.ts` | orphan barrel，各模块直接 import `hbm.ts` |
+| `web/scripts/test_world_sync.ts` | 未接入 CI/`test_m0`，与静态断言重复 |
+| `features/f07_agent_control/phase4_smoke.py` | 迁至 `scripts/acceptance/phase4_smoke.py` |
+| `story_signals.fetch_story_signals_since()` | 全 repo 无调用 |
+| `global.css` | 删除三栏/Observer、`msg-line`、`room-speech-*` 死样式 |
+| `features/__init__.py` F09 元数据 | 更新为双栏 WorldStage 模块列表 |
+
+---
+
+## 六、验收
 
 ```bash
 python agent_world/hbm_demo/scripts/test_m0_acceptance.py
@@ -100,8 +115,7 @@ cd agent_world/hbm_demo/web && npm run build
 
 ---
 
-## 六、后续可选（未做）
+## 七、后续可选（未做）
 
-- `phase4_smoke.py` 迁至 `scripts/acceptance/`
 - `test_m0_acceptance.py` 按 Feature 拆分为多文件
-- `web/README.md` 更新 F09 目录说明
+- `check_turn4_bad_end()` 在 `agent_driven` 下可进一步内联为恒 False（需改 F02 测试）
