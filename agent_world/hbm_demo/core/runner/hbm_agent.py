@@ -415,8 +415,10 @@ class HbmAgent(DemoAgent):
                 prefix.append(opening_block)
 
         if world_db is not None:
-            from agent_world.hbm_demo.features.f01_session.paths import get_name_map
             from agent_world.hbm_demo.core.runner.integration import abcs
+            from agent_world.hbm_demo.core.runner.integration.session import (
+                get_name_map,
+            )
 
             recap = abcs.build_thread_recap(
                 int(self.agent_id),

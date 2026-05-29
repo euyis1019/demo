@@ -9,11 +9,10 @@ from typing import Any, Callable, Dict, Optional
 from agent_world.hbm_demo.core.runner.world_loop import WorldLoopOrchestrator
 from agent_world.hbm_demo.core.runner.integration import abcs
 from agent_world.hbm_demo.core.runner.integration import virtual_player
-from agent_world.hbm_demo.features.f01_session.world_reset import (
+from agent_world.hbm_demo.core.runner.integration.session import (
     purge_prompt_traces,
     reset_world_runtime,
 )
-from agent_world.hbm_demo.core.runner.integration import abcs
 from agent_world.hbm_demo.shared.env_status import write_env_status
 from agent_world.ipc.commands import CommandType
 
