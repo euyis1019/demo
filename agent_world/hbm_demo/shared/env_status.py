@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -54,7 +56,26 @@ def write_env_status(
         body["paused_at_iso"] = str(paused_at_iso)
     if tick_interval_sec is not None:
         body["tick_interval_sec"] = float(tick_interval_sec)
-    path.write_text(json.dumps(body, ensure_ascii=False, indent=2), encoding="utf-8")
+    # Atomic write: env_status.json is rewritten every tick (~1s) while Flask
+    # reads it on every poll/turn. A plain write truncates then fills, so a
+    # concurrent reader could see an empty/partial file → JSON error → spurious
+    # "Runner not ready" (notably at phase transitions when concurrency spikes).
+    # Write to a temp file in the same dir, then os.replace (atomic on POSIX):
+    # readers always observe a complete previous-or-new file, never a partial one.
+    text = json.dumps(body, ensure_ascii=False, indent=2)
+    fd, tmp_path = tempfile.mkstemp(
+        dir=str(path.parent), prefix=".env_status.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        os.replace(tmp_path, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def read_env_status(sim_dir: str | Path) -> dict[str, Any] | None:
