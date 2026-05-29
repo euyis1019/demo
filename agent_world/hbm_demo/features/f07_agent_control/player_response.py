@@ -89,8 +89,9 @@ def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
             "再 update_state 或 RDC→Tech VP(3) 求证；外面 CEO 在等，勿长篇。"
         )
         lines.append(
-            "★ 认可方案后：先 F2F 告知玩家「回谈判室/方案可行」，再 story_advance(return_to_negotiation)。"
-            "禁止未 F2F 玩家就直接 signal。"
+            "★ 认可方案后：先 F2F 告知玩家「回谈判室/进谈判室/方案可行」，"
+            "同批或下一拍 story_advance(return_to_negotiation)。"
+            "禁止未 F2F 玩家就直接 signal；禁止只说「走」却不 signal。"
         )
 
     if phase == "Phase 2" and aid == 3:
@@ -112,8 +113,8 @@ def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
         )
         if aid == 2:
             lines.append(
-                "★ Jensen 清场：F2F/RDC 驱逐 CEO（请离场/谈完了）后，"
-                "再 story_advance(expel_ceos)。"
+                "★ Jensen 清场：F2F/RDC 驱逐 CEO（请离场/请出去/谈完了/你们先出去）后，"
+                "同批或下一拍 story_advance(expel_ceos)。"
             )
 
     if phase == "Phase 3" and aid in _CEO_IDS:

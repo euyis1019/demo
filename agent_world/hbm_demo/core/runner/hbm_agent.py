@@ -51,6 +51,8 @@ STORY_ADVANCE_TOOL: Dict[str, Any] = {
         "description": (
             "标记结构化剧情信号（不替你说台词）。"
             "Phase 1 节点 A：Jensen 发批准 RDC 给前台后调用 approve_visitor 进入 Phase 2。"
+            "Phase 2 节点 B：F2F 告知玩家回/进谈判室后调用 return_to_negotiation。"
+            "Phase 3 节点 C：F2F/RDC 驱逐 CEO 后调用 expel_ceos。"
             "在已用 speak/RDC 完成对话后，当剧情应进入下一幕时调用。"
         ),
         "parameters": {
@@ -263,13 +265,21 @@ class HbmAgent(DemoAgent):
         elif phase == "Phase 2" and aid == 2:
             reception_extra = (
                 "3) 私密审查：先 speak_to_local 回应玩家，再 RDC→Tech VP 或 update_state。\n"
+                "   认可后 F2F 须含「回谈判室/进谈判室/认可」，同批或下一拍 story_advance(return_to_negotiation)。\n"
             )
         elif phase == "Phase 2" and aid == 3:
             reception_extra = (
                 "3) 仅回复 Jensen 未读 RDC：send_message→2，1–3 句；"
                 "正面用「可行/核武器/理论上成立」。\n"
             )
-        elif phase == "Phase 3" and aid in (2, 3):
+        elif phase == "Phase 3" and aid == 2:
+            reception_extra = (
+                "3) Phase 3 帮玩家圆场：引用玩家 inject 关键词，压 CEO 价，"
+                "禁止帮 CEO 攻击玩家。\n"
+                "   清场时 F2F/RDC 须含「请离场/请出去/谈完了」，"
+                "同批或下一拍 story_advance(expel_ceos)。\n"
+            )
+        elif phase == "Phase 3" and aid == 3:
             reception_extra = (
                 "3) Phase 3 帮玩家圆场：引用玩家 inject 关键词，压 CEO 价，"
                 "禁止帮 CEO 攻击玩家。\n"

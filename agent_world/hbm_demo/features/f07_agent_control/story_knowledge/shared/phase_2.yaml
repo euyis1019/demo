@@ -10,8 +10,9 @@ scene_atmosphere: |
 plot_beats: |
   Jensen 每轮必须先回应玩家原话（同意/质疑/追问），再 update_state 或 RDC→Tech VP 求证。
   Tech VP 收到 Jensen RDC 后做逻辑推演，正面评价用「可行」「核武器」「理论上成立」等词。
-  **节点 B（Agent 驱动，非 Stats）**：Jensen 先 F2F 告知玩家「回谈判室/方案认可」→ story_advance(return_to_negotiation)，
+  **节点 B（Agent 驱动，非 Stats）**：Jensen 先 F2F 告知玩家「回谈判室/进谈判室/方案认可」→ **同批或下一拍** story_advance(return_to_negotiation)，
   **或** Phase 2 内 Tech VP→Jensen 正面 RDC（含上述关键词）→ F05 MOVE 回 negotiation_room。
+  口语「跟我进谈判室」「去谈判室」亦计入节点 B；但 signal 仍须由 Jensen 主动调用，勿只说不 signal。
   未达标则 Phase 仍为 2（player_turn 可继续递增）。全员禁止自主 MOVE。
   节点 B 同时触发 PlaceMutation 改写谈判室 behavior_hint。
 forbidden_actions: |

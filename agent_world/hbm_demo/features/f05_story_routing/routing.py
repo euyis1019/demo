@@ -224,8 +224,10 @@ def node_c_applies(
     if is_agent_driven():
         if db is None or current_tick is None or session.phase != "Phase 3":
             return False
-        since_t = max(0, int(getattr(session, "start_tick", 0) or 0))
-        return detect_node_c(db, since_t=since_t, t_now=int(current_tick))
+        since = getattr(session, "phase3_start_tick", None)
+        if since is None:
+            since = max(0, int(getattr(session, "start_tick", 0) or 0))
+        return detect_node_c(db, since_t=int(since), t_now=int(current_tick))
     return _legacy_node_c_applies(session)
 
 
@@ -392,10 +394,12 @@ def apply_routing(
             node="B",
             ipc_timeout=ipc_timeout,
         )
+        session.phase3_start_tick = current_tick
         applied["nodes"].append("B")
         applied["phase"] = session.phase
         applied["place_id"] = session.place_id
         applied["place_mutation"] = True
+        applied["phase3_start_tick"] = current_tick
         log.info("routing node B: Jensen→%s + PlaceMutation", PLACE_NEGOTIATION)
 
     if node_c_applies(session, db=db, current_tick=current_tick):

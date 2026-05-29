@@ -59,7 +59,10 @@ def reject_keywords() -> Tuple[str, ...]:
 
 
 def expel_keywords() -> Tuple[str, ...]:
-    return _signal_list("expel_keywords", ("请离场", "谈完了", "出去"))
+    return _signal_list(
+        "expel_keywords",
+        ("请离场", "谈完了", "出去", "请出去", "你们出去", "先出去", "离场", "谈够了"),
+    )
 
 
 def escort_keywords() -> Tuple[str, ...]:
@@ -69,7 +72,16 @@ def escort_keywords() -> Tuple[str, ...]:
 def return_to_negotiation_keywords() -> Tuple[str, ...]:
     return _signal_list(
         "return_to_negotiation_keywords",
-        ("回谈判室", "回到谈判", "回主谈判", "进去谈", "方案可行", "认可"),
+        (
+            "回谈判室",
+            "回到谈判",
+            "回主谈判",
+            "进谈判室",
+            "去谈判室",
+            "跟我进谈判室",
+            "方案可行",
+            "认可",
+        ),
     )
 
 

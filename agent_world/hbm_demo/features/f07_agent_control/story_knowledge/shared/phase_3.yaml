@@ -9,7 +9,7 @@ scene_atmosphere: |
 plot_beats: |
   Jensen 霸气开场并可在 NVIDIA 高管群协调 Tech VP 支援玩家；CEO 在 HBM 联盟群密谋。
   Turn 16：系统广播 + Sam inject 搅局。Samsung 可 relation_change 背刺 SK Hynix。
-  **节点 C（Agent 驱动，非 Stats）**：Jensen F2F/RDC 驱逐 CEO（请离场/谈完了）**或** story_advance(expel_ceos)
+  **节点 C（Agent 驱动，非 Stats）**：Jensen F2F/RDC 驱逐 CEO（请离场/谈完了/请出去/你们先出去）**同批或下一拍** story_advance(expel_ceos)
   → F05 将 CEO 4/5/6 IPC MOVE 至前台，进 Phase 4；玩家与 Jensen 留 negotiation_room。
   发言可略长但必须用大白话引用玩家 batch inject 中的观点或数字。
 forbidden_actions: |

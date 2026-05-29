@@ -95,6 +95,7 @@ def get_session_snapshot(
         "stats": dict(hbm.stats),
         "stats_update": dict(hbm.stats),
         "phase2_start_tick": hbm.phase2_start_tick,
+        "phase3_start_tick": hbm.phase3_start_tick,
         "runner_ready": runner_ready,
         "env_status": env,
     }

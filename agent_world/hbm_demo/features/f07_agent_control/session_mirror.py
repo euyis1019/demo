@@ -67,6 +67,7 @@ def merge_mirror_update(current: Dict[str, Any], patch: Dict[str, Any]) -> Dict[
         "llm_params",
         "player_inject_tick",
         "phase2_start_tick",
+        "phase3_start_tick",
         "enabled",
     ):
         if key in patch and patch[key] is not None:

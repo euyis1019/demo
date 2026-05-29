@@ -138,6 +138,7 @@ export interface SessionSnapshot {
   stats?: Stats;
   stats_update?: Stats;
   phase2_start_tick?: number | null;
+  phase3_start_tick?: number | null;
   env_status?: Record<string, unknown>;
 }
 

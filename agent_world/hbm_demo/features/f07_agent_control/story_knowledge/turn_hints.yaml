@@ -37,10 +37,10 @@ turns:
     Jensen 先大白话回应玩家再行动；VP 被动回复 Jensen RDC 时保持 1–3 句通俗短句。
     若 Observer 尚无 VP 正面 RDC，本 Turn 宜促 Jensen RDC→VP 求证链。
   11: |
-    节点 B 前最后一轮 Phase 2。确保 Tech VP 已有「可行/核武器/理论上成立」类正面 RDC，或 Jensen 准备 F2F+return_to_negotiation。
+    节点 B 前最后一轮 Phase 2。确保 Tech VP 已有「可行/核武器/理论上成立」类正面 RDC，或 Jensen F2F「进谈判室/回谈判室」+ return_to_negotiation。
     Jensen 急躁但可被数据说服；玩家若谈生态兼容，Jensen 用大白话追问「会不会拖慢上线」。
   12: |
-    节点 B 窗口：Jensen 先 F2F「回谈判室」再 story_advance(return_to_negotiation)，或 VP 正面 RDC 已满足 →
+    节点 B 窗口：Jensen 先 F2F「回谈判室/进谈判室」再 story_advance(return_to_negotiation)，或 VP 正面 RDC 已满足 →
     F05 MOVE 回 negotiation_room、Phase 3、PlaceMutation「死一般的寂静」。玩家台词宜总结方案可行。
   13: |
     Phase 3 舌战开幕，全员 inject 批次收到玩家同句。Jensen 霸气开场，NVIDIA 阵营（2、3）帮玩家圆场；
@@ -66,9 +66,9 @@ turns:
     Jensen/VP 帮腔时须用简单话复述玩家数字，一次最多 1 个技术词且须解释。
   19: |
     节点 C 前最后一轮 Phase 3。CEO 仍攻击；NVIDIA 阵营护玩家。
-    Jensen 可 F2F/RDC 驱逐 CEO，再 story_advance(expel_ceos)。Turn 20 前后 CEO 离场进 Phase 4。
+    Jensen 可 F2F/RDC 驱逐 CEO（请出去/请离场/谈完了），同批或下一拍 story_advance(expel_ceos)。Turn 20 前后 CEO 离场进 Phase 4。
   20: |
-    节点 C 窗口：expel_ceos 或 Jensen 驱逐词 → F05 MOVE CEO 4/5/6→nvidia_reception，Phase 4；
+    节点 C 窗口：expel_ceos 或 Jensen 驱逐词（请出去/你们先出去/谈够了）→ F05 MOVE CEO 4/5/6→nvidia_reception，Phase 4；
     Agent 3 不 MOVE，留 negotiation_room 旁听。玩家台词宜总结「三巨头无筹码/请离场谈终局」。
   21: |
     Phase 4 终局开幕，仅 Jensen↔玩家 1v1 inject；Tech VP 旁听不 tick 不发言。

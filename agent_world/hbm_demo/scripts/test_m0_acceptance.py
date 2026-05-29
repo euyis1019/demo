@@ -1302,8 +1302,18 @@ def test_f07_c_agent_control() -> None:
                 and int(r.get("recipient_id", -1)) == int(recipient_id)
             ]
 
-        def fetch_f2f_history_at(self, place_id, t_now, since_t):  # noqa: ANN001
+        def fetch_f2f_history_at(self, place_id, t_now, since_t, *, limit=30, exclusive_since=False):  # noqa: ANN001
             return list(self._f2f)
+
+        def fetch_f2f_from_sender_at(  # noqa: ANN001
+            self, place_id, sender_id, t_now, since_t, *, limit=500, exclusive_since=False
+        ):
+            sid = int(sender_id)
+            return [
+                row
+                for row in self._f2f
+                if int(row[1]) == sid
+            ]
 
     from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
         is_agent_driven,
@@ -2734,8 +2744,18 @@ def test_f07_v2_phase4_agent_driven() -> None:
                 and int(r.get("recipient_id", -1)) == rid
             ]
 
-        def fetch_f2f_history_at(self, place_id, t_now, since_t):  # noqa: ANN001
+        def fetch_f2f_history_at(self, place_id, t_now, since_t, *, limit=30, exclusive_since=False):  # noqa: ANN001
             return list(self._f2f)
+
+        def fetch_f2f_from_sender_at(  # noqa: ANN001
+            self, place_id, sender_id, t_now, since_t, *, limit=500, exclusive_since=False
+        ):
+            sid = int(sender_id)
+            return [
+                row
+                for row in self._f2f
+                if int(row[1]) == sid
+            ]
 
     approve_chain = [
         {"sender_id": 1, "recipient_id": 2, "content": "背景"},
@@ -2815,10 +2835,26 @@ def test_f07_v2_phase4_agent_driven() -> None:
         raise TestFailure("detect_node_b failed on Jensen return-to-negotiation F2F")
     ok("detect_node_b accepts Jensen return F2F keywords")
 
+    oral_return_f2f = [(7, 2, "m3", "走吧，跟我进谈判室")]
+    if not detect_node_b(SignalDB(f2f_rows=oral_return_f2f), since_t=0, t_now=10):
+        raise TestFailure("detect_node_b failed on oral 进谈判室 F2F")
+    ok("detect_node_b accepts oral 进谈判室 F2F")
+
+    player_noise = [(30 + i, 0, f"p{i}", "玩家追问") for i in range(35)]
+    late_recognize = player_noise + [(180, 2, "m180", "别急，方案我认可了，咱们进去直接压价")]
+    if not detect_node_b(SignalDB(f2f_rows=late_recognize), since_t=22, t_now=180):
+        raise TestFailure("detect_node_b must not miss Jensen 认可 after long F2F thread")
+    ok("detect_node_b finds Jensen 认可 with sender-scoped F2F scan")
+
     expel_row = [{"sender_id": 2, "recipient_id": 4, "content": "请离场"}]
     if not detect_node_c(SignalDB(rdc_rows=expel_row), since_t=0, t_now=10):
         raise TestFailure("detect_node_c failed on expel RDC")
     ok("detect_node_c Jensen expel keyword")
+
+    oral_expel_f2f = [(8, 2, "m4", "三星镁光，你们先出去，谈够了")]
+    if not detect_node_c(SignalDB(f2f_rows=oral_expel_f2f), since_t=0, t_now=10):
+        raise TestFailure("detect_node_c failed on oral expel F2F")
+    ok("detect_node_c accepts oral 你们先出去 F2F")
 
     reject_f2f = [(5, 1, "m1", "保安，请离开")]
     bad_session = SimpleNamespace(phase="Phase 1", player_turn=3, start_tick=0)

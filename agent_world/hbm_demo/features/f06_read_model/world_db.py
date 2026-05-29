@@ -115,6 +115,45 @@ class ReadOnlyWorldDB:
 
         return self._with_retry(_query)
 
+    def fetch_f2f_from_sender_at(
+        self,
+        place_id: str,
+        sender_id: int,
+        t_now: int,
+        since_t: int,
+        *,
+        limit: int = 500,
+        exclusive_since: bool = False,
+    ) -> List[Tuple[int, int, int, str]]:
+        """F2F history for one sender — avoids player/agent mix crowding LIMIT windows."""
+
+        def _query(conn: sqlite3.Connection) -> List[Tuple[int, int, int, str]]:
+            since_op = ">" if exclusive_since else ">="
+            rows = conn.execute(
+                f"""
+                SELECT MIN(message_id) AS message_id, sender_id,
+                       attempted_at, content
+                FROM direct_message
+                WHERE channel_type='F2F' AND place_id=? AND sender_id=?
+                  AND attempted_at {since_op} ? AND attempted_at <= ?
+                GROUP BY sender_id, attempted_at, content
+                ORDER BY attempted_at, message_id
+                LIMIT ?
+                """,
+                (place_id, int(sender_id), since_t, t_now, limit),
+            ).fetchall()
+            return [
+                (
+                    int(r["attempted_at"]),
+                    int(r["sender_id"]),
+                    int(r["message_id"]),
+                    str(r["content"]),
+                )
+                for r in rows
+            ]
+
+        return self._with_retry(_query)
+
     def fetch_messages_since(
         self,
         *,

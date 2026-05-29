@@ -53,15 +53,41 @@ def _reception_escort_f2f(db: Any, *, since_t: int, t_now: int) -> bool:
     return False
 
 
-def _jensen_return_f2f(db: Any, *, since_t: int, t_now: int) -> bool:
-    """Node B NL path: Jensen explicit return-to-negotiation wording (not any F2F)."""
-    history = db.fetch_f2f_history_at(PLACE_JENSEN_ROOM, int(t_now), int(since_t))
+def _jensen_f2f_matches(
+    db: Any,
+    *,
+    place_id: str,
+    since_t: int,
+    t_now: int,
+    keywords: tuple[str, ...],
+) -> bool:
+    """Match Jensen F2F keywords without mixed-sender LIMIT truncation."""
+    fetch = getattr(db, "fetch_f2f_from_sender_at", None)
+    if callable(fetch):
+        history = fetch(place_id, JENSEN_ID, int(t_now), int(since_t))
+    else:
+        history = [
+            row
+            for row in db.fetch_f2f_history_at(place_id, int(t_now), int(since_t), limit=500)
+            if int(row[1]) == JENSEN_ID
+        ]
     for _at_t, sender_id, _mid, content in history:
         if int(sender_id) != JENSEN_ID:
             continue
-        if _content_matches(content, return_to_negotiation_keywords()):
+        if _content_matches(content, keywords):
             return True
     return False
+
+
+def _jensen_return_f2f(db: Any, *, since_t: int, t_now: int) -> bool:
+    """Node B NL path: Jensen explicit return-to-negotiation wording (not any F2F)."""
+    return _jensen_f2f_matches(
+        db,
+        place_id=PLACE_JENSEN_ROOM,
+        since_t=since_t,
+        t_now=t_now,
+        keywords=return_to_negotiation_keywords(),
+    )
 
 
 def detect_node_a(db: Any, *, since_t: int, t_now: int) -> bool:
@@ -126,11 +152,13 @@ def detect_node_c(db: Any, *, since_t: int, t_now: int) -> bool:
             if _content_matches(str(row["content"] or ""), expel_keywords()):
                 return True
 
-    history = db.fetch_f2f_history_at(PLACE_NEGOTIATION, t_now, since_t)
-    for _at_t, sender_id, _mid, content in history:
-        if int(sender_id) == JENSEN_ID and _content_matches(content, expel_keywords()):
-            return True
-    return False
+    return _jensen_f2f_matches(
+        db,
+        place_id=PLACE_NEGOTIATION,
+        since_t=since_t,
+        t_now=t_now,
+        keywords=expel_keywords(),
+    )
 
 
 def detect_bad_end(session: Any, db: Any, *, t_now: int) -> bool:

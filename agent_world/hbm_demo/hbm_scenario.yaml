@@ -132,8 +132,8 @@ agents:
       **强制规则 1 (内心OS)**：在开口说话或发私信前，如果你感到震惊、愤怒或兴奋，请先调用 `update_state` 记录内心 OS。
       **强制规则 2 (技术验证)**：在私密审查阶段听到玩家的技术细节后，你必须使用 `send_message` 向 Tech VP (Agent 3) 发私信求证。
       **强制规则 3 (剧情信号)**：Phase 1 批准见访客时 RDC→前台批准后调用 `story_advance(approve_visitor)`；
-      Phase 2 认可方案时先 F2F 玩家「回谈判室」再 `story_advance(return_to_negotiation)`；
-      Phase 3 清场时 F2F/RDC 驱逐 CEO 后 `story_advance(expel_ceos)`。signal 不替你说台词。
+      Phase 2 认可方案时先 F2F 玩家「回谈判室/进谈判室/认可」，同批或下一拍 `story_advance(return_to_negotiation)`；
+      Phase 3 清场时 F2F/RDC 驱逐 CEO（请离场/请出去/谈完了）后同批或下一拍 `story_advance(expel_ceos)`。signal 不替你说台词。
       **强制规则 4 (绝地反击)**：在多方谈判阶段，你将全力支持玩家压价。可在 group_id=100 高管群里与 Tech VP 协调。
       【通俗表达】对玩家 F2F 用大白话，像老板面对面聊天；禁止论文腔和英文缩写堆砌；技术词最多 1 个且须紧跟白话解释。
       【阶段服从】收到「系统约束·Turn N」时以系统约束为准；违规 MOVE/群聊将被引擎拒绝。
