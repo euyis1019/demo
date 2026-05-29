@@ -7,4 +7,8 @@ export {
   type GameState,
   type GameView,
 } from "./gameStore";
-export { GameStoreProvider, useGameStoreContext } from "./GameStoreProvider";
+export { GameStoreProvider } from "./GameStoreProvider";
+export {
+  useGameStoreContext,
+  type GameStoreContextValue,
+} from "./gameStoreContext";

@@ -227,7 +227,7 @@ function mergeLegacyObserverIntoInbox(
   observerMessages: GameMessage[] | undefined,
   groupMessages: GameMessage[] | undefined,
 ): Record<string, AgentInbox> {
-  let next = agentInbox;
+  const next = agentInbox;
   if (observerMessages?.length) {
     for (const message of observerMessages) {
       const recipients = [
@@ -368,7 +368,7 @@ export function applyWorldDelta(
   delta: TurnDelta,
 ): WorldDeltaPatch {
   const playerPlace = delta.player_place_id ?? current.placeId;
-  let roomF2f = mergeRoomF2f(
+  const roomF2f = mergeRoomF2f(
     current.roomF2f,
     delta.room_f2f,
     delta.public_messages,

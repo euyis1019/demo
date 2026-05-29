@@ -2,7 +2,7 @@ import { useCallback, useEffect } from "react";
 import { getHealth, getSession, isRunnerReady } from "../../api/hbm";
 import { HbmApiError } from "../../api/errors";
 import { hydrateWorldFromServer } from "../game-loop/hydrateWorldSnapshot";
-import { useGameStoreContext } from "../../store/GameStoreProvider";
+import { useGameStoreContext } from "../../store";
 
 /** F3-1 — mount health check; 503 → BootScreen + manual retry. */
 export function useHealthCheck() {

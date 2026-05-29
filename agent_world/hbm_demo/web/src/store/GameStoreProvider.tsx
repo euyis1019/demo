@@ -1,32 +1,12 @@
-import type { Dispatch } from "react";
 import {
-  createContext,
   useCallback,
-  useContext,
   useMemo,
   useReducer,
   type ReactNode,
 } from "react";
 import type { SessionSnapshot, SessionStartData } from "../api/types";
-import {
-  createInitialState,
-  gameReducer,
-  type GameAction,
-  type GameState,
-} from "./gameStore";
-
-interface GameStoreContextValue {
-  state: GameState;
-  dispatch: Dispatch<GameAction>;
-  applySessionStart: (data: SessionStartData) => void;
-  applySessionSnapshot: (data: SessionSnapshot) => void;
-  setHealthChecking: () => void;
-  setHealthResult: (ready: boolean, error?: string) => void;
-  setLoading: (loading: boolean) => void;
-  resetPlaythrough: () => void;
-}
-
-const GameStoreContext = createContext<GameStoreContextValue | null>(null);
+import { createInitialState, gameReducer } from "./gameStore";
+import { GameStoreContext } from "./gameStoreContext";
 
 export function GameStoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(gameReducer, undefined, createInitialState);
@@ -80,12 +60,4 @@ export function GameStoreProvider({ children }: { children: ReactNode }) {
   return (
     <GameStoreContext.Provider value={value}>{children}</GameStoreContext.Provider>
   );
-}
-
-export function useGameStoreContext(): GameStoreContextValue {
-  const ctx = useContext(GameStoreContext);
-  if (!ctx) {
-    throw new Error("useGameStoreContext must be used within GameStoreProvider");
-  }
-  return ctx;
 }

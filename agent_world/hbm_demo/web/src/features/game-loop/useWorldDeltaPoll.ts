@@ -4,7 +4,7 @@ import {
   DELTA_POLL_MS,
   DELTA_POLL_PAUSED_MS,
 } from "../../constants/gameLoop";
-import { useGameStoreContext } from "../../store/GameStoreProvider";
+import { useGameStoreContext } from "../../store";
 import { errorMessage, isRunnerNotReadyError } from "../../utils/apiError";
 import { applyWorldDeltaPayload } from "./worldDeltaApply";
 

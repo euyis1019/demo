@@ -5,7 +5,7 @@ import {
   resumeWorldLoop,
 } from "../../api/hbm";
 import type { WorldLoopState } from "../../api/types";
-import { useGameStoreContext } from "../../store/GameStoreProvider";
+import { useGameStoreContext } from "../../store";
 import { errorMessage, isRunnerNotReadyError } from "../../utils/apiError";
 
 const WORLD_LOOP_POLL_MS = 1000;

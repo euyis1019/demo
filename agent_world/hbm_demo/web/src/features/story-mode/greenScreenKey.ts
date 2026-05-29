@@ -16,7 +16,7 @@ function hueDeg(r: number, g: number, b: number): number {
   if (d < 0.025) {
     return 0;
   }
-  let h = 0;
+  let h: number;
   if (mx === gf) {
     h = 60 * ((bf - rf) / d + 2);
   } else if (mx === rf) {

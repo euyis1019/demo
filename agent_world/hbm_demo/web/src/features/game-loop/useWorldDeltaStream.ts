@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type { WorldDeltaData } from "../../api/types";
 import { API_PREFIX } from "../../api/hbm";
 import { WORLD_STREAM_FALLBACK_POLL_MS } from "../../constants/gameLoop";
-import { useGameStoreContext } from "../../store/GameStoreProvider";
+import { useGameStoreContext } from "../../store";
 import { applyWorldDeltaPayload } from "./worldDeltaApply";
 
 function worldStreamUrl(): string {

@@ -22,7 +22,7 @@ import {
   PLAYER_SENDER,
   POLL_INTERVAL_MS,
 } from "../../constants/gameLoop";
-import { useGameStoreContext } from "../../store/GameStoreProvider";
+import { useGameStoreContext } from "../../store";
 import { errorMessage, isRunnerNotReadyError } from "../../utils/apiError";
 import { hardReloadPage } from "../../utils/hardReload";
 
