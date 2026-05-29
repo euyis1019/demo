@@ -2022,8 +2022,8 @@ def test_f07_e_step5_phase4_smoke_module() -> None:
         raise TestFailure("phase4_smoke.py missing run_phase4_ipc_smoke")
     ok("phase4_smoke module present")
 
-    if is_runner_ready(str(SIM_DIR)):
-        result = run_phase4_ipc_smoke(SIM_DIR, ipc_timeout=120.0)
+    if is_runner_ready(str(E2E_SIM_DIR)):
+        result = run_phase4_ipc_smoke(E2E_SIM_DIR, ipc_timeout=120.0)
         if not isinstance(result, Phase4SmokeResult):
             raise TestFailure("run_phase4_ipc_smoke return type")
         if not result.ok:
@@ -3584,7 +3584,7 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
     )
 
     save_task_runtime(
-        SIM_DIR,
+        E2E_SIM_DIR,
         {
             "task_id": "stale_overlay",
             "start_tick": 99,
@@ -3611,7 +3611,7 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
         raise TestFailure(f"E6 second session/start player_turn != 1: {again_data}")
     if again_data.get("phase") != "Phase 1":
         raise TestFailure(f"E6 second session/start bad phase: {again_data}")
-    if async_state_path(SIM_DIR).exists():
+    if async_state_path(E2E_SIM_DIR).exists():
         raise TestFailure("E6 session/start should remove stale async_state/runtime.json")
     ok("E6 double session/start clears stale overlay → Turn 1 Phase 1")
 
@@ -3819,7 +3819,7 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
             f"{len(acc_f2f)}/{len(acc_obs)}/{len(acc_grp)})"
         )
 
-        runtime_path = SIM_DIR / "async_state" / "runtime.json"
+        runtime_path = E2E_SIM_DIR / "async_state" / "runtime.json"
         task_runtime: Dict[str, Any] = {}
         for _ in range(240):
             if runtime_path.is_file():
