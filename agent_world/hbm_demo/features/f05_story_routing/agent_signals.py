@@ -10,6 +10,8 @@ from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
     expel_keywords,
     is_story_advance_enabled,
     max_turns_phase1_without_approve,
+    offer_join_keywords,
+    offer_seed_keywords,
     reject_keywords,
     require_reception_escort_f2f,
     return_to_negotiation_keywords,
@@ -162,17 +164,39 @@ def detect_node_c(db: Any, *, since_t: int, t_now: int) -> bool:
 
 
 def detect_phase4_offer_ending(db: Any, *, since_t: int, t_now: int) -> Optional[str]:
-    """Phase 4 early-end: Jensen's offer concluded the deal (story_advance offer_*).
+    """Phase 4 early-end: Jensen concluded the deal → settle the finale now
+    instead of idling to the fixed Turn-25 gate.
 
-    Returns the matching ending id so the finale can settle the moment the deal
-    is reached, instead of always waiting for the fixed Turn-25 gate. Mirrors the
-    offer_* override in resolve_turn25_ending. None when no offer signal yet.
+    Two paths, mirroring node A/B/C detection:
+    1. Structured story_advance offer_join / offer_seed signal (precise).
+    2. Jensen's negotiation-room F2F containing a *concluded-deal* keyword
+       (the demo's phases mostly advance on keyword detection — Jensen rarely
+       calls story_advance). Keyword sets deliberately exclude the "join or
+       seed?" menu phrasing so an in-progress offer never ends the game early.
+
+    offer_join takes precedence. Returns None while no deal is concluded.
     """
-    if not is_story_advance_enabled():
-        return None
-    if has_story_signal(db, "offer_join", since_t=since_t, t_now=t_now):
+    if is_story_advance_enabled():
+        if has_story_signal(db, "offer_join", since_t=since_t, t_now=t_now):
+            return "ending_join_nvidia"
+        if has_story_signal(db, "offer_seed", since_t=since_t, t_now=t_now):
+            return "ending_seed_round"
+
+    if _jensen_f2f_matches(
+        db,
+        place_id=PLACE_NEGOTIATION,
+        since_t=since_t,
+        t_now=t_now,
+        keywords=offer_join_keywords(),
+    ):
         return "ending_join_nvidia"
-    if has_story_signal(db, "offer_seed", since_t=since_t, t_now=t_now):
+    if _jensen_f2f_matches(
+        db,
+        place_id=PLACE_NEGOTIATION,
+        since_t=since_t,
+        t_now=t_now,
+        keywords=offer_seed_keywords(),
+    ):
         return "ending_seed_round"
     return None
 

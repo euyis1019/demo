@@ -83,6 +83,20 @@ def return_to_negotiation_keywords() -> Tuple[str, ...]:
     )
 
 
+def offer_join_keywords() -> Tuple[str, ...]:
+    return _signal_list(
+        "offer_join_keywords",
+        ("办入职", "去办入职", "入职", "高管群", "进来当", "欢迎加入", "加入团队", "加入 NVIDIA"),
+    )
+
+
+def offer_seed_keywords() -> Tuple[str, ...]:
+    return _signal_list(
+        "offer_seed_keywords",
+        ("种子轮", "这笔投资", "投资敲定", "独立融资", "拉队伍创业", "给你估值", "投这一轮"),
+    )
+
+
 def require_reception_escort_f2f() -> bool:
     signals = load_routing_config().get("signals") or {}
     return bool(signals.get("require_reception_escort_f2f", False))

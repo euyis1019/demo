@@ -42,6 +42,24 @@ routing:
       - 直接去谈判室
       - 方案可行
       - 认可
+    # Phase 4 成交关键词(仅匹配「已谈成」措辞,勿含「还是投你/自己拉队伍」这类菜单问句)
+    offer_join_keywords:
+      - 办入职
+      - 去办入职
+      - 入职
+      - 高管群
+      - 进来当
+      - 欢迎加入
+      - 加入团队
+      - 加入 NVIDIA
+    offer_seed_keywords:
+      - 种子轮
+      - 这笔投资
+      - 投资敲定
+      - 独立融资
+      - 拉队伍创业
+      - 给你估值
+      - 投这一轮
     require_reception_escort_f2f: false
     max_turns_phase1_without_approve: 10
   story_advance:

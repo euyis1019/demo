@@ -1372,39 +1372,45 @@ def test_f05_phase4_offer_early_end() -> None:
     from agent_world.hbm_demo.features.f05_story_routing.agent_signals import (
         detect_phase4_offer_ending,
     )
-    from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
-        is_story_advance_enabled,
-    )
 
-    if not is_story_advance_enabled():
-        ok("Phase4 offer early-end skipped (story_advance disabled)")
-        return
-
-    class SignalDB:
-        def __init__(self, present: set) -> None:
-            self._present = set(present)
+    class FakeDB:
+        def __init__(self, *, signals=(), jensen_f2f=()) -> None:
+            self._signals = set(signals)
+            self._f2f = list(jensen_f2f)
 
         def fetch_story_advance_since(
             self, since_t, t_now, *, signal=None, agent_id=None
         ):
-            return [{"signal": signal}] if signal in self._present else []
+            return [{"signal": signal}] if signal in self._signals else []
 
-    cases = {
-        "offer_join": "ending_join_nvidia",
-        "offer_seed": "ending_seed_round",
-    }
-    for sig, expected in cases.items():
-        got = detect_phase4_offer_ending(SignalDB({sig}), since_t=0, t_now=99)
-        if got != expected:
-            raise TestFailure(f"{sig} should resolve {expected}, got {got}")
-    if detect_phase4_offer_ending(SignalDB(set()), since_t=0, t_now=99) is not None:
-        raise TestFailure("no offer signal → no early ending")
-    both = detect_phase4_offer_ending(
-        SignalDB({"offer_join", "offer_seed"}), since_t=0, t_now=99
-    )
-    if both != "ending_join_nvidia":
-        raise TestFailure(f"offer_join should take precedence, got {both}")
-    ok("Phase4 offer early-end: offer_join→join, offer_seed→seed, none→None")
+        def fetch_f2f_from_sender_at(self, place_id, sender_id, t_now, since_t, **kw):
+            if int(sender_id) != 2:
+                return []
+            return [(1, 2, i, c) for i, c in enumerate(self._f2f)]
+
+    def detect(**kw):
+        return detect_phase4_offer_ending(FakeDB(**kw), since_t=0, t_now=99)
+
+    # 1) structured story_advance signal path
+    if detect(signals={"offer_join"}) != "ending_join_nvidia":
+        raise TestFailure("offer_join signal → ending_join_nvidia")
+    if detect(signals={"offer_seed"}) != "ending_seed_round":
+        raise TestFailure("offer_seed signal → ending_seed_round")
+    if detect(signals={"offer_join", "offer_seed"}) != "ending_join_nvidia":
+        raise TestFailure("offer_join takes precedence over offer_seed")
+
+    # 2) keyword fallback (Jensen concluded-deal F2F — the demo's real path)
+    if detect(jensen_f2f=["Tech VP，你带他去办入职，拉他进高管群"]) != "ending_join_nvidia":
+        raise TestFailure("Jensen 办入职/高管群 F2F → ending_join_nvidia")
+    if detect(jensen_f2f=["行，种子轮就这么定，这笔投资给你"]) != "ending_seed_round":
+        raise TestFailure("Jensen 种子轮 F2F → ending_seed_round")
+
+    # 3) safety: the "join or seed?" menu must NOT end the game early
+    if detect(jensen_f2f=["是直接进 NVIDIA，还是我投你一笔钱你自己拉队伍干？"]) is not None:
+        raise TestFailure("offer menu question must not trigger early end")
+    if detect() is not None:
+        raise TestFailure("no signal & no concluded F2F → no early ending")
+    ok("Phase4 offer early-end: signal + 成交关键词触发,菜单问句不误触")
 
 
 def test_f07_d_agent_control() -> None:
