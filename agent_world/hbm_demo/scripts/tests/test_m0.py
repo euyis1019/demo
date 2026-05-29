@@ -1366,6 +1366,47 @@ def test_f07_c_agent_control() -> None:
         ok("Tier B: no DMXAPI_KEY — E2E will use Tier A only")
 
 
+def test_f05_phase4_offer_early_end() -> None:
+    """F05 Phase-4 early end: offer_join/offer_seed story signal → ending id."""
+    section("T-f05 Phase 4 offer 早结束(谈成即结束)")
+    from agent_world.hbm_demo.features.f05_story_routing.agent_signals import (
+        detect_phase4_offer_ending,
+    )
+    from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
+        is_story_advance_enabled,
+    )
+
+    if not is_story_advance_enabled():
+        ok("Phase4 offer early-end skipped (story_advance disabled)")
+        return
+
+    class SignalDB:
+        def __init__(self, present: set) -> None:
+            self._present = set(present)
+
+        def fetch_story_advance_since(
+            self, since_t, t_now, *, signal=None, agent_id=None
+        ):
+            return [{"signal": signal}] if signal in self._present else []
+
+    cases = {
+        "offer_join": "ending_join_nvidia",
+        "offer_seed": "ending_seed_round",
+    }
+    for sig, expected in cases.items():
+        got = detect_phase4_offer_ending(SignalDB({sig}), since_t=0, t_now=99)
+        if got != expected:
+            raise TestFailure(f"{sig} should resolve {expected}, got {got}")
+    if detect_phase4_offer_ending(SignalDB(set()), since_t=0, t_now=99) is not None:
+        raise TestFailure("no offer signal → no early ending")
+    both = detect_phase4_offer_ending(
+        SignalDB({"offer_join", "offer_seed"}), since_t=0, t_now=99
+    )
+    if both != "ending_join_nvidia":
+        raise TestFailure(f"offer_join should take precedence, got {both}")
+    ok("Phase4 offer early-end: offer_join→join, offer_seed→seed, none→None")
+
+
 def test_f07_d_agent_control() -> None:
     """F07-D Phase 4专规 + 节点 C (dev_logs/24 §11 D1–D5)."""
     section("T2f F07-D Phase 4 inject / L3 / F03")
@@ -4297,6 +4338,7 @@ def main() -> int:
         test_f07_v2_phase4_agent_driven,
         test_f07_v2_phase5_story_advance_and_ws,
         test_f05_routing_payload,
+        test_f05_phase4_offer_early_end,
         test_f11_live_turn_sync,
         test_f11_c_frontend,
         test_f12_phase1_persistence,

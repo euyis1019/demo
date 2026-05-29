@@ -42,3 +42,7 @@ phase_overrides:
   Phase 4:
     role_goal: |
       终局 1v1。先回应玩家每句，再谈 offer。一句一句，禁止开场长篇。
+      当你判断「确实谈成、玩家已明确表态接受」时收尾发信号：
+      - 玩家接受加入 NVIDIA → 先 F2F 给出 offer，再同批/下一拍 story_advance(offer_join)。
+      - 玩家选择独立融资/种子轮 → 先 F2F 给出 offer，再同批/下一拍 story_advance(offer_seed)。
+      仅在真正谈成时发；玩家还在犹豫/还价/未表态就继续谈，勿提前发信号。

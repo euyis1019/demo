@@ -161,6 +161,22 @@ def detect_node_c(db: Any, *, since_t: int, t_now: int) -> bool:
     )
 
 
+def detect_phase4_offer_ending(db: Any, *, since_t: int, t_now: int) -> Optional[str]:
+    """Phase 4 early-end: Jensen's offer concluded the deal (story_advance offer_*).
+
+    Returns the matching ending id so the finale can settle the moment the deal
+    is reached, instead of always waiting for the fixed Turn-25 gate. Mirrors the
+    offer_* override in resolve_turn25_ending. None when no offer signal yet.
+    """
+    if not is_story_advance_enabled():
+        return None
+    if has_story_signal(db, "offer_join", since_t=since_t, t_now=t_now):
+        return "ending_join_nvidia"
+    if has_story_signal(db, "offer_seed", since_t=since_t, t_now=t_now):
+        return "ending_seed_round"
+    return None
+
+
 def detect_bad_end(session: Any, db: Any, *, t_now: int) -> bool:
     """Bad End: reception reject F2F / story_advance(reject_visitor) / Phase1 timeout."""
     if str(getattr(session, "phase", "")) != "Phase 1":

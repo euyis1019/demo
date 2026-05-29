@@ -65,8 +65,13 @@ export function applyWorldDeltaPayload(
     dispatch({ type: "SET_DELTA_SINCE", nextSinceTick: nextSince });
   }
 
-  if (data.game_over?.status === "game_over") {
-    dispatch({ type: "SET_GAME_OVER", data: data.game_over });
+  if (data.game_over) {
+    // bad_reject → GameOverScreen; offer-driven Phase-4 finale → EndingScreen.
+    if (data.game_over.status === "completed") {
+      dispatch({ type: "SET_ENDING", data: data.game_over });
+    } else {
+      dispatch({ type: "SET_GAME_OVER", data: data.game_over });
+    }
     return through;
   }
 

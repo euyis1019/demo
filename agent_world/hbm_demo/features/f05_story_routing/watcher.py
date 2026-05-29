@@ -12,6 +12,7 @@ from agent_world.hbm_demo.features.f01_session.paths import get_name_map
 from agent_world.hbm_demo.features.f05_story_routing import routing
 from agent_world.hbm_demo.features.f05_story_routing.agent_signals import (
     detect_bad_end,
+    detect_phase4_offer_ending,
     fetch_bad_end_public_messages,
 )
 from agent_world.hbm_demo.features.f05_story_routing.routing_config import is_agent_driven
@@ -130,6 +131,32 @@ def scan_routing_if_needed(
         state["last_routing_info"] = {"bad_end": True}
         log.info("routing watcher bad_end at tick=%s", tick)
         return dict(state["last_routing_info"])
+
+    # Phase 4 early-end: settle the finale the moment Jensen's offer concludes the
+    # deal (story_advance offer_*), instead of idling until the Turn-25 gate.
+    if hbm.phase == "Phase 4":
+        offer_since = max(0, int(getattr(hbm, "start_tick", 0) or 0))
+        early_ending = detect_phase4_offer_ending(db, since_t=offer_since, t_now=tick)
+        if early_ending:
+            hbm.ending_id = early_ending
+            save_session(flask_session, hbm, sim_id)
+            try:
+                pause_world_loop(sim_dir=sim_dir)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("phase4 early-end pause_world_loop failed: %s", exc)
+            state["pending_game_over"] = {
+                "status": "completed",
+                "ending_id": early_ending,
+                "stats_update": dict(hbm.stats),
+                "current_phase": hbm.phase,
+                "at_tick": tick,
+            }
+            state["last_scan_tick"] = tick
+            state["last_routing_info"] = {"phase4_offer_end": early_ending}
+            log.info(
+                "routing watcher phase4 early-end %s at tick=%s", early_ending, tick
+            )
+            return dict(state["last_routing_info"])
 
     routing_info = routing.apply_routing(
         hbm,

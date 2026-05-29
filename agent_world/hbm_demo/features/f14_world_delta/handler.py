@@ -78,8 +78,10 @@ def get_world_delta(
     if game_over:
         result["game_over"] = game_over
     elif hbm and hbm.ending_id:
+        # bad_reject is the only "game_over" (bad) screen; the offer-driven
+        # finale endings are normal "completed" outcomes → EndingScreen.
         result["game_over"] = {
-            "status": "game_over",
+            "status": "game_over" if hbm.ending_id == "bad_reject" else "completed",
             "ending_id": hbm.ending_id,
             "stats_update": dict(hbm.stats),
             "current_phase": hbm.phase,
