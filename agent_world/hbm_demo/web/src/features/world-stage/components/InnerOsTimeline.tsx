@@ -1,4 +1,4 @@
-import type { StateChange } from "../../api/types";
+import type { StateChange } from "../../../api/types";
 
 export interface InnerOsTimelineProps {
   entries: StateChange[];

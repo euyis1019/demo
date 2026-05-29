@@ -1,4 +1,4 @@
-import type { ContactThread } from "./agentContactThreads";
+import type { ContactThread } from "../lib/agentContactThreads";
 
 export interface AgentContactListProps {
   threads: ContactThread[];

@@ -34,7 +34,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "玩家回合 API1",
         "status": "implemented",
         "path": "features/f02_player_turn/",
-        "modules": ["handler", "task", "inject"],
+        "modules": ["handler", "task", "inject", "turn_pipeline"],
     },
     "F03": {
         "name": "动作结果 API2",
@@ -64,7 +64,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "只读世界模型",
         "status": "implemented",
         "path": "features/f06_read_model/",
-        "modules": ["world_db"],
+        "modules": ["world_db", "display_names"],
     },
     "F07": {
         "name": "Agent 行为控制栈（ABCS）",
@@ -77,7 +77,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
             "player_response",
             "player_facing_f2f",
             "pick_active",
-            "conversation_control",
+            "conversation",
             "inject_batch",
             "turn_control",
         ],
@@ -86,9 +86,16 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
     "F08V": {
         "name": "虚拟玩家 Agent（Virtual Player Entity）",
         "status": "implemented",
-        "path": "features/f08_virtual_player/",
+        "path": "features/f17_virtual_player/",
+        "shim": "features/f08_virtual_player/",
         "modules": ["player_entity", "player_f2f", "config", "phase_places"],
-        "note": "编号 F08V 避免与 F08 HTTP 冲突；Phase R4 可选 rename → F17",
+        "note": "Canonical F17; F08V shim 保留兼容 import",
+    },
+    "F17": {
+        "name": "虚拟玩家 Agent（canonical）",
+        "status": "implemented",
+        "path": "features/f17_virtual_player/",
+        "modules": ["player_entity", "player_f2f", "config"],
     },
     "F08": {
         "name": "HTTP 传输",

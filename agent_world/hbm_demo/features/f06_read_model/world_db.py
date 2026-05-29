@@ -11,18 +11,10 @@ from agent_world.hbm_demo.features.f01_session.paths import get_world_db_path
 from agent_world.hbm_demo.shared.errors import DatabaseReadError
 from agent_world.hbm_demo.shared.settings import DB_CONNECT_TIMEOUT, DB_READ_RETRIES
 
-SYSTEM_SENDER_NAME = "彭博终端"
-
-
-def sender_display_name(sender_id: Optional[int], name_map: dict[int, str]) -> str:
-    if sender_id is None:
-        return "未知"
-    sid = int(sender_id)
-    if sid == -1:
-        return SYSTEM_SENDER_NAME
-    if sid == 0:
-        return str(name_map.get(0, "玩家"))
-    return name_map.get(sid, f"agent_{sid}")
+from agent_world.hbm_demo.features.f06_read_model.display_names import (
+    SYSTEM_SENDER_NAME,
+    sender_display_name,
+)
 
 
 class ReadOnlyWorldDB:

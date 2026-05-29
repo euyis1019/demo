@@ -15,6 +15,12 @@ from typing import Any, Dict, List, Tuple
 
 ROOT = Path(__file__).resolve().parents[4]
 HBM_DIR = ROOT / "agent_world" / "hbm_demo"
+TURN_CONTROL_YAML = HBM_DIR / "config" / "prompts" / "abcs" / "turn_control.yaml"
+ROUTING_YAML = HBM_DIR / "config" / "prompts" / "routing" / "routing.yaml"
+VIRTUAL_PLAYER_CONFIG_YAML = HBM_DIR / "config" / "prompts" / "virtual_player" / "config.yaml"
+VIRTUAL_PLAYER_PHASE_PLACES_YAML = (
+    HBM_DIR / "config" / "prompts" / "virtual_player" / "phase_places.yaml"
+)
 SIM_DIR = HBM_DIR / "sim" / "hbm_memory_war"
 SIM_ID = "hbm_memory_war"
 BASE_PATH = f"/api/hbm/simulations/{SIM_ID}"
@@ -848,11 +854,11 @@ def test_f12_phase3_world_stage() -> None:
         "AgentPhoneModal.tsx",
         "WorldEventModal.tsx",
     )
-    stage_dir = web_src / "features" / "world-stage"
+    stage_dir = web_src / "features" / "world-stage" / "components"
     for name in required:
         if not (stage_dir / name).is_file():
-            raise TestFailure(f"missing world-stage/{name}")
-    ok(f"world-stage/ has {len(required)} core components")
+            raise TestFailure(f"missing world-stage/components/{name}")
+    ok(f"world-stage/components/ has {len(required)} core components")
 
     places = (web_src / "utils" / "places.ts").read_text(encoding="utf-8")
     if "ROOM_GRID" not in places:
@@ -1608,11 +1614,17 @@ def test_f08_virtual_player() -> None:
         pick_active_ids,
     )
 
-    f08_dir = HBM_DIR / "features" / "f08_virtual_player"
-    for name in ("config.yaml", "phase_places.yaml", "player_entity.py", "player_f2f.py"):
-        if not (f08_dir / name).is_file():
-            raise TestFailure(f"F08 missing {name}")
-    ok("F08 module files present")
+    f17_dir = HBM_DIR / "features" / "f17_virtual_player"
+    for name in ("player_entity.py", "player_f2f.py", "config.py"):
+        if not (f17_dir / name).is_file():
+            raise TestFailure(f"F17 missing {name}")
+    for path in (VIRTUAL_PLAYER_CONFIG_YAML, VIRTUAL_PLAYER_PHASE_PLACES_YAML):
+        if not path.is_file():
+            raise TestFailure(f"F17 prompt yaml missing: {path.name}")
+    f08_shim = HBM_DIR / "features" / "f08_virtual_player" / "__init__.py"
+    if not f08_shim.is_file():
+        raise TestFailure("F08V compatibility shim missing")
+    ok("F17 module + F08V shim + prompt yaml present")
 
     if not is_f08_enabled():
         raise TestFailure("F08 config.yaml enabled expected true")
@@ -2403,7 +2415,7 @@ def test_f07_v2_phase3_prompt_trace() -> None:
         raise TestFailure("hbm_agent missing trace write or thread recap hook")
     ok("hbm_agent trace hook + softened action rules")
 
-    turn_yaml = (HBM_DIR / "features" / "f07_agent_control" / "turn_control.yaml").read_text(
+    turn_yaml = TURN_CONTROL_YAML.read_text(
         encoding="utf-8"
     )
     if "prompt_trace:" not in turn_yaml or "recap_window_ticks:" not in turn_yaml:
@@ -2548,7 +2560,7 @@ def test_f07_v2_phase3_prompt_trace() -> None:
 
     for rel in (
         "web/src/features/prompt-trace/PromptTraceModal.tsx",
-        "web/src/features/world-stage/LocationHistoryTimeline.tsx",
+        "web/src/features/world-stage/components/LocationHistoryTimeline.tsx",
     ):
         if not (HBM_DIR / rel).is_file():
             raise TestFailure(f"Phase3 frontend missing {rel}")
@@ -2582,7 +2594,7 @@ def test_f07_v2_phase4_agent_driven() -> None:
         scan_routing_if_needed,
     )
 
-    routing_yaml = HBM_DIR / "features" / "f05_story_routing" / "routing.yaml"
+    routing_yaml = ROUTING_YAML
     if not routing_yaml.is_file():
         raise TestFailure("Phase4: missing routing.yaml")
     ok("routing.yaml present")
@@ -3089,10 +3101,10 @@ def test_m7_legacy_cleanup() -> None:
     ok(f"hbm_demo root has only {len(expected)} .py files")
 
     if (HBM_DIR / "features" / "f07_agent_control").is_dir():
-        tc = HBM_DIR / "features" / "f07_agent_control" / "turn_control.yaml"
+        tc = TURN_CONTROL_YAML
         if not tc.is_file():
-            raise TestFailure("features/f07_agent_control/turn_control.yaml missing")
-        ok("features/f07_agent_control/ present (F07 ABCS)")
+            raise TestFailure("config/prompts/abcs/turn_control.yaml missing")
+        ok("config/prompts/abcs/turn_control.yaml present (F07 ABCS)")
     else:
         raise TestFailure("features/f07_agent_control/ should exist after F07-A")
 
@@ -3274,7 +3286,7 @@ def test_f07_a_extended() -> None:
         raise TestFailure("A7: HBM short rules missing")
     ok("A7/A8 HbmAgent observation tail with player_memory")
 
-    tc_path = HBM_DIR / "features" / "f07_agent_control" / "turn_control.yaml"
+    tc_path = TURN_CONTROL_YAML
     raw = yaml.safe_load(tc_path.read_text(encoding="utf-8")) or {}
     if not raw.get("llm_params", {}).get("Phase 1"):
         raise TestFailure("turn_control.yaml missing llm_params.Phase 1")

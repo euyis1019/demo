@@ -8,7 +8,9 @@ from typing import Any, Dict, Tuple
 
 import yaml
 
-_ROUTING_PATH = Path(__file__).resolve().parent / "routing.yaml"
+from agent_world.hbm_demo.shared.prompt_paths import routing_config_path
+
+_ROUTING_PATH = routing_config_path()
 
 
 @lru_cache(maxsize=1)

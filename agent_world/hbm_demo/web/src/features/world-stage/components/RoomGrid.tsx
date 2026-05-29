@@ -1,7 +1,7 @@
-import type { GameMessage } from "../../api/types";
-import type { PlaceId } from "../../utils/places";
-import { ROOM_GRID } from "../../utils/places";
-import type { RdcLink } from "../../store/worldSync";
+import type { GameMessage } from "../../../api/types";
+import type { PlaceId } from "../../../utils/places";
+import { ROOM_GRID } from "../../../utils/places";
+import type { RdcLink } from "../../../store/worldSync";
 import { RoomCell } from "./RoomCell";
 import { RdcConnectionOverlay } from "./RdcConnectionOverlay";
 

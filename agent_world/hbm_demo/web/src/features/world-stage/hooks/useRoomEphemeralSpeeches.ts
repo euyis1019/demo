@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import type { GameMessage } from "../../api/types";
-import { messageKey } from "../../utils/messages";
-import { resolveSpeakerAgentId } from "./resolveSpeakerAgentId";
+import type { GameMessage } from "../../../api/types";
+import { messageKey } from "../../../utils/messages";
+import { resolveSpeakerAgentId } from "../lib/resolveSpeakerAgentId";
 
 export interface EphemeralSpeech {
   content: string;

@@ -1,15 +1,15 @@
 import { useCallback, useMemo, useState } from "react";
-import type { GameMessage, LocationChange, StateChange } from "../../api/types";
-import { agentDisplayName } from "../../constants/agents";
-import type { PlaceId } from "../../utils/places";
-import type { AgentInbox } from "../../store/worldSync";
-import { isPlayerSender } from "../../utils/messages";
+import type { GameMessage, LocationChange, StateChange } from "../../../api/types";
+import { agentDisplayName } from "../../../constants/agents";
+import type { PlaceId } from "../../../utils/places";
+import type { AgentInbox } from "../../../store/worldSync";
+import { isPlayerSender } from "../../../utils/messages";
 import { AgentContactList } from "./AgentContactList";
 import { AgentThreadDetail } from "./AgentThreadDetail";
 import {
   buildContactThreads,
   type ContactThread,
-} from "./agentContactThreads";
+} from "../lib/agentContactThreads";
 
 export interface AgentPhoneModalProps {
   agentId: string;

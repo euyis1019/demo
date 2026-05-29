@@ -1,6 +1,6 @@
-import { agentDisplayName, PLAYER_AGENT_ID } from "../../constants/agents";
-import { moveKeyForAgent } from "../../store/worldSync";
-import { cellLocalStyle } from "./agentCircleLayout";
+import { agentDisplayName, PLAYER_AGENT_ID } from "../../../constants/agents";
+import { moveKeyForAgent } from "../../../store/worldSync";
+import { cellLocalStyle } from "../lib/agentCircleLayout";
 import { AgentEphemeralBubble } from "./AgentEphemeralBubble";
 
 export interface AgentCircleProps {

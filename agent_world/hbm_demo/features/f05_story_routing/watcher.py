@@ -17,7 +17,7 @@ from agent_world.hbm_demo.features.f05_story_routing.agent_signals import (
 from agent_world.hbm_demo.features.f05_story_routing.routing_config import is_agent_driven
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
 from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop_enabled
-from agent_world.hbm_demo.features.f12_world_sync.formatter import format_routing_world_events
+from agent_world.hbm_demo.shared.routing_events import format_routing_world_events
 from agent_world.hbm_demo.features.f13_world_loop_control import pause_world_loop
 from agent_world.hbm_demo.http.ipc_helper import get_ipc_client, push_session_mirror
 from agent_world.hbm_demo.shared.env_status import read_env_status

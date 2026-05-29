@@ -1,6 +1,6 @@
-import type { ContactThread } from "./agentContactThreads";
-import type { GameMessage, LocationChange, StateChange } from "../../api/types";
-import { MessageBubble } from "../shared/MessageBubble";
+import type { ContactThread } from "../lib/agentContactThreads";
+import type { GameMessage, LocationChange, StateChange } from "../../../api/types";
+import { MessageBubble } from "../../shared/MessageBubble";
 import { InnerOsTimeline } from "./InnerOsTimeline";
 import { LocationHistoryTimeline } from "./LocationHistoryTimeline";
 

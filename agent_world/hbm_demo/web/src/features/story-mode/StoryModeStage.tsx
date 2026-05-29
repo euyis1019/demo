@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { GameMessage, WorldEvent } from "../../api/types";
 import type { PlaceId } from "../../utils/places";
 import { placeDisplayName } from "../../utils/places";
-import { WorldEventModal } from "../world-stage/WorldEventModal";
+import { WorldEventModal } from "../world-stage";
 import { storyPlaceBackground } from "./storyAssets";
 import { StorySubtitle } from "./StorySubtitle";
 import { StoryModeToolbar } from "./StoryModeToolbar";

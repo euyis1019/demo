@@ -1,0 +1,11 @@
+# L0 prompt & story configuration manifest (dev_logs/38 R5)
+version: 1
+paths:
+  scenario: hbm_scenario.yaml
+  abcs:
+    turn_control: config/prompts/abcs/turn_control.yaml
+    story_knowledge: config/prompts/abcs/story_knowledge/
+  routing: config/prompts/routing/routing.yaml
+  virtual_player:
+    config: config/prompts/virtual_player/config.yaml
+    phase_places: config/prompts/virtual_player/phase_places.yaml

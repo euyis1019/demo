@@ -1,8 +1,8 @@
 import { useEffect, useCallback, type ReactNode } from "react";
-import type { GameMessage, WorldEvent } from "../../api/types";
-import type { PlaceId } from "../../utils/places";
-import type { AgentInbox, RdcLink } from "../../store/worldSync";
-import { PromptTraceModal, usePromptTrace } from "../prompt-trace";
+import type { GameMessage, WorldEvent } from "../../../api/types";
+import type { PlaceId } from "../../../utils/places";
+import type { AgentInbox, RdcLink } from "../../../store/worldSync";
+import { PromptTraceModal, usePromptTrace } from "../../prompt-trace";
 import { AgentPhoneModal } from "./AgentPhoneModal";
 import { RoomGrid } from "./RoomGrid";
 import { WorldEventModal } from "./WorldEventModal";

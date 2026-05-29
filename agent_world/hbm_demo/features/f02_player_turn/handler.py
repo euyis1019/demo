@@ -32,16 +32,19 @@ from agent_world.hbm_demo.features.f04_stats.scoring import (
     score_player_turn,
 )
 from agent_world.hbm_demo.features.f05_story_routing import routing
+from agent_world.hbm_demo.features.f02_player_turn.turn_pipeline import (
+    apply_routing_side_effects,
+    execute_inject,
+)
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
+from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop_enabled
 from agent_world.hbm_demo.features.f08_virtual_player.player_f2f import (
     build_player_f2f_payload,
 )
 from agent_world.hbm_demo.features.f11_live_turn_sync.handler import start_background_turn
 from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import sync_runtime_state
-from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop_enabled
 from agent_world.hbm_demo.http.ipc_helper import (
     get_ipc_client,
-    push_session_mirror,
     push_turn_context_mirror,
     resolve_loop_min_ticks,
     send_enqueue_player_input,
@@ -152,64 +155,24 @@ def _handle_sync_inject(
     player_text: str,
 ) -> Dict[str, Any]:
     """Synchronous inject path — Turn 25 (and legacy inline flow)."""
-    ipc_client = get_ipc_client(str(sim))
-    min_ticks = resolve_loop_min_ticks(hbm.phase, tick_count)
-    player_f2f = build_player_f2f_payload(hbm, player_text)
+    ipc_end_tick, ipc_result, current_tick = execute_inject(
+        sim_dir=sim,
+        hbm=hbm,
+        player_text=player_text,
+        events=events,
+        broadcast=broadcast,
+        turn_context=turn_context,
+        start_tick=start_tick,
+        task_phase=hbm.phase,
+        tick_count=tick_count,
+        ipc_timeout=ipc_timeout,
+    )
 
-    if is_world_loop_enabled():
-        send_enqueue_player_input(
-            ipc_client,
-            events=events,
-            broadcast=broadcast,
-            turn_context=turn_context,
-            player_f2f=player_f2f,
-            timeout=ipc_timeout,
-        )
-        push_turn_context_mirror(
-            ipc_client,
-            turn_context,
-            stats=dict(hbm.stats),
-            timeout=ipc_timeout,
-        )
-        hbm.player_turn += 1
-        loop_status = wait_for_loop_window(
-            ipc_client,
-            start_tick=start_tick,
-            min_ticks=min_ticks,
-            timeout=ipc_timeout,
-        )
-        ipc_end_tick = int(loop_status.get("current_tick", start_tick))
-        ipc_result = dict(loop_status)
-        push_session_mirror(ipc_client, hbm, timeout=ipc_timeout)
-    else:
-        resp = send_inject_batch(
-            ipc_client,
-            events=events,
-            broadcast=broadcast,
-            turn_context=turn_context,
-            tick_count=tick_count,
-            player_f2f=player_f2f,
-            timeout=ipc_timeout,
-        )
-        ipc_result = dict(resp.result or {})
-        ipc_end_tick = int(
-            ipc_result.get("end_tick", ipc_result.get("world_t", start_tick))
-        )
-
-    env_after = read_env_status(sim) or {}
-    current_tick = int(env_after.get("current_tick", start_tick))
-    ipc_end_tick = max(current_tick, ipc_end_tick)
-    current_tick = ipc_end_tick
-    db = make_readonly_db(sim)
-
-    task_place_id = hbm.place_id
-    task_phase = hbm.phase
-
-    routing_info = routing.apply_routing(
-        hbm,
-        ipc_client=ipc_client,
-        db=db,
+    routing_info = apply_routing_side_effects(
+        hbm=hbm,
+        sim_dir=sim,
         task_id=task_id,
+        start_tick=start_tick,
         current_tick=current_tick,
         tick_count=tick_count,
         ipc_timeout=ipc_timeout,
@@ -225,11 +188,13 @@ def _handle_sync_inject(
             extra={"nodes": routing_info.get("nodes")},
         )
 
-    if not is_world_loop_enabled():
-        hbm.player_turn += 1
+    task_place_id = hbm.place_id
+    task_phase = hbm.phase
+
     save_session(flask_session, hbm, sim_id)
 
     if is_final_turn:
+        db = make_readonly_db(sim)
         intent = routing.classify_turn25_intent(player_text)
         ending_id = routing.resolve_turn25_ending(
             intent,

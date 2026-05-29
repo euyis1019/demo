@@ -1,5 +1,5 @@
-import type { LocationChange } from "../../api/types";
-import { placeDisplayName } from "../../utils/places";
+import type { LocationChange } from "../../../api/types";
+import { placeDisplayName } from "../../../utils/places";
 
 export interface LocationHistoryTimelineProps {
   entries: LocationChange[];

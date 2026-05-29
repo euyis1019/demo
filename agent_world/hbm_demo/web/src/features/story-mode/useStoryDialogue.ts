@@ -3,7 +3,7 @@ import type { GameMessage } from "../../api/types";
 import { agentDisplayName } from "../../constants/agents";
 import { sortMessages } from "../../utils/messages";
 import type { PlaceId } from "../../utils/places";
-import { resolveSpeakerAgentId } from "../world-stage/resolveSpeakerAgentId";
+import { resolveSpeakerAgentId } from "../world-stage/lib/resolveSpeakerAgentId";
 import { storyAvatarUrl } from "./storyAssets";
 
 export interface StoryDialogueLine {

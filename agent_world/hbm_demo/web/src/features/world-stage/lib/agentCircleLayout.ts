@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
-import { PLAYER_AGENT_ID } from "../../constants/agents";
-import { ROOM_GRID, type PlaceId } from "../../utils/places";
-import { agentsInPlace } from "../../store/worldSync";
+import { PLAYER_AGENT_ID } from "../../../constants/agents";
+import { ROOM_GRID, type PlaceId } from "../../../utils/places";
+import { agentsInPlace } from "../../../store/worldSync";
 
 const PLACE_GRID_CELL: Record<PlaceId, { col: number; row: number }> = {
   nvidia_reception: { col: 0, row: 0 },

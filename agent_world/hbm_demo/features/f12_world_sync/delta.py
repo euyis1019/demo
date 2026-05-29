@@ -17,12 +17,12 @@ from agent_world.hbm_demo.features.f12_world_sync.formatter import (
     format_f2f_history_with_ids,
     format_group_social_events,
     format_location_changes,
-    format_routing_world_events,
     format_state_changes,
     legacy_group_from_agent_messages,
     legacy_observer_from_agent_messages,
     legacy_public_messages_from_room_f2f,
 )
+from agent_world.hbm_demo.shared.routing_events import format_routing_world_events
 from agent_world.hbm_demo.features.f15_prompt_trace.refs import (
     build_link_map,
     enrich_world_delta,

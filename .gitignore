@@ -11,6 +11,8 @@ downloads/
 eggs/
 .eggs/
 lib/
+!agent_world/hbm_demo/web/src/features/world-stage/lib/
+!agent_world/hbm_demo/web/src/features/world-stage/lib/**
 lib64/
 parts/
 sdist/

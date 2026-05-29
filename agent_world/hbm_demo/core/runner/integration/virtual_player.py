@@ -1,10 +1,10 @@
 """Runner ↔ F08V virtual player bridge."""
 
-from agent_world.hbm_demo.features.f08_virtual_player.config import (
+from agent_world.hbm_demo.features.f17_virtual_player.config import (
     is_f08_enabled,
     player_agent_id,
 )
-from agent_world.hbm_demo.features.f08_virtual_player.player_f2f import (
+from agent_world.hbm_demo.features.f17_virtual_player.player_f2f import (
     apply_player_f2f_payload,
 )
 

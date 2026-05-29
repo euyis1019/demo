@@ -1,4 +1,4 @@
-import type { WorldEvent } from "../../api/types";
+import type { WorldEvent } from "../../../api/types";
 
 export interface WorldEventModalProps {
   event: WorldEvent;

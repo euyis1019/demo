@@ -1,9 +1,9 @@
-import type { GameMessage, LocationChange, StateChange } from "../../api/types";
-import { agentDisplayName } from "../../constants/agents";
-import { groupDisplayLabel } from "../../constants/groups";
-import type { AgentInbox } from "../../store/worldSync";
-import { threadKeyGrp, threadKeyRdc } from "../../store/worldSync";
-import { placeDisplayName } from "../../utils/places";
+import type { GameMessage, LocationChange, StateChange } from "../../../api/types";
+import { agentDisplayName } from "../../../constants/agents";
+import { groupDisplayLabel } from "../../../constants/groups";
+import type { AgentInbox } from "../../../store/worldSync";
+import { threadKeyGrp, threadKeyRdc } from "../../../store/worldSync";
+import { placeDisplayName } from "../../../utils/places";
 
 export type ContactThreadKind = "rdc" | "grp" | "os" | "location" | "f2f";
 

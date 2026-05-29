@@ -1,10 +1,10 @@
 import { useState } from "react";
-import type { GameMessage } from "../../api/types";
-import { placeDisplayName, type PlaceId } from "../../utils/places";
-import { agentsInPlace } from "../../store/worldSync";
+import type { GameMessage } from "../../../api/types";
+import { placeDisplayName, type PlaceId } from "../../../utils/places";
+import { agentsInPlace } from "../../../store/worldSync";
 import { AgentCircle } from "./AgentCircle";
 import { RoomHistoryModal } from "./RoomHistoryModal";
-import { useRoomEphemeralSpeeches } from "./useRoomEphemeralSpeeches";
+import { useRoomEphemeralSpeeches } from "../hooks/useRoomEphemeralSpeeches";
 
 export interface RoomCellProps {
   placeId: PlaceId;

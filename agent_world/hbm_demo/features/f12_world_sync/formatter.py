@@ -10,9 +10,10 @@ from agent_world.hbm_demo.shared.messages import (
     format_messages,
 )
 from agent_world.hbm_demo.features.f06_read_model.world_db import sender_display_name
-from agent_world.hbm_demo.features.f12_world_sync.constants import (
+from agent_world.hbm_demo.shared.routing_events import (
     PLACE_MUTATION_HINT,
     ROUTING_WORLD_EVENT_CONTENT,
+    format_routing_world_events,
 )
 
 _GROUP_EVENT_KIND = {
@@ -108,44 +109,6 @@ def format_broadcast_world_events(
                 "title": sender_display_name(row["sender_id"], name_map),
                 "content": content,
                 "place_id": place_id,
-            }
-        )
-    return out
-
-
-def format_routing_world_events(
-    routing_info: Optional[Dict[str, Any]],
-    *,
-    at_tick: int,
-    task_id: str,
-) -> List[Dict[str, Any]]:
-    if not routing_info:
-        return []
-    nodes = list(routing_info.get("nodes") or [])
-    out: List[Dict[str, Any]] = []
-    for node in nodes:
-        content = ROUTING_WORLD_EVENT_CONTENT.get(str(node))
-        if not content:
-            continue
-        out.append(
-            {
-                "id": f"route_node_{node}",
-                "at_tick": int(at_tick),
-                "kind": "phase_route",
-                "title": f"路由节点 {node}",
-                "content": content,
-                "place_id": routing_info.get("place_id"),
-            }
-        )
-    if routing_info.get("place_mutation"):
-        out.append(
-            {
-                "id": "place_mutation_negotiation_room",
-                "at_tick": int(at_tick),
-                "kind": "place_mutation",
-                "title": "谈判室氛围变化",
-                "content": PLACE_MUTATION_HINT,
-                "place_id": "negotiation_room",
             }
         )
     return out

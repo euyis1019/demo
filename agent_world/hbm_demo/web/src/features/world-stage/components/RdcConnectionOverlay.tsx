@@ -1,5 +1,5 @@
-import type { RdcLink } from "../../store/worldSync";
-import { agentGridCenter } from "./agentCircleLayout";
+import type { RdcLink } from "../../../store/worldSync";
+import { agentGridCenter } from "../lib/agentCircleLayout";
 
 export interface RdcConnectionOverlayProps {
   links: RdcLink[];

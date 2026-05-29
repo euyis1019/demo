@@ -1,4 +1,4 @@
-"""F08V compatibility shim — use features/f17_virtual_player/."""
+"""F17 — Virtual Player Entity (canonical); F08V shim at f08_virtual_player/."""
 
 from agent_world.hbm_demo.features.f17_virtual_player.config import (
     is_f08_enabled,
