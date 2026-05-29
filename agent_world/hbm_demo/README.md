@@ -102,12 +102,12 @@ agent_world/hbm_demo/
 | **F01** | 会话与重开 | `features/f01_session/` | HbmSession、Flask session、RESET_WORLD |
 | **F02** | 玩家回合 API1 | `features/f02_player_turn/` | 打分 + inject + tick；PendingTask |
 | **F03** | 动作结果 API2 | `features/f03_action_result/` | 完成判定；world_loop 时委托 F14 |
-| **F04** | 数值与打分 | `features/f04_stats/` | Stats 四维打分、immediate_msg |
+| **F04** | 数值与打分 | `features/f04_stats/` | Stats 四维打分（`score_player_turn`） |
 | **F05** | 剧情路由 | `features/f05_story_routing/` | Phase 节点、RoutingWatcher、agent_driven |
 | **F06** | 只读世界模型 | `features/f06_read_model/` | ReadOnlyWorldDB |
 | **F07** | ABCS | `features/f07_agent_control/` | turn_control、选角、inject 窗口（运行时开启） |
 | **F08** | HTTP 传输 | `http/` | Blueprint、health、IPC 客户端 |
-| **F08V** | 虚拟玩家 | `features/f08_virtual_player/` | 虚拟玩家 F2F（编号避免与 F08 冲突） |
+| **F17** | 虚拟玩家 | `features/f17_virtual_player/` | 虚拟玩家 F2F（canonical；`f08_virtual_player/` 仅兼容 shim） |
 | **F09** | 前端 UI | `web/src/features/` | 见下节 |
 | **F10** | 运维 | `scripts/ops/`、`scripts/tests/` | start/stop、验收测试 |
 | **F11** | 回合内增量 | `features/f11_live_turn_sync/` | 异步 inject、task_state |

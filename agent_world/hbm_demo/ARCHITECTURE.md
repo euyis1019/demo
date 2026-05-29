@@ -30,7 +30,7 @@ shared/     跨层工具（config_loader, env_status, errors）
 | F01–F06 | 会话/回合/结果/数值/路由/只读DB | `features/f01_*` … `f06_*` |
 | F07 | ABCS Agent 控制 | `features/f07_agent_control/` |
 | **F08** | **HTTP 传输** | `http/` |
-| **F08V** | **虚拟玩家**（非 F08） | `features/f08_virtual_player/` |
+| **F17** | **虚拟玩家**（canonical） | `features/f17_virtual_player/`（`f08_virtual_player/` 仅 shim） |
 | F09 | 前端 UI | `web/src/features/` |
 | F10 | 运维脚本 | `scripts/ops/`、`scripts/tests/` |
 | F11–F16 | 增量同步/世界视图/loop/delta/prompt/WS | `features/f11_*` … `f16_*` |
@@ -39,7 +39,7 @@ shared/     跨层工具（config_loader, env_status, errors）
 
 - L3 → L2：经 handler 或 Feature `__init__.py` 公共 API
 - L2 低 ID 不可依赖高 ID 的展示格式化（例：F05 不 import F12 formatter）
-- L1 经 `core/runner/integration/` 白名单调用 F07/F08V/F15（Phase R3）
+- L1 经 `core/runner/integration/` 白名单调用 F07/F17/F15（Phase R3）
 - 前端：`app → features → shared/api/store`
 
 ## 入口与 shim
