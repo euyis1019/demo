@@ -107,7 +107,7 @@ agent_world/hbm_demo/
 | **F06** | 只读世界模型 | `features/f06_read_model/` | ReadOnlyWorldDB |
 | **F07** | ABCS | `features/f07_agent_control/` | turn_control、选角、inject 窗口（运行时开启） |
 | **F08** | HTTP 传输 | `http/` | Blueprint、health、IPC 客户端 |
-| **F17** | 虚拟玩家 | `features/f17_virtual_player/` | 虚拟玩家 F2F（canonical；`f08_virtual_player/` 仅兼容 shim） |
+| **F17** | 虚拟玩家 | `features/f17_virtual_player/` | 虚拟玩家 F2F（canonical；旧 `f08_virtual_player/` shim 已移除） |
 | **F09** | 前端 UI | `web/src/features/` | 见下节 |
 | **F10** | 运维 | `scripts/ops/`、`scripts/tests/` | start/stop、验收测试 |
 | **F11** | 回合内增量 | `features/f11_live_turn_sync/` | 异步 inject、task_state |

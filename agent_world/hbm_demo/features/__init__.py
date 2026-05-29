@@ -83,14 +83,6 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         ],
         "phase": "F07-E Step5 (final acceptance + Phase4 smoke)",
     },
-    "F08V": {
-        "name": "虚拟玩家 Agent（Virtual Player Entity）",
-        "status": "implemented",
-        "path": "features/f17_virtual_player/",
-        "shim": "features/f08_virtual_player/",
-        "modules": ["player_entity", "player_f2f", "config", "phase_places"],
-        "note": "Canonical F17; F08V shim 保留兼容 import",
-    },
     "F17": {
         "name": "虚拟玩家 Agent（canonical）",
         "status": "implemented",

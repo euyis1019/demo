@@ -30,7 +30,7 @@ shared/     跨层工具（config_loader, env_status, errors）
 | F01–F06 | 会话/回合/结果/数值/路由/只读DB | `features/f01_*` … `f06_*` |
 | F07 | ABCS Agent 控制 | `features/f07_agent_control/` |
 | **F08** | **HTTP 传输** | `http/` |
-| **F17** | **虚拟玩家**（canonical） | `features/f17_virtual_player/`（`f08_virtual_player/` 仅 shim） |
+| **F17** | **虚拟玩家**（canonical） | `features/f17_virtual_player/`（旧 `f08_virtual_player/` shim 已移除） |
 | F09 | 前端 UI | `web/src/features/` |
 | F10 | 运维脚本 | `scripts/ops/`、`scripts/tests/` |
 | F11–F16 | 增量同步/世界视图/loop/delta/prompt/WS | `features/f11_*` … `f16_*` |

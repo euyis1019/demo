@@ -877,10 +877,14 @@ def test_f12_phase3_world_stage() -> None:
             raise TestFailure(f"api/types.ts missing F12 field/type {field}")
     ok("api/types F12 TurnDelta + WorldSnapshot types")
 
-    css = (web_src / "styles" / "global.css").read_text(encoding="utf-8")
+    # global.css is an @import barrel; world-stage rules live in the split files.
+    css = "\n".join(
+        p.read_text(encoding="utf-8")
+        for p in sorted((web_src / "styles").glob("*.css"))
+    )
     if ".room-grid" not in css or ".agent-circle" not in css:
-        raise TestFailure("global.css missing F12 room-grid / agent-circle styles")
-    ok("global.css F12 world-stage styles")
+        raise TestFailure("styles/*.css missing F12 room-grid / agent-circle styles")
+    ok("styles F12 world-stage styles")
 
 
 def test_f12_visibility_no_hidden() -> None:
@@ -1598,16 +1602,16 @@ def test_f08_virtual_player() -> None:
     from types import SimpleNamespace
 
     from agent_world.hbm_demo.features.f01_session.paths import get_name_map
-    from agent_world.hbm_demo.features.f08_virtual_player.config import (
+    from agent_world.hbm_demo.features.f17_virtual_player.config import (
         is_f08_enabled,
         player_agent_id,
     )
-    from agent_world.hbm_demo.features.f08_virtual_player.player_entity import (
+    from agent_world.hbm_demo.features.f17_virtual_player.player_entity import (
         PLAYER_AGENT_ID,
         sync_player_place_on_routing,
         target_place_for_phase,
     )
-    from agent_world.hbm_demo.features.f08_virtual_player.player_f2f import (
+    from agent_world.hbm_demo.features.f17_virtual_player.player_f2f import (
         build_player_f2f_payload,
         f2f_recipient_for_phase,
     )
@@ -1622,10 +1626,10 @@ def test_f08_virtual_player() -> None:
     for path in (VIRTUAL_PLAYER_CONFIG_YAML, VIRTUAL_PLAYER_PHASE_PLACES_YAML):
         if not path.is_file():
             raise TestFailure(f"F17 prompt yaml missing: {path.name}")
-    f08_shim = HBM_DIR / "features" / "f08_virtual_player" / "__init__.py"
-    if not f08_shim.is_file():
-        raise TestFailure("F08V compatibility shim missing")
-    ok("F17 module + F08V shim + prompt yaml present")
+    legacy_f08 = HBM_DIR / "features" / "f08_virtual_player"
+    if legacy_f08.exists():
+        raise TestFailure("legacy f08_virtual_player shim should be removed (use F17)")
+    ok("F17 module + prompt yaml present; legacy f08 shim removed")
 
     if not is_f08_enabled():
         raise TestFailure("F08 config.yaml enabled expected true")
@@ -1734,7 +1738,7 @@ def test_f08_pr4_inject_and_f2f_delivery() -> None:
     from agent_world.hbm_demo.features.f07_agent_control.player_response import (
         inject_channel_uses_player_f2f,
     )
-    from agent_world.hbm_demo.features.f08_virtual_player.config import is_f08_enabled
+    from agent_world.hbm_demo.features.f17_virtual_player.config import is_f08_enabled
 
     if not is_f08_enabled():
         ok("F08 PR4 tests skipped (F08 disabled)")
