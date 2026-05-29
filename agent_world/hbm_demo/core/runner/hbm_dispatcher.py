@@ -37,12 +37,10 @@ class HbmActionDispatcher(ActionDispatcher):
         **kwargs: Any,
     ) -> Dict[str, Any]:
         name = _action_name(action_type)
-        if name == "story_advance":
-            from agent_world.hbm_demo.features.f05_story_routing.story_signals import (
-                normalize_story_signal,
-            )
+        from agent_world.hbm_demo.core.runner.integration import story_advance
 
-            signal = normalize_story_signal(kwargs.get("signal"))
+        if name == "story_advance":
+            signal = story_advance.normalize_story_signal(kwargs.get("signal"))
             if not signal:
                 return {"success": False, "reason": "invalid_story_signal"}
             world_db = getattr(self.world, "world_db", None)

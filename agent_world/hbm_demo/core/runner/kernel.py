@@ -325,12 +325,9 @@ async def build_kernel(
     agents: List[HbmAgent] = []
     for a in scenario.get("agents", []):
         aid = int(a["agent_id"])
-        from agent_world.hbm_demo.features.f08_virtual_player.config import (
-            is_f08_enabled,
-            player_agent_id,
-        )
+        from agent_world.hbm_demo.core.runner.integration import virtual_player
 
-        if is_f08_enabled() and aid == int(player_agent_id()):
+        if virtual_player.is_f08_enabled() and aid == int(virtual_player.player_agent_id()):
             continue
         agent = HbmAgent(
             agent_id=aid,

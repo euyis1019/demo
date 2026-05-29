@@ -43,22 +43,12 @@ class HbmWorldStep(WorldStep):
         return result
 
     def _pick_active(self, t: int) -> List[int]:
-        from agent_world.hbm_demo.features.f07_agent_control.config import (
-            is_f07_enabled,
-            is_world_loop_enabled,
-        )
-        from agent_world.hbm_demo.features.f07_agent_control.pick_active import (
-            pick_active_ids,
-            primary_active_ids,
-        )
-        from agent_world.hbm_demo.features.f07_agent_control.session_mirror import (
-            bootstrap_mirror,
-        )
+        from agent_world.hbm_demo.core.runner.integration import abcs
 
-        if not is_f07_enabled() or not self._tick_context:
-            if is_world_loop_enabled():
-                ctx = bootstrap_mirror()
-                return pick_active_ids(ctx, self.world, t, batch_tick_index=999)
+        if not abcs.is_f07_enabled() or not self._tick_context:
+            if abcs.is_world_loop_enabled():
+                ctx = abcs.bootstrap_mirror()
+                return abcs.pick_active_ids(ctx, self.world, t, batch_tick_index=999)
             return super()._pick_active(t)
 
         ctx = self._tick_context
@@ -67,8 +57,8 @@ class HbmWorldStep(WorldStep):
         if inject_tick is not None:
             batch_tick_index = max(0, int(t) - int(inject_tick))
 
-        primary = set(primary_active_ids(ctx))
-        active = pick_active_ids(
+        primary = set(abcs.primary_active_ids(ctx))
+        active = abcs.pick_active_ids(
             ctx,
             self.world,
             t,
@@ -118,11 +108,9 @@ class HbmWorldStep(WorldStep):
                 dispatch_result = await self.dispatcher.dispatch(
                     agent_id, atype, t, **(akwargs or {})
                 )
-                from agent_world.hbm_demo.features.f15_prompt_trace.linker import (
-                    record_action_links,
-                )
+                from agent_world.hbm_demo.core.runner.integration import prompt_trace
 
-                await record_action_links(
+                await prompt_trace.record_action_links(
                     self.world_db,
                     trace_id=prompt_trace_id,
                     agent_id=int(agent_id),
@@ -132,13 +120,11 @@ class HbmWorldStep(WorldStep):
                     dispatch_result=dispatch_result,
                     place_id=self._agent_place_id(agent_id),
                 )
-                from agent_world.hbm_demo.features.f07_agent_control.conversation_control import (
-                    mark_communication_action,
-                )
+                from agent_world.hbm_demo.core.runner.integration import abcs
 
                 agent = self._resolve_agent(agent_id)
                 if agent is not None:
-                    mark_communication_action(
+                    abcs.mark_communication_action(
                         agent,
                         action_type=atype,
                         action_kwargs=akwargs or {},
@@ -169,18 +155,14 @@ class HbmWorldStep(WorldStep):
         dispatch_result: Any,
         t: int,
     ) -> None:
-        from agent_world.hbm_demo.features.f07_agent_control.player_facing_f2f import (
-            bus_delivered_player_facing_f2f,
-            emit_player_facing_f2f,
-            is_speak_to_local_action,
-        )
+        from agent_world.hbm_demo.core.runner.integration import abcs
 
-        if not is_speak_to_local_action(action_type):
+        if not abcs.is_speak_to_local_action(action_type):
             return
         if not dispatch_result or not dispatch_result.get("success"):
             return
 
-        if bus_delivered_player_facing_f2f(dispatch_result):
+        if abcs.bus_delivered_player_facing_f2f(dispatch_result):
             return
 
         content = str(action_kwargs.get("content") or "").strip()
@@ -190,7 +172,7 @@ class HbmWorldStep(WorldStep):
         if not place_id or self.world_db is None:
             return
         try:
-            await emit_player_facing_f2f(
+            await abcs.emit_player_facing_f2f(
                 self.world_db,
                 sender_id=int(agent_id),
                 place_id=str(place_id),

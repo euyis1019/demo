@@ -8,30 +8,12 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from agent_world.hbm_demo.core.runner import broadcast_helper
+from agent_world.hbm_demo.core.runner.integration import abcs
+from agent_world.hbm_demo.core.runner.integration import virtual_player
 from agent_world.hbm_demo.core.runner.player_input_queue import (
     PlayerInputItem,
     PlayerInputQueue,
     ScriptQueueItem,
-)
-from agent_world.hbm_demo.features.f07_agent_control.config import (
-    is_f07_enabled,
-    is_world_loop_enabled,
-    pause_drains_queue,
-    player_input_max_depth,
-    world_loop_max_ticks,
-    world_loop_tick_interval,
-)
-from agent_world.hbm_demo.features.f07_agent_control.inject_batch import (
-    notify_non_inject_active_agents,
-)
-from agent_world.hbm_demo.features.f07_agent_control.session_mirror import (
-    bootstrap_mirror,
-    merge_mirror_update,
-    mirror_from_payload,
-)
-from agent_world.hbm_demo.features.f07_agent_control.turn_context import (
-    clear_player_memory_for_agents,
-    extract_inject_agent_ids,
 )
 from agent_world.hbm_demo.shared.env_status import write_env_status
 from agent_world.script.loader import ScriptLoader
@@ -43,13 +25,13 @@ class SessionMirrorState:
     """Runner-side session snapshot (Flask is authoritative)."""
 
     def __init__(self) -> None:
-        self._data: Dict[str, Any] = bootstrap_mirror()
+        self._data: Dict[str, Any] = abcs.bootstrap_mirror()
 
     def latest(self) -> Dict[str, Any]:
         return dict(self._data)
 
     def update(self, patch: Dict[str, Any]) -> Dict[str, Any]:
-        self._data = merge_mirror_update(self._data, patch)
+        self._data = abcs.merge_mirror_update(self._data, patch)
         return dict(self._data)
 
     def replace(self, mirror: Dict[str, Any]) -> Dict[str, Any]:
@@ -57,7 +39,7 @@ class SessionMirrorState:
         return dict(self._data)
 
     def reset(self) -> None:
-        self._data = bootstrap_mirror()
+        self._data = abcs.bootstrap_mirror()
 
 
 class WorldLoopOrchestrator:
@@ -84,7 +66,7 @@ class WorldLoopOrchestrator:
         self._sim_dir = str(sim_dir)
         self._get_current_tick = get_current_tick
 
-        self._queue = PlayerInputQueue(max_depth=player_input_max_depth())
+        self._queue = PlayerInputQueue(max_depth=abcs.player_input_max_depth())
         self._mirror = SessionMirrorState()
         self._running = False
         self._loop_task: Optional[asyncio.Task[None]] = None
@@ -100,7 +82,7 @@ class WorldLoopOrchestrator:
 
     @property
     def enabled(self) -> bool:
-        return is_world_loop_enabled()
+        return abcs.is_world_loop_enabled()
 
     async def start(self) -> None:
         if not self.enabled:
@@ -113,7 +95,7 @@ class WorldLoopOrchestrator:
         self._paused_at_tick = None
         self._pause_event.set()
         self._loop_task = asyncio.create_task(self._loop(), name="hbm-world-loop")
-        log.info("WorldLoopOrchestrator started interval=%ss", world_loop_tick_interval())
+        log.info("WorldLoopOrchestrator started interval=%ss", abcs.world_loop_tick_interval())
 
     async def stop(self) -> None:
         self._running = False
@@ -260,11 +242,11 @@ class WorldLoopOrchestrator:
     def update_session_mirror(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         prev = self._mirror.latest()
         prev_start = prev.get("start_tick")
-        mirror = mirror_from_payload(payload) if payload else bootstrap_mirror()
+        mirror = abcs.mirror_from_payload(payload) if payload else abcs.bootstrap_mirror()
         if payload.get("turn_context"):
-            mirror = merge_mirror_update(prev, payload["turn_context"])
+            mirror = abcs.merge_mirror_update(prev, payload["turn_context"])
         elif payload:
-            mirror = merge_mirror_update(prev, payload)
+            mirror = abcs.merge_mirror_update(prev, payload)
         updated = self._mirror.replace(mirror)
         new_start = updated.get("start_tick")
         if new_start is not None and new_start != prev_start:
@@ -282,7 +264,7 @@ class WorldLoopOrchestrator:
             "loop_state": loop_state,
             "current_tick": tick,
             "world_t": tick,
-            "tick_interval_sec": world_loop_tick_interval(),
+            "tick_interval_sec": abcs.world_loop_tick_interval(),
             "last_activity_t": int(self._last_activity_t),
             "last_player_inject_tick": self._last_player_inject_tick,
             "paused_at_tick": self._paused_at_tick,
@@ -291,8 +273,8 @@ class WorldLoopOrchestrator:
         }
 
     async def _loop(self) -> None:
-        interval = world_loop_tick_interval()
-        max_ticks = world_loop_max_ticks()
+        interval = abcs.world_loop_tick_interval()
+        max_ticks = abcs.world_loop_max_ticks()
         try:
             while self._running:
                 await self._pause_event.wait()
@@ -325,7 +307,7 @@ class WorldLoopOrchestrator:
             if hasattr(self._world_step, "set_tick_context"):
                 reset_window = inject_turn_ctx is not None
                 self._world_step.set_tick_context(
-                    mirror if is_f07_enabled() else None,
+                    mirror if abcs.is_f07_enabled() else None,
                     reset_l3_window=reset_window,
                 )
             await self._world_step.run_one_tick()
@@ -335,7 +317,7 @@ class WorldLoopOrchestrator:
             self._write_status(loop_running=True)
 
     async def _drain_queue(self) -> Optional[Dict[str, Any]]:
-        if self._loop_state == "paused" and not pause_drains_queue():
+        if self._loop_state == "paused" and not abcs.pause_drains_queue():
             return None
 
         players, scripts = self._queue.drain_for_tick()
@@ -346,11 +328,7 @@ class WorldLoopOrchestrator:
 
         for item in players:
             if item.player_f2f:
-                from agent_world.hbm_demo.features.f08_virtual_player.player_f2f import (
-                    apply_player_f2f_payload,
-                )
-
-                await apply_player_f2f_payload(
+                await virtual_player.apply_player_f2f_payload(
                     self._world_db,
                     item.player_f2f,
                     t=int(self._world_state.clock.t),
@@ -363,12 +341,12 @@ class WorldLoopOrchestrator:
                     str(item.broadcast["message"]),
                     t=int(self._world_state.clock.t),
                 )
-            if item.events and is_f07_enabled():
-                inject_ids = extract_inject_agent_ids(item.events)
+            if item.events and abcs.is_f07_enabled():
+                inject_ids = abcs.extract_inject_agent_ids(item.events)
                 if inject_ids:
-                    clear_player_memory_for_agents(self._agents, inject_ids)
+                    abcs.clear_player_memory_for_agents(self._agents, inject_ids)
                 if item.turn_context:
-                    notify_non_inject_active_agents(
+                    abcs.notify_non_inject_active_agents(
                         self._script_engine,
                         item.turn_context,
                         inject_ids,
@@ -433,7 +411,7 @@ class WorldLoopOrchestrator:
             queue_depth=int(self._queue.depth()),
             paused_at_tick=self._paused_at_tick,
             paused_at_iso=paused_iso,
-            tick_interval_sec=world_loop_tick_interval(),
+            tick_interval_sec=abcs.world_loop_tick_interval(),
         )
 
 

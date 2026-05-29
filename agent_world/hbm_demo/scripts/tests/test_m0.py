@@ -421,6 +421,34 @@ def test_m3_runner_modules() -> None:
     ok(f"IPC CommandType registry includes {len(registered)} HBM commands")
 
 
+def test_r3_runner_integration_bridge() -> None:
+    section("T1d-pre R3 core/runner/integration 桥接层")
+    integration_dir = HBM_DIR / "core" / "runner" / "integration"
+    for name in ("abcs.py", "virtual_player.py", "prompt_trace.py", "story_advance.py"):
+        if not (integration_dir / name).is_file():
+            raise TestFailure(f"missing core/runner/integration/{name}")
+        ok(f"integration/{name} present")
+
+    from agent_world.hbm_demo.core.runner.integration import abcs, prompt_trace, virtual_player
+
+    if not callable(abcs.pick_active_ids):
+        raise TestFailure("integration.abcs.pick_active_ids missing")
+    if not callable(virtual_player.apply_player_f2f_payload):
+        raise TestFailure("integration.virtual_player.apply_player_f2f_payload missing")
+    if prompt_trace.PromptTraceStore is None:
+        raise TestFailure("integration.prompt_trace.PromptTraceStore missing")
+    ok("integration modules export Runner hooks")
+
+    runner_dir = HBM_DIR / "core" / "runner"
+    forbidden = ("features.f07_", "features.f08_", "features.f15_", "features.f05_story")
+    for py in runner_dir.glob("*.py"):
+        src = py.read_text(encoding="utf-8")
+        for needle in forbidden:
+            if needle in src:
+                raise TestFailure(f"{py.name} still imports {needle} (use integration/)")
+    ok("core/runner/*.py use integration/ for F05/F07/F08/F15")
+
+
 def test_m4_http_modules() -> None:
     section("T1e M4 http/ 模块与 routes 入口 shim")
     import agent_world.hbm_demo.routes as root_routes
@@ -4217,6 +4245,7 @@ def main() -> int:
         test_m1_shared_modules,
         test_m2_game_service_shims,
         test_m3_runner_modules,
+        test_r3_runner_integration_bridge,
         test_m4_http_modules,
         test_f03_action_completion,
         test_m6_frontend_features,

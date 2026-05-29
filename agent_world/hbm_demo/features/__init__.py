@@ -21,6 +21,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
             "seed",
             "ipc_handlers",
             "broadcast_helper",
+            "integration",
         ],
     },
     "F01": {

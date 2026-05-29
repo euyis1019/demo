@@ -7,14 +7,13 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from agent_world.hbm_demo.core.runner.world_loop import WorldLoopOrchestrator
+from agent_world.hbm_demo.core.runner.integration import abcs
+from agent_world.hbm_demo.core.runner.integration import virtual_player
 from agent_world.hbm_demo.features.f01_session.world_reset import (
     purge_prompt_traces,
     reset_world_runtime,
 )
-from agent_world.hbm_demo.features.f07_agent_control.config import (
-    is_world_loop_enabled,
-    resolve_inject_tick_loops,
-)
+from agent_world.hbm_demo.core.runner.integration import abcs
 from agent_world.hbm_demo.shared.env_status import write_env_status
 from agent_world.ipc.commands import CommandType
 
@@ -47,24 +46,12 @@ def wire_handlers(
         """v1 fallback when world loop disabled."""
         start_tick = int(world_state.clock.t)
         from agent_world.hbm_demo.core.runner import broadcast_helper
-        from agent_world.hbm_demo.features.f07_agent_control.config import is_f07_enabled
-        from agent_world.hbm_demo.features.f07_agent_control.inject_batch import (
-            notify_non_inject_active_agents,
-        )
-        from agent_world.hbm_demo.features.f07_agent_control.turn_context import (
-            clear_player_memory_for_agents,
-            extract_inject_agent_ids,
-        )
         from agent_world.script.loader import ScriptLoader
 
         bc = payload.get("broadcast")
         player_f2f = payload.get("player_f2f")
         if player_f2f:
-            from agent_world.hbm_demo.features.f08_virtual_player.player_f2f import (
-                apply_player_f2f_payload,
-            )
-
-            await apply_player_f2f_payload(
+            await virtual_player.apply_player_f2f_payload(
                 world_db,
                 player_f2f,
                 t=int(world_state.clock.t),
@@ -85,16 +72,16 @@ def wire_handlers(
         turn_context = payload.get("turn_context") or {}
         if hasattr(world_step, "set_tick_context"):
             world_step.set_tick_context(
-                turn_context if is_f07_enabled() else None,
+                turn_context if abcs.is_f07_enabled() else None,
                 reset_l3_window=True,
             )
 
-        if events and is_f07_enabled():
-            inject_ids = extract_inject_agent_ids(events)
+        if events and abcs.is_f07_enabled():
+            inject_ids = abcs.extract_inject_agent_ids(events)
             if inject_ids:
-                clear_player_memory_for_agents(agents, inject_ids)
+                abcs.clear_player_memory_for_agents(agents, inject_ids)
             if turn_context:
-                notify_non_inject_active_agents(
+                abcs.notify_non_inject_active_agents(
                     script_engine,
                     turn_context,
                     inject_ids,
@@ -115,7 +102,7 @@ def wire_handlers(
                 )
 
         n = int(payload.get("tick_count", 6))
-        tick_loops = resolve_inject_tick_loops(n)
+        tick_loops = abcs.resolve_inject_tick_loops(n)
         try:
             for _ in range(tick_loops):
                 await world_step.run_one_tick()
@@ -136,7 +123,7 @@ def wire_handlers(
             "INJECT_SCRIPT_EVENT keys=%s tick=%s loop=%s",
             list(payload.keys()),
             get_current_tick(),
-            is_world_loop_enabled(),
+            abcs.is_world_loop_enabled(),
         )
         if orchestrator is not None and orchestrator.enabled:
             return orchestrator.enqueue_script_event(payload)

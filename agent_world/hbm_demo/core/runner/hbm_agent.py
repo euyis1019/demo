@@ -158,14 +158,12 @@ class HbmAgent(DemoAgent):
 
         trace_id: Optional[str] = None
         world_db = getattr(world, "world_db", None)
-        from agent_world.hbm_demo.features.f07_agent_control.config import (
-            is_world_loop_enabled,
-        )
-        from agent_world.hbm_demo.features.f15_prompt_trace.store import PromptTraceStore
+        from agent_world.hbm_demo.core.runner.integration import abcs
+        from agent_world.hbm_demo.core.runner.integration import prompt_trace
 
-        trace_store = PromptTraceStore(world_db) if world_db is not None else None
+        trace_store = prompt_trace.PromptTraceStore(world_db) if world_db is not None else None
         skip_idle_trace = (
-            is_world_loop_enabled()
+            abcs.is_world_loop_enabled()
             and turn_ctx.get("player_inject_tick") is None
         )
         if trace_store is not None and trace_store.enabled and not skip_idle_trace:
@@ -401,15 +399,13 @@ class HbmAgent(DemoAgent):
         ):
             from types import SimpleNamespace
 
-            from agent_world.hbm_demo.features.f07_agent_control.knowledge import (
-                build_agent_knowledge,
-            )
+            from agent_world.hbm_demo.core.runner.integration import abcs
 
             session = SimpleNamespace(
                 phase=phase,
                 player_turn=int(ctx.get("player_turn", 1)),
             )
-            opening_block = build_agent_knowledge(
+            opening_block = abcs.build_agent_knowledge(
                 session,
                 int(self.agent_id),
                 "",
@@ -420,11 +416,9 @@ class HbmAgent(DemoAgent):
 
         if world_db is not None:
             from agent_world.hbm_demo.features.f01_session.paths import get_name_map
-            from agent_world.hbm_demo.features.f07_agent_control.knowledge import (
-                build_thread_recap,
-            )
+            from agent_world.hbm_demo.core.runner.integration import abcs
 
-            recap = build_thread_recap(
+            recap = abcs.build_thread_recap(
                 int(self.agent_id),
                 int(t),
                 world_db,
@@ -433,11 +427,9 @@ class HbmAgent(DemoAgent):
             if recap:
                 prefix.append(recap)
 
-        from agent_world.hbm_demo.features.f07_agent_control.conversation_control import (
-            build_conversation_hints,
-        )
+        from agent_world.hbm_demo.core.runner.integration import abcs
 
-        hints = build_conversation_hints(int(self.agent_id), self, world, int(t))
+        hints = abcs.build_conversation_hints(int(self.agent_id), self, world, int(t))
         if hints:
             prefix.append(hints)
 
