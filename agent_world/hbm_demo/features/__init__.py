@@ -51,7 +51,13 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "剧情路由",
         "status": "implemented",
         "path": "features/f05_story_routing/",
-        "modules": ["routing"],
+        "modules": [
+            "routing",
+            "routing_config",
+            "agent_signals",
+            "story_signals",
+            "watcher",
+        ],
     },
     "F06": {
         "name": "只读世界模型",
@@ -81,7 +87,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "status": "implemented",
         "path": "features/f08_virtual_player/",
         "modules": ["player_entity", "player_f2f", "config", "phase_places"],
-        "phase": "dev_log/34 PR4",
+        "note": "编号 F08V 避免与 F08 HTTP 冲突；Phase R4 可选 rename → F17",
     },
     "F08": {
         "name": "HTTP 传输",
@@ -120,7 +126,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
     },
     "F12": {
         "name": "全量世界 UI 同步",
-        "status": "in_progress",
+        "status": "implemented",
         "path": "features/f12_world_sync/",
         "modules": [
             "delta",
@@ -129,7 +135,6 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
             "handler",
             "runner_bridge",
         ],
-        "phase": "Phase 3 — 四房间 WorldStage 前端（Flask API + web world-stage）",
     },
     "F13": {
         "name": "世界 loop 暂停/继续",

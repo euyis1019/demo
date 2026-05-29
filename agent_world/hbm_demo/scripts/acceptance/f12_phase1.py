@@ -180,7 +180,7 @@ def test_f12_registry() -> None:
     from agent_world.hbm_demo.features import FEATURE_REGISTRY
 
     f12 = FEATURE_REGISTRY.get("F12")
-    if not f12 or f12.get("status") != "in_progress":
+    if not f12 or f12.get("status") != "implemented":
         raise TestFailure(f"F12 registry wrong status: {f12}")
     if "f12_world_sync" not in str(f12.get("path", "")):
         raise TestFailure(f"F12 registry missing path: {f12}")

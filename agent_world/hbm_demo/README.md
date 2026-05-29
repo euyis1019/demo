@@ -2,7 +2,7 @@
 
 《HBM 显存价格保卫战》本地可玩 Demo：**Runner**（LLM Agent + 世界仿真）+ **Flask**（回合编排 + HTTP API）+ **React 前端**（双栏 UI：世界舞台 + 状态侧栏）。
 
-详细产品/剧情规范见仓库 `dev_docs/`；Feature 化架构见 [`dev_logs/26_HBM_Demo_Feature规划与代码结构重整方案.md`](../../dev_logs/26_HBM_Demo_Feature规划与代码结构重整方案.md)。
+详细产品/剧情规范见仓库 `dev_docs/`；Feature 化架构见 [`dev_logs/26`](../../dev_logs/26_HBM_Demo_Feature规划与代码结构重整方案.md)；结构重整见 [`dev_logs/38`](../../dev_logs/38_HBM_Demo_项目结构重整方案.md) 与 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
 
 ---
 
@@ -65,11 +65,11 @@ agent_world/hbm_demo/
 │
 ├── run_hbm.py             # 入口 shim → core/runner/run_hbm.py
 ├── routes.py              # 入口 shim → http/routes.py (hbm_bp)
-├── game_service.py        # 入口 shim → re-export features/f01–f04、f06
+├── game_service.py        # 入口 shim → re-export features（F01–F04、F06、F12–F15）
 │
 ├── shared/                # 跨 Feature 工具（配置加载、env_status、错误、超时）
 ├── core/runner/           # F00 平台 Runner（内核、Agent、IPC、tick）
-├── features/              # F01–F06 业务编排（见下表）
+├── features/              # F01–F16 业务编排（见下表）
 ├── http/                  # F08 HTTP 传输（Blueprint、health、IPC 客户端）
 │
 ├── web/                   # F09 前端（src/features/ 按屏拆分）
@@ -89,37 +89,47 @@ agent_world/hbm_demo/
 
 ---
 
-## Feature 说明（F00–F10）
+## Feature 说明（F00–F16）
 
 后端注册表：`features/__init__.py` → `FEATURE_REGISTRY`。  
 前端注册表：`web/src/features/index.ts`。
 
 | ID | 名称 | 目录 | 职责 |
 |----|------|------|------|
-| **F00** | 平台 Runner | `core/runner/` | `build_kernel` 装配世界；`HbmAgent` LLM 决策；`HbmWorldStep` 并行 tick；`ipc_handlers` 处理 INJECT/MOVE/RESET；`seed` 初始化场景 |
-| **F01** | 会话与重开 | `features/f01_session/` | `HbmSession`（stats/phase/turn/place）；Flask session CRUD；`reset_demo` + IPC `RESET_WORLD` |
-| **F02** | 玩家回合 API1 | `features/f02_player_turn/` | `handle_player_turn`：打分 → inject → IPC tick → F05 路由副作用；`PendingTask` 供 API2 轮询 |
-| **F03** | 动作结果 API2 | `features/f03_action_result/` | `get_action_result`：完成判定（F2F/RDC/GRP/tick 超时）；格式化中屏 F2F 与 Observer RDC/GRP |
-| **F04** | 数值与打分 | `features/f04_stats/` | LLM/heuristic 四维 Stats；`immediate_msg` 即时反应文案 |
-| **F05** | 剧情路由 | `features/f05_story_routing/` | Phase 节点 A/B/C/D；inject 目标；Turn 16 广播 + Sam；Turn 25 意图与结局 ID |
-| **F06** | 只读世界模型 | `features/f06_read_model/` | `ReadOnlyWorldDB`：Flask 侧只读 SQLite，查 F2F/RDC/GRP |
-| **F08** | HTTP 传输 | `http/` | `hbm_bp` 八个端点；`ipc_helper`；`health`；统一错误映射 502/503/504 |
+| **F00** | 平台 Runner | `core/runner/` | 仿真内核、Agent LLM、IPC、world loop |
+| **F01** | 会话与重开 | `features/f01_session/` | HbmSession、Flask session、RESET_WORLD |
+| **F02** | 玩家回合 API1 | `features/f02_player_turn/` | 打分 + inject + tick；PendingTask |
+| **F03** | 动作结果 API2 | `features/f03_action_result/` | 完成判定；world_loop 时委托 F14 |
+| **F04** | 数值与打分 | `features/f04_stats/` | Stats 四维打分、immediate_msg |
+| **F05** | 剧情路由 | `features/f05_story_routing/` | Phase 节点、RoutingWatcher、agent_driven |
+| **F06** | 只读世界模型 | `features/f06_read_model/` | ReadOnlyWorldDB |
+| **F07** | ABCS | `features/f07_agent_control/` | turn_control、选角、inject 窗口（运行时开启） |
+| **F08** | HTTP 传输 | `http/` | Blueprint、health、IPC 客户端 |
+| **F08V** | 虚拟玩家 | `features/f08_virtual_player/` | 虚拟玩家 F2F（编号避免与 F08 冲突） |
 | **F09** | 前端 UI | `web/src/features/` | 见下节 |
-| **F10** | 运维 | `scripts/` | `start_demo.sh`、`stop_demo.sh`、`test_m0_acceptance.py` |
+| **F10** | 运维 | `scripts/` | start/stop、验收测试 |
+| **F11** | 回合内增量 | `features/f11_live_turn_sync/` | 异步 inject、task_state |
+| **F12** | 世界 UI 同步 | `features/f12_world_sync/` | snapshot、delta、四房间格式化 |
+| **F13** | Loop 控制 | `features/f13_world_loop_control/` | pause/resume |
+| **F14** | 常驻 delta | `features/f14_world_delta/` | world-delta 轮询 + 路由扫描 |
+| **F15** | Prompt 追溯 | `features/f15_prompt_trace/` | trace DB + Inspector UI |
+| **F16** | WS 推送 | `features/f16_world_stream/` | WebSocket world-stream |
 
-### 前端子 Feature（F09a–h）
+### 前端子 Feature（F09 + F11–F16 映射）
 
 | ID | 目录 | 说明 |
 |----|------|------|
-| F09a | `features/boot/` | 启动屏、健康检查、Runner 503 弹窗 |
-| F09b | `features/game-loop/` | 双阶段回合（player-turn → poll world-delta）、Loading、env 状态 |
-| F09c | `features/layout/` | 双栏布局（`TwoColumnLayout`）、左侧 Stats / 进度 |
-| F09d | `features/main-chat/` | 玩家输入（`PlayerInput`） |
-| F09e | `features/world-stage/` | 四房间世界视图、Agent 线程、F2F/RDC 气泡 |
-| F09f | `features/endings/` | Bad End、Turn 25 结局、Phase 切换 Toast |
-| F09g | `features/shared/` | 共享 UI 组件（如 `MessageBubble`） |
-| F09h | `api/` | HTTP 客户端与类型 |
-| F09i | `store/` | `gameStore` reducer + Context |
+| F09a | `features/boot/` | 启动屏、健康检查、Runner 503 |
+| F09b | `features/game-loop/` | 回合循环；**含 F11/F13/F14/F16 前端逻辑** |
+| F09c | `features/layout/` | 双栏布局、StatusPanel |
+| F09d | `features/main-chat/` | 玩家输入（Phase R4 计划 rename → player-input） |
+| F09e | `features/world-stage/` | 四房间世界视图（F12） |
+| F09f | `features/endings/` | Bad End、Turn 25 结局 |
+| F09g | `features/shared/` | MessageBubble 等共享 UI |
+| F09h | `api/` | HTTP 客户端 |
+| F09i | `store/` | gameStore |
+| F15 | `features/prompt-trace/` | Prompt Inspector 弹窗 |
+| Story | `features/story-mode/` | 沉浸式剧情模式 |
 
 ---
 
@@ -148,7 +158,7 @@ agent_world/hbm_demo/
 
 剧情路由采用 **agent_driven** 模式（`features/f05_story_routing/routing.yaml`）：节点 A/B/C 由 Agent 对话信号触发，Stats 仅作 UI 展示。
 
-设计与演进记录见 [`dev_logs/24_HBM_Demo_Agent行为控制整合方案.md`](../../dev_logs/24_HBM_Demo_Agent行为控制整合方案.md)、[`dev_logs/37_HBM_Demo_代码重整与清理记录.md`](../../dev_logs/37_HBM_Demo_代码重整与清理记录.md)。
+设计与演进记录见 [`dev_logs/24`](../../dev_logs/24_HBM_Demo_Agent行为控制整合方案.md)、[`dev_logs/37`](../../dev_logs/37_HBM_Demo_代码重整与清理记录.md)、[`dev_logs/38`](../../dev_logs/38_HBM_Demo_项目结构重整方案.md)。
 
 ---
 
@@ -164,8 +174,12 @@ agent_world/hbm_demo/
 | GET | `health` | Runner + world.db 就绪探针 |
 | GET | `env-status` | Runner tick / status |
 | POST | `player-turn` | API 1 |
-| GET | `action-result?task_id=` | API 2 轮询 |
-| POST | `debug-inject` | 调试 inject（跳过完整游戏逻辑） |
+| GET | `action-result?task_id=` | API 2 轮询（world_loop 时同 world-delta） |
+| GET | `world-snapshot` | F12 全量世界快照 |
+| GET | `world-delta?since_tick=` | F14 增量同步 |
+| GET/POST | `world-loop/status|pause|resume` | F13 loop 控制 |
+| GET | `prompt-trace/*` | F15 Prompt Inspector |
+| POST | `debug-inject` | 调试 inject |
 
 ---
 
@@ -208,7 +222,8 @@ cd agent_world/hbm_demo/web && npm run dev
 | [`dev_logs/26`](../../dev_logs/26_HBM_Demo_Feature规划与代码结构重整方案.md) | Feature 规划与 M0–M7 迁移 |
 | [`dev_logs/22`](../../dev_logs/22_HBM_Demo目录结构与功能说明.md) | 历史目录说明（部分已过时，以本文为准） |
 | [`dev_logs/23`](../../dev_logs/23_HBM_Demo启动重置与运行指南.md) | 启动 / 重置 / 排错 |
-| [`dev_logs/24`](../../dev_logs/24_HBM_Demo_Agent行为控制整合方案.md) | ABCS 设计（待重建） |
+| [`dev_logs/38`](../../dev_logs/38_HBM_Demo_项目结构重整方案.md) | 结构重整方案（Phase R0–R5） |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | 四层架构一页纸 |
 | [`dev_logs/19`](../../dev_logs/19_HBM_Demo_25轮参考台词.md) | 25 轮试玩台词 |
 
 ---
@@ -216,5 +231,5 @@ cd agent_world/hbm_demo/web && npm run dev
 ## 维护说明
 
 - **不要**在根目录新增业务 `.py`；新能力放入对应 `features/fXX_*` 或 `core/runner/`。
-- Agent 行为边界：按 [`dev_logs/24`](../../dev_logs/24_HBM_Demo_Agent行为控制整合方案.md) 重建 ABCS 后再接入。
+- Agent 行为边界见 F07 `turn_control.yaml` 与 dev_logs/24、38。
 - 提交前运行 `python agent_world/hbm_demo/scripts/test_m0_acceptance.py` 与 `cd web && npm run build`。

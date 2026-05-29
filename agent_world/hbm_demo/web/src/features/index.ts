@@ -1,14 +1,24 @@
-/** F09 + F12 frontend feature registry — dev_logs/26 §4.3, dev_logs/32 §6. */
+/** F09 + F11–F16 frontend feature registry — dev_logs/26 §4.3, dev_logs/38 §R0 */
 
 export const FEATURE_REGISTRY = {
   F09a: { name: "启动与恢复", path: "features/boot/" },
-  F09b: { name: "主游戏循环", path: "features/game-loop/" },
+  F09b: {
+    name: "主游戏循环",
+    path: "features/game-loop/",
+    note: "含 F11/F13/F14/F16 前端 delta 同步与 loop 控制",
+  },
   F09c: { name: "两栏布局", path: "features/layout/" },
-  F09d: { name: "玩家输入", path: "features/main-chat/PlayerInput.tsx" },
+  F09d: { name: "玩家输入", path: "features/main-chat/" },
+  F09e: { name: "共享 UI", path: "features/shared/" },
   F09f: { name: "结局流", path: "features/endings/" },
   F09g: { name: "API 客户端", path: "api/" },
   F09h: { name: "全局状态", path: "store/" },
+  F11: { name: "回合内增量同步", path: "features/game-loop/" },
   F12: { name: "四房间世界视图", path: "features/world-stage/" },
+  F13: { name: "世界 loop 暂停/继续", path: "features/game-loop/" },
+  F14: { name: "常驻 world delta", path: "features/game-loop/" },
+  F15: { name: "Prompt Inspector", path: "features/prompt-trace/" },
+  F16: { name: "WebSocket delta 推送", path: "features/game-loop/" },
   Story: { name: "沉浸式剧情模式", path: "features/story-mode/" },
 } as const;
 

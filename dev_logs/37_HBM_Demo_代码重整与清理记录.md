@@ -115,7 +115,6 @@ cd agent_world/hbm_demo/web && npm run build
 
 ---
 
-## 七、后续可选（未做）
+## 七、后续：结构重整（见 dev_logs/38）
 
-- `test_m0_acceptance.py` 按 Feature 拆分为多文件
-- `check_turn4_bad_end()` 在 `agent_driven` 下可进一步内联为恒 False（需改 F02 测试）
+清理阶段已完成。项目结构重整的完整方案（含各 Feature 内部审计、外部规范参考、分 Phase 计划与目标文件树）见 **[`38_HBM_Demo_项目结构重整方案.md`](./38_HBM_Demo_项目结构重整方案.md)**。
