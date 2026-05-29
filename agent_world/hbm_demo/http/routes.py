@@ -59,22 +59,13 @@ def session_start(sim_id: str):
     env = read_env_status(gs.get_sim_dir()) or {}
 
     if is_runner_ready(gs.get_sim_dir()):
-        from agent_world.hbm_demo.features.f07_agent_control.config import (
-            is_world_loop_enabled,
-        )
+        from agent_world.hbm_demo.features.f13_world_loop_control import resume_if_paused
         from agent_world.hbm_demo.http.ipc_helper import get_ipc_client, push_session_mirror
 
         push_session_mirror(get_ipc_client(str(gs.get_sim_dir())), hbm)
-        if is_world_loop_enabled() and env.get("loop_state") == "paused":
-            from agent_world.hbm_demo.features.f13_world_loop_control.handler import (
-                resume_world_loop,
-            )
-
-            try:
-                resume_world_loop(sim_dir=gs.get_sim_dir())
-                env = read_env_status(gs.get_sim_dir()) or env
-            except Exception:  # noqa: BLE001
-                pass
+        refreshed_env = resume_if_paused(sim_dir=gs.get_sim_dir())
+        if refreshed_env is not None:
+            env = refreshed_env
 
     return jsonify(
         {

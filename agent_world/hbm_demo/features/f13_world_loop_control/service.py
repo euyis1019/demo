@@ -104,4 +104,30 @@ def resume_world_loop(*, sim_dir: Path | None = None) -> Dict[str, Any]:
     return status
 
 
-__all__ = ["get_world_loop_status", "pause_world_loop", "resume_world_loop"]
+def resume_if_paused(*, sim_dir: Path | None = None) -> Dict[str, Any] | None:
+    """Auto-unpause on a fresh session: if the resident loop is enabled and
+    currently paused, resume it. Returns refreshed env_status when a resume
+    happened, else None (no-op). Encapsulates the loop policy so L3
+    (session/start) stays a thin route.
+    """
+    from agent_world.hbm_demo.features.f01_session.paths import get_sim_dir
+
+    sim = sim_dir or get_sim_dir()
+    if not is_world_loop_enabled():
+        return None
+    env = read_env_status(sim) or {}
+    if env.get("loop_state") != "paused":
+        return None
+    try:
+        resume_world_loop(sim_dir=sim)
+    except Exception:  # noqa: BLE001
+        return None
+    return read_env_status(sim) or env
+
+
+__all__ = [
+    "get_world_loop_status",
+    "pause_world_loop",
+    "resume_world_loop",
+    "resume_if_paused",
+]
