@@ -121,6 +121,7 @@ function GameApp() {
       <>
         <BootScreen
           runnerReady={false}
+          checking
           message="正在检测 Runner 与数据库状态…"
           onRetryHealth={() => void retryHealth()}
         />
