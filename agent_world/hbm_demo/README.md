@@ -28,11 +28,13 @@ cp agent_world/hbm_demo/.env.example agent_world/hbm_demo/.env
 
 ```bash
 python agent_world/hbm_demo/scripts/test_m0_acceptance.py
+# 或
+./agent_world/hbm_demo/scripts/tests/run_tests.sh
 ```
 
 25 轮人工试玩台词（SAN 方案 · agent_driven + 虚拟玩家 F2F）：
 
-[`scripts/player_playthrough.md`](scripts/player_playthrough.md)
+[`scripts/docs/player_playthrough.md`](scripts/docs/player_playthrough.md)
 
 ---
 
@@ -73,7 +75,7 @@ agent_world/hbm_demo/
 ├── http/                  # F08 HTTP 传输（Blueprint、health、IPC 客户端）
 │
 ├── web/                   # F09 前端（src/features/ 按屏拆分）
-├── scripts/               # F10 启动、停止、验收测试
+├── scripts/               # F10 运维 + 验收（ops/、tests/、docs/）
 └── sim/hbm_memory_war/    # 运行时产物（gitignore）
 ```
 
@@ -107,7 +109,7 @@ agent_world/hbm_demo/
 | **F08** | HTTP 传输 | `http/` | Blueprint、health、IPC 客户端 |
 | **F08V** | 虚拟玩家 | `features/f08_virtual_player/` | 虚拟玩家 F2F（编号避免与 F08 冲突） |
 | **F09** | 前端 UI | `web/src/features/` | 见下节 |
-| **F10** | 运维 | `scripts/` | start/stop、验收测试 |
+| **F10** | 运维 | `scripts/ops/`、`scripts/tests/` | start/stop、验收测试 |
 | **F11** | 回合内增量 | `features/f11_live_turn_sync/` | 异步 inject、task_state |
 | **F12** | 世界 UI 同步 | `features/f12_world_sync/` | snapshot、delta、四房间格式化 |
 | **F13** | Loop 控制 | `features/f13_world_loop_control/` | pause/resume |

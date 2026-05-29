@@ -115,7 +115,9 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
     "F10": {
         "name": "运维与启动",
         "status": "implemented",
-        "path": "scripts/",
+        "path": "scripts/ops/",
+        "modules": ["start_demo", "stop_demo", "demo_ports"],
+        "tests": "scripts/tests/test_m0.py",
     },
     "F11": {
         "name": "回合内增量同步",

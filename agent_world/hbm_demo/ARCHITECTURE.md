@@ -32,7 +32,7 @@ shared/     跨层工具（config_loader, env_status, errors）
 | **F08** | **HTTP 传输** | `http/` |
 | **F08V** | **虚拟玩家**（非 F08） | `features/f08_virtual_player/` |
 | F09 | 前端 UI | `web/src/features/` |
-| F10 | 运维脚本 | `scripts/` |
+| F10 | 运维脚本 | `scripts/ops/`、`scripts/tests/` |
 | F11–F16 | 增量同步/世界视图/loop/delta/prompt/WS | `features/f11_*` … `f16_*` |
 
 ## 依赖规则（目标态）

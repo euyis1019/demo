@@ -5,8 +5,8 @@
 ## 启动
 
 ```bash
-cd agent_world/hbm_demo/scripts
-./start_demo.sh
+# 在仓库根目录
+./agent_world/hbm_demo/scripts/start_demo.sh
 ```
 
 浏览器打开 Flask 提示的地址（通常 `http://127.0.0.1:5001`）。每轮输入下方台词，**等待中屏 F2F 与右栏 Observer 更新后再发下一轮**。
