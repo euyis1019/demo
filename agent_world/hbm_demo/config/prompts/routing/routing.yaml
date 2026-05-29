@@ -42,24 +42,32 @@ routing:
       - 直接去谈判室
       - 方案可行
       - 认可
-    # Phase 4 成交关键词(仅匹配「已谈成」措辞,勿含「还是投你/自己拉队伍」这类菜单问句)
-    offer_join_keywords:
-      - 办入职
-      - 去办入职
+    # Phase 4 成交「宽泛预筛」词:Jensen 新台词命中任一才花一次 LLM 判定是否真成交。
+    # 故意宽泛(宁可多花一次 LLM 也别漏);是否真成交 + join/seed 由 LLM 裁定,
+    # 菜单/未接受会被 LLM 判为未成交,不会误结束。
+    phase4_deal_keywords:
+      - offer
+      - 合同
+      - 签字
       - 入职
-      - 高管群
-      - 进来当
-      - 欢迎加入
-      - 加入团队
-      - 加入 NVIDIA
-    offer_seed_keywords:
-      - 种子轮
-      - 这笔投资
-      - 投资敲定
-      - 独立融资
-      - 拉队伍创业
-      - 给你估值
-      - 投这一轮
+      - 加入
+      - 录用
+      - 入伙
+      - 高管
+      - 种子
+      - 融资
+      - 估值
+      - 投资
+      - 期权
+      - 股权
+      - 敲定
+      - 算定
+      - 同意
+      - 这么定
+      - 拍桌
+      - 收回
+      - Distinguished
+      - DE
     require_reception_escort_f2f: false
     max_turns_phase1_without_approve: 10
   story_advance:

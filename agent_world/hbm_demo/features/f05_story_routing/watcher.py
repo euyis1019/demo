@@ -14,6 +14,7 @@ from agent_world.hbm_demo.features.f05_story_routing.agent_signals import (
     detect_bad_end,
     detect_phase4_offer_ending,
     fetch_bad_end_public_messages,
+    phase4_deal_transcript,
 )
 from agent_world.hbm_demo.features.f05_story_routing.routing_config import is_agent_driven
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
@@ -132,11 +133,20 @@ def scan_routing_if_needed(
         log.info("routing watcher bad_end at tick=%s", tick)
         return dict(state["last_routing_info"])
 
-    # Phase 4 early-end: settle the finale the moment Jensen's offer concludes the
-    # deal (story_advance offer_*), instead of idling until the Turn-25 gate.
+    # Phase 4 early-end: settle the finale the moment the deal concludes instead
+    # of idling to the Turn-25 gate. Two paths: (1) precise story_advance offer_*
+    # signal; (2) when Jensen only *talks* the deal (he rarely calls the tool),
+    # a cheap broad keyword gate on NEW Jensen F2F triggers one LLM check that
+    # robustly decides "concluded? join/seed?" — beating brittle keyword lists.
     if hbm.phase == "Phase 4":
         offer_since = max(0, int(getattr(hbm, "start_tick", 0) or 0))
         early_ending = detect_phase4_offer_ending(db, since_t=offer_since, t_now=tick)
+        if not early_ending:
+            transcript = phase4_deal_transcript(
+                db, gate_since=last_scan, context_since=offer_since, t_now=tick
+            )
+            if transcript:
+                early_ending = routing.classify_phase4_conclusion(transcript)
         if early_ending:
             hbm.ending_id = early_ending
             save_session(flask_session, hbm, sim_id)

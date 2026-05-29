@@ -83,17 +83,16 @@ def return_to_negotiation_keywords() -> Tuple[str, ...]:
     )
 
 
-def offer_join_keywords() -> Tuple[str, ...]:
+def phase4_deal_keywords() -> Tuple[str, ...]:
+    """Broad pre-filter for Phase 4 deal talk — decides only whether to spend an
+    LLM conclusion check; intentionally generous (the LLM makes the real call)."""
     return _signal_list(
-        "offer_join_keywords",
-        ("办入职", "去办入职", "入职", "高管群", "进来当", "欢迎加入", "加入团队", "加入 NVIDIA"),
-    )
-
-
-def offer_seed_keywords() -> Tuple[str, ...]:
-    return _signal_list(
-        "offer_seed_keywords",
-        ("种子轮", "这笔投资", "投资敲定", "独立融资", "拉队伍创业", "给你估值", "投这一轮"),
+        "phase4_deal_keywords",
+        (
+            "offer", "合同", "签字", "入职", "加入", "录用", "入伙", "高管",
+            "种子", "融资", "估值", "投资", "期权", "股权", "敲定", "算定",
+            "同意", "这么定", "拍桌", "收回", "Distinguished", "DE",
+        ),
     )
 
 

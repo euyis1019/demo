@@ -1367,16 +1367,18 @@ def test_f07_c_agent_control() -> None:
 
 
 def test_f05_phase4_offer_early_end() -> None:
-    """F05 Phase-4 early end: offer_join/offer_seed story signal → ending id."""
+    """F05 Phase-4 early end: story_advance signal path + LLM-dialogue gate."""
     section("T-f05 Phase 4 offer 早结束(谈成即结束)")
     from agent_world.hbm_demo.features.f05_story_routing.agent_signals import (
         detect_phase4_offer_ending,
+        phase4_deal_transcript,
     )
 
     class FakeDB:
-        def __init__(self, *, signals=(), jensen_f2f=()) -> None:
+        def __init__(self, *, signals=(), f2f=()) -> None:
+            # signals: set of offer_* present; f2f: list of (sender_id, content)
             self._signals = set(signals)
-            self._f2f = list(jensen_f2f)
+            self._f2f = [(int(s), str(c)) for s, c in f2f]
 
         def fetch_story_advance_since(
             self, since_t, t_now, *, signal=None, agent_id=None
@@ -1384,33 +1386,42 @@ def test_f05_phase4_offer_early_end() -> None:
             return [{"signal": signal}] if signal in self._signals else []
 
         def fetch_f2f_from_sender_at(self, place_id, sender_id, t_now, since_t, **kw):
-            if int(sender_id) != 2:
-                return []
-            return [(1, 2, i, c) for i, c in enumerate(self._f2f)]
+            return [
+                (1, sid, i, c)
+                for i, (sid, c) in enumerate(self._f2f)
+                if sid == int(sender_id)
+            ]
 
-    def detect(**kw):
+        def fetch_f2f_history_at(self, place_id, t_now, since_t, **kw):
+            return [(1, sid, i, c) for i, (sid, c) in enumerate(self._f2f)]
+
+    # 1) precise story_advance signal path (offer_join precedence)
+    def sig(**kw):
         return detect_phase4_offer_ending(FakeDB(**kw), since_t=0, t_now=99)
 
-    # 1) structured story_advance signal path
-    if detect(signals={"offer_join"}) != "ending_join_nvidia":
+    if sig(signals={"offer_join"}) != "ending_join_nvidia":
         raise TestFailure("offer_join signal → ending_join_nvidia")
-    if detect(signals={"offer_seed"}) != "ending_seed_round":
+    if sig(signals={"offer_seed"}) != "ending_seed_round":
         raise TestFailure("offer_seed signal → ending_seed_round")
-    if detect(signals={"offer_join", "offer_seed"}) != "ending_join_nvidia":
+    if sig(signals={"offer_join", "offer_seed"}) != "ending_join_nvidia":
         raise TestFailure("offer_join takes precedence over offer_seed")
+    if sig() is not None:
+        raise TestFailure("no story_advance signal → no signal-path ending")
 
-    # 2) keyword fallback (Jensen concluded-deal F2F — the demo's real path)
-    if detect(jensen_f2f=["Tech VP，你带他去办入职，拉他进高管群"]) != "ending_join_nvidia":
-        raise TestFailure("Jensen 办入职/高管群 F2F → ending_join_nvidia")
-    if detect(jensen_f2f=["行，种子轮就这么定，这笔投资给你"]) != "ending_seed_round":
-        raise TestFailure("Jensen 种子轮 F2F → ending_seed_round")
+    # 2) dialogue gate: NEW Jensen deal talk → returns transcript (→ LLM); else None
+    def gate(f2f):
+        return phase4_deal_transcript(
+            FakeDB(f2f=f2f), gate_since=0, context_since=0, t_now=99
+        )
 
-    # 3) safety: the "join or seed?" menu must NOT end the game early
-    if detect(jensen_f2f=["是直接进 NVIDIA，还是我投你一笔钱你自己拉队伍干？"]) is not None:
-        raise TestFailure("offer menu question must not trigger early end")
-    if detect() is not None:
-        raise TestFailure("no signal & no concluded F2F → no early ending")
-    ok("Phase4 offer early-end: signal + 成交关键词触发,菜单问句不误触")
+    deal = gate([(0, "给我发 offer 让我加入吧"), (2, "行，offer 给你，这周合同到")])
+    if not deal or "Jensen" not in deal or "玩家" not in deal:
+        raise TestFailure(f"deal talk should yield a transcript, got {deal!r}")
+    if gate([(2, "今天天气不错，喝杯咖啡？")]) is not None:
+        raise TestFailure("non-deal Jensen F2F must not spend an LLM call")
+    if gate([]) is not None:
+        raise TestFailure("empty negotiation → no transcript")
+    ok("Phase4 early-end: 信号 join/seed/优先/None + 成交话术触发转录,闲聊不触发")
 
 
 def test_f07_d_agent_control() -> None:

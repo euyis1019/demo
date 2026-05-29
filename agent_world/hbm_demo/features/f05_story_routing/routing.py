@@ -281,6 +281,60 @@ def resolve_turn25_ending(
     return resolve_ending_id(intent, trust)
 
 
+def classify_phase4_conclusion(dialogue: str) -> Optional[str]:
+    """LLM judge for Phase 4 early-end: is the deal concluded yet?
+
+    Reads the negotiation-room transcript (Jensen + player) and decides whether
+    the player has clearly accepted one of Jensen's offers AND Jensen confirmed
+    it. Returns the matching ending id, or None when not yet concluded (still
+    presenting options / player hasn't accepted / still haggling). Robust to
+    phrasing where brittle keyword lists fail. On any LLM error returns None —
+    never ends the game on uncertainty (the Turn-25 gate is the fallback).
+    """
+    text = str(dialogue or "").strip()
+    if not text:
+        return None
+    scenario = load_scenario(DEFAULT_CONFIG)
+    llm_cfg = scenario.get("llm", {}) or {}
+    model = llm_cfg.get("model", "deepseek-chat")
+    system = (
+        "你是《HBM 显存价格保卫战》终局裁判。下面是 NVIDIA 终局谈判室里 "
+        "Jensen 与玩家的对话。判断双方是否【已经谈成】：玩家已明确接受 Jensen 给出的"
+        "某个 offer，且 Jensen 已确认成交（如给 offer/合同、说同意/敲定/这么定了）。"
+        "若 Jensen 还在介绍选项、玩家尚未明确接受、或还在还价犹豫 → 视为未谈成。"
+        "只输出 JSON：{\"concluded\": true|false, \"ending\": "
+        "\"join_nvidia\"|\"seed_round\"|\"none\"}。"
+        "join_nvidia=玩家加入 NVIDIA（入职/当员工）；"
+        "seed_round=玩家拿 NVIDIA 投资独立创业/种子轮。"
+    )
+    try:
+        resp = _llm_client().chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": text},
+            ],
+            temperature=0.1,
+            max_tokens=60,
+            **llm_request_extras(llm_cfg),
+        )
+        raw = (resp.choices[0].message.content or "").strip()
+        match = re.search(r"\{[\s\S]*\}", raw)
+        if match:
+            raw = match.group(0)
+        data = json.loads(raw)
+        if not bool(data.get("concluded")):
+            return None
+        ending = str(data.get("ending", "none")).strip().lower()
+        if ending == "join_nvidia":
+            return "ending_join_nvidia"
+        if ending == "seed_round":
+            return "ending_seed_round"
+    except Exception as exc:  # noqa: BLE001
+        log.warning("classify_phase4_conclusion LLM failed: %s", exc)
+    return None
+
+
 def apply_routing(
     session: Any,
     *,

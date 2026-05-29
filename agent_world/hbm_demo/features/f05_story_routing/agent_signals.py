@@ -10,8 +10,7 @@ from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
     expel_keywords,
     is_story_advance_enabled,
     max_turns_phase1_without_approve,
-    offer_join_keywords,
-    offer_seed_keywords,
+    phase4_deal_keywords,
     reject_keywords,
     require_reception_escort_f2f,
     return_to_negotiation_keywords,
@@ -164,41 +163,61 @@ def detect_node_c(db: Any, *, since_t: int, t_now: int) -> bool:
 
 
 def detect_phase4_offer_ending(db: Any, *, since_t: int, t_now: int) -> Optional[str]:
-    """Phase 4 early-end: Jensen concluded the deal → settle the finale now
-    instead of idling to the fixed Turn-25 gate.
-
-    Two paths, mirroring node A/B/C detection:
-    1. Structured story_advance offer_join / offer_seed signal (precise).
-    2. Jensen's negotiation-room F2F containing a *concluded-deal* keyword
-       (the demo's phases mostly advance on keyword detection — Jensen rarely
-       calls story_advance). Keyword sets deliberately exclude the "join or
-       seed?" menu phrasing so an in-progress offer never ends the game early.
-
-    offer_join takes precedence. Returns None while no deal is concluded.
-    """
-    if is_story_advance_enabled():
-        if has_story_signal(db, "offer_join", since_t=since_t, t_now=t_now):
-            return "ending_join_nvidia"
-        if has_story_signal(db, "offer_seed", since_t=since_t, t_now=t_now):
-            return "ending_seed_round"
-
-    if _jensen_f2f_matches(
-        db,
-        place_id=PLACE_NEGOTIATION,
-        since_t=since_t,
-        t_now=t_now,
-        keywords=offer_join_keywords(),
-    ):
+    """Phase 4 early-end via the precise story_advance offer_* signal (when Jensen
+    actually calls the tool). offer_join takes precedence. None otherwise — the
+    dialogue-based path (phase4_deal_transcript + LLM) covers the common case
+    where Jensen only *talks* the deal without emitting the signal."""
+    if not is_story_advance_enabled():
+        return None
+    if has_story_signal(db, "offer_join", since_t=since_t, t_now=t_now):
         return "ending_join_nvidia"
-    if _jensen_f2f_matches(
-        db,
-        place_id=PLACE_NEGOTIATION,
-        since_t=since_t,
-        t_now=t_now,
-        keywords=offer_seed_keywords(),
-    ):
+    if has_story_signal(db, "offer_seed", since_t=since_t, t_now=t_now):
         return "ending_seed_round"
     return None
+
+
+def phase4_deal_transcript(
+    db: Any,
+    *,
+    gate_since: int,
+    context_since: int,
+    t_now: int,
+    max_lines: int = 16,
+) -> Optional[str]:
+    """Return the recent negotiation-room transcript (Jensen + player) for the
+    LLM conclusion check — but only when Jensen has NEW deal-related F2F since
+    ``gate_since`` (a cheap broad keyword gate). Returns None to skip the LLM
+    call when there's no fresh deal talk, bounding LLM use to genuine offers.
+    """
+    if not _jensen_f2f_matches(
+        db,
+        place_id=PLACE_NEGOTIATION,
+        since_t=gate_since,
+        t_now=t_now,
+        keywords=phase4_deal_keywords(),
+    ):
+        return None
+    try:
+        history = db.fetch_f2f_history_at(
+            PLACE_NEGOTIATION, int(t_now), int(context_since), limit=200
+        )
+    except Exception:  # noqa: BLE001
+        return None
+    lines: List[str] = []
+    for _at_t, sender_id, _mid, content in history:
+        sid = int(sender_id)
+        if sid == 0:
+            who = "玩家"
+        elif sid == JENSEN_ID:
+            who = "Jensen"
+        else:
+            continue  # 1v1 finale — only player + Jensen matter
+        text = str(content or "").strip()
+        if text:
+            lines.append(f"{who}：{text}")
+    if not lines:
+        return None
+    return "\n".join(lines[-max_lines:])
 
 
 def detect_bad_end(session: Any, db: Any, *, t_now: int) -> bool:
