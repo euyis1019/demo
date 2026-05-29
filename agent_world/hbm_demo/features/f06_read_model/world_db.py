@@ -32,8 +32,13 @@ class ReadOnlyWorldDB:
         self.retries = retries
 
     def _connect(self) -> sqlite3.Connection:
+        if not self.db_path.is_file():
+            raise DatabaseReadError(
+                "world.db 不存在或未初始化；请重启 run_hbm（./agent_world/hbm_demo/scripts/start_demo.sh）"
+            )
         conn = sqlite3.connect(
-            str(self.db_path),
+            f"file:{self.db_path}?mode=ro",
+            uri=True,
             timeout=self.timeout,
             check_same_thread=False,
         )
@@ -51,12 +56,15 @@ class ReadOnlyWorldDB:
                     return fn(conn)
                 finally:
                     conn.close()
+            except DatabaseReadError:
+                raise
             except sqlite3.OperationalError as exc:
                 last_exc = exc
-                if "locked" not in str(exc).lower():
-                    raise
-                time.sleep(delay)
-                delay = min(delay * 2, 0.5)
+                if "locked" in str(exc).lower():
+                    time.sleep(delay)
+                    delay = min(delay * 2, 0.5)
+                    continue
+                raise DatabaseReadError(str(exc)) from exc
         if last_exc is not None:
             raise DatabaseReadError(str(last_exc)) from last_exc
         raise DatabaseReadError("database read failed")

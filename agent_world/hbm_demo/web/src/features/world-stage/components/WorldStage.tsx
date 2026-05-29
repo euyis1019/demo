@@ -17,7 +17,6 @@ export interface WorldStageProps {
   recentRdcLinks: RdcLink[];
   activeAgentModal: string | null;
   pendingWorldEvent: WorldEvent | null;
-  immediateMsg?: string;
   lastError?: string;
   inputSlot: ReactNode;
   onAgentClick: (agentId: string) => void;
@@ -37,7 +36,6 @@ export function WorldStage({
   recentRdcLinks,
   activeAgentModal,
   pendingWorldEvent,
-  immediateMsg,
   lastError,
   inputSlot,
   onAgentClick,
@@ -96,11 +94,6 @@ export function WorldStage({
 
   return (
     <div className="world-stage">
-      {immediateMsg ? (
-        <div className="world-stage__immediate" role="status">
-          {immediateMsg}
-        </div>
-      ) : null}
       {lastError ? (
         <p className="game-error world-stage__error" role="alert">
           {lastError}

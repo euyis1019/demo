@@ -165,6 +165,18 @@ if [[ "$runner_ready" -ne 1 ]]; then
   exit 1
 fi
 
+for _ in $(seq 1 30); do
+  if [[ -f "$HBM_SIM_DIR/world.db" && -f "$HBM_SIM_DIR/env_status.json" ]]; then
+    break
+  fi
+  sleep 0.5
+done
+if [[ ! -f "$HBM_SIM_DIR/world.db" ]]; then
+  echo "错误: Runner 已启动但 world.db 未生成，请查看 $RUN_DIR/runner.log" >&2
+  tail -20 "$RUN_DIR/runner.log" >&2 || true
+  exit 1
+fi
+
   echo "正在启动 Flask（端口 ${FLASK_PORT}）…"
   "$PYTHON" -m flask run --host 127.0.0.1 --port "$FLASK_PORT" --with-threads \
     >>"$RUN_DIR/flask.log" 2>&1 &

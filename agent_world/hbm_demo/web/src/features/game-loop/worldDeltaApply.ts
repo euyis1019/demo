@@ -61,9 +61,6 @@ export function applyWorldDeltaPayload(
 
   if (through > sinceTick || hasDeltaActivity(data)) {
     dispatch({ type: "APPLY_WORLD_DELTA", delta: data, nextSinceTick: nextSince });
-    if (hasDeltaActivity(data)) {
-      dispatch({ type: "SET_IMMEDIATE", message: undefined });
-    }
   } else if (nextSince > sinceTick) {
     dispatch({ type: "SET_DELTA_SINCE", nextSinceTick: nextSince });
   }

@@ -34,7 +34,6 @@ export interface GameState {
   healthError?: string;
   sessionInitialized: boolean;
   loading: boolean;
-  immediateMsg?: string;
   phaseToast?: string | null;
   stats: Stats;
   phase: string;
@@ -106,7 +105,6 @@ export type GameAction =
   | { type: "START_SESSION"; data: SessionStartData }
   | { type: "APPLY_SESSION"; data: SessionSnapshot }
   | { type: "SET_LOADING"; loading: boolean }
-  | { type: "SET_IMMEDIATE"; message?: string }
   | { type: "APPLY_PLAYER_TURN_PROCESSING"; stats: Stats; phase: string; playerTurn: number }
   | { type: "PUSH_PLAYER_BUBBLE"; message: GameMessage }
   | { type: "APPEND_TURN_DELTA"; delta: TurnDelta }
@@ -237,7 +235,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         worldLoopPausedAtTick: undefined,
         loading: false,
         ...resetWorldState(),
-        immediateMsg: undefined,
         phaseToast: null,
         endingId: undefined,
         lastError: undefined,
@@ -263,8 +260,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
     case "SET_LOADING":
       return { ...state, loading: action.loading };
-    case "SET_IMMEDIATE":
-      return { ...state, immediateMsg: action.message };
     case "APPLY_PLAYER_TURN_PROCESSING":
       return {
         ...state,
@@ -300,7 +295,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...withWorldDelta(state, action.data, action.data.through_tick),
         stats: { ...action.data.stats_update },
         ...phaseUpdate,
-        immediateMsg: undefined,
       };
     }
     case "SET_GAME_OVER":
@@ -318,7 +312,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ),
         view: "game_over",
         loading: false,
-        immediateMsg: undefined,
         stats: { ...action.data.stats_update },
         ...applyPhaseChange(state, action.data.current_phase),
       };
@@ -327,7 +320,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         view: "ending",
         loading: false,
-        immediateMsg: undefined,
         stats: { ...action.data.stats_update },
         ...applyPhaseChange(state, action.data.current_phase),
         endingId: action.data.ending_id,

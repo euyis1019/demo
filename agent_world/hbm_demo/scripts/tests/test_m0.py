@@ -22,6 +22,7 @@ VIRTUAL_PLAYER_PHASE_PLACES_YAML = (
     HBM_DIR / "config" / "prompts" / "virtual_player" / "phase_places.yaml"
 )
 SIM_DIR = HBM_DIR / "sim" / "hbm_memory_war"
+E2E_SIM_DIR = HBM_DIR / "sim" / "_m0_e2e"
 SIM_ID = "hbm_memory_war"
 BASE_PATH = f"/api/hbm/simulations/{SIM_ID}"
 
@@ -4070,7 +4071,7 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
 
     import sqlite3
 
-    db_path = SIM_DIR / "world.db"
+    db_path = E2E_SIM_DIR / "world.db"
     with sqlite3.connect(str(db_path)) as conn:
         trace_n = conn.execute("SELECT COUNT(*) FROM agent_llm_trace").fetchone()[0]
         msg_n = conn.execute("SELECT COUNT(*) FROM direct_message").fetchone()[0]
@@ -4086,7 +4087,7 @@ def test_e2e_stack(base: str, *, llm_key: bool = False) -> None:
         run_phase4_ipc_smoke,
     )
 
-    p4 = run_phase4_ipc_smoke(SIM_DIR, ipc_timeout=300.0)
+    p4 = run_phase4_ipc_smoke(E2E_SIM_DIR, ipc_timeout=300.0)
     if p4.inject_agent_ids != [2]:
         raise TestFailure(f"E6 Phase 4 inject must target Agent 2 only: {p4.inject_agent_ids}")
     if p4.jensen_f2f_count < 1:
@@ -4146,24 +4147,30 @@ def test_frontend_build() -> None:
     ok("npm run build succeeded")
 
 
+def _wipe_sim_runtime_artifacts(sim_dir: Path | None = None) -> None:
+    """Remove E2E runtime residue (never touch the user demo sim dir)."""
+    from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import (
+        clear_async_state,
+    )
+
+    target = sim_dir or E2E_SIM_DIR
+    target.mkdir(parents=True, exist_ok=True)
+    for stale in (target / "world.db", target / "env_status.json"):
+        if stale.exists():
+            stale.unlink()
+    clear_async_state(target)
+
+
 def start_stack() -> Tuple[subprocess.Popen[Any], subprocess.Popen[Any], str, bool]:
     stop = ROOT / "agent_world" / "hbm_demo" / "scripts" / "stop_demo.sh"
     subprocess.run(["bash", str(stop)], check=False, capture_output=True)
     time.sleep(1)
 
-    # Fresh world.db so action-result counts reflect this run only.
-    SIM_DIR.mkdir(parents=True, exist_ok=True)
-    from agent_world.hbm_demo.features.f11_live_turn_sync.task_state import (
-        clear_async_state,
-    )
-
-    for stale in (SIM_DIR / "world.db", SIM_DIR / "env_status.json"):
-        if stale.exists():
-            stale.unlink()
-    clear_async_state(SIM_DIR)
+    # Fresh world.db in isolated E2E sim dir (not hbm_memory_war demo path).
+    _wipe_sim_runtime_artifacts(E2E_SIM_DIR)
 
     env = apply_hbm_demo_env(os.environ.copy())
-    env["HBM_SIM_DIR"] = str(SIM_DIR)
+    env["HBM_SIM_DIR"] = str(E2E_SIM_DIR)
     env.setdefault("FLASK_RUN_PORT", "5050")
     flask_port = env["FLASK_RUN_PORT"]
     env["FLASK_APP"] = "agent_world.app:create_app"
@@ -4183,7 +4190,7 @@ def start_stack() -> Tuple[subprocess.Popen[Any], subprocess.Popen[Any], str, bo
             "--config",
             str(HBM_DIR / "hbm_scenario.yaml"),
             "--sim-dir",
-            str(SIM_DIR),
+            str(E2E_SIM_DIR),
             "--log-level",
             "WARNING",
         ],
@@ -4196,7 +4203,7 @@ def start_stack() -> Tuple[subprocess.Popen[Any], subprocess.Popen[Any], str, bo
     for _ in range(120):
         from agent_world.hbm_demo.shared.env_status import is_runner_ready
 
-        if is_runner_ready(str(SIM_DIR)):
+        if is_runner_ready(str(E2E_SIM_DIR)):
             break
         if runner.poll() is not None:
             raise TestFailure("Runner exited early; see scripts/.run/m0_runner.log")
@@ -4307,6 +4314,8 @@ def main() -> int:
     finally:
         if runner and flask:
             stop_stack(runner, flask)
+        # E2E uses _m0_e2e only; never wipe the user demo sim (hbm_memory_war).
+        _wipe_sim_runtime_artifacts(E2E_SIM_DIR)
 
     try:
         test_frontend_build()

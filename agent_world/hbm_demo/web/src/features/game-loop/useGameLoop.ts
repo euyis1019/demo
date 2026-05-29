@@ -175,8 +175,6 @@ export function useGameLoop() {
       });
       dispatch({ type: "SET_ERROR", message: undefined });
 
-      let keepImmediateMsg = false;
-
       try {
         if (state.worldLoopState === "paused") {
           await resumeWorldLoop();
@@ -199,14 +197,12 @@ export function useGameLoop() {
         }
 
         if (isAcceptedTurn(data)) {
-          dispatch({ type: "SET_IMMEDIATE", message: data.immediate_msg });
           dispatch({
             type: "APPLY_PLAYER_TURN_PROCESSING",
             stats: data.stats_update,
             phase: data.current_phase,
             playerTurn: data.player_turn,
           });
-          keepImmediateMsg = true;
           try {
             await syncWorldDeltaCatchUp(dispatch, deltaSinceRef.current);
           } catch (err) {
@@ -217,7 +213,6 @@ export function useGameLoop() {
 
         // Legacy F11 path when world loop disabled.
         const legacy = data as PlayerTurnProcessing;
-        dispatch({ type: "SET_IMMEDIATE", message: legacy.immediate_msg });
         dispatch({
           type: "APPLY_PLAYER_TURN_PROCESSING",
           stats: legacy.stats_update,
@@ -279,9 +274,6 @@ export function useGameLoop() {
         handleApiError(err, "本回合处理失败");
       } finally {
         setLoading(false);
-        if (!keepImmediateMsg) {
-          dispatch({ type: "SET_IMMEDIATE", message: undefined });
-        }
       }
     },
     [

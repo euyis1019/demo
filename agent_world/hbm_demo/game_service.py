@@ -41,11 +41,7 @@ from agent_world.hbm_demo.features.f03_action_result.completion import (
 )
 from agent_world.hbm_demo.features.f03_action_result.handler import get_action_result
 from agent_world.hbm_demo.features.f04_stats.deltas import apply_stat_deltas, initial_stats
-from agent_world.hbm_demo.features.f04_stats.scoring import (
-    IMMEDIATE_MSG_PLACEHOLDER,
-    generate_immediate_msg,
-    score_player_turn,
-)
+from agent_world.hbm_demo.features.f04_stats.scoring import score_player_turn
 from agent_world.hbm_demo.features.f06_read_model.world_db import (
     ReadOnlyWorldDB,
     SYSTEM_SENDER_NAME,
@@ -64,7 +60,6 @@ __all__ = [
     "SYSTEM_SENDER_NAME",
     "PHASE_RDC_PAIRS",
     "BAD_END_PUBLIC_MESSAGES",
-    "IMMEDIATE_MSG_PLACEHOLDER",
     "HbmSession",
     "PendingTask",
     "ReadOnlyWorldDB",
@@ -75,7 +70,6 @@ __all__ = [
     "effective_tick_for_task",
     "format_f2f_public_messages",
     "format_messages",
-    "generate_immediate_msg",
     "get_action_result",
     "get_name_map",
     "get_or_create_session",

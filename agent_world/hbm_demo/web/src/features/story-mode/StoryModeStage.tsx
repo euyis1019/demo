@@ -15,7 +15,6 @@ export interface StoryModeStageProps {
   roomF2f: Record<PlaceId, GameMessage[]>;
   nameMap: Record<string, string>;
   pendingWorldEvent: WorldEvent | null;
-  immediateMsg?: string;
   lastError?: string;
   inputSlot: ReactNode;
   worldLoopState?: import("../../api/types").WorldLoopState;
@@ -34,7 +33,6 @@ export function StoryModeStage({
   roomF2f,
   nameMap,
   pendingWorldEvent,
-  immediateMsg,
   lastError,
   inputSlot,
   worldLoopState,
@@ -79,12 +77,6 @@ export function StoryModeStage({
       ) : null}
 
       <div className="story-mode-stage__input">{inputSlot}</div>
-
-      {immediateMsg ? (
-        <div className="story-mode-stage__immediate" role="status">
-          {immediateMsg}
-        </div>
-      ) : null}
 
       <StorySubtitle line={dialogueLine} placeholder={subtitlePlaceholder} />
 

@@ -63,7 +63,6 @@ function GameApp() {
     healthError,
     sessionInitialized,
     loading,
-    immediateMsg,
     phaseToast,
     stats,
     phase,
@@ -187,7 +186,6 @@ function GameApp() {
           roomF2f={roomF2f}
           nameMap={nameMap}
           pendingWorldEvent={pendingWorldEvent}
-          immediateMsg={immediateMsg}
           lastError={lastError}
           inputSlot={storyModeInput}
           onToggleViewMode={toggleViewMode}
@@ -225,7 +223,6 @@ function GameApp() {
                 recentRdcLinks={recentRdcLinks}
                 activeAgentModal={activeAgentModal}
                 pendingWorldEvent={pendingWorldEvent}
-                immediateMsg={immediateMsg}
                 lastError={lastError}
                 onAgentClick={(agentId) =>
                   dispatch({ type: "OPEN_AGENT_MODAL", agentId })

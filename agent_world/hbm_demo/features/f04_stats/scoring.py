@@ -1,8 +1,7 @@
-"""F04 LLM scoring and immediate scene reaction."""
+"""F04 LLM scoring for player turn Stats deltas."""
 
 from __future__ import annotations
 
-import concurrent.futures
 import json
 import logging
 import re
@@ -13,11 +12,8 @@ from openai import OpenAI
 from agent_world.hbm_demo.features.f01_session.models import HbmSession
 from agent_world.hbm_demo.features.f01_session.paths import get_scenario
 from agent_world.hbm_demo.core.runner.kernel import llm_request_extras, resolve_api_key
-from agent_world.hbm_demo.shared.settings import IMMEDIATE_MSG_TIMEOUT
 
 log = logging.getLogger("agent_world.hbm_demo.game_service")
-
-IMMEDIATE_MSG_PLACEHOLDER = "前台接待员听完你的话，若有所思…"
 
 
 def _llm_client() -> OpenAI:
@@ -101,47 +97,3 @@ def score_player_turn(session: HbmSession, player_text: str) -> Dict[str, int]:
     except Exception as exc:  # noqa: BLE001
         log.warning("score_player_turn LLM failed, using heuristic: %s", exc)
         return _heuristic_stats(session, player_text)
-
-
-def _call_immediate_llm(session: HbmSession, player_text: str) -> str:
-    llm_cfg = get_scenario().get("llm", {}) or {}
-    model = llm_cfg.get("model", "deepseek-chat")
-    resp = _llm_client().chat.completions.create(
-        model=model,
-        messages=[
-            {
-                "role": "system",
-                "content": "用一句中文描写 NPC 听完玩家发言后的即时反应，20字以内。",
-            },
-            {
-                "role": "user",
-                "content": json.dumps(
-                    {
-                        "phase": session.phase,
-                        "place_id": session.place_id,
-                        "player_text": player_text,
-                    },
-                    ensure_ascii=False,
-                ),
-            },
-        ],
-        temperature=0.8,
-        max_tokens=60,
-        **llm_request_extras(llm_cfg),
-    )
-    text = (resp.choices[0].message.content or "").strip()
-    return text or IMMEDIATE_MSG_PLACEHOLDER
-
-
-def generate_immediate_msg(
-    session: HbmSession,
-    player_text: str,
-    *,
-    timeout: float = IMMEDIATE_MSG_TIMEOUT,
-) -> str:
-    try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            fut = pool.submit(_call_immediate_llm, session, player_text)
-            return fut.result(timeout=timeout)
-    except Exception:  # noqa: BLE001
-        return IMMEDIATE_MSG_PLACEHOLDER

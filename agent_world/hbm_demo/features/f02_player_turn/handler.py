@@ -26,11 +26,7 @@ from agent_world.hbm_demo.features.f02_player_turn.task import (
     save_task,
 )
 from agent_world.hbm_demo.features.f04_stats.deltas import apply_stat_deltas
-from agent_world.hbm_demo.features.f04_stats.scoring import (
-    IMMEDIATE_MSG_PLACEHOLDER,
-    generate_immediate_msg,
-    score_player_turn,
-)
+from agent_world.hbm_demo.features.f04_stats.scoring import score_player_turn
 from agent_world.hbm_demo.features.f05_story_routing import routing
 from agent_world.hbm_demo.features.f02_player_turn.turn_pipeline import (
     apply_routing_side_effects,
@@ -145,7 +141,6 @@ def _handle_sync_inject(
     sim_id: str,
     task_id: str,
     start_tick: int,
-    immediate_msg: str,
     events: list,
     broadcast: Optional[dict],
     turn_context: Optional[dict],
@@ -217,7 +212,6 @@ def _handle_sync_inject(
             "status": "completed",
             "ending_id": ending_id,
             "intent": intent,
-            "immediate_msg": immediate_msg,
             "stats_update": dict(hbm.stats),
             "current_phase": hbm.phase,
             "routing": routing_info,
@@ -246,7 +240,6 @@ def _handle_sync_inject(
 
     return {
         "task_id": task_id,
-        "immediate_msg": immediate_msg,
         "status": "processing",
         "stats_update": dict(hbm.stats),
         "current_phase": hbm.phase,
@@ -321,7 +314,6 @@ def _handle_v2_player_turn(
 
     return {
         "accepted": True,
-        "immediate_msg": IMMEDIATE_MSG_PLACEHOLDER,
         "stats_update": dict(hbm.stats),
         "current_phase": hbm.phase,
         "player_turn": hbm.player_turn,
@@ -393,7 +385,6 @@ def handle_player_turn(
                 "current_phase": hbm.phase,
             }
 
-        immediate_msg = generate_immediate_msg(hbm, player_text)
         events, broadcast, turn_context = build_inject_events(
             hbm, player_text, task_id=task_id
         )
@@ -408,7 +399,6 @@ def handle_player_turn(
             sim_id=sim_id,
             task_id=task_id,
             start_tick=start_tick,
-            immediate_msg=immediate_msg,
             events=events,
             broadcast=broadcast,
             turn_context=turn_context,
@@ -471,7 +461,6 @@ def handle_player_turn(
 
     return {
         "task_id": task_id,
-        "immediate_msg": IMMEDIATE_MSG_PLACEHOLDER,
         "status": "processing",
         "stats_update": dict(hbm.stats),
         "current_phase": hbm.phase,

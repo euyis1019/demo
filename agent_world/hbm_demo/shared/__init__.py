@@ -22,7 +22,6 @@ from agent_world.hbm_demo.shared.settings import (
     DEFAULT_IPC_TIMEOUT,
     DEFAULT_MOVE_TIMEOUT,
     DEFAULT_RESET_TIMEOUT,
-    IMMEDIATE_MSG_TIMEOUT,
 )
 
 __all__ = [
@@ -43,5 +42,4 @@ __all__ = [
     "DEFAULT_RESET_TIMEOUT",
     "DB_CONNECT_TIMEOUT",
     "DB_READ_RETRIES",
-    "IMMEDIATE_MSG_TIMEOUT",
 ]

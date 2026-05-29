@@ -183,7 +183,6 @@ export interface WorldLoopStatusData {
 export interface PlayerTurnProcessing {
   status: "processing";
   task_id: string;
-  immediate_msg: string;
   stats_update: Stats;
   current_phase: string;
   start_tick: number;
@@ -202,14 +201,12 @@ export interface PlayerTurnCompleted {
   status: "completed";
   ending_id: "ending_join_nvidia" | "ending_seed_round" | "ending_cold_deal";
   intent?: string;
-  immediate_msg?: string;
   stats_update: Stats;
   current_phase: string;
 }
 
 export interface PlayerTurnAccepted {
   accepted: true;
-  immediate_msg: string;
   stats_update: Stats;
   current_phase: string;
   player_turn: number;

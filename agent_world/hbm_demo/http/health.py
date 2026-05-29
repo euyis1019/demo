@@ -26,6 +26,8 @@ def check_stack_health(sim_dir: Path | None = None) -> Dict[str, Any]:
             world_db_readable = True
         except DatabaseReadError as exc:
             db_error = str(exc)
+        except Exception as exc:  # noqa: BLE001
+            db_error = str(exc)
 
     ready = runner_ready and world_db_readable
     return {
