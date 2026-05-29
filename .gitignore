@@ -48,3 +48,12 @@ world.db
 *.db
 *.sqlite3
 *.log
+
+# Claude Code / agent skill + plugin scaffolding (not part of the project)
+# Generated when installing/using skills & plugins (issue-tracker, triage,
+# grill-with-docs, etc.). Keep these out of the project repo.
+/CLAUDE.md
+/CONTEXT.md
+/docs/agents/
+/docs/adr/
+.claude/
