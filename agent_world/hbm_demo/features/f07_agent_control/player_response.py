@@ -180,7 +180,7 @@ def format_l6_player_directive(
 
 def inject_channel_uses_player_f2f(phase: str) -> bool:
     """Phase 2+ with F08: player text is in world.db F2F (sender=0), not inject verbatim."""
-    from agent_world.hbm_demo.features.f08_virtual_player.config import is_f08_enabled
+    from agent_world.hbm_demo.features.f17_virtual_player.config import is_f08_enabled
 
     if not is_f08_enabled():
         return False

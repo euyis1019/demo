@@ -299,7 +299,7 @@ def apply_routing(
 
     applied: Dict[str, Any] = {"nodes": []}
 
-    from agent_world.hbm_demo.features.f08_virtual_player.player_entity import (
+    from agent_world.hbm_demo.features.f17_virtual_player.player_entity import (
         sync_player_place_on_routing,
     )
 

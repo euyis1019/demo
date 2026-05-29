@@ -19,7 +19,7 @@ from agent_world.hbm_demo.features.f07_agent_control.conversation_control import
     primary_notify_ticks,
 )
 
-from agent_world.hbm_demo.features.f08_virtual_player.player_entity import (
+from agent_world.hbm_demo.features.f17_virtual_player.player_entity import (
     is_virtual_player_agent,
 )
 

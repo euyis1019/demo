@@ -1,4 +1,4 @@
-"""F08 — player-turn F2F rows (sender=agent 0)."""
+"""F17 — player-turn F2F rows (sender=agent 0, the virtual player)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from agent_world.hbm_demo.features.f05_story_routing.routing import (
     inject_agent_ids_for_phase,
 )
 
-log = logging.getLogger("agent_world.hbm_demo.f08.player_f2f")
+log = logging.getLogger("agent_world.hbm_demo.f17.player_f2f")
 
 _PHASE_RECIPIENT: Dict[str, int] = {
     "Phase 1": 1,

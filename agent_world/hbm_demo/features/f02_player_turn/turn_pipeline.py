@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from agent_world.hbm_demo.features.f01_session.models import HbmSession
 from agent_world.hbm_demo.features.f05_story_routing import routing
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
-from agent_world.hbm_demo.features.f08_virtual_player.player_f2f import (
+from agent_world.hbm_demo.features.f17_virtual_player.player_f2f import (
     build_player_f2f_payload,
 )
 from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop_enabled

@@ -34,7 +34,7 @@ from agent_world.hbm_demo.features.f02_player_turn.turn_pipeline import (
 )
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
 from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop_enabled
-from agent_world.hbm_demo.features.f08_virtual_player.player_f2f import (
+from agent_world.hbm_demo.features.f17_virtual_player.player_f2f import (
     build_player_f2f_payload,
 )
 from agent_world.hbm_demo.features.f11_live_turn_sync.handler import start_background_turn

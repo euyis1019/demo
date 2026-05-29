@@ -1,4 +1,4 @@
-"""F08 — agent 0 registration helpers and Phase-driven MOVE sync."""
+"""F17 — agent 0 (virtual player) registration helpers and Phase-driven MOVE sync."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from agent_world.hbm_demo.features.f17_virtual_player.config import (
     player_agent_id,
 )
 
-log = logging.getLogger("agent_world.hbm_demo.f08.player_entity")
+log = logging.getLogger("agent_world.hbm_demo.f17.player_entity")
 
 from agent_world.hbm_demo.shared.prompt_paths import virtual_player_phase_places_path
 
