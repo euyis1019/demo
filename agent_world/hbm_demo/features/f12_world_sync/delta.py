@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from agent_world.hbm_demo.features.f02_player_turn.task import PendingTask
-from agent_world.hbm_demo.features.f03_action_result.completion import format_messages
+from agent_world.hbm_demo.shared.messages import format_messages
 from agent_world.hbm_demo.features.f06_read_model.world_db import ReadOnlyWorldDB
 from agent_world.hbm_demo.features.f12_world_sync.constants import (
     HBM_AGENT_IDS,

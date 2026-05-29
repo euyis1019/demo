@@ -124,7 +124,7 @@ agent_world/hbm_demo/
 | F09a | `features/boot/` | 启动屏、健康检查、Runner 503 |
 | F09b | `features/game-loop/` | 回合循环；**含 F11/F13/F14/F16 前端逻辑** |
 | F09c | `features/layout/` | 双栏布局、StatusPanel |
-| F09d | `features/main-chat/` | 玩家输入（Phase R4 计划 rename → player-input） |
+| F09d | `features/player-input/` | 玩家输入（`PlayerInput`） |
 | F09e | `features/world-stage/` | 四房间世界视图（F12） |
 | F09f | `features/endings/` | Bad End、Turn 25 结局 |
 | F09g | `features/shared/` | MessageBubble 等共享 UI |

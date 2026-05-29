@@ -1,4 +1,4 @@
-/** F09 + F11–F16 frontend feature registry — dev_logs/26 §4.3, dev_logs/38 §R0 */
+/** F09 + F11–F16 frontend feature registry — dev_logs/26 §4.3, dev_logs/38 §R4 */
 
 export const FEATURE_REGISTRY = {
   F09a: { name: "启动与恢复", path: "features/boot/" },
@@ -8,7 +8,7 @@ export const FEATURE_REGISTRY = {
     note: "含 F11/F13/F14/F16 前端 delta 同步与 loop 控制",
   },
   F09c: { name: "两栏布局", path: "features/layout/" },
-  F09d: { name: "玩家输入", path: "features/main-chat/" },
+  F09d: { name: "玩家输入", path: "features/player-input/" },
   F09e: { name: "共享 UI", path: "features/shared/" },
   F09f: { name: "结局流", path: "features/endings/" },
   F09g: { name: "API 客户端", path: "api/" },
@@ -25,7 +25,7 @@ export const FEATURE_REGISTRY = {
 export * from "./boot";
 export * from "./game-loop";
 export * from "./layout";
-export * from "./main-chat";
+export * from "./player-input";
 export * from "./endings";
 export * from "./shared";
 export * from "./world-stage";

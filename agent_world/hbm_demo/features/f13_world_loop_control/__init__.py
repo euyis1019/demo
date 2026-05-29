@@ -1,6 +1,6 @@
 """F13 world loop pause/resume control."""
 
-from agent_world.hbm_demo.features.f13_world_loop_control.handler import (
+from agent_world.hbm_demo.features.f13_world_loop_control.service import (
     get_world_loop_status,
     pause_world_loop,
     resume_world_loop,

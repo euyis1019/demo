@@ -104,7 +104,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
             "boot",
             "game-loop",
             "layout",
-            "main-chat",
+            "player-input",
             "world-stage",
             "story-mode",
             "prompt-trace",
@@ -143,7 +143,7 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "name": "世界 loop 暂停/继续",
         "status": "implemented",
         "path": "features/f13_world_loop_control/",
-        "modules": ["handler"],
+        "modules": ["service", "handler"],
         "phase": "Phase 1b — pause/resume API + StatusPanel (dev_logs/31 §8.3)",
     },
     "F14": {

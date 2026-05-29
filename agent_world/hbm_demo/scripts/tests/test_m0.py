@@ -3009,7 +3009,7 @@ def test_m6_frontend_features() -> None:
         "boot",
         "game-loop",
         "layout",
-        "main-chat",
+        "player-input",
         "world-stage",
         "endings",
         "shared",

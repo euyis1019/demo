@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
-from agent_world.hbm_demo.features.f03_action_result.completion import (
+from agent_world.hbm_demo.shared.messages import (
     format_f2f_public_messages,
     format_messages,
 )
