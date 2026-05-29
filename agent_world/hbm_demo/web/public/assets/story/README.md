@@ -6,10 +6,10 @@
 
 | 文件名 | 地点 |
 |--------|------|
-| `nvidia_reception_bg.webp` | 英伟达接待前台 |
-| `jensen_private_room_bg.webp` | 黄仁勋私人会议室 |
-| `negotiation_room_bg.webp` | HBM 主谈判室 |
-| `openai_hq_bg.webp` | OpenAI 总部 |
+| `nvidia_reception_bg.webp` | 暗黑心理诊所候诊前台 |
+| `jensen_private_room_bg.webp` | Morgen 诊疗室 |
+| `negotiation_room_bg.webp` | 诅咒测评间 |
+| `openai_hq_bg.webp` | 记忆档案室 |
 
 也支持 `.png` / `.jpg`，实现阶段会按上表 basename 读取。
 

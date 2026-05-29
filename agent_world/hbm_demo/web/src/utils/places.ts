@@ -10,10 +10,10 @@ export const ROOM_GRID = [
 export type PlaceId = (typeof ROOM_GRID)[number];
 
 const PLACE_LABELS: Record<string, string> = {
-  nvidia_reception: "英伟达总部 · 接待前台",
-  jensen_private_room: "黄仁勋私人会议室",
-  negotiation_room: "HBM 主谈判室",
-  openai_hq: "OpenAI 硅谷总部",
+  nvidia_reception: "暗黑心理诊所 · 候诊前台",
+  jensen_private_room: "Morgen 诊疗室",
+  negotiation_room: "诅咒测评间",
+  openai_hq: "记忆档案室",
 };
 
 export function placeDisplayName(placeId: string): string {

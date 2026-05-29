@@ -1,4 +1,4 @@
-"""Phase routing nodes A/B/C/D and inject payload assembly for HBM demo."""
+"""Phase routing nodes A/B/C/D and inject payload assembly for dark SBTI clinic."""
 
 from __future__ import annotations
 
@@ -20,8 +20,8 @@ PLACE_JENSEN_ROOM = "jensen_private_room"
 PLACE_NEGOTIATION = "negotiation_room"
 
 JENSEN_ID = 2
-TECH_VP_ID = 3
-CEO_IDS = (4, 5, 6)
+CAT_ID = 3
+ANOMALY_IDS = (4, 5, 6)
 SAM_ID = 7
 
 PHASE_INJECT_AGENTS: Dict[str, List[int]] = {
@@ -32,22 +32,22 @@ PHASE_INJECT_AGENTS: Dict[str, List[int]] = {
 }
 
 POSITIVE_RDC_KEYWORDS: Tuple[str, ...] = (
-    "可行",
-    "核武器",
-    "理论上成立",
-    "理论上可行",
-    "成立",
+    "档案命中",
+    "记忆成立",
+    "可疑但好笑",
+    "测试完成",
+    "透明化预览",
 )
 
 TURN16_BROADCAST_MESSAGE = (
-    "彭博终端快讯：AMD 宣布下一代 MI400 将采用全新自研显存架构…"
+    "嗞——社死任务播报：请给最近联系人发送「你欠我五块钱」。"
 )
 TURN16_SAM_TEXT = (
-    "系统指令：OpenAI 对稀疏注意力算法极度感兴趣，"
-    "请立刻 RDC 私信 Jensen，暗示愿意高价截胡。"
+    "系统指令：你是玩家的最近联系人。请立刻 RDC 私信 Morgen，"
+    "提醒他：玩家是否敢发「你欠我五块钱」会影响完整版剧情。"
 )
 NODE_B_BEHAVIOR_HINT = (
-    "死一般的寂静，所有人都被 Jensen 带来的底牌震撼了…"
+    "死一般的安静，像刚发完朋友圈没人点赞。身份反转和透明化预览即将开始。"
 )
 
 
@@ -138,9 +138,9 @@ def build_inject_payload(
 
 
 def has_positive_tech_vp_rdc(db: Any, *, since_tick: int, t_now: int) -> bool:
-    """Node B: Tech VP(3)→Jensen(2) positive RDC since phase2_start_tick."""
+    """Node B: black cat(3)→Morgen(2) positive RDC since phase2_start_tick."""
     rows = db.fetch_rdc_messages(
-        sender_id=TECH_VP_ID,
+        sender_id=CAT_ID,
         recipient_id=JENSEN_ID,
         since_t=since_tick,
         t_now=t_now,
@@ -240,12 +240,12 @@ def _llm_client() -> OpenAI:
 
 def _heuristic_turn25_intent(player_text: str) -> str:
     text = player_text.lower()
-    join_kw = ("加入", "入职", "nvdia", "nvidia", "黄仁勋", "团队", "全职")
-    seed_kw = ("融资", "种子", "投资", "估值", "独立", "创业", "round")
+    join_kw = ("死者", "透明", "接受", "承认", "社交幽灵", "归档", "摆烂", "不回", "逃避")
+    seed_kw = ("吗喽", "反抗", "重测", "打电话", "会发", "发五块", "发5块", "勇敢", "整活")
     if any(k in player_text or k in text for k in join_kw):
-        return "join_nvidia"
+        return "dead_type"
     if any(k in player_text or k in text for k in seed_kw):
-        return "seed_round"
+        return "monkey_type"
     return "ambiguous"
 
 
@@ -255,9 +255,12 @@ def classify_turn25_intent(player_text: str) -> str:
     llm_cfg = scenario.get("llm", {}) or {}
     model = llm_cfg.get("model", "deepseek-chat")
     system = (
-        "你是《HBM 显存价格保卫战》结局裁判。"
-        "根据玩家最后一轮发言，判断其倾向。"
-        "只输出 JSON：{\"intent\": \"join_nvidia\"|\"seed_round\"|\"ambiguous\"}"
+        "你是《暗黑心理诊所》SBTI 结局裁判。"
+        "根据玩家最后一轮发言，判断其倾向："
+        "dead_type=接受自己是死者/社交幽灵/透明人/稳定逃避；"
+        "monkey_type=反抗诊断/选择吗喽式整活/愿意社死发消息；"
+        "ambiguous=嘴硬、回避、混乱或握草人倾向。"
+        "只输出 JSON：{\"intent\": \"dead_type\"|\"monkey_type\"|\"ambiguous\"}"
     )
     try:
         resp = _llm_client().chat.completions.create(
@@ -276,7 +279,7 @@ def classify_turn25_intent(player_text: str) -> str:
             raw = match.group(0)
         data = json.loads(raw)
         intent = str(data.get("intent", "ambiguous")).strip().lower()
-        if intent in ("join_nvidia", "seed_round", "ambiguous"):
+        if intent in ("dead_type", "monkey_type", "ambiguous"):
             return intent
     except Exception as exc:  # noqa: BLE001
         log.warning("classify_turn25_intent LLM failed, heuristic: %s", exc)
@@ -284,11 +287,12 @@ def classify_turn25_intent(player_text: str) -> str:
 
 
 def resolve_ending_id(intent: str, trust: int) -> str:
-    if intent == "join_nvidia" and trust >= 25:
-        return "ending_join_nvidia"
-    if intent == "seed_round" and trust >= 15:
-        return "ending_seed_round"
-    return "ending_cold_deal"
+    del trust
+    if intent == "dead_type":
+        return "ending_dead_type"
+    if intent == "monkey_type":
+        return "ending_monkey_type"
+    return "ending_scarecrow_type"
 
 
 def resolve_turn25_ending(
@@ -308,10 +312,10 @@ def resolve_turn25_ending(
     )
 
     if is_story_advance_enabled():
-        if has_story_signal(db, "offer_join", since_t=since_t, t_now=t_now):
-            return "ending_join_nvidia"
-        if has_story_signal(db, "offer_seed", since_t=since_t, t_now=t_now):
-            return "ending_seed_round"
+        if has_story_signal(db, "ending_dead", since_t=since_t, t_now=t_now):
+            return "ending_dead_type"
+        if has_story_signal(db, "ending_monkey", since_t=since_t, t_now=t_now):
+            return "ending_monkey_type"
     return resolve_ending_id(intent, trust)
 
 
@@ -357,7 +361,7 @@ def apply_routing(
         applied["place_id"] = session.place_id
         applied["phase2_start_tick"] = current_tick
         log.info(
-            "routing node A: Jensen→%s phase2_start_tick=%s",
+            "routing node A: Morgen→%s phase2_start_tick=%s",
             PLACE_JENSEN_ROOM,
             current_tick,
         )
@@ -396,13 +400,13 @@ def apply_routing(
         applied["phase"] = session.phase
         applied["place_id"] = session.place_id
         applied["place_mutation"] = True
-        log.info("routing node B: Jensen→%s + PlaceMutation", PLACE_NEGOTIATION)
+        log.info("routing node B: Morgen→%s + PlaceMutation", PLACE_NEGOTIATION)
 
     if node_c_applies(session, db=db, current_tick=current_tick):
-        for ceo_id in CEO_IDS:
+        for anomaly_id in ANOMALY_IDS:
             send_move_agent(
                 ipc_client,
-                agent_id=ceo_id,
+                agent_id=anomaly_id,
                 place_id=PLACE_RECEPTION,
                 timeout=ipc_timeout,
             )
@@ -416,6 +420,6 @@ def apply_routing(
         applied["nodes"].append("C")
         applied["phase"] = session.phase
         applied["place_id"] = session.place_id
-        log.info("routing node C: CEOs 4/5/6→%s", PLACE_RECEPTION)
+        log.info("routing node C: anomaly agents 4/5/6→%s", PLACE_RECEPTION)
 
     return applied

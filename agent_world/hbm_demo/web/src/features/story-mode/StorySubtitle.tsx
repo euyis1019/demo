@@ -1,21 +1,49 @@
 import { PLAYER_AGENT_ID } from "../../constants/agents";
-import { ChromaKeyAvatar } from "./ChromaKeyAvatar";
 import type { StoryDialogueLine } from "./useStoryDialogue";
 
 export interface StorySubtitleProps {
   line: StoryDialogueLine | null;
   placeholder?: string;
+  pendingCount?: number;
+  onAdvance?: () => void;
 }
 
-/** Bottom ADV strip — agent avatar left, player avatar right, centered dialogue. */
+/** Bottom ADV strip with large galgame-style portrait and click-to-advance queue. */
 export function StorySubtitle({
   line,
   placeholder = "……",
+  pendingCount = 0,
+  onAdvance,
 }: StorySubtitleProps) {
   const isPlayer = line?.speakerId === PLAYER_AGENT_ID;
+  const hasNext = pendingCount > 0;
 
   return (
-    <footer className="story-subtitle" aria-live="polite">
+    <footer
+      className={[
+        "story-subtitle",
+        hasNext ? "story-subtitle--has-next" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      aria-live="polite"
+      onClick={() => {
+        if (hasNext) {
+          onAdvance?.();
+        }
+      }}
+    >
+      {line ? (
+        <img
+          src={line.portraitUrl}
+          className={[
+            "story-portrait",
+            isPlayer ? "story-portrait--player" : "story-portrait--agent",
+            `story-portrait--pose-${line.pose}`,
+          ].join(" ")}
+          alt={line.speakerName}
+        />
+      ) : null}
       <div
         className={[
           "story-subtitle__inner",
@@ -30,24 +58,13 @@ export function StorySubtitle({
       >
         {line ? (
           <>
-            <div className="story-subtitle__slot story-subtitle__slot--left">
-              {!isPlayer ? (
-                <ChromaKeyAvatar
-                  src={line.avatarUrl}
-                  className="story-subtitle__avatar"
-                />
-              ) : null}
-            </div>
             <div className="story-subtitle__text-block">
               <p className="story-subtitle__name">{line.speakerName}</p>
               <p className="story-subtitle__content">{line.message.content}</p>
-            </div>
-            <div className="story-subtitle__slot story-subtitle__slot--right">
-              {isPlayer ? (
-                <ChromaKeyAvatar
-                  src={line.avatarUrl}
-                  className="story-subtitle__avatar"
-                />
+              {hasNext ? (
+                <p className="story-subtitle__next">
+                  点击查看下一条 · {pendingCount}
+                </p>
               ) : null}
             </div>
           </>

@@ -1,18 +1,12 @@
 phase: "Phase 3"
 world_state: |
-  玩家、Jensen、Tech VP、三位 CEO 齐聚 negotiation_room。前台 Agent 1 冻结。
-  Sam 在 openai_hq；Turn 16 起 Sam 可 RDC 搅局。玩家 inject 批次进入 Agent 2–6 memory。
-  NVIDIA 阵营（2、3）应帮玩家圆场；CEO 4/5/6 轮番攻击玩家压价。
+  玩家进入诅咒测评间。Morgen、黑猫、收音机、倒计时钟、SUBJECT-0 同场。
+  最近联系人 Turn 16 后远程介入。
 scene_atmosphere: |
-  谈判室火药味拉满——节点 B 后可能已突变「死一般的寂静」又被舌战打破。
-  Turn 16 彭博 AMD 快讯广播后 Samsung 可能背刺盟友。群聊 group 100/200 活跃。
+  墙上贴满 SBTI 分类和实验体照片。安静得像刚发完朋友圈没人点赞。
 plot_beats: |
-  Jensen 霸气开场并可在 NVIDIA 高管群协调 Tech VP 支援玩家；CEO 在 HBM 联盟群密谋。
-  Turn 16：系统广播 + Sam inject 搅局。Samsung 可 relation_change 背刺 SK Hynix。
-  **节点 C（Agent 驱动，非 Stats）**：Jensen F2F/RDC 驱逐 CEO（请离场/谈完了）**或** story_advance(expel_ceos)
-  → F05 将 CEO 4/5/6 IPC MOVE 至前台，进 Phase 4；玩家与 Jensen 留 negotiation_room。
-  发言可略长但必须用大白话引用玩家 batch inject 中的观点或数字。
+  Morgen 身份反转：玩家不是来访者，而是上一批实验体。
+  展示 SUBJECT-0 照片和透明化预览。收音机播报「你欠我五块钱」社死任务。
+  节点 C：Morgen 让收音机、倒计时钟、SUBJECT-0 退到候诊区，或 story_advance(expel_ceos)，进入 Phase 4。
 forbidden_actions: |
-  节点 C 前 CEO 禁止 MOVE。Sam Turn<16 冻结。禁止 NVIDIA 阵营帮 CEO 攻击玩家。
-  禁止脱离玩家议题自说自话；Jensen/VP 须用大白话引用玩家刚才的观点帮圆场。
-  收到他人 RDC 私信须 send_message 回复（1–3 句），优先于 do_nothing。
+  禁止解释底层机制。禁止脱离玩家选择自说自话。每次发言都尽量回收玩家过往选择。

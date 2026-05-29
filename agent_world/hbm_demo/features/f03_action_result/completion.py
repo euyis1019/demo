@@ -24,6 +24,7 @@ from agent_world.hbm_demo.features.f06_read_model.world_db import (
     ReadOnlyWorldDB,
     sender_display_name,
 )
+from agent_world.hbm_demo.features.f12_world_sync.display_metadata import enrich_message_item
 
 PHASE_RDC_PAIRS: Dict[str, List[Tuple[int, int]]] = {
     "Phase 1": [(1, 2)],
@@ -100,7 +101,7 @@ def _f07_phase4_complete(
     current_tick: int,
     db: ReadOnlyWorldDB,
 ) -> bool:
-    """§13.5 — Phase 4 completes on Jensen negotiation F2F or timeout."""
+    """§13.5 — Phase 4 completes on Morgen diagnosis F2F or timeout."""
     place = task.place_id or NEGOTIATION_PLACE
     if db.has_npc_f2f_after(place, start, current_tick, npc_sender_ids={2}):
         return True
@@ -188,7 +189,7 @@ def format_messages(
             item["delivered"] = int(row["delivered"])
         if row["sender_id"] is not None and int(row["sender_id"]) == -1:
             item["is_system"] = True
-        out.append(item)
+        out.append(enrich_message_item(item))
     return out
 
 
@@ -197,13 +198,13 @@ def format_f2f_public_messages(
     name_map: Dict[int, str],
 ) -> List[Dict[str, Any]]:
     return [
-        {
+        enrich_message_item({
             "sender": sender_display_name(sender_id, name_map),
             "content": content,
             "type": "F2F",
             "attempted_at": at_t,
             "sender_id": int(sender_id),
-        }
+        })
         for at_t, sender_id, _mid, content in history
         if at_t > 0
     ]

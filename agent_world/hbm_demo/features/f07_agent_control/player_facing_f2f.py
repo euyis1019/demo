@@ -1,4 +1,4 @@
-"""F07-E0 — player-visible F2F rows (HBM-only; player is not an engine Agent)."""
+"""F07-E0 — player-visible F2F rows (player is not an engine Agent)."""
 
 from __future__ import annotations
 

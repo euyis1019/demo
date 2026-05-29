@@ -1,4 +1,4 @@
-/** HBM demo API constants — aligned with backend `game_service.DEFAULT_SIM_ID`. */
+/** Demo API constants — aligned with backend `game_service.DEFAULT_SIM_ID`. */
 
 export const SIM_ID = "hbm_memory_war";
 

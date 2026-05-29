@@ -10,6 +10,9 @@ from agent_world.hbm_demo.features.f03_action_result.completion import (
     format_messages,
 )
 from agent_world.hbm_demo.features.f06_read_model.world_db import sender_display_name
+from agent_world.hbm_demo.features.f12_world_sync.display_metadata import (
+    enrich_message_item,
+)
 from agent_world.hbm_demo.features.f12_world_sync.constants import (
     PLACE_MUTATION_HINT,
     ROUTING_WORLD_EVENT_CONTENT,
@@ -31,13 +34,13 @@ def format_f2f_history_with_ids(
         if at_t <= 0:
             continue
         out.append(
-            {
+            enrich_message_item({
                 "sender": sender_display_name(sender_id, name_map),
                 "content": str(content),
                 "type": "F2F",
                 "attempted_at": int(at_t),
                 "sender_id": int(sender_id),
-            }
+            })
         )
     return out
 

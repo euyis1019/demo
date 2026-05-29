@@ -1,17 +1,17 @@
-/** HBM demo agent roster — aligned with scenario name_map. */
+/** Dark SBTI clinic agent roster — aligned with scenario name_map. */
 
 export const HBM_AGENT_IDS = [1, 2, 3, 4, 5, 6, 7] as const;
 
 export type HbmAgentId = (typeof HBM_AGENT_IDS)[number];
 
 export const AGENT_DISPLAY_NAMES: Record<number, string> = {
-  1: "接待前台",
-  2: "Jensen",
-  3: "Tech VP",
-  4: "AMD CEO",
-  5: "Intel CEO",
-  6: "Samsung CEO",
-  7: "Sam Altman",
+  1: "诊所前台",
+  2: "Dr. Morgen",
+  3: "黑猫",
+  4: "老式收音机",
+  5: "倒计时钟",
+  6: "SUBJECT-0",
+  7: "最近联系人",
 };
 
 export const PLAYER_AGENT_ID = "player";
@@ -24,7 +24,7 @@ export function agentDisplayName(
   nameMap?: Record<string, string>,
 ): string {
   if (String(agentId) === PLAYER_AGENT_ID) {
-    return "玩家";
+    return "你";
   }
   const key = String(agentId);
   if (nameMap?.[key]) {

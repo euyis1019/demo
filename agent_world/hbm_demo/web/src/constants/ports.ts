@@ -1,4 +1,4 @@
-/** HBM Demo 专用端口 — 与 scripts/demo_ports.sh 保持一致。 */
+/** Demo 专用端口 — 与 scripts/demo_ports.sh 保持一致。 */
 
 /** Flask API（避开 macOS AirPlay 占用的 5000）。 */
 export const HBM_DEMO_FLASK_PORT = 5050;

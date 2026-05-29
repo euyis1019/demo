@@ -50,7 +50,7 @@ def _signal_list(key: str, default: Tuple[str, ...]) -> Tuple[str, ...]:
 def approve_keywords() -> Tuple[str, ...]:
     return _signal_list(
         "approve_keywords",
-        ("私人会议室", "私密会议室", "可以见", "带进来", "批准", "这边请", "请跟我来"),
+        ("Morgen医生等你", "诊疗室", "可以测", "可以见", "带他进来", "批准", "这边请", "请跟我来"),
     )
 
 
@@ -69,7 +69,7 @@ def escort_keywords() -> Tuple[str, ...]:
 def return_to_negotiation_keywords() -> Tuple[str, ...]:
     return _signal_list(
         "return_to_negotiation_keywords",
-        ("回谈判室", "回到谈判", "回主谈判", "进去谈", "方案可行", "认可"),
+        ("去测评间", "诅咒测评间", "透明化预览", "记忆成立", "档案命中", "测试完成"),
     )
 
 

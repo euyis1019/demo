@@ -1,26 +1,26 @@
 export type EndingId =
-  | "ending_join_nvidia"
-  | "ending_seed_round"
-  | "ending_cold_deal";
+  | "ending_dead_type"
+  | "ending_monkey_type"
+  | "ending_scarecrow_type";
 
 const ENDING_COPY: Record<
   EndingId,
   { title: string; description: string; badge: string }
 > = {
-  ending_join_nvidia: {
+  ending_dead_type: {
     badge: "结局 A",
-    title: "加入 NVIDIA",
-    description: "Jensen 向你伸出手：「Welcome to the NVIDIA family.」",
+    title: "死者型 · 社交幽灵认证",
+    description: "Morgen 合上小本本：「你不是不合群，你只是提前进入省电模式。」",
   },
-  ending_seed_round: {
+  ending_monkey_type: {
     badge: "结局 B",
-    title: "独立融资",
-    description: "你保留算法主权，拿到一笔可观的 seed round。",
+    title: "吗喽型 · 间歇性勇敢",
+    description: "收音机嗞了一声：「恭喜，你敢发五块钱，但不敢回在吗。」",
   },
-  ending_cold_deal: {
+  ending_scarecrow_type: {
     badge: "结局 C",
-    title: "冷处理协议",
-    description: "信任不足，双方签下一纸冷冰冰的有限合作备忘录。",
+    title: "握草人型 · 嘴硬归档",
+    description: "黑猫翻了个白眼：「你的人格不是复杂，是还没加载完。」",
   },
 };
 

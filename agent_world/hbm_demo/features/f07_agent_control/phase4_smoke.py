@@ -62,7 +62,7 @@ def run_phase4_ipc_smoke(
     player_text: str = "我接受加入团队，但我们先谈股权结构和期权池。",
     ipc_timeout: float = 120.0,
 ) -> Phase4SmokeResult:
-    """Reset world, MOVE CEOs out, inject Phase 4 Turn 21, read negotiation_room F2F."""
+    """Reset world, move anomaly agents out, inject Phase 4 Turn 21, read assessment-room F2F."""
     sim_path = Path(sim_dir).resolve()
     client = get_ipc_client(str(sim_path))
 

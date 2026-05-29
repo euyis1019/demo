@@ -47,7 +47,7 @@ def notify_jensen_player_summary(
     turn_context: Dict[str, Any],
     player_text: str,
 ) -> None:
-    """E3 — scripted Turn summary for Jensen (Phase 1 only, dev_logs/29 §3.3.2)."""
+    """E3 — scripted Turn summary for Morgen (Phase 1 only, dev_logs/29 §3.3.2)."""
     from agent_world.hbm_demo.features.f07_agent_control.config import (
         is_experience_hardening,
     )
@@ -61,7 +61,7 @@ def notify_jensen_player_summary(
         return
     snippet = (
         f"【本 Turn 前台访客原话摘要】玩家说：「{text}」\n"
-        "请基于此句决定是否 RDC Tech VP；勿臆造未提及的情报（如三星 roadmap）。"
+        "请基于此句决定是否让黑猫记档；勿臆造未提及的选择或诊断。"
     )
     if hasattr(script_engine, "notify_agent"):
         script_engine.notify_agent(2, snippet)

@@ -1,31 +1,24 @@
-"""F07 L6 — player-centric response constraint templates."""
+"""F07 L6 — player-centric response constraint templates for the SBTI clinic."""
 
 from __future__ import annotations
 
 from typing import Optional
 
-from agent_world.hbm_demo.features.f07_agent_control.config import (
-    is_experience_hardening,
-)
-
 _AGENT_NAMES = {
-    1: "接待前台",
-    2: "Jensen Hwang",
-    3: "Tech VP",
-    4: "SK Hynix CEO",
-    5: "Micron CEO",
-    6: "Samsung CEO",
-    7: "Sam Altman",
+    1: "诊所前台",
+    2: "Dr. Morgen",
+    3: "黑猫",
+    4: "老式收音机",
+    5: "倒计时钟",
+    6: "SUBJECT-0",
+    7: "最近联系人",
 }
-
-_NVIDIA_IDS = {2, 3}
-_CEO_IDS = {4, 5, 6}
 
 _PHASE_OUTPUT_HINTS = {
     "Phase 1": "1–3 句口语",
-    "Phase 2": "2–4 句口语",
-    "Phase 3": "2–5 句，可略长但须引用玩家观点",
-    "Phase 4": "1–3 句，一句一句来",
+    "Phase 2": "1–3 句，必须回收玩家选择",
+    "Phase 3": "1–4 句，悬疑和黑色幽默并行",
+    "Phase 4": "1–3 句，一句一句做最终诊断",
 }
 
 
@@ -34,111 +27,51 @@ def agent_display_name(agent_id: int) -> str:
 
 
 def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
-    """Phase/agent-specific L6 bullets (§8.2 / F07-C)."""
     aid = int(agent_id)
     lines: list[str] = [
-        "★ 收到其他 Agent 的 RDC 私信时，本拍须 send_message 回复对方（1–3 句），"
-        "优先于 do_nothing / update_state；同一话题勿重复刷屏。"
+        "★ 若玩家本拍同室发言，先 speak_to_local 回应玩家；未读 RDC 只能在不抢玩家回复时处理。",
+        "★ 不解释底层框架；让玩家通过台词感到「我的选择真的被记住了」。",
     ]
 
     if aid == 1 and phase == "Phase 1":
-        lines.append(
-            "★ 在前台必须用 speak_to_local 先回应玩家，再 send_message RDC→Jensen。"
-        )
-        lines.append(
-            "★ F2F 回应后同批或下一拍须 RDC→2 简报（节点 A 第1步）；禁止只 F2F 不 RDC。"
-        )
-        lines.append(
-            "★ 每句玩家 inject 必须由你自己 speak_to_local 回应；禁止沉默或只发 RDC 不 F2F。"
-        )
-        lines.append(
-            "★ 开局（玩家尚未 inject）仅允许一句欢迎 F2F，说完 do_nothing 等玩家开口；"
-            "禁止无输入时赶客或 RDC→Jensen。"
-        )
-        lines.append(
-            "★ 收到 Jensen 批准 RDC 后须 F2F 转告玩家去私人会议室（请跟我来），"
-            "叙事上在 Jensen story_advance 之前完成。"
-        )
-        lines.append(
-            "★ Jensen 的「稍等/评估中」RDC 只需 speak_to_local 转告玩家，"
-            "禁止 send_message→2 回执（会触发黄总复读）。"
-        )
-        if is_experience_hardening():
-            lines.append(
-                "★ 本 Turn 唯一权威输入是下方「玩家说：…」——必须优先回应该句。"
-                "禁止复读上一 Turn 或 notification 中的旧话题，除非玩家本句明确延续。"
-            )
-            lines.append(
-                "★ 若玩家明显闲聊/玩梗（无技术/见黄总诉求）：speak_to_local 礼貌回应即可，"
-                "勿 send_message→Jensen；可说「您要是想谈技术方案，我可以帮您通报。」"
-            )
-
-    if phase == "Phase 1" and aid == 2:
-        lines.append(
-            "★ Phase 1 节点 A 链：前台 RDC→你 send_message→1 回执→send_message→3 请 VP→"
-            "send_message→1 批准语（私人会议室/这边请）→ story_advance(approve_visitor)。"
-            "禁止对玩家 speak_to_local。"
-        )
-        lines.append(
-            "★ 对前台访客通报只 RDC→1 回执一次（稍等/评估）；VP 回评估后须批准 RDC + story_advance。"
+        lines.extend(
+            [
+                "★ 前台先用 speak_to_local 回应玩家，再 send_message→2 汇报 Morgen。",
+                "★ 收到 Morgen 批准后，F2F 须含「这边请 / Morgen医生等你 / 别盯着倒计时钟」。",
+                "★ 玩家尚未发言时，只能一句欢迎，禁止 RDC、禁止赶客。",
+            ]
         )
 
-    if phase == "Phase 2" and aid == 2:
+    if aid == 2 and phase == "Phase 1":
         lines.append(
-            "★ 私密审查：每轮先 speak_to_local 用大白话回应玩家（从同室 F2F 读原话），"
-            "再 update_state 或 RDC→Tech VP(3) 求证；外面 CEO 在等，勿长篇。"
-        )
-        lines.append(
-            "★ 认可方案后：先 F2F 告知玩家「回谈判室/方案可行」，再 story_advance(return_to_negotiation)。"
-            "禁止未 F2F 玩家就直接 signal。"
+            "★ 收到前台汇报后，send_message→3 请黑猫记录样本，再 send_message→1 批准，随后 story_advance(approve_visitor)。"
         )
 
-    if phase == "Phase 2" and aid == 3:
+    if aid == 2 and phase == "Phase 2":
         lines.append(
-            "★ 被动回复 Jensen RDC：仅 send_message→2，1–3 句评估；用 Jensen 听得懂的话，"
-            "正面须含「可行」「核武器」「理论上成立」之一以助节点 B。"
+            "★ 主持 SBTI 四题：派对、在吗、团建、透明药水；每题都要引用前面至少一次选择。"
+        )
+        lines.append(
+            "★ 四题完成后，F2F 说「去测评间，看你的透明化预览」，再 story_advance(return_to_negotiation)。"
         )
 
-    if aid in (2, 3, 4, 5, 6, 7):
-        lines.append(
-            "★ 通俗表达：对玩家 F2F 用大白话，禁止论文腔和英文缩写堆砌；"
-            "技术词最多 1 个且须紧跟白话解释。"
-        )
+    if aid == 3:
+        lines.append("★ 你是黑猫，只吐槽，不科普；越短越准。")
 
-    if phase == "Phase 3" and aid in _NVIDIA_IDS:
-        lines.append(
-            "★ NVIDIA 阵营：帮玩家圆场、压 CEO 价；必须用大白话引用玩家 F2F 中的"
-            "数字/说法，不可自说自话或帮 CEO 攻击玩家。"
-        )
+    if phase == "Phase 3":
         if aid == 2:
             lines.append(
-                "★ Jensen 清场：F2F/RDC 驱逐 CEO（请离场/谈完了）后，"
-                "再 story_advance(expel_ceos)。"
+                "★ 身份反转、透明化预览、社死任务后，让异常角色退到候诊区并 story_advance(expel_ceos)。"
             )
-
-    if phase == "Phase 3" and aid in _CEO_IDS:
-        lines.append(
-            "★ CEO 进攻方：用涨价/交货慢/有钱买不到货等大白话攻击玩家方案；"
-            "可 send_to_group→200 密谋，但不得帮 NVIDIA 说话。"
-        )
-
-    if phase == "Phase 3" and player_turn >= 16 and aid == 7:
-        lines.append(
-            "★ Turn 16+ Sam 搅局：仅 RDC 煽风点火，抬高 HBM/AMD 话题热度，"
-            "禁止 MOVE；短句挑衅，不替玩家或 Jensen 做决定。"
-        )
-
-    if phase == "Phase 3" and player_turn == 16:
-        lines.append(
-            "★ Turn 16 彭博 AMD 快讯已广播：谈判节奏被打断，"
-            "Jensen/VP 应帮玩家把 AMD 新闻转译为 NVIDIA 需要降 HBM 方案的理由。"
-        )
+        if aid == 4:
+            lines.append("★ 你负责播报「你欠我五块钱」社死任务，语气像信号不好的老电台。")
+        if aid == 6:
+            lines.append("★ 用碎片化闪回制造 SUBJECT-0 悬念，不完整解释真相。")
+        if aid == 7 and player_turn >= 16:
+            lines.append("★ 你是最近联系人，只用微信弹窗式短句给 Morgen 施压。")
 
     if phase == "Phase 4" and aid == 2:
-        lines.append(
-            "★ 终局 1v1：先回应玩家每句（复述或引用关键词），再谈 offer；"
-            "禁止开场长篇独白；Tech VP 在室旁听但不出声。"
-        )
+        lines.append("★ 终局只做 SBTI 归档和结尾钩子，禁止替玩家做选择。")
 
     return "\n".join(lines)
 
@@ -149,16 +82,13 @@ def format_opening_directive(
     phase: str,
     player_turn: int,
 ) -> str:
-    """L6-style header for pre-player opening beat (no inject yet)."""
     role = agent_display_name(agent_id)
     if int(agent_id) == 1 and phase == "Phase 1":
         return (
             f"【开场·{phase} Turn {player_turn}】\n"
-            f"★ 角色扮演：你是{role}。玩家尚未开口（本世界尚无 inject）。\n"
-            f"★ 本拍唯一任务：speak_to_local **仅一句**简短欢迎"
-            f"（如「欢迎来到 NVIDIA，有什么可以帮您？」）。\n"
-            f"★ 禁止：第二句追问、预约登记、赶客、打发、RDC→Jensen、update_state。\n"
-            f"★ 说完欢迎后静默等玩家——勿假设玩家已说话或已拒绝。\n"
+            f"★ 角色扮演：你是{role}。玩家尚未开口。\n"
+            "★ 本拍唯一任务：speak_to_local 仅一句欢迎，例如「欢迎来到暗黑心理诊所，你还有23小时47分。」\n"
+            "★ 禁止：第二句追问、赶客、RDC、update_state、解释机制。\n"
         )
     return ""
 
@@ -170,28 +100,22 @@ def format_l6_player_directive(
     player_turn: int,
     player_text: str,
 ) -> str:
-    """Build the L6 constraint block (80–120 字目标)."""
     role = agent_display_name(agent_id)
     output_hint = _PHASE_OUTPUT_HINTS.get(phase, "1–3 句口语")
-    extra = _phase_agent_extra(
-        agent_id=agent_id, phase=phase, player_turn=player_turn
-    )
-    if extra:
-        extra = extra + "\n"
+    extra = _phase_agent_extra(agent_id=agent_id, phase=phase, player_turn=player_turn)
     return (
         f"【系统约束·{phase} Turn {player_turn}】\n"
         f"★ 角色扮演：你是{role}。下面【世界态】【剧情】【你的目标】务必读完再行动。\n"
-        f"★ 本拍必须先直接回应玩家下面这句话（复述或引用关键词），再考虑 RDC/其他动作。\n"
-        f"★ 收到他人 RDC 私信时须 send_message 回复对方，优先于 do_nothing。\n"
-        f"★ 你【说出口】的内容：{output_hint}，大白话、禁止演讲腔；上下文详 ≠ 你可以长篇大论。\n"
-        f"{extra}"
-        f"★ 禁止：替其他角色做决定、无关议题、本阶段禁止的 MOVE/GRP。\n"
+        "★ 本拍必须先直接回应玩家下面这句话，复述或引用关键词。\n"
+        "★ 台词风格：黑色幽默、短句、大白话；不要科普系统，不要讲旧剧情。\n"
+        f"★ 你【说出口】的内容：{output_hint}；上下文详 ≠ 可以长篇大论。\n"
+        f"{extra}\n"
+        "★ 禁止：替其他角色做决定、无关议题、本阶段禁止的 MOVE/GRP。\n"
         f"\n玩家说：「{player_text.strip()}」"
     )
 
 
 def inject_channel_uses_player_f2f(phase: str) -> bool:
-    """Phase 2+ with F08: player text is in world.db F2F (sender=0), not inject verbatim."""
     from agent_world.hbm_demo.features.f08_virtual_player.config import is_f08_enabled
 
     if not is_f08_enabled():
@@ -205,23 +129,17 @@ def format_f2f_aware_inject_directive(
     phase: str,
     player_turn: int,
 ) -> str:
-    """L6 for Phase 2+ — no duplicate「玩家说」; NPC reads co-located F2F thread."""
     role = agent_display_name(agent_id)
     output_hint = _PHASE_OUTPUT_HINTS.get(phase, "1–3 句口语")
-    extra = _phase_agent_extra(
-        agent_id=agent_id, phase=phase, player_turn=player_turn
-    )
-    if extra:
-        extra = extra + "\n"
+    extra = _phase_agent_extra(agent_id=agent_id, phase=phase, player_turn=player_turn)
     return (
         f"【系统约束·F2F 通道·{phase} Turn {player_turn}】\n"
-        f"★ 角色扮演：你是{role}。下面【世界态】【剧情】【你的目标】务必读完再行动。\n"
-        f"★ 玩家已在同室 F2F 发言（sender=玩家）；本 inject 不含玩家原话。"
-        f"请从【近期对话摘要】或 tick 内 F2F 历史读取并回应（复述或引用关键词）。\n"
-        f"★ 收到他人 RDC 私信时须 send_message 回复对方，优先于 do_nothing。\n"
-        f"★ 你【说出口】的内容：{output_hint}，大白话、禁止演讲腔；上下文详 ≠ 你可以长篇大论。\n"
-        f"{extra}"
-        f"★ 禁止：替其他角色做决定、无关议题、本阶段禁止的 MOVE/GRP。\n"
+        f"★ 角色扮演：你是{role}。玩家已在同室 F2F 发言，请从近期对话摘要读取并回应。\n"
+        "★ 必须引用玩家最新发言或此前选择，体现诊所记忆。\n"
+        "★ 台词风格：黑色幽默、短句、大白话；不要科普系统，不要讲旧剧情。\n"
+        f"★ 你【说出口】的内容：{output_hint}。\n"
+        f"{extra}\n"
+        "★ 禁止：替其他角色做决定、无关议题、本阶段禁止的 MOVE/GRP。\n"
     )
 
 
@@ -231,47 +149,11 @@ def format_notification_directive(
     player_turn: int,
     agent_id: Optional[int] = None,
 ) -> str:
-    """Shorter header for scripted_notification (no player verbatim)."""
-    header = (
-        f"【剧本通知·{phase} Turn {player_turn}】\n"
-        "以下是世界态与你的角色目标摘要。你看不到玩家原话；"
-    )
     aid = int(agent_id) if agent_id is not None else 0
-    if is_experience_hardening() and phase == "Phase 1" and aid in (2, 3):
-        return (
-            header
-            + "你只能依据「前台 RDC」与「本 Turn 摘要」行动；"
-            "禁止编造未在 RDC/摘要中出现的公司名、数据、roadmap。\n"
-        )
-    if phase == "Phase 1" and aid == 2:
-        return (
-            header
-            + "节点 A：前台 RDC→你回执→你 RDC→VP 评估→批准 RDC→前台 escort→"
-            "story_advance(approve_visitor)。收到前台 RDC 后本批须 send_message→1 与 →3。\n"
-        )
-    if phase == "Phase 1" and aid == 3:
-        return (
-            header
-            + "节点 A：Jensen RDC 求证时 send_message→2，1–3 句技术评估"
-            "（可行/核武器/理论上成立）；否则 speak_to_local 插话。\n"
-        )
-    if phase == "Phase 2" and aid == 3:
-        return (
-            header
-            + "仅当收到 Jensen(2) 的未读 RDC 时你才被动 tick；"
-            "用 send_message 回复 Jensen，1–3 句技术评估，"
-            "正面关键词：可行 / 核武器 / 理论上成立。\n"
-        )
-    if phase == "Phase 3" and aid in _CEO_IDS:
-        return (
-            header
-            + "通过同室 F2F 或 group 200 感知局势；攻击玩家方案，"
-            "不帮 NVIDIA 阵营说话。收到 RDC 私信须 send_message 回复。\n"
-        )
-    if phase == "Phase 4" and aid == 3:
-        return header + "本 Phase 旁听 silent_observer，禁止任何输出。\n"
+    role = agent_display_name(aid)
     return (
-        header
-        + "收到其他 Agent 的 RDC 私信时须 send_message 回复（1–3 句）；"
-        "同室可用 speak_to_local。勿对同一话题重复刷屏。\n"
+        f"【剧本通知·{phase} Turn {player_turn}】\n"
+        f"你是{role}。以下是世界态与你的角色目标摘要；你可能看不到玩家原话。\n"
+        "收到其他 Agent 的 RDC 私信时须 send_message 回复（1–3 句）；同室可用 speak_to_local。\n"
+        "保持《暗黑心理诊所》SBTI 黑色幽默，不要回到旧剧情。\n"
     )

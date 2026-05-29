@@ -9,8 +9,8 @@ VALID_STORY_SIGNALS: Tuple[str, ...] = (
     "reject_visitor",
     "return_to_negotiation",
     "expel_ceos",
-    "offer_join",
-    "offer_seed",
+    "ending_dead",
+    "ending_monkey",
 )
 
 _SIGNAL_SET: FrozenSet[str] = frozenset(VALID_STORY_SIGNALS)

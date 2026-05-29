@@ -255,7 +255,7 @@ function GameApp() {
           onRestart={() => void restartGame()}
           description={
             badEndLine ??
-            "你的技术阐述未能通过前台筛选，保安礼貌地请你离开 NVIDIA 总部。"
+            "你在候诊区把测试聊成了 Wi-Fi 报修，前台礼貌地把你归为「未开始就结束」。"
           }
         />
       ) : null}

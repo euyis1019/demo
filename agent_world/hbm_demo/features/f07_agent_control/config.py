@@ -67,7 +67,7 @@ def rdc_quota_for(agent_id: int, phase: str) -> int | None:
     return None
 
 
-_PASSIVE_PROB = {"low": 0.25, "medium": 0.50, "high": 0.75}
+_PASSIVE_PROB = {"low": 0.25, "medium": 0.50, "high": 0.75, "always": 1.0}
 
 
 def passive_tick_probability(phase: str) -> float:
@@ -111,7 +111,7 @@ def resolve_inject_tick_count(phase: str, tick_count: int) -> int:
     if is_experience_hardening() and phase_s in ("Phase 1", "Phase 2", "Phase 4"):
         return max(n, 12)
     if phase_s == "Phase 1":
-        return max(n, 8)
+        return max(n, 3)
     return n
 
 

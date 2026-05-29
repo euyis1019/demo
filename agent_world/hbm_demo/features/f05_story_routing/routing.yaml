@@ -1,14 +1,15 @@
-# F05 story routing — Phase 4 agent_driven (dev_logs/31 §Phase 4 / dev_logs/30 PR3)
+# F05 story routing — dark SBTI clinic story
 routing:
   mode: agent_driven              # legacy_stats | agent_driven
   stats_display_only: true
 
   signals:
     approve_keywords:
-      - 私人会议室
-      - 私密会议室
+      - Morgen医生等你
+      - 诊疗室
+      - 可以测
       - 可以见
-      - 带进来
+      - 带他进来
       - 批准
       - 这边请
       - 请跟我来
@@ -16,19 +17,23 @@ routing:
       - 拒绝
       - 请离开
       - 保安
+      - 不适合测试
     expel_keywords:
-      - 请离场
-      - 谈完了
+      - 退到候诊区
+      - 测完了
+      - 暂时出去
       - 出去
     escort_keywords:
       - 请跟我来
       - 这边请
+      - 别盯着倒计时钟
     return_to_negotiation_keywords:
-      - 回谈判室
-      - 回到谈判
-      - 回主谈判
-      - 方案可行
-      - 认可
+      - 去测评间
+      - 诅咒测评间
+      - 透明化预览
+      - 记忆成立
+      - 档案命中
+      - 测试完成
     require_reception_escort_f2f: false
     max_turns_phase1_without_approve: 10
   story_advance:

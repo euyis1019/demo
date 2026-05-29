@@ -89,6 +89,7 @@ async def reset_world_runtime(
         for table in _VOLATILE_TABLES:
             world_db._exec(f"DELETE FROM {table}")
         world_db._exec("DELETE FROM relation")
+        world_db._exec("VACUUM")
 
     # Drop stale in-memory relation/capability before re-seed.  Otherwise
     # grant/add idempotently skip while DB rows were just deleted, and the

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Stats, WorldLoopState } from "../../api/types";
+import { DevSettingsPanel } from "../dev-settings";
 
 export interface StatusPanelProps {
   stats: Stats;
@@ -19,10 +20,10 @@ export interface StatusPanelProps {
 }
 
 const STAT_ROWS: { key: keyof Stats; label: string }[] = [
-  { key: "vision", label: "Vision" },
-  { key: "execution", label: "Execution" },
-  { key: "trust", label: "Trust" },
-  { key: "burnout", label: "Burnout" },
+  { key: "vision", label: "脑洞值" },
+  { key: "execution", label: "逃避值" },
+  { key: "trust", label: "记忆锚点" },
+  { key: "burnout", label: "社死压力" },
 ];
 
 /** F2-2 + F4-5 — Stats 变化高亮动画；Turn x / 25。F13 — pause/resume world loop。 */
@@ -137,6 +138,7 @@ export function StatusPanel({
         </div>
         {showPauseControl || onReset || onSwitchToStoryMode ? (
           <div className="status-panel__footer">
+            <DevSettingsPanel triggerClassName="status-panel__mode-btn" />
             {onSwitchToStoryMode ? (
               <button
                 type="button"

@@ -7,7 +7,7 @@ import { storyPlaceBackground } from "./storyAssets";
 import { StorySubtitle } from "./StorySubtitle";
 import { StoryModeToolbar } from "./StoryModeToolbar";
 import type { ViewMode } from "./viewMode";
-import { playerRoomMessages, useStoryDialogue } from "./useStoryDialogue";
+import { playerRoomMessages, useStoryDialogueQueue } from "./useStoryDialogue";
 
 export interface StoryModeStageProps {
   viewMode: ViewMode;
@@ -47,7 +47,11 @@ export function StoryModeStage({
   onDismissWorldEvent,
 }: StoryModeStageProps) {
   const roomMessages = playerRoomMessages(roomF2f, placeId);
-  const dialogueLine = useStoryDialogue(roomMessages, nameMap);
+  const {
+    line: dialogueLine,
+    pendingCount,
+    advance,
+  } = useStoryDialogueQueue(roomMessages, nameMap, placeId);
   const backgroundUrl = storyPlaceBackground(placeId);
 
   const subtitlePlaceholder = `【${placeDisplayName(placeId)}】`;
@@ -86,7 +90,12 @@ export function StoryModeStage({
         </div>
       ) : null}
 
-      <StorySubtitle line={dialogueLine} placeholder={subtitlePlaceholder} />
+      <StorySubtitle
+        line={dialogueLine}
+        placeholder={subtitlePlaceholder}
+        pendingCount={pendingCount}
+        onAdvance={advance}
+      />
 
       {pendingWorldEvent ? (
         <WorldEventModal event={pendingWorldEvent} onDismiss={onDismissWorldEvent} />

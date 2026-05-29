@@ -23,3 +23,21 @@ export function storyAvatarUrl(speakerId: string): string {
   }
   return `/assets/story/avatars/agent_${speakerId}.png`;
 }
+
+export type StoryPose = "neutral" | "smirk" | "tense" | "shocked";
+
+const VALID_POSES = new Set<StoryPose>(["neutral", "smirk", "tense", "shocked"]);
+
+export function normalizeStoryPose(pose: string | undefined): StoryPose {
+  return pose && VALID_POSES.has(pose as StoryPose)
+    ? (pose as StoryPose)
+    : "neutral";
+}
+
+export function storyPortraitUrl(speakerId: string, pose?: string): string {
+  const normalized = normalizeStoryPose(pose);
+  if (speakerId === PLAYER_AGENT_ID) {
+    return `/assets/story/portraits/player_${normalized}.png`;
+  }
+  return `/assets/story/portraits/agent_${speakerId}_${normalized}.png`;
+}

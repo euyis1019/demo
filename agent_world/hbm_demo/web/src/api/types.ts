@@ -27,6 +27,7 @@ export interface GameMessage {
   is_system?: boolean;
   prompt_trace_id?: string;
   ref_key?: string;
+  display_pose?: "neutral" | "smirk" | "tense" | "shocked";
   /** Client-only: optimistic bubble before world-delta confirms player F2F. */
   _optimistic?: boolean;
 }
@@ -199,7 +200,7 @@ export interface PlayerTurnGameOver {
 
 export interface PlayerTurnCompleted {
   status: "completed";
-  ending_id: "ending_join_nvidia" | "ending_seed_round" | "ending_cold_deal";
+  ending_id: "ending_dead_type" | "ending_monkey_type" | "ending_scarecrow_type";
   intent?: string;
   immediate_msg?: string;
   stats_update: Stats;

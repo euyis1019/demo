@@ -23,7 +23,7 @@ export function MainChat({ messages, immediateMsg, children }: MainChatProps) {
       <div className="panel__body main-chat">
         <div className="main-chat__scroll" role="log" aria-live="polite">
           {messages.length === 0 ? (
-            <p className="main-chat__empty">暂无公开对话，发送第一条消息开始谈判。</p>
+            <p className="main-chat__empty">暂无公开对话，发送第一条消息开始测试。</p>
           ) : (
             messages.map((msg, index) => (
               <MessageBubble

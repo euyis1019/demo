@@ -19,8 +19,8 @@ from agent_world.hbm_demo.features.f06_read_model.world_db import sender_display
 
 RECEPTION_AGENT_ID = 1
 JENSEN_ID = 2
-TECH_VP_ID = 3
-CEO_IDS = (4, 5, 6)
+CAT_ID = 3
+ANOMALY_IDS = (4, 5, 6)
 
 PLACE_RECEPTION = "nvidia_reception"
 PLACE_JENSEN_ROOM = "jensen_private_room"
@@ -54,7 +54,7 @@ def _reception_escort_f2f(db: Any, *, since_t: int, t_now: int) -> bool:
 
 
 def _jensen_return_f2f(db: Any, *, since_t: int, t_now: int) -> bool:
-    """Node B NL path: Jensen explicit return-to-negotiation wording (not any F2F)."""
+    """Node B NL path: Morgen explicit move-to-assessment wording (not any F2F)."""
     history = db.fetch_f2f_history_at(PLACE_JENSEN_ROOM, int(t_now), int(since_t))
     for _at_t, sender_id, _mid, content in history:
         if int(sender_id) != JENSEN_ID:
@@ -95,7 +95,7 @@ def detect_node_a(db: Any, *, since_t: int, t_now: int) -> bool:
 
 
 def detect_node_b(db: Any, *, since_t: int, t_now: int) -> bool:
-    """Phase 2 → 3: story_advance, VP positive RDC, or Jensen return F2F keywords."""
+    """Phase 2 → 3: story_advance, black-cat positive RDC, or Morgen F2F keywords."""
     if is_story_advance_enabled() and has_story_signal(
         db, "return_to_negotiation", since_t=since_t, t_now=t_now
     ):
@@ -110,15 +110,15 @@ def detect_node_b(db: Any, *, since_t: int, t_now: int) -> bool:
 
 
 def detect_node_c(db: Any, *, since_t: int, t_now: int) -> bool:
-    """Phase 3 → 4: Jensen expels CEOs via F2F/RDC or story_advance(expel_ceos)."""
+    """Phase 3 → 4: Morgen retires anomaly agents via F2F/RDC or story_advance(expel_ceos)."""
     if is_story_advance_enabled() and has_story_signal(
         db, "expel_ceos", since_t=since_t, t_now=t_now
     ):
         return True
-    for ceo_id in CEO_IDS:
+    for anomaly_id in ANOMALY_IDS:
         rows = db.fetch_rdc_messages(
             sender_id=JENSEN_ID,
-            recipient_id=int(ceo_id),
+            recipient_id=int(anomaly_id),
             since_t=since_t,
             t_now=t_now,
         )
@@ -182,16 +182,16 @@ def fetch_bad_end_public_messages(
     return [
         {
             "sender": sender_display_name(RECEPTION_AGENT_ID, name_map),
-            "content": "保安，请这位先生离开。",
+            "content": "前台把表格合上：今天先不测了，你的沉默已经够像结果。",
             "type": "F2F",
         }
     ]
 
 
 __all__ = [
-    "CEO_IDS",
+    "ANOMALY_IDS",
     "JENSEN_ID",
-    "TECH_VP_ID",
+    "CAT_ID",
     "detect_bad_end",
     "detect_node_a",
     "detect_node_b",

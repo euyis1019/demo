@@ -1,4 +1,5 @@
 import type { WorldLoopState } from "../../api/types";
+import { DevSettingsPanel } from "../dev-settings";
 
 export interface StoryModeToolbarProps {
   viewMode: "god" | "story";
@@ -29,6 +30,7 @@ export function StoryModeToolbar({
 
   return (
     <div className="story-toolbar" role="toolbar" aria-label="剧情模式控制">
+      <DevSettingsPanel triggerClassName="story-toolbar__btn" />
       <button
         type="button"
         className="story-toolbar__btn"

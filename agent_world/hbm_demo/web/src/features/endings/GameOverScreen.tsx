@@ -7,8 +7,8 @@ export interface GameOverScreenProps {
 /** F2-6 — Bad End 静态占位（F4 接 game_over）。 */
 export function GameOverScreen({
   onRestart,
-  title = "Bad End · 被请出大楼",
-  description = "你的技术阐述未能通过前台筛选，保安礼貌地请你离开 NVIDIA 总部。",
+  title = "Bad End · 未通过候诊区",
+  description = "你在候诊区把测试聊成了 Wi-Fi 报修，前台礼貌地把你归为「未开始就结束」。",
 }: GameOverScreenProps) {
   return (
     <div className="screen-overlay ending-screen ending-screen--bad" role="dialog">

@@ -84,8 +84,6 @@ def _passive_candidates(
         if has_unread_inbound(aid, agent, world, t):
             out.append(aid)
             continue
-        if phase == "Phase 1" and _in_negotiation_room(world, aid):
-            out.append(aid)
 
     if phase == "Phase 3" and player_turn >= int(cfg.get("sam_rdc_from_turn", 16)):
         if SAM_ID not in out and SAM_ID not in _primary_ids(phase, player_turn):
@@ -95,13 +93,6 @@ def _passive_candidates(
                     out.append(SAM_ID)
 
     return out
-
-
-def _in_negotiation_room(world: Any, agent_id: int) -> bool:
-    places = getattr(world, "places", None)
-    if places is None:
-        return False
-    return str(places.L_t(int(agent_id)) or "") == "negotiation_room"
 
 
 def _resolve_agent(agents: Any, agent_id: int) -> Any:
@@ -218,9 +209,6 @@ def pick_active_ids(
     # 3) Inject batch window — only after real player inject (not bootstrap mirror).
     inject_batch_len = resolve_inject_tick_count(phase, inject_response_ticks(phase))
     notify_until = exclusive + primary_notify_ticks(phase)
-    in_player_turn_window = (
-        inject_live and batch_tick_index < max(inject_batch_len, notify_until)
-    )
     if inject_live and batch_tick_index < inject_batch_len:
         for aid in inject_set:
             _add(aid)
@@ -237,7 +225,7 @@ def pick_active_ids(
             if aid not in inject_set:
                 _add(aid)
 
-    # 4) Passive agents (unread-driven; Phase 1 negotiation room skips random drop).
+    # 4) Passive agents, unread-driven.
     cfg = _phase_cfg(phase)
     max_passive = int(cfg.get("passive_max_per_batch", 1))
     remaining = max(0, max_passive - passive_ticks_so_far)
@@ -247,28 +235,12 @@ def pick_active_ids(
         for aid in _passive_candidates(phase, player_turn, world, t, agents):
             if aid in seen:
                 continue
-            if phase == "Phase 1" and _in_negotiation_room(world, aid):
-                _add(aid)
-                remaining -= 1
-                if remaining <= 0:
-                    break
-                continue
             if rng.random() > prob:
                 continue
             _add(aid)
             remaining -= 1
             if remaining <= 0:
                 break
-
-    # 5) Phase 1 negotiation room — background ticks only during inject window.
-    if phase == "Phase 1" and in_player_turn_window:
-        for aid in (2, 3):
-            if _in_negotiation_room(world, aid):
-                _add(aid)
-        ceo_ids = [4, 5, 6]
-        _add(ceo_ids[int(t) % len(ceo_ids)])
-        if int(t) % 2 == 0:
-            _add(ceo_ids[(int(t) + 1) % len(ceo_ids)])
 
     log.debug(
         "F07 pick_active phase=%s turn=%s t=%s batch=%s active=%s",

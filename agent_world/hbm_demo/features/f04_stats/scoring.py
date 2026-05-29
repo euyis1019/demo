@@ -17,7 +17,7 @@ from agent_world.hbm_demo.shared.settings import IMMEDIATE_MSG_TIMEOUT
 
 log = logging.getLogger("agent_world.hbm_demo.game_service")
 
-IMMEDIATE_MSG_PLACEHOLDER = "前台接待员听完你的话，若有所思…"
+IMMEDIATE_MSG_PLACEHOLDER = "Morgen 在小本本上写下一行，猫假装没看见…"
 
 
 def _llm_client() -> OpenAI:
@@ -44,13 +44,29 @@ def _parse_stats_json(text: str) -> Dict[str, int]:
 
 def _heuristic_stats(session: HbmSession, player_text: str) -> Dict[str, int]:
     text = player_text.lower()
-    tech_kw = ("显存", "算法", "80%", "内存", "优化", "架构", "降低")
-    if any(k in player_text for k in tech_kw):
+    avoid_kw = ("不去", "借口", "拉黑", "已读不回", "不喝", "透明", "洗头", "空手")
+    bold_kw = ("打电话", "会发", "喝", "直接", "重测", "反抗", "五块", "5块")
+    mbti_kw = ("mbti", "sbti", "社恐", "i人", "测试", "在吗", "团建")
+    if any(k in player_text or k in text for k in avoid_kw):
         return {
-            "vision_delta": 5,
-            "execution_delta": 4,
+            "vision_delta": 2,
+            "execution_delta": 5,
             "trust_delta": 1,
-            "burnout_delta": 0,
+            "burnout_delta": 2,
+        }
+    if any(k in player_text or k in text for k in bold_kw):
+        return {
+            "vision_delta": 4,
+            "execution_delta": 2,
+            "trust_delta": 2,
+            "burnout_delta": 4,
+        }
+    if any(k in player_text or k in text for k in mbti_kw):
+        return {
+            "vision_delta": 3,
+            "execution_delta": 2,
+            "trust_delta": 1,
+            "burnout_delta": 1,
         }
     if len(text) < 8:
         return {
@@ -71,8 +87,10 @@ def score_player_turn(session: HbmSession, player_text: str) -> Dict[str, int]:
     llm_cfg = get_scenario().get("llm", {}) or {}
     model = llm_cfg.get("model", "deepseek-chat")
     system = (
-        "你是《HBM 显存价格保卫战》的游戏裁判。"
+        "你是《暗黑心理诊所》的游戏裁判。"
         "根据玩家本回合发言与当前 Phase，输出四维属性增量 JSON。"
+        "四维含义：vision_delta=脑洞值，execution_delta=逃避值，trust_delta=记忆锚点，burnout_delta=社死压力。"
+        "逃避、沉默、拉黑、洗头借口提高逃避值；主动社死、打电话、反抗诊断提高脑洞和社死压力。"
         "只输出 JSON，字段：vision_delta, execution_delta, trust_delta, "
         "burnout_delta, reason。"
     )
@@ -111,7 +129,7 @@ def _call_immediate_llm(session: HbmSession, player_text: str) -> str:
         messages=[
             {
                 "role": "system",
-                "content": "用一句中文描写 NPC 听完玩家发言后的即时反应，20字以内。",
+                "content": "用一句中文描写暗黑心理诊所 NPC 听完玩家发言后的即时反应，20字以内，黑色幽默。",
             },
             {
                 "role": "user",
