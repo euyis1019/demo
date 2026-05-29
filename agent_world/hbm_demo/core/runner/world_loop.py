@@ -95,6 +95,8 @@ class WorldLoopOrchestrator:
         self._paused_at_tick: Optional[int] = None
         self._pause_event = asyncio.Event()
         self._pause_event.set()
+        self._cycle_lock = asyncio.Lock()
+        self._hold_paused_after_reset = False
 
     @property
     def enabled(self) -> bool:
@@ -127,14 +129,43 @@ class WorldLoopOrchestrator:
         self._write_status(loop_running=False)
 
     def reset_runtime(self) -> None:
+        self.clear_session_state()
+        self._loop_state = "running"
+        self._paused_at_tick = None
+        self._hold_paused_after_reset = False
+        self._pause_event.set()
+
+    def clear_session_state(self) -> None:
+        """Clear queue + mirror without changing pause/running flags."""
         self._queue.clear()
         self._mirror.reset()
         self._last_activity_t = 0
         self._last_player_inject_tick = None
         self._ticks_run = 0
-        self._loop_state = "running"
-        self._paused_at_tick = None
-        self._pause_event.set()
+
+    async def pause_for_reset(self) -> None:
+        """Block the resident loop for RESET_WORLD (avoid tick/trace races)."""
+        if not self.enabled or not self._running:
+            return
+        self._loop_state = "paused"
+        self._paused_at_tick = int(self._get_current_tick())
+        self._pause_event.clear()
+        async with self._cycle_lock:
+            pass
+        self._write_status(loop_running=bool(self._running))
+
+    def mark_hold_paused_after_reset(self) -> None:
+        self._hold_paused_after_reset = True
+        self._loop_state = "paused"
+        self._paused_at_tick = int(self._get_current_tick())
+        self._pause_event.clear()
+
+    def resume_after_reset_if_held(self) -> None:
+        if not self._hold_paused_after_reset:
+            return
+        self._hold_paused_after_reset = False
+        if self._loop_state == "paused":
+            self.resume()
 
     def pause(self) -> Dict[str, Any]:
         if not self.enabled:
@@ -188,6 +219,7 @@ class WorldLoopOrchestrator:
         return out
 
     def enqueue_player_input(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        self.resume_after_reset_if_held()
         events = list(payload.get("events") or [])
         if payload.get("event"):
             events = [payload["event"]]
@@ -282,24 +314,25 @@ class WorldLoopOrchestrator:
             self._write_status(loop_running=False)
 
     async def _run_one_cycle(self) -> None:
-        tick_before = int(self._get_current_tick())
-        inject_turn_ctx = await self._drain_queue()
-        mirror = self._mirror.latest()
-        if inject_turn_ctx is not None:
-            mirror = dict(inject_turn_ctx)
-        elif self._last_player_inject_tick is not None:
-            mirror["player_inject_tick"] = int(self._last_player_inject_tick)
-        if hasattr(self._world_step, "set_tick_context"):
-            reset_window = inject_turn_ctx is not None
-            self._world_step.set_tick_context(
-                mirror if is_f07_enabled() else None,
-                reset_l3_window=reset_window,
-            )
-        await self._world_step.run_one_tick()
-        tick_after = int(self._get_current_tick())
-        if tick_after > tick_before:
-            self._last_activity_t = tick_after
-        self._write_status(loop_running=True)
+        async with self._cycle_lock:
+            tick_before = int(self._get_current_tick())
+            inject_turn_ctx = await self._drain_queue()
+            mirror = self._mirror.latest()
+            if inject_turn_ctx is not None:
+                mirror = dict(inject_turn_ctx)
+            elif self._last_player_inject_tick is not None:
+                mirror["player_inject_tick"] = int(self._last_player_inject_tick)
+            if hasattr(self._world_step, "set_tick_context"):
+                reset_window = inject_turn_ctx is not None
+                self._world_step.set_tick_context(
+                    mirror if is_f07_enabled() else None,
+                    reset_l3_window=reset_window,
+                )
+            await self._world_step.run_one_tick()
+            tick_after = int(self._get_current_tick())
+            if tick_after > tick_before:
+                self._last_activity_t = tick_after
+            self._write_status(loop_running=True)
 
     async def _drain_queue(self) -> Optional[Dict[str, Any]]:
         if self._loop_state == "paused" and not pause_drains_queue():

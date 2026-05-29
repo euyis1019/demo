@@ -3,7 +3,7 @@ import { getEnvStatus } from "../../api/hbm";
 
 const ENV_POLL_MS = 400;
 
-/** F5-5 — Observer 底栏轮询 env-status.current_tick。 */
+/** Poll Runner env-status.current_tick for world-delta sync cadence. */
 export function useEnvStatus(enabled: boolean): number | null {
   const [currentTick, setCurrentTick] = useState<number | null>(null);
 

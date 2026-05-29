@@ -1,10 +1,10 @@
-"""Load F05 routing.yaml — agent_driven vs legacy_stats."""
+"""Load F05 routing.yaml — agent-driven story signals."""
 
 from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
 
 import yaml
 
@@ -14,7 +14,7 @@ _ROUTING_PATH = Path(__file__).resolve().parent / "routing.yaml"
 @lru_cache(maxsize=1)
 def load_routing_config() -> Dict[str, Any]:
     if not _ROUTING_PATH.is_file():
-        return {"mode": "legacy_stats", "stats_display_only": False, "signals": {}}
+        return {"mode": "agent_driven", "stats_display_only": True, "signals": {}}
     with _ROUTING_PATH.open(encoding="utf-8") as fh:
         data = yaml.safe_load(fh) or {}
     block = data.get("routing") if isinstance(data, dict) else {}
@@ -22,19 +22,15 @@ def load_routing_config() -> Dict[str, Any]:
 
 
 def routing_mode() -> str:
-    return str(load_routing_config().get("mode", "legacy_stats")).strip()
+    return str(load_routing_config().get("mode", "agent_driven")).strip()
 
 
 def is_agent_driven() -> bool:
     return routing_mode() == "agent_driven"
 
 
-def is_legacy_stats() -> bool:
-    return not is_agent_driven()
-
-
 def stats_display_only() -> bool:
-    return bool(load_routing_config().get("stats_display_only", False))
+    return bool(load_routing_config().get("stats_display_only", True))
 
 
 def _signal_list(key: str, default: Tuple[str, ...]) -> Tuple[str, ...]:

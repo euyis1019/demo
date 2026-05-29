@@ -4,7 +4,7 @@ export const FEATURE_REGISTRY = {
   F09a: { name: "启动与恢复", path: "features/boot/" },
   F09b: { name: "主游戏循环", path: "features/game-loop/" },
   F09c: { name: "两栏布局", path: "features/layout/" },
-  F09d: { name: "玩家输入", path: "features/main-chat/" },
+  F09d: { name: "玩家输入", path: "features/main-chat/PlayerInput.tsx" },
   F09f: { name: "结局流", path: "features/endings/" },
   F09g: { name: "API 客户端", path: "api/" },
   F09h: { name: "全局状态", path: "store/" },

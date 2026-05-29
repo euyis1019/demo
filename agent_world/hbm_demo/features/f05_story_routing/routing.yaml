@@ -1,6 +1,6 @@
 # F05 story routing — Phase 4 agent_driven (dev_logs/31 §Phase 4 / dev_logs/30 PR3)
 routing:
-  mode: agent_driven              # legacy_stats | agent_driven
+  mode: agent_driven
   stats_display_only: true
 
   signals:

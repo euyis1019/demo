@@ -2,7 +2,7 @@ import type { GameMessage } from "../../api/types";
 import { PLAYER_AGENT_ID } from "../../constants/agents";
 import { placeDisplayName, type PlaceId } from "../../utils/places";
 import { messageReactKey } from "../../utils/messages";
-import { MessageBubble } from "../main-chat/MessageBubble";
+import { MessageBubble } from "../shared/MessageBubble";
 
 export interface RoomHistoryModalProps {
   placeId: PlaceId;

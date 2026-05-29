@@ -18,7 +18,7 @@ API 走 Vite 代理：`/api` → `http://127.0.0.1:5050`（可用 `VITE_API_PROX
 
 ```text
 src/
-  features/     # F09a–f：boot、game-loop、layout、main-chat、observer、endings、shared
+  features/     # F09a–i：boot、game-loop、layout、main-chat、world-stage、endings、shared
   api/          # HTTP client 与类型
   store/        # gameStore reducer
   constants/    # 轮询、Phase 过渡、GRP 标签

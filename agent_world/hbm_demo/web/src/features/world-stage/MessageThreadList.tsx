@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { GameMessage } from "../../api/types";
 import { groupDisplayLabel } from "../../constants/groups";
-import { MessageBubble } from "../main-chat/MessageBubble";
+import { MessageBubble } from "../shared/MessageBubble";
 import { threadKeyGrp, threadKeyRdc } from "../../store/worldSync";
 import type { AgentInbox } from "../../store/worldSync";
 

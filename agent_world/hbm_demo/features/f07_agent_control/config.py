@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import yaml
 
@@ -27,46 +27,6 @@ def is_f07_enabled() -> bool:
     return bool(load_turn_control().get("enabled", False))
 
 
-def is_experience_hardening() -> bool:
-    """F07-E — player-facing F2F channel + later guard rails."""
-    if not is_f07_enabled():
-        return False
-    block = load_turn_control().get("experience_hardening") or {}
-    return bool(block.get("enabled", False))
-
-
-def experience_hardening_block() -> Dict[str, Any]:
-    if not is_experience_hardening():
-        return {}
-    block = load_turn_control().get("experience_hardening") or {}
-    return dict(block) if isinstance(block, dict) else {}
-
-
-def first_f2f_required_agents(phase: str) -> List[int]:
-    """Agents that must emit F2F before other tools (dev_logs/29 E1)."""
-    table = experience_hardening_block().get("first_f2f_required") or {}
-    raw = table.get(str(phase)) or []
-    return [int(x) for x in raw]
-
-
-def rdc_quota_for(agent_id: int, phase: str) -> int | None:
-    """Max RDC sends per agent per inject batch (dev_logs/29 E2). None = no quota."""
-    if not is_experience_hardening():
-        return None
-    block = experience_hardening_block().get("rdc_quota_per_batch") or {}
-    phase_table = block.get(str(phase))
-    if isinstance(phase_table, dict):
-        raw = phase_table.get(int(agent_id))
-        if raw is None:
-            raw = phase_table.get(str(agent_id))
-        if raw is not None:
-            return int(raw)
-    default = block.get("default")
-    if default is not None:
-        return int(default)
-    return None
-
-
 _PASSIVE_PROB = {"low": 0.25, "medium": 0.50, "high": 0.75}
 
 
@@ -84,17 +44,12 @@ def inject_exclusive_ticks_for(phase: str) -> int:
     phase_block = phases.get(str(phase)) or {}
     if "inject_exclusive_ticks" in phase_block:
         return max(0, int(phase_block["inject_exclusive_ticks"]))
-    if is_experience_hardening():
-        table = experience_hardening_block().get("inject_exclusive_ticks") or {}
-        raw = table.get(str(phase))
-        if raw is not None:
-            return max(0, int(raw))
     return 0
 
 
 def max_inject_tick_loops() -> int:
     """IPC inject batch tick cap (sync with resolve_inject_tick_count floor)."""
-    return 12 if is_experience_hardening() else 8
+    return 8
 
 
 def resolve_inject_tick_loops(tick_count: int) -> int:
@@ -103,14 +58,11 @@ def resolve_inject_tick_loops(tick_count: int) -> int:
 
 
 def resolve_inject_tick_count(phase: str, tick_count: int) -> int:
-    """Floor inject batch length for F07 completion semantics (§13.2 / dev_logs/29 E5)."""
+    """Floor inject batch length for F07 completion semantics."""
     n = int(tick_count)
     if not is_f07_enabled():
         return n
-    phase_s = str(phase)
-    if is_experience_hardening() and phase_s in ("Phase 1", "Phase 2", "Phase 4"):
-        return max(n, 12)
-    if phase_s == "Phase 1":
+    if str(phase) == "Phase 1":
         return max(n, 8)
     return n
 

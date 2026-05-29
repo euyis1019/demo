@@ -59,8 +59,6 @@ def _restore_agents_from_scenario(
         agent._inject_responded = False  # noqa: SLF001
         if hasattr(agent, "_batch_turn_context"):
             agent._batch_turn_context = None  # noqa: SLF001
-        if hasattr(agent, "_batch_guard_state"):
-            agent._batch_guard_state = None  # noqa: SLF001
         if hasattr(agent, "_batch_temperature"):
             agent._batch_temperature = None  # noqa: SLF001
         if hasattr(agent, "_batch_max_tokens"):
@@ -121,6 +119,8 @@ async def reset_world_runtime(
     if hasattr(capability_table, "load_from_db"):
         capability_table.load_from_db(world_db)
 
+    purge_prompt_traces(world_db)
+
     write_env_status(sim_dir, 0, status="running")
     log.info(
         "world reset complete agents=%d tick=0 sim_dir=%s",
@@ -130,4 +130,10 @@ async def reset_world_runtime(
     return 0
 
 
-__all__ = ["reset_world_runtime", "_VOLATILE_TABLES"]
+def purge_prompt_traces(world_db: WorldDB) -> None:
+    """Remove F15 audit rows (also called after RESET_WORLD under write lock)."""
+    world_db._exec("DELETE FROM agent_action_trace_link")
+    world_db._exec("DELETE FROM agent_llm_trace")
+
+
+__all__ = ["reset_world_runtime", "_VOLATILE_TABLES", "purge_prompt_traces"]

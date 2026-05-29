@@ -22,6 +22,7 @@ import {
   TwoColumnLayout,
   useGameLoop,
   useHealthCheck,
+  useEnvStatus,
   useLoadingElapsed,
   useStartGame,
   useViewMode,
@@ -29,7 +30,6 @@ import {
   useWorldLoopControl,
   WorldStage,
 } from "./features";
-import { useEnvStatus } from "./features/observer/useEnvStatus";
 import { agentsInPlace } from "./store/worldSync";
 import { GameStoreProvider, useGameStoreContext } from "./store";
 import { placeDisplayName, type PlaceId } from "./utils/places";

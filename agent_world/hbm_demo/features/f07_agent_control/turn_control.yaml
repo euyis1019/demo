@@ -1,21 +1,5 @@
 enabled: true
 
-# v2 Phase 0 — experience hardening retired (dev_logs/31 §九 Phase 0)
-experience_hardening:
-  enabled: false
-  first_f2f_required:
-    Phase 1: [1]
-    Phase 2: [2]
-    Phase 4: [2]
-  rdc_quota_per_batch:
-    default: 1
-    Phase 1:
-      1: 1
-      2: 2
-      3: 1
-  inject_exclusive_ticks:
-    Phase 1: 2
-
 phases:
   Phase 1:
     primary_active: [1, 2, 3]

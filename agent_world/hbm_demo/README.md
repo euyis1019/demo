@@ -1,6 +1,6 @@
 # HBM 显存价格保卫战 — Web Demo
 
-《HBM 显存价格保卫战》本地可玩 Demo：**Runner**（LLM Agent + 世界仿真）+ **Flask**（回合编排 + HTTP API）+ **React 前端**（三栏 UI）。
+《HBM 显存价格保卫战》本地可玩 Demo：**Runner**（LLM Agent + 世界仿真）+ **Flask**（回合编排 + HTTP API）+ **React 前端**（双栏 UI：世界舞台 + 状态侧栏）。
 
 详细产品/剧情规范见仓库 `dev_docs/`；Feature 化架构见 [`dev_logs/26_HBM_Demo_Feature规划与代码结构重整方案.md`](../../dev_logs/26_HBM_Demo_Feature规划与代码结构重整方案.md)。
 
@@ -104,7 +104,7 @@ agent_world/hbm_demo/
 | **F05** | 剧情路由 | `features/f05_story_routing/` | Phase 节点 A/B/C/D；inject 目标；Turn 16 广播 + Sam；Turn 25 意图与结局 ID |
 | **F06** | 只读世界模型 | `features/f06_read_model/` | `ReadOnlyWorldDB`：Flask 侧只读 SQLite，查 F2F/RDC/GRP |
 | **F08** | HTTP 传输 | `http/` | `hbm_bp` 八个端点；`ipc_helper`；`health`；统一错误映射 502/503/504 |
-| **F09** | 前端三屏 UI | `web/src/features/` | 见下节 |
+| **F09** | 前端 UI | `web/src/features/` | 见下节 |
 | **F10** | 运维 | `scripts/` | `start_demo.sh`、`stop_demo.sh`、`test_m0_acceptance.py` |
 
 ### 前端子 Feature（F09a–h）
@@ -112,13 +112,14 @@ agent_world/hbm_demo/
 | ID | 目录 | 说明 |
 |----|------|------|
 | F09a | `features/boot/` | 启动屏、健康检查、Runner 503 弹窗 |
-| F09b | `features/game-loop/` | 双阶段回合（player-turn → poll action-result）、Loading |
-| F09c | `features/layout/` | 三栏布局、左侧 Stats / 进度 |
-| F09d | `features/main-chat/` | 中屏 F2F 公开对话、玩家输入 |
-| F09e | `features/observer/` | 右栏 RDC / GRP 私聊与群聊 |
+| F09b | `features/game-loop/` | 双阶段回合（player-turn → poll world-delta）、Loading、env 状态 |
+| F09c | `features/layout/` | 双栏布局（`TwoColumnLayout`）、左侧 Stats / 进度 |
+| F09d | `features/main-chat/` | 玩家输入（`PlayerInput`） |
+| F09e | `features/world-stage/` | 四房间世界视图、Agent 线程、F2F/RDC 气泡 |
 | F09f | `features/endings/` | Bad End、Turn 25 结局、Phase 切换 Toast |
-| F09g | `api/` | HTTP 客户端与类型 |
-| F09h | `store/` | `gameStore` reducer + Context |
+| F09g | `features/shared/` | 共享 UI 组件（如 `MessageBubble`） |
+| F09h | `api/` | HTTP 客户端与类型 |
+| F09i | `store/` | `gameStore` reducer + Context |
 
 ---
 
@@ -141,12 +142,13 @@ agent_world/hbm_demo/
 - 7 个 Agent、4 个地点、2 个群聊
 - `llm`：`base_url`、`model`（当前 `deepseek-chat`）
 
-### Agent 行为控制（ABCS）
+### Agent 行为控制（ABCS / F07）
 
-**当前 Demo 未包含 ABCS 运行时实现**（原 `features/f07_agent_control/`、`turn_control.yaml` 已移除）。  
-设计与后续重建方案见 [`dev_logs/24_HBM_Demo_Agent行为控制整合方案.md`](../../dev_logs/24_HBM_Demo_Agent行为控制整合方案.md)。
+运行时实现位于 `features/f07_agent_control/`，配置见 `turn_control.yaml`（L3 选角、inject 窗口、world loop、prompt trace 等）。
 
-Inject 后每 tick 仍由引擎默认调度**全部 Agent**（`WorldStep.scheduler=None`）；阶段 inject 目标仍由 F05 `PHASE_INJECT_AGENTS` 按 Phase 限定。
+剧情路由采用 **agent_driven** 模式（`features/f05_story_routing/routing.yaml`）：节点 A/B/C 由 Agent 对话信号触发，Stats 仅作 UI 展示。
+
+设计与演进记录见 [`dev_logs/24_HBM_Demo_Agent行为控制整合方案.md`](../../dev_logs/24_HBM_Demo_Agent行为控制整合方案.md)、[`dev_logs/37_HBM_Demo_代码重整与清理记录.md`](../../dev_logs/37_HBM_Demo_代码重整与清理记录.md)。
 
 ---
 

@@ -1,7 +1,6 @@
 """F07 — Agent Behavior Control Stack (ABCS)."""
 
 from agent_world.hbm_demo.features.f07_agent_control.config import (
-    is_experience_hardening,
     is_f07_enabled,
     load_turn_control,
     passive_tick_probability,
@@ -31,7 +30,6 @@ __all__ = [
     "clear_player_memory_for_agents",
     "extract_inject_agent_ids",
     "format_inject_dialogue",
-    "is_experience_hardening",
     "is_f07_enabled",
     "load_turn_control",
     "passive_tick_probability",

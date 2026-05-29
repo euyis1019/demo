@@ -4,10 +4,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from agent_world.hbm_demo.features.f07_agent_control.config import (
-    is_experience_hardening,
-)
-
 _AGENT_NAMES = {
     1: "接待前台",
     2: "Jensen Hwang",
@@ -63,15 +59,6 @@ def _phase_agent_extra(*, agent_id: int, phase: str, player_turn: int) -> str:
             "★ Jensen 的「稍等/评估中」RDC 只需 speak_to_local 转告玩家，"
             "禁止 send_message→2 回执（会触发黄总复读）。"
         )
-        if is_experience_hardening():
-            lines.append(
-                "★ 本 Turn 唯一权威输入是下方「玩家说：…」——必须优先回应该句。"
-                "禁止复读上一 Turn 或 notification 中的旧话题，除非玩家本句明确延续。"
-            )
-            lines.append(
-                "★ 若玩家明显闲聊/玩梗（无技术/见黄总诉求）：speak_to_local 礼貌回应即可，"
-                "勿 send_message→Jensen；可说「您要是想谈技术方案，我可以帮您通报。」"
-            )
 
     if phase == "Phase 1" and aid == 2:
         lines.append(
@@ -238,12 +225,6 @@ def format_notification_directive(
         "以下是世界态与你的角色目标摘要。你看不到玩家原话；"
     )
     aid = int(agent_id) if agent_id is not None else 0
-    if is_experience_hardening() and phase == "Phase 1" and aid in (2, 3):
-        return (
-            header
-            + "你只能依据「前台 RDC」与「本 Turn 摘要」行动；"
-            "禁止编造未在 RDC/摘要中出现的公司名、数据、roadmap。\n"
-        )
     if phase == "Phase 1" and aid == 2:
         return (
             header

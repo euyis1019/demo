@@ -7,9 +7,11 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from agent_world.hbm_demo.core.runner.world_loop import WorldLoopOrchestrator
-from agent_world.hbm_demo.features.f01_session.world_reset import reset_world_runtime
+from agent_world.hbm_demo.features.f01_session.world_reset import (
+    purge_prompt_traces,
+    reset_world_runtime,
+)
 from agent_world.hbm_demo.features.f07_agent_control.config import (
-    is_experience_hardening,
     is_world_loop_enabled,
     resolve_inject_tick_loops,
 )
@@ -215,8 +217,8 @@ def wire_handlers(
         return {}
 
     async def handle_reset_world(payload: Dict[str, Any]) -> Dict[str, Any]:  # noqa: ARG001
-        if orchestrator is not None:
-            orchestrator.reset_runtime()
+        if orchestrator is not None and orchestrator.enabled:
+            await orchestrator.pause_for_reset()
         end_tick = await reset_world_runtime(
             world_db=world_db,
             world_state=world_state,
@@ -231,22 +233,29 @@ def wire_handlers(
             segment_store=segment_store,
             sim_dir=sim_dir_str,
         )
+        async with world_db._write_lock:
+            purge_prompt_traces(world_db)
         if hasattr(world_step, "clear_tick_context"):
             world_step.clear_tick_context()
-        if orchestrator is not None and orchestrator.enabled:
-            orchestrator.update_session_mirror({})
-            write_env_status(
-                sim_dir_str,
-                end_tick,
-                status="running",
-                loop_running=True,
-                loop_state="running",
-                last_activity_t=0,
-                queue_depth=0,
-                paused_at_tick=None,
-                paused_at_iso=None,
-                tick_interval_sec=orchestrator.get_loop_status().get("tick_interval_sec"),
-            )
+        if orchestrator is not None:
+            orchestrator.clear_session_state()
+            if orchestrator.enabled:
+                orchestrator.update_session_mirror({})
+                orchestrator.mark_hold_paused_after_reset()
+                write_env_status(
+                    sim_dir_str,
+                    end_tick,
+                    status="running",
+                    loop_running=True,
+                    loop_state="paused",
+                    last_activity_t=0,
+                    queue_depth=0,
+                    paused_at_tick=end_tick,
+                    paused_at_iso=None,
+                    tick_interval_sec=orchestrator.get_loop_status().get(
+                        "tick_interval_sec"
+                    ),
+                )
         return {"end_tick": end_tick, "world_t": end_tick}
 
     ipc_server.register_handler(

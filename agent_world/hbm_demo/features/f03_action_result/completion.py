@@ -1,8 +1,7 @@
 """F03 action completion rules and message formatting.
 
 v2 Phase 0 (dev_logs/31): continuous delta read model — polling uses ``since_tick``
-for incremental UI; ``check_action_complete`` no longer treats ``ipc_end_tick`` alone
-as batch-completed when experience hardening is off.
+for incremental UI; completion uses F07 phase rules + timeout fallback.
 """
 
 from __future__ import annotations
@@ -10,10 +9,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 from agent_world.hbm_demo.features.f01_session.constants import DEFAULT_PHASE
-from agent_world.hbm_demo.features.f07_agent_control.config import (
-    is_experience_hardening,
-    is_f07_enabled,
-)
+from agent_world.hbm_demo.features.f07_agent_control.config import is_f07_enabled
 from agent_world.hbm_demo.features.f02_player_turn.task import (
     INJECT_STATUS_DONE,
     INJECT_STATUS_FAILED,
@@ -56,24 +52,6 @@ def _inject_finished(task: PendingTask) -> bool:
 RECEPTION_PLACE = "nvidia_reception"
 JENSEN_PRIVATE_PLACE = "jensen_private_room"
 NEGOTIATION_PLACE = "negotiation_room"
-
-
-def _f2f_required_completion(
-    task: PendingTask,
-    current_tick: int,
-    db: ReadOnlyWorldDB,
-    *,
-    place_id: str,
-) -> bool:
-    """E5 — experience hardening: complete only on F2F (no pure timeout)."""
-    start = task.start_tick
-    if current_tick < start + MIN_ACTIVITY_TICKS:
-        return False
-    if db.has_f2f_after(place_id, start, current_tick):
-        return True
-    if task.inject_status == INJECT_STATUS_FAILED:
-        return True
-    return False
 
 
 def _timeout_complete(task: PendingTask, current_tick: int) -> bool:
@@ -120,17 +98,6 @@ def check_action_complete(
     if task.inject_status == INJECT_STATUS_FAILED:
         return True
 
-    if is_experience_hardening() and task.phase == "Phase 1":
-        return _f2f_required_completion(
-            task, current_tick, db, place_id=RECEPTION_PLACE
-        )
-    if is_experience_hardening() and task.phase == "Phase 2":
-        place = task.place_id or JENSEN_PRIVATE_PLACE
-        return _f2f_required_completion(task, current_tick, db, place_id=place)
-    if is_experience_hardening() and task.phase == "Phase 4":
-        place = task.place_id or NEGOTIATION_PLACE
-        return _f2f_required_completion(task, current_tick, db, place_id=place)
-
     if is_f07_enabled() and task.phase == "Phase 1":
         return _f07_phase1_complete(task, start, current_tick, db)
 
@@ -148,10 +115,6 @@ def check_action_complete(
 
     if not _inject_finished(task):
         return _timeout_complete(task, current_tick)
-
-    if is_experience_hardening():
-        if task.ipc_end_tick is not None and current_tick >= task.ipc_end_tick:
-            return True
 
     return _timeout_complete(task, current_tick)
 

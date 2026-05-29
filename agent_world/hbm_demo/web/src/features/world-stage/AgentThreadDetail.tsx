@@ -1,6 +1,6 @@
 import type { ContactThread } from "./agentContactThreads";
 import type { GameMessage, LocationChange, StateChange } from "../../api/types";
-import { MessageBubble } from "../main-chat/MessageBubble";
+import { MessageBubble } from "../shared/MessageBubble";
 import { InnerOsTimeline } from "./InnerOsTimeline";
 import { LocationHistoryTimeline } from "./LocationHistoryTimeline";
 

@@ -19,11 +19,6 @@ class HbmWorldStep(WorldStep):
         self._tick_context: Optional[Dict[str, Any]] = None
         self._passive_ticks_batch: int = 0
         self._batch_tick_index: int = 0
-        from agent_world.hbm_demo.features.f07_agent_control.batch_guard import (
-            BatchGuardState,
-        )
-
-        self._batch_guard = BatchGuardState()
 
     def set_tick_context(
         self,
@@ -31,29 +26,15 @@ class HbmWorldStep(WorldStep):
         *,
         reset_l3_window: bool = False,
     ) -> None:
-        from agent_world.hbm_demo.features.f07_agent_control.batch_guard import (
-            BatchGuardState,
-        )
-
         self._tick_context = dict(turn_context) if turn_context else None
         if reset_l3_window:
             self._passive_ticks_batch = 0
             self._batch_tick_index = 0
-            self._batch_guard = BatchGuardState()
 
     def clear_tick_context(self) -> None:
-        from agent_world.hbm_demo.features.f07_agent_control.batch_guard import (
-            BatchGuardState,
-        )
-
         self._tick_context = None
         self._passive_ticks_batch = 0
         self._batch_tick_index = 0
-        self._batch_guard = BatchGuardState()
-
-    @property
-    def batch_guard(self) -> Any:
-        return self._batch_guard
 
     async def run_one_tick(self) -> Dict[str, Any]:
         result = await super().run_one_tick()
@@ -103,31 +84,6 @@ class HbmWorldStep(WorldStep):
         """Place id for F15 links and player-facing F2F emission."""
         return self._location_of(int(agent_id))
 
-    def _resolve_batch_llm_params(
-        self,
-        agent_id: int,
-        turn_context: Dict[str, Any],
-        llm: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        from agent_world.hbm_demo.features.f07_agent_control.config import (
-            is_experience_hardening,
-        )
-        from agent_world.hbm_demo.features.f07_agent_control.llm_params import (
-            resolve_passive_llm_params,
-        )
-
-        if not is_experience_hardening():
-            return llm
-        phase = str(turn_context.get("phase", "Phase 1"))
-        inject_ids = {int(x) for x in (turn_context.get("inject_agent_ids") or [])}
-        if phase == "Phase 1" and agent_id not in inject_ids and agent_id in (2, 3):
-            passive = resolve_passive_llm_params(phase)
-            if passive:
-                merged = dict(llm)
-                merged.update(passive)
-                return merged
-        return llm
-
     async def _run_single_agent(self, agent_id: int, t: int) -> None:
         agent = self._resolve_agent(agent_id)
         if agent is None:
@@ -136,9 +92,7 @@ class HbmWorldStep(WorldStep):
         ctx = self._tick_context
         if ctx:
             agent._batch_turn_context = ctx  # noqa: SLF001
-            agent._batch_guard_state = self._batch_guard  # noqa: SLF001
             llm = dict(ctx.get("llm_params") or {})
-            llm = self._resolve_batch_llm_params(int(agent_id), ctx, llm)
             if llm:
                 agent._batch_temperature = llm.get("temperature")  # noqa: SLF001
                 agent._batch_max_tokens = llm.get("max_tokens")  # noqa: SLF001
@@ -151,7 +105,6 @@ class HbmWorldStep(WorldStep):
             agent._prompt_trace_id = None  # noqa: SLF001
             if ctx:
                 agent._batch_turn_context = None  # noqa: SLF001
-                agent._batch_guard_state = None  # noqa: SLF001
                 agent._batch_temperature = None  # noqa: SLF001
                 agent._batch_max_tokens = None  # noqa: SLF001
 
@@ -199,12 +152,6 @@ class HbmWorldStep(WorldStep):
                     dispatch_result=dispatch_result,
                     t=t,
                 )
-                self._mark_rdc_if_sent(
-                    agent_id=agent_id,
-                    action_type=atype,
-                    action_kwargs=akwargs or {},
-                    dispatch_result=dispatch_result,
-                )
             except Exception as exc:  # noqa: BLE001
                 log.warning(
                     "dispatch(agent=%s, action=%s) failed: %s",
@@ -234,7 +181,6 @@ class HbmWorldStep(WorldStep):
             return
 
         if bus_delivered_player_facing_f2f(dispatch_result):
-            self._batch_guard.mark_f2f(int(agent_id))
             return
 
         content = str(action_kwargs.get("content") or "").strip()
@@ -251,7 +197,6 @@ class HbmWorldStep(WorldStep):
                 content=content,
                 t=int(t),
             )
-            self._batch_guard.mark_f2f(int(agent_id))
             log.debug(
                 "F07-E0 player_facing_f2f agent=%s place=%s t=%s",
                 agent_id,
@@ -264,40 +209,6 @@ class HbmWorldStep(WorldStep):
                 agent_id,
                 exc,
             )
-
-    def _mark_rdc_if_sent(
-        self,
-        *,
-        agent_id: int,
-        action_type: Any,
-        action_kwargs: Dict[str, Any],
-        dispatch_result: Any,
-    ) -> None:
-        from agent_world.hbm_demo.features.f07_agent_control.config import (
-            is_experience_hardening,
-        )
-        from agent_world.hbm_demo.features.f07_agent_control.player_facing_f2f import (
-            is_speak_to_local_action,
-        )
-
-        if not is_experience_hardening():
-            return
-        if is_speak_to_local_action(action_type):
-            return
-        name = str(
-            getattr(action_type, "value", None)
-            or getattr(action_type, "name", None)
-            or action_type
-            or ""
-        )
-        if name.lower().replace("-", "_") != "send_message":
-            return
-        if not dispatch_result or not dispatch_result.get("success"):
-            return
-        target = action_kwargs.get("target")
-        if target is None:
-            return
-        self._batch_guard.mark_rdc(int(agent_id), int(target))
 
     async def _run_place(
         self, place_id: str, agent_ids: List[int], t: int

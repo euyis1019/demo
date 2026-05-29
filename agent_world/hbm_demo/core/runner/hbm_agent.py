@@ -158,10 +158,17 @@ class HbmAgent(DemoAgent):
 
         trace_id: Optional[str] = None
         world_db = getattr(world, "world_db", None)
+        from agent_world.hbm_demo.features.f07_agent_control.config import (
+            is_world_loop_enabled,
+        )
         from agent_world.hbm_demo.features.f15_prompt_trace.store import PromptTraceStore
 
         trace_store = PromptTraceStore(world_db) if world_db is not None else None
-        if trace_store is not None and trace_store.enabled:
+        skip_idle_trace = (
+            is_world_loop_enabled()
+            and turn_ctx.get("player_inject_tick") is None
+        )
+        if trace_store is not None and trace_store.enabled and not skip_idle_trace:
             trace_id = trace_store.begin_trace(
                 agent_id=int(self.agent_id),
                 at_tick=int(t),
@@ -300,21 +307,8 @@ class HbmAgent(DemoAgent):
         respond_rule = (
             "1) 有玩家 inject 时须首次回应其关键词；已回应且无新消息时选 do_nothing。\n"
         )
-        from agent_world.hbm_demo.features.f07_agent_control.config import (
-            is_experience_hardening,
-        )
 
-        if (
-            is_experience_hardening()
-            and phase == "Phase 1"
-            and aid in (2, 3)
-            and not self.player_memory
-        ):
-            respond_rule = (
-                "1) 若本拍无新前台 RDC，选 do_nothing；"
-                "勿主动发起与当前访客无关的话题。\n"
-            )
-        elif phase == "Phase 1" and aid in (2, 3) and not self.player_memory:
+        if phase == "Phase 1" and aid in (2, 3) and not self.player_memory:
             respond_rule = (
                 "1) 有未读 RDC 时本拍须 send_message 回复发件人（1–3 句），"
                 "优先于 update_state / do_nothing。\n"
