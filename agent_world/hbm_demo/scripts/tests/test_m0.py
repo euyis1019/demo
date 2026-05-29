@@ -2556,11 +2556,15 @@ def test_f07_v2_phase3_prompt_trace() -> None:
         raise TestFailure("F15 linker must link comm actions even when bus delivery fails")
     ok("F15 linker links F2F/RDC/GRP regardless of dispatch success")
 
-    world_sync = (HBM_DIR / "web" / "src" / "store" / "worldSync.ts").read_text(
-        encoding="utf-8"
+    # worldSync.ts now delegates the agent-inbox domain to agentInbox.ts; read both.
+    store_dir = HBM_DIR / "web" / "src" / "store"
+    world_sync = "\n".join(
+        (store_dir / name).read_text(encoding="utf-8")
+        for name in ("worldSync.ts", "agentInbox.ts")
+        if (store_dir / name).is_file()
     )
     if "locationLog" not in world_sync or "mergeLocationChanges" not in world_sync:
-        raise TestFailure("worldSync missing locationLog merge")
+        raise TestFailure("store worldSync/agentInbox missing locationLog merge")
     ok("frontend worldSync locationLog merge present")
 
     for rel in (
