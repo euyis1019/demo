@@ -22,6 +22,8 @@ class HbmWorldStep(WorldStep):
         self._batch_tick_index: int = 0
         self._render_inflight: bool = False  # F18 出图单帧在途节流
         self._render_task: Optional[Any] = None  # F18 最近一次出图任务（供降 tick 等待）
+        self._last_speech_by_place: Dict[str, Dict[str, int]] = {}  # F18 各房间最近发言
+        self._speech_seq: int = 0  # F18 台词序号：每句新台词 +1
 
     def set_tick_context(
         self,
@@ -49,6 +51,23 @@ class HbmWorldStep(WorldStep):
     # ------------------------------------------------------------------ #
     # F18 场景渲染 hook（经 integration 桥接，D4）                          #
     # ------------------------------------------------------------------ #
+    def _note_speech_for_render(self, agent_id: Any, atype: Any, akwargs: Dict[str, Any]) -> None:
+        """记录"某房间最近谁说了话"，供 F18 出图时体现说话人 + 台词更新。"""
+        aname = getattr(atype, "name", str(atype)).upper()
+        if "SPEAK" not in aname:
+            return
+        if not (akwargs.get("content") or akwargs.get("text")):
+            return
+        try:
+            aid = int(agent_id)
+        except (TypeError, ValueError):
+            return
+        place = self._agent_place_id(aid)
+        if not place:
+            return
+        self._speech_seq += 1
+        self._last_speech_by_place[place] = {"speaker": aid, "seq": self._speech_seq}
+
     def _build_scene(self, t: int):
         from agent_world.hbm_demo.core.runner.integration import scene_render
 
@@ -56,12 +75,17 @@ class HbmWorldStep(WorldStep):
         occupants = self.world.agents_at(player_place) if player_place else set()
         occupant_count = len(occupants)
         phase = self._tick_context.get("phase") if self._tick_context else None
+        last = self._last_speech_by_place.get(player_place or "")
+        speaker_id = last["speaker"] if last else None
+        line_seq = last["seq"] if last else 0
         return scene_render.SceneState(
             tick=int(t),
             place=player_place or "default",
             phase=phase,
             occupant_count=occupant_count,
-            has_speaker=occupant_count > 1,
+            has_speaker=speaker_id is not None or occupant_count > 1,
+            speaker_id=speaker_id,
+            line_seq=line_seq,
         )
 
     def _maybe_render_frame(self, t: int) -> None:
@@ -205,6 +229,7 @@ class HbmWorldStep(WorldStep):
                     dispatch_result=dispatch_result,
                     t=t,
                 )
+                self._note_speech_for_render(agent_id, atype, akwargs or {})
             except Exception as exc:  # noqa: BLE001
                 log.warning(
                     "dispatch(agent=%s, action=%s) failed: %s",

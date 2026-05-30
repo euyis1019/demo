@@ -24,6 +24,8 @@ class SceneState:
     phase: Any = None
     occupant_count: int = 0
     has_speaker: bool = False
+    speaker_id: Optional[int] = None  # 当前在玩家房间发言的 agent；None=无人发言
+    line_seq: int = 0  # 台词序号：每句新台词 +1，使画面随台词更新
 
 
 @dataclass
@@ -53,6 +55,8 @@ def _prepare(scene: SceneState):
             "phase": scene.phase,
             "occupant_count": scene.occupant_count,
             "has_speaker": scene.has_speaker,
+            "speaker_id": scene.speaker_id,
+            "line_seq": scene.line_seq,
         }
     )
     seed = seed_for_place(scene.place, int(cfg.get("seed_base", 7000)))

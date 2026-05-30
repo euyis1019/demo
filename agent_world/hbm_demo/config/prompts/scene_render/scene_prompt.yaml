@@ -8,25 +8,38 @@ scene_prompt:
     consistent character design, consistent color palette, stable eye-level camera angle,
     same establishing shot framing
 
-  # 每个房间的场景底图描述（place_id -> 英文场景词）
+  # 每个房间的场景底图描述（真实 place_id -> 英文场景词）
   places:
-    lobby: "bright office reception lobby with glass doors and a front desk"
-    boardroom: "modern boardroom with a long table, large city-view windows, pendant lights"
-    office_a: "small private office with a desk and laptop, warm lighting"
-    office_b: "small private office with a desk and monitor, cool lighting"
+    nvidia_reception: "bright NVIDIA-style tech office reception lobby with a front desk and glass doors"
+    negotiation_room: "modern negotiation meeting room with a long conference table and large city-view windows"
+    jensen_private_room: "an executive private office with a desk, laptop and bookshelf, warm lighting"
+    openai_hq: "a sleek minimalist AI-company headquarters office with modern decor"
     default: "modern open-plan office space"
 
-  # 各 Phase 的氛围词（phase 数字 -> 氛围）
+  # 各 Phase 的氛围词（按 phase 中的数字匹配，兼容 "Phase 1" / "1"）
   phase_mood:
-    "1": "calm establishing mood"
-    "2": "tense negotiation mood"
+    "1": "calm first-meeting mood"
+    "2": "focused negotiation mood"
     "3": "high-stakes boardroom debate mood"
     "4": "decisive closing-deal mood"
     default: "neutral office mood"
 
-  # 在场人物片段：occupants 列表渲染成 "N business people"；正在发言者额外强调
+  # 说话人角色（agent_id -> 英文角色描述，用于让"谁在说话"体现在画面里）
+  agent_roles:
+    "0": "the visitor in business casual"
+    "1": "the female receptionist in a dark suit"
+    "2": "the company CEO in a leather jacket"
+    "3": "a senior tech executive"
+    "4": "a memory-chip supplier CEO"
+    "5": "a memory-chip supplier CEO"
+    "6": "a memory-chip supplier CEO"
+    "7": "an AI-company CEO"
+    default: "a businessperson"
+
+  # 在场人物片段
   occupants_template: "{count} business people in the room"
-  speaker_template: "one person speaking and gesturing"
+  # 说话人片段（带 take 序号，使每句新台词都换一帧；无新发言则 prompt 不变、画面不动）
+  speaker_template: "{role} is speaking and gesturing, conversation moment {seq}"
   empty_room: "an empty room, no people"
 
   # 负向提示，压低畸形/文字水印
