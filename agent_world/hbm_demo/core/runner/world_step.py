@@ -20,6 +20,7 @@ class HbmWorldStep(WorldStep):
         self._passive_ticks_batch: int = 0
         self._batch_tick_index: int = 0
         self._render_inflight: bool = False  # F18 出图单帧在途节流
+        self._render_task: Optional[Any] = None  # F18 最近一次出图任务（供降 tick 等待）
 
     def set_tick_context(
         self,
@@ -74,10 +75,22 @@ class HbmWorldStep(WorldStep):
             sim_dir = self.world_db.path.parent
             scene = self._build_scene(t)
             self._render_inflight = True
-            asyncio.create_task(self._render_frame_task(scene, sim_dir))
+            self._render_task = asyncio.create_task(self._render_frame_task(scene, sim_dir))
         except Exception as exc:  # 出图编排失败绝不拖垮 tick
             self._render_inflight = False
             log.warning("F18 render dispatch failed at t=%s: %s", t, exc)
+
+    async def await_render(self, timeout: float) -> None:
+        """降 tick 匹配：等当前帧出完再进下一 tick；超时则让任务后台续跑（画面滞后）。"""
+        task = self._render_task
+        if task is None or task.done():
+            return
+        try:
+            await asyncio.wait_for(asyncio.shield(task), timeout=timeout)
+        except asyncio.TimeoutError:
+            pass  # 超过上限：不阻塞世界，帧稍后写入（滞后一两拍）
+        except Exception:
+            pass  # 出图任务自身异常已在任务内兜底
 
     async def _render_frame_task(self, scene, sim_dir) -> None:
         from agent_world.hbm_demo.core.runner.integration import scene_render

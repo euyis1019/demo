@@ -12,6 +12,7 @@ from __future__ import annotations
 from agent_world.hbm_demo.features.f18_scene_render.config import (
     is_enabled,
     min_tick_interval_sec,
+    render_wait_cap_sec,
 )
 from agent_world.hbm_demo.features.f18_scene_render.render import (
     FrameResult,
@@ -32,6 +33,7 @@ __all__ = [
     "render_scene_frame_async",
     "is_enabled",
     "min_tick_interval_sec",
+    "render_wait_cap_sec",
     "write_latest_frame",
     "read_latest_frame_data_uri",
     "clear_frames",

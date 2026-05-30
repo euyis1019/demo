@@ -4237,6 +4237,7 @@ def start_stack() -> Tuple[subprocess.Popen[Any], subprocess.Popen[Any], str, bo
 
     env = apply_hbm_demo_env(os.environ.copy())
     env["HBM_SIM_DIR"] = str(E2E_SIM_DIR)
+    env["HBM_SCENE_RENDER_DISABLED"] = "1"  # F18：门禁不依赖外部出图 API
     env.setdefault("FLASK_RUN_PORT", "5050")
     flask_port = env["FLASK_RUN_PORT"]
     env["FLASK_APP"] = "agent_world.app:create_app"

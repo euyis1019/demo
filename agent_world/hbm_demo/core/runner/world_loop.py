@@ -275,6 +275,16 @@ class WorldLoopOrchestrator:
     async def _loop(self) -> None:
         interval = abcs.world_loop_tick_interval()
         max_ticks = abcs.world_loop_max_ticks()
+        # F18：开启实时出图时降 tick 速率匹配——每 tick 等当前帧出完再进下一拍，
+        # tick 下限取 max(world_loop_interval, F18 min_tick_interval)。
+        from agent_world.hbm_demo.core.runner.integration import scene_render
+
+        render_pacing = scene_render.is_enabled()
+        floor = (
+            max(interval, scene_render.min_tick_interval_sec())
+            if render_pacing
+            else interval
+        )
         try:
             while self._running:
                 await self._pause_event.wait()
@@ -283,9 +293,13 @@ class WorldLoopOrchestrator:
                 if self._ticks_run >= max_ticks:
                     log.warning("world loop hit max_ticks=%s — stopping", max_ticks)
                     break
+                t0 = asyncio.get_event_loop().time()
                 await self._run_one_cycle()
                 self._ticks_run += 1
-                await asyncio.sleep(interval)
+                if render_pacing and hasattr(self._world_step, "await_render"):
+                    await self._world_step.await_render(scene_render.render_wait_cap_sec())
+                spent = asyncio.get_event_loop().time() - t0
+                await asyncio.sleep(max(0.0, floor - spent))
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001

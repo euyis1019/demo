@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from typing import Any, Dict
 
@@ -19,9 +20,10 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "width": 1280,
     "height": 720,
     "seed_base": 7000,
-    "timeout_sec": 60,
+    "timeout_sec": 30,
     "nologo": True,
     "min_tick_interval_sec": 1.5,
+    "render_wait_cap_sec": 6.0,
 }
 
 
@@ -51,8 +53,15 @@ def load_prompt_template() -> Dict[str, Any]:
 
 
 def is_enabled() -> bool:
+    # 门禁/E2E 用环境变量强制关闭，避免世界 tick 依赖外部出图 API。
+    if os.environ.get("HBM_SCENE_RENDER_DISABLED") == "1":
+        return False
     return bool(load_config().get("enabled", True))
 
 
 def min_tick_interval_sec() -> float:
     return float(load_config().get("min_tick_interval_sec", 1.5))
+
+
+def render_wait_cap_sec() -> float:
+    return float(load_config().get("render_wait_cap_sec", 6.0))

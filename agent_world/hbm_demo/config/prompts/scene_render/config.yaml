@@ -7,7 +7,9 @@ scene_render:
   width: 1280                   # 16:9 横屏
   height: 720
   seed_base: 7000               # 固定基准种子；各房间在此基础上取稳定偏移（一致性）
-  timeout_sec: 60
+  timeout_sec: 30               # 单次出图请求超时
   nologo: true
-  # 降 tick 速率匹配：tick 间隔 = max(min_tick_interval_sec, 上一帧出图耗时)
+  # 降 tick 速率匹配：每 tick 等当前帧出完再进下一 tick；
+  # tick 间隔 ≈ max(min_tick_interval_sec, 出图耗时)，但等待不超过 render_wait_cap_sec。
   min_tick_interval_sec: 1.5
+  render_wait_cap_sec: 6.0      # 单 tick 等出图的上限；超过则降级为画面滞后，不卡世界
