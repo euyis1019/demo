@@ -40,14 +40,14 @@ scene_prompt:
   occupants_template: "{count} business people in the room"
   # 说话人片段（无台词时）
   speaker_template: "{role} is speaking and gesturing to the others"
-  # 说话人 + 真实台词（Seedream 原生懂中文，据台词画出对应表情/动作）
-  speaker_with_line: '{role} is saying to the others: "{line}", with a fitting facial expression and matching hand gesture'
+  # 说话人 + 真实台词（据台词的含义与语气，画出强烈情绪 + 反应性动作，体现玩家话语的影响）
+  speaker_with_line: '{role} is reacting and saying to the others: "{line}", showing a strong, vivid emotion (smiling / pleased / surprised / frowning / angry as fits these exact words) and an expressive dynamic body gesture that clearly matches the meaning and tone of what is said'
   empty_room: "an empty room, no people"
 
   # 图生图(img2img)动作模板：以上一帧为参考，锁住同一批人/场景与动漫画风，只改动作
   action_speaker: "keep the exact same people and the same scene and the same anime art style, now {role} is speaking and gesturing while the others listen, detailed anime illustration"
-  # 带真实台词的动作（让画面体现 agent 当前实际在说的话/对应动作）
-  action_with_line: 'keep the exact same people and the same scene and the same anime art style, now {role} is saying: "{line}", showing a fitting facial expression and body gesture while the others react, detailed anime illustration'
+  # 带真实台词的动作（让画面体现 agent 情绪随玩家话语变化：强烈表情 + 反应性动作 + 旁人反应）
+  action_with_line: 'keep the exact same people and the same scene and the same anime art style, now {role} reacts emotionally and says: "{line}", showing a strong vivid facial expression (smiling / pleased / surprised / frowning / angry as fits these exact words) and an expressive dynamic body gesture matching the tone, while the other people visibly react with their own expressions, detailed anime illustration'
   action_idle: "keep the exact same people and the same scene and the same anime art style, a natural candid moment with a slight pose change, detailed anime illustration"
 
   # 负向提示：压掉写实/3D（保持动漫稳定）+ 畸形。注意：不含 "text"，
