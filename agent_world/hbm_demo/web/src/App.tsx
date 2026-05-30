@@ -17,7 +17,6 @@ import {
   PlayerInput,
   RunnerNotReadyModal,
   StatusPanel,
-  FrameStage,
   StoryModeStage,
   StoryPlayerInput,
   TwoColumnLayout,
@@ -191,6 +190,7 @@ function GameApp() {
           pendingWorldEvent={pendingWorldEvent}
           lastError={lastError}
           inputSlot={storyModeInput}
+          frame={latestFrame}
           onToggleViewMode={toggleViewMode}
           onDismissWorldEvent={() => dispatch({ type: "DISMISS_WORLD_EVENT" })}
           {...worldControls}
@@ -216,12 +216,6 @@ function GameApp() {
               />
             }
             main={
-              <>
-              <FrameStage
-                frame={latestFrame}
-                placeLabel={placeDisplayName(placeId)}
-                worldTick={envTick ?? worldTick}
-              />
               <WorldStage
                 roomF2f={roomF2f}
                 playerPlaceId={placeId as PlaceId}
@@ -246,7 +240,6 @@ function GameApp() {
                 }
                 inputSlot={godModeInput}
               />
-              </>
             }
           />
       )}

@@ -3,11 +3,9 @@
  *                 toasts/modals, loading overlay, Runner-503 modal.
  * world-stage.css F12 world stage: room grid, agent circles/bubbles,
  *                 agent-phone modal, message threads, prompt-trace modal.
- * story-mode.css  Immersive ADV story mode: stage, dialogue history,
- *                 subtitle, toolbar + responsive.
- * frame-stage.css F18 AIGC 实时整帧画面舞台。
+ * story-mode.css  Immersive ADV story mode: stage（F18 实时整帧画面）, dialogue
+ *                 history, subtitle, toolbar + responsive.
  * Order is preserved exactly (Vite inlines @import) — do not reorder. */
 @import "./base.css";
 @import "./world-stage.css";
 @import "./story-mode.css";
-@import "./frame-stage.css";

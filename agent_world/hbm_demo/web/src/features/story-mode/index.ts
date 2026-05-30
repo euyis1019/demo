@@ -11,7 +11,7 @@ export { StorySubtitle } from "./StorySubtitle";
 export type { StorySubtitleProps } from "./StorySubtitle";
 export { StoryDialogueHistory } from "./StoryDialogueHistory";
 export type { StoryDialogueHistoryProps } from "./StoryDialogueHistory";
-export { storyAvatarUrl, storyPlaceBackground } from "./storyAssets";
+export { storyAvatarUrl } from "./storyAssets";
 export {
   useStoryDialogue,
   useStoryDialogueQueue,

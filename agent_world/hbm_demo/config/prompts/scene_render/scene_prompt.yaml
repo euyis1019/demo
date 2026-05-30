@@ -1,10 +1,12 @@
 # F18 场景渲染 · 画面 prompt 模板（L0，纯数据）
 # prompt_builder.py 用这些片段把世界状态拼成一句画面描述。改画风/场景描述只动这里。
 scene_prompt:
-  # 全局画风前缀（扁平卡通），保证跨帧风格统一
+  # 全局画风前缀（扁平卡通）+ 一致性约束（配合每房间固定 seed 降低跨帧抖动）
   style_prefix: >-
     flat illustration cartoon style, clean vector art, soft shadows, flat colors,
-    modern corporate setting, wide cinematic 16:9 composition
+    modern corporate setting, wide cinematic 16:9 composition,
+    consistent character design, consistent color palette, stable eye-level camera angle,
+    same establishing shot framing
 
   # 每个房间的场景底图描述（place_id -> 英文场景词）
   places:

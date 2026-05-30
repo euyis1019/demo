@@ -19,7 +19,7 @@ export const FEATURE_REGISTRY = {
   F14: { name: "常驻 world delta", path: "features/game-loop/" },
   F15: { name: "Prompt Inspector", path: "features/prompt-trace/" },
   F16: { name: "WebSocket delta 推送", path: "features/game-loop/" },
-  F18: { name: "AIGC 实时整帧画面", path: "features/frame-stage/" },
+  F18: { name: "AIGC 实时整帧画面", path: "features/story-mode/", note: "剧情模式舞台改为后端实时出图" },
   Story: { name: "沉浸式剧情模式", path: "features/story-mode/" },
 } as const;
 
@@ -32,4 +32,3 @@ export * from "./shared";
 export * from "./world-stage";
 export * from "./prompt-trace";
 export * from "./story-mode";
-export * from "./frame-stage";
