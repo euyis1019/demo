@@ -1,13 +1,12 @@
 # F18 场景渲染 · 画面 prompt 模板（L0，纯数据）
 # prompt_builder.py 用这些片段把世界状态拼成一句画面描述。改画风/场景描述只动这里。
 scene_prompt:
-  # 全局画风前缀（写实/电影感）。开头的相机 RAW 文件名是 Seedream 触发写实的关键技巧，
-  # 缺它会飘成动漫/插画风。+ 一致性约束（配合每房间固定 seed 降低跨帧抖动）。
+  # 全局画风前缀（动漫/galgame 演出风）。Seedream 对动漫风遵循稳定、质感高，
+  # 故顺势锁定动漫，负向词反向压掉写实/3D，避免画风在写实↔动漫间乱跳。
   style_prefix: >-
-    IMG_2094.CR2, RAW photo, professional DSLR photograph, photorealistic, photojournalism,
-    realistic natural lighting, global illumination, shallow depth of field, highly detailed,
-    realistic human faces and skin texture, 35mm lens, wide 16:9 composition,
-    consistent character appearance, stable eye-level camera angle
+    modern anime style, cel shaded, clean line art, vibrant colors, detailed anime illustration,
+    soft cinematic lighting, anime key visual, in the style of Makoto Shinkai and Kyoto Animation,
+    wide 16:9 composition, consistent character design, stable eye-level camera angle
 
   # 每个房间的场景底图描述（真实 place_id -> 英文场景词）
   places:
@@ -43,9 +42,9 @@ scene_prompt:
   speaker_template: "{role} is speaking and gesturing to the others"
   empty_room: "an empty room, no people"
 
-  # 图生图(img2img)动作模板：以上一帧为参考，锁住同一批人/场景，只改动作
-  action_speaker: "keep the exact same people and the same scene, now {role} is speaking and gesturing while the others listen, natural candid pose, photorealistic"
-  action_idle: "keep the exact same people and the same scene, a natural candid moment, slight pose change, photorealistic"
+  # 图生图(img2img)动作模板：以上一帧为参考，锁住同一批人/场景与动漫画风，只改动作
+  action_speaker: "keep the exact same people and the same scene and the same anime art style, now {role} is speaking and gesturing while the others listen, detailed anime illustration"
+  action_idle: "keep the exact same people and the same scene and the same anime art style, a natural candid moment with a slight pose change, detailed anime illustration"
 
-  # 负向提示：强力压掉动漫/卡通/插画 + 畸形/文字水印
-  negative: "anime, cartoon, illustration, cel shading, 2d, drawing, comic, flat vector, painting, cgi, 3d render, text, watermark, deformed faces, extra limbs, lowres"
+  # 负向提示：反向压掉写实/3D（保持动漫稳定）+ 畸形/文字水印
+  negative: "photorealistic, photograph, realistic photo, 3d render, cgi, deformed faces, extra limbs, extra fingers, text, watermark, lowres, blurry"
