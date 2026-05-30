@@ -223,6 +223,11 @@ def wire_handlers(
             purge_prompt_traces(world_db)
         if hasattr(world_step, "clear_tick_context"):
             world_step.clear_tick_context()
+        # F18：重开后世界是 paused，主动补一帧，避免重置后又卡在占位。
+        if hasattr(world_step, "render_opening_frame"):
+            import asyncio
+
+            asyncio.create_task(world_step.render_opening_frame())
         if orchestrator is not None:
             orchestrator.clear_session_state()
             if orchestrator.enabled:

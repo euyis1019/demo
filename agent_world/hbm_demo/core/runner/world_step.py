@@ -105,6 +105,40 @@ class HbmWorldStep(WorldStep):
             self._render_inflight = False
             log.warning("F18 render dispatch failed at t=%s: %s", t, exc)
 
+    async def render_opening_frame(self, max_attempts: int = 2) -> None:
+        """开局先出一帧：不依赖世界推进，启动即渲染当前场景一帧并落盘（带重试）。"""
+        if self.world_db is None or self._render_inflight:
+            return
+        try:
+            from agent_world.hbm_demo.core.runner.integration import scene_render
+
+            if not scene_render.is_enabled():
+                return
+            sim_dir = Path(self.world_db.path).parent
+            scene = self._build_scene(int(self.world.clock.t))
+            self._render_inflight = True
+        except Exception as exc:
+            self._render_inflight = False
+            log.warning("F18 opening frame setup failed: %s", exc)
+            return
+        try:
+            for attempt in range(max(1, max_attempts)):
+                result = await scene_render.render_scene_frame_async(scene)
+                if result.ok and result.image_b64:
+                    scene_render.write_latest_frame(
+                        sim_dir, result.tick, result.image_b64, result.mime
+                    )
+                    log.info("F18 opening frame ready at t=%s", result.tick)
+                    return
+                log.warning(
+                    "F18 opening frame attempt %d/%d failed: %s",
+                    attempt + 1, max_attempts, result.error,
+                )
+        except Exception as exc:
+            log.warning("F18 opening frame failed: %s", exc)
+        finally:
+            self._render_inflight = False
+
     async def await_render(self, timeout: float) -> None:
         """降 tick 匹配：等当前帧出完再进下一 tick；超时则让任务后台续跑（画面滞后）。"""
         task = self._render_task

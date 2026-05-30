@@ -285,6 +285,10 @@ class WorldLoopOrchestrator:
             if render_pacing
             else interval
         )
+        # F18：开局先出一帧——不等世界推进，启动即异步渲染一帧，
+        # 这样即便世界随后被暂停（出第一帧前就停），前端也已有画面、不再永远占位。
+        if render_pacing and hasattr(self._world_step, "render_opening_frame"):
+            asyncio.create_task(self._world_step.render_opening_frame())
         try:
             while self._running:
                 await self._pause_event.wait()
