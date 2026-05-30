@@ -1,0 +1,65 @@
+/* F18 — AIGC 实时整帧画面舞台 */
+.frame-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.frame-stage__canvas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0e1116;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.frame-stage__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.frame-stage__placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+}
+
+.frame-stage__spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: rgba(120, 170, 255, 0.85);
+  border-radius: 50%;
+  animation: frame-stage-spin 0.9s linear infinite;
+}
+
+@keyframes frame-stage-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.frame-stage__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 0 4px;
+}
+
+.frame-stage__ticks {
+  font-variant-numeric: tabular-nums;
+}

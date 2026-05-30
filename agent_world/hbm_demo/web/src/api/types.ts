@@ -227,6 +227,8 @@ export interface WorldDeltaData extends TurnDelta {
   /** F14 RoutingWatcher finale: bad_reject (status "game_over") OR the
    *  offer-driven Phase-4 early end (status "completed" → EndingScreen). */
   game_over?: PlayerTurnGameOver | PlayerTurnCompleted;
+  /** F18 实时整帧画面：base64 data-uri + 出图 tick（前端按 tick 去重）。 */
+  frame?: { tick: number; data_uri: string };
 }
 
 export interface TurnDelta {

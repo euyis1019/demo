@@ -5,7 +5,9 @@
  *                 agent-phone modal, message threads, prompt-trace modal.
  * story-mode.css  Immersive ADV story mode: stage, dialogue history,
  *                 subtitle, toolbar + responsive.
+ * frame-stage.css F18 AIGC 实时整帧画面舞台。
  * Order is preserved exactly (Vite inlines @import) — do not reorder. */
 @import "./base.css";
 @import "./world-stage.css";
 @import "./story-mode.css";
+@import "./frame-stage.css";

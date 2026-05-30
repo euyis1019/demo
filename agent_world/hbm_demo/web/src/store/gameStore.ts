@@ -60,6 +60,8 @@ export interface GameState {
   endingId?: EndingId;
   lastError?: string;
   runnerModalOpen: boolean;
+  /** F18 最新实时整帧画面（base64 data-uri + 出图 tick）。 */
+  latestFrame: { tick: number; dataUri: string } | null;
 }
 
 export const INITIAL_STATS: Stats = {
@@ -96,6 +98,7 @@ export function createInitialState(): GameState {
     recentMoveKeys: [],
     recentRdcLinks: [],
     runnerModalOpen: false,
+    latestFrame: null,
   };
 }
 
@@ -129,7 +132,8 @@ export type GameAction =
   | { type: "CLOSE_AGENT_MODAL" }
   | { type: "DISMISS_WORLD_EVENT" }
   | { type: "CLEAR_RECENT_MOVES" }
-  | { type: "CLEAR_RECENT_RDC_LINKS" };
+  | { type: "CLEAR_RECENT_RDC_LINKS" }
+  | { type: "SET_FRAME"; tick: number; dataUri: string };
 
 function statsFromSnapshot(data: SessionSnapshot | SessionStartData): Stats {
   return { ...(data.stats ?? INITIAL_STATS) };
@@ -238,6 +242,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         phaseToast: null,
         endingId: undefined,
         lastError: undefined,
+        latestFrame: null,
       };
     case "APPLY_SESSION": {
       if (!action.data.initialized) {
@@ -398,6 +403,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         pendingWorldEvent: remaining[0] ?? null,
       };
     }
+    case "SET_FRAME":
+      // 按 tick 去重：仅当出图 tick 比已显示的更新时才换帧（避免重复 base64 闪烁）。
+      if (state.latestFrame && action.tick <= state.latestFrame.tick) {
+        return state;
+      }
+      return { ...state, latestFrame: { tick: action.tick, dataUri: action.dataUri } };
     case "CLEAR_RECENT_MOVES":
       return { ...state, recentMoveKeys: [] };
     case "CLEAR_RECENT_RDC_LINKS":

@@ -59,6 +59,11 @@ export function applyWorldDeltaPayload(
   const through = data.through_tick;
   const nextSince = computeNextSinceTick(data, sinceTick);
 
+  // F18：内嵌的实时整帧画面（reducer 按 tick 去重）。
+  if (data.frame?.data_uri) {
+    dispatch({ type: "SET_FRAME", tick: data.frame.tick, dataUri: data.frame.data_uri });
+  }
+
   if (through > sinceTick || hasDeltaActivity(data)) {
     dispatch({ type: "APPLY_WORLD_DELTA", delta: data, nextSinceTick: nextSince });
   } else if (nextSince > sinceTick) {
