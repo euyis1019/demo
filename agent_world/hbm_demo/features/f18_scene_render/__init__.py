@@ -10,7 +10,7 @@ from __future__ import annotations
 from agent_world.hbm_demo.features.f18_scene_render.config import (
     is_enabled,
     max_chain_depth,
-    min_render_interval_sec,
+    max_concurrent_renders,
 )
 from agent_world.hbm_demo.features.f18_scene_render.render import (
     FrameResult,
@@ -30,7 +30,7 @@ __all__ = [
     "render_scene_frame",
     "render_scene_frame_async",
     "is_enabled",
-    "min_render_interval_sec",
+    "max_concurrent_renders",
     "max_chain_depth",
     "write_latest_frame",
     "read_latest_frame_data_uri",

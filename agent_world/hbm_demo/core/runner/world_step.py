@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -21,15 +20,15 @@ class HbmWorldStep(WorldStep):
         self._tick_context: Optional[Dict[str, Any]] = None
         self._passive_ticks_batch: int = 0
         self._batch_tick_index: int = 0
-        # F18 事件驱动 img2img 链状态
-        self._render_inflight: bool = False
-        self._last_speech_by_place: Dict[str, Dict[str, int]] = {}  # 各房间最近发言
+        # F18 连续 + 并发 img2img 链状态
+        self._inflight_count: int = 0  # 在途出图数（并发上限内连续出图）
+        self._last_speech_by_place: Dict[str, Dict[str, Any]] = {}  # 各房间最近发言
         self._speech_seq: int = 0
-        self._anchor_url: Optional[str] = None  # 当前锚定帧 url（img2img 参考）
+        self._anchor_url: Optional[str] = None  # 最新锚定帧 url（img2img 参考）
         self._anchor_place: Optional[str] = None
         self._chain_depth: int = 0  # img2img 链深度，超限则重出 t2i 锚定帧
         self._last_sig: Optional[Tuple] = None  # 场景签名，变化才出图（事件驱动）
-        self._last_render_mono: float = 0.0  # 上次出图时刻（限频）
+        self._last_written_tick: int = -1  # 已写出的最新帧 tick（最新者胜，防乱序覆盖）
 
     def set_tick_context(
         self,
@@ -103,22 +102,22 @@ class HbmWorldStep(WorldStep):
         return (scene.place, scene.speaker_id, seq, scene.occupant_count, str(scene.phase))
 
     def _maybe_render_frame(self, t: int) -> None:
-        """事件驱动：场景有变化(说话/移动/换房间)且过了限频窗口才异步出图。
-        同房间走 img2img 链锁角色；换房间/链过深则重出 t2i 锚定帧。不阻塞世界。"""
-        if self.world_db is None or self._render_inflight:
+        """连续出图：场景一有变化(说话/移动/换房间)就异步出图，并发上限内不等不限频，
+        让画面尽量跟上世界。同房间走 img2img 链锁角色；换房间/链过深则重出 t2i。"""
+        if self.world_db is None:
             return
         try:
             from agent_world.hbm_demo.core.runner.integration import scene_render
 
             if not scene_render.is_enabled():
                 return
+            if self._inflight_count >= scene_render.max_concurrent_renders():
+                return  # 并发已满，等有空位再出
             scene = self._build_scene(t)
             sig = self._scene_signature(scene)
             if sig == self._last_sig:
-                return  # 无事件，不出图
-            now = time.monotonic()
-            if now - self._last_render_mono < scene_render.min_render_interval_sec():
-                return  # 限频：下个事件再追上
+                return  # 无新事件，不重复出同一画面
+            self._last_sig = sig
             new_scene = (
                 self._anchor_url is None
                 or scene.place != self._anchor_place
@@ -126,17 +125,14 @@ class HbmWorldStep(WorldStep):
             )
             ref_url = None if new_scene else self._anchor_url
             sim_dir = Path(self.world_db.path).parent  # world_db.path 是 str
-            self._render_inflight = True
-            self._last_sig = sig
-            self._last_render_mono = now
+            self._inflight_count += 1
             asyncio.create_task(self._render_frame_task(scene, sim_dir, ref_url, new_scene))
         except Exception as exc:  # 出图编排失败绝不拖垮 tick
-            self._render_inflight = False
             log.warning("F18 render dispatch failed at t=%s: %s", t, exc)
 
     async def render_opening_frame(self, max_attempts: int = 2) -> None:
         """开局先出一帧 t2i 锚定帧并落盘（带重试），后续以它为参考走 img2img 链。"""
-        if self.world_db is None or self._render_inflight:
+        if self.world_db is None:
             return
         try:
             from agent_world.hbm_demo.core.runner.integration import scene_render
@@ -145,10 +141,8 @@ class HbmWorldStep(WorldStep):
                 return
             sim_dir = Path(self.world_db.path).parent
             scene = self._build_scene(int(self.world.clock.t))
-            self._render_inflight = True
-            self._last_render_mono = time.monotonic()
+            self._inflight_count += 1
         except Exception as exc:
-            self._render_inflight = False
             log.warning("F18 opening frame setup failed: %s", exc)
             return
         try:
@@ -158,7 +152,7 @@ class HbmWorldStep(WorldStep):
                     return
                 log.warning("F18 opening frame attempt %d/%d failed", attempt + 1, max_attempts)
         finally:
-            self._render_inflight = False
+            self._inflight_count = max(0, self._inflight_count - 1)
 
     async def _render_frame_task(self, scene, sim_dir, ref_url, new_scene) -> None:
         try:
@@ -169,7 +163,7 @@ class HbmWorldStep(WorldStep):
         except Exception as exc:
             log.warning("F18 render task failed t=%s: %s", scene.tick, exc)
         finally:
-            self._render_inflight = False
+            self._inflight_count = max(0, self._inflight_count - 1)
 
     async def _do_render(self, scene, sim_dir, *, ref_url, new_scene) -> bool:
         """出一帧并落盘 + 更新锚定链状态。返回是否成功。"""
@@ -179,11 +173,15 @@ class HbmWorldStep(WorldStep):
         if not (result.ok and result.image_b64):
             log.debug("F18 frame t=%s skipped: %s", scene.tick, result.error)
             return False
-        scene_render.write_latest_frame(sim_dir, result.tick, result.image_b64, result.mime)
+        # 始终更新链锚点（用于后续 img2img 参考）
         if result.url:
             self._anchor_url = result.url
             self._anchor_place = scene.place
             self._chain_depth = 0 if new_scene else self._chain_depth + 1
+        # 最新者胜：并发下只让更新的 tick 覆盖显示帧，避免旧帧盖掉新帧
+        if int(result.tick) >= self._last_written_tick:
+            scene_render.write_latest_frame(sim_dir, result.tick, result.image_b64, result.mime)
+            self._last_written_tick = int(result.tick)
         return True
 
     def _pick_active(self, t: int) -> List[int]:

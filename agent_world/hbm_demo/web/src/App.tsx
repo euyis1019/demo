@@ -5,7 +5,7 @@
  */
 
 import "./styles/global.css";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { MAX_TURNS } from "./constants/gameLoop";
 import { agentDisplayName } from "./constants/agents";
 import {
@@ -56,6 +56,17 @@ function GameApp() {
     envTick,
   );
   const loadingElapsed = useLoadingElapsed(state.loading);
+
+  // F18：剧情模式让世界持续运行（被暂停就自动恢复），保证 AIGC 画面不停更新。
+  useEffect(() => {
+    if (
+      viewMode === "story" &&
+      state.view === "playing" &&
+      worldLoopState === "paused"
+    ) {
+      void resumeWorld();
+    }
+  }, [viewMode, state.view, worldLoopState, resumeWorld]);
 
   const {
     healthChecking,

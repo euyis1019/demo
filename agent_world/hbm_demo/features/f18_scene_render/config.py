@@ -25,8 +25,8 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "seed_base": 7000,
     "watermark": False,
     "timeout_sec": 60,
-    "min_render_interval_sec": 2.5,
-    "max_chain_depth": 6,
+    "max_concurrent_renders": 4,
+    "max_chain_depth": 8,
 }
 
 
@@ -66,9 +66,9 @@ def api_key() -> str:
     return str(os.environ.get(str(load_config().get("api_key_env", "ARK_API_KEY"))) or "").strip()
 
 
-def min_render_interval_sec() -> float:
-    return float(load_config().get("min_render_interval_sec", 2.5))
+def max_concurrent_renders() -> int:
+    return max(1, int(load_config().get("max_concurrent_renders", 4)))
 
 
 def max_chain_depth() -> int:
-    return int(load_config().get("max_chain_depth", 6))
+    return int(load_config().get("max_chain_depth", 8))

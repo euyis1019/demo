@@ -4,7 +4,7 @@ from agent_world.hbm_demo.features.f18_scene_render import (
     SceneState,
     is_enabled,
     max_chain_depth,
-    min_render_interval_sec,
+    max_concurrent_renders,
     render_scene_frame_async,
     write_latest_frame,
 )
@@ -12,7 +12,7 @@ from agent_world.hbm_demo.features.f18_scene_render import (
 __all__ = [
     "SceneState",
     "is_enabled",
-    "min_render_interval_sec",
+    "max_concurrent_renders",
     "max_chain_depth",
     "render_scene_frame_async",
     "write_latest_frame",

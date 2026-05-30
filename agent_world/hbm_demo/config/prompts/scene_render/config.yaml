@@ -12,7 +12,7 @@ scene_render:
   seed_base: 7000                 # t2i 锚定帧的每房间固定 seed
   watermark: false
   timeout_sec: 60
-  # 事件驱动限频：两次出图最小间隔（控成本，避免高频事件刷爆）
-  min_render_interval_sec: 2.5
+  # 连续出图：场景一变就出，最多同时并发多少张（越大越跟得上世界，越费配额）
+  max_concurrent_renders: 4
   # img2img 链最大深度，超过则重出 t2i 锚定帧，避免链式漂移
-  max_chain_depth: 6
+  max_chain_depth: 8
