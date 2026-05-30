@@ -30,3 +30,11 @@ def virtual_player_phase_places_path() -> Path:
 
 def scenario_path() -> Path:
     return _HBM_ROOT / "hbm_scenario.yaml"
+
+
+def scene_render_config_path() -> Path:
+    return PROMPTS_ROOT / "scene_render" / "config.yaml"
+
+
+def scene_render_prompt_path() -> Path:
+    return PROMPTS_ROOT / "scene_render" / "scene_prompt.yaml"

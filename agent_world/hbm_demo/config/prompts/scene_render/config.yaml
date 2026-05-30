@@ -1,0 +1,13 @@
+# F18 场景渲染 · 出图模型配置（L0，纯数据）
+# 改出图行为只动这里；加载器见 features/f18_scene_render/config.py
+scene_render:
+  enabled: true
+  provider: pollinations        # 免费、免密钥的文生图服务（P0 跑通用）
+  model: flux                   # flux（质量好~3-6s） | turbo（快~2s）
+  width: 1280                   # 16:9 横屏
+  height: 720
+  seed_base: 7000               # 固定基准种子；各房间在此基础上取稳定偏移（一致性）
+  timeout_sec: 60
+  nologo: true
+  # 降 tick 速率匹配：tick 间隔 = max(min_tick_interval_sec, 上一帧出图耗时)
+  min_tick_interval_sec: 1.5

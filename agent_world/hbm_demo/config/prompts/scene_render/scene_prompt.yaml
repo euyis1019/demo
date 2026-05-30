@@ -1,0 +1,31 @@
+# F18 场景渲染 · 画面 prompt 模板（L0，纯数据）
+# prompt_builder.py 用这些片段把世界状态拼成一句画面描述。改画风/场景描述只动这里。
+scene_prompt:
+  # 全局画风前缀（扁平卡通），保证跨帧风格统一
+  style_prefix: >-
+    flat illustration cartoon style, clean vector art, soft shadows, flat colors,
+    modern corporate setting, wide cinematic 16:9 composition
+
+  # 每个房间的场景底图描述（place_id -> 英文场景词）
+  places:
+    lobby: "bright office reception lobby with glass doors and a front desk"
+    boardroom: "modern boardroom with a long table, large city-view windows, pendant lights"
+    office_a: "small private office with a desk and laptop, warm lighting"
+    office_b: "small private office with a desk and monitor, cool lighting"
+    default: "modern open-plan office space"
+
+  # 各 Phase 的氛围词（phase 数字 -> 氛围）
+  phase_mood:
+    "1": "calm establishing mood"
+    "2": "tense negotiation mood"
+    "3": "high-stakes boardroom debate mood"
+    "4": "decisive closing-deal mood"
+    default: "neutral office mood"
+
+  # 在场人物片段：occupants 列表渲染成 "N business people"；正在发言者额外强调
+  occupants_template: "{count} business people in the room"
+  speaker_template: "one person speaking and gesturing"
+  empty_room: "an empty room, no people"
+
+  # 负向提示，压低畸形/文字水印
+  negative: "no text, no watermark, no deformed faces, no extra limbs"
