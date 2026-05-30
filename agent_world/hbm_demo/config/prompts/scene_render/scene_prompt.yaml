@@ -1,11 +1,12 @@
 # F18 场景渲染 · 画面 prompt 模板（L0，纯数据）
 # prompt_builder.py 用这些片段把世界状态拼成一句画面描述。改画风/场景描述只动这里。
 scene_prompt:
-  # 全局画风前缀（写实/电影感）+ 一致性约束（配合每房间固定 seed 降低跨帧抖动）
+  # 全局画风前缀（写实/电影感）。开头的相机 RAW 文件名是 Seedream 触发写实的关键技巧，
+  # 缺它会飘成动漫/插画风。+ 一致性约束（配合每房间固定 seed 降低跨帧抖动）。
   style_prefix: >-
-    cinematic photorealistic photograph, realistic natural lighting, global illumination,
-    shallow depth of field, highly detailed, professional corporate photography,
-    realistic human faces and proportions, 35mm lens, wide 16:9 composition,
+    IMG_2094.CR2, RAW photo, professional DSLR photograph, photorealistic, photojournalism,
+    realistic natural lighting, global illumination, shallow depth of field, highly detailed,
+    realistic human faces and skin texture, 35mm lens, wide 16:9 composition,
     consistent character appearance, stable eye-level camera angle
 
   # 每个房间的场景底图描述（真实 place_id -> 英文场景词）
@@ -46,5 +47,5 @@ scene_prompt:
   action_speaker: "keep the exact same people and the same scene, now {role} is speaking and gesturing while the others listen, natural candid pose, photorealistic"
   action_idle: "keep the exact same people and the same scene, a natural candid moment, slight pose change, photorealistic"
 
-  # 负向提示：压低卡通/畸形/文字水印
-  negative: "cartoon, illustration, flat vector, anime, painting, text, watermark, deformed faces, extra limbs, lowres"
+  # 负向提示：强力压掉动漫/卡通/插画 + 畸形/文字水印
+  negative: "anime, cartoon, illustration, cel shading, 2d, drawing, comic, flat vector, painting, cgi, 3d render, text, watermark, deformed faces, extra limbs, lowres"
