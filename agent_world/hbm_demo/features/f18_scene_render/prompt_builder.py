@@ -44,11 +44,15 @@ def _occupants_desc(tpl: Dict[str, Any], scene: Dict[str, Any]) -> str:
             count=occupant_count
         )
     ]
-    # 有人发言 → 体现"谁在说话"
+    # 有人发言 → 体现"谁在说什么"（把真实台词喂进去，画面据此呈现表情/动作）
     if scene.get("has_speaker"):
         role = _role_for(tpl, scene.get("speaker_id"))
-        spk_tpl = tpl.get("speaker_template") or "{role} is speaking"
-        parts.append(spk_tpl.format(role=role))
+        line = (scene.get("speaker_line") or "").strip()
+        if line:
+            spk_tpl = tpl.get("speaker_with_line") or "{role} is saying: {line}"
+            parts.append(spk_tpl.format(role=role, line=line))
+        else:
+            parts.append((tpl.get("speaker_template") or "{role} is speaking").format(role=role))
     return ", ".join(parts)
 
 
@@ -71,9 +75,15 @@ def build_action_prompt(scene: Dict[str, Any]) -> str:
     tpl = load_prompt_template()
     if scene.get("has_speaker"):
         role = _role_for(tpl, scene.get("speaker_id"))
-        action = (tpl.get("action_speaker") or "now {role} is speaking").format(role=role)
+        line = (scene.get("speaker_line") or "").strip()
+        if line:
+            action = (tpl.get("action_with_line") or "now {role} is saying: {line}").format(
+                role=role, line=line
+            )
+        else:
+            action = (tpl.get("action_speaker") or "now {role} is speaking").format(role=role)
     else:
-        action = tpl.get("action_idle") or "a natural candid moment, photorealistic"
+        action = tpl.get("action_idle") or "a natural candid moment"
     negative = tpl.get("negative")
     if negative:
         action = f"{action} | {negative}"

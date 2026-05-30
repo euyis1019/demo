@@ -58,11 +58,12 @@ class HbmWorldStep(WorldStep):
     # F18 场景渲染 hook（经 integration 桥接，D4）                          #
     # ------------------------------------------------------------------ #
     def _note_speech_for_render(self, agent_id: Any, atype: Any, akwargs: Dict[str, Any]) -> None:
-        """记录"某房间最近谁说了话"，供 F18 出图时体现说话人 + 台词更新。"""
+        """记录"某房间最近谁说了什么"，供 F18 出图时让画面体现实际台词/动作。"""
         aname = getattr(atype, "name", str(atype)).upper()
         if "SPEAK" not in aname:
             return
-        if not (akwargs.get("content") or akwargs.get("text")):
+        content = (akwargs.get("content") or akwargs.get("text") or "").strip()
+        if not content:
             return
         try:
             aid = int(agent_id)
@@ -72,7 +73,9 @@ class HbmWorldStep(WorldStep):
         if not place:
             return
         self._speech_seq += 1
-        self._last_speech_by_place[place] = {"speaker": aid, "seq": self._speech_seq}
+        # 截断 + 去换行/引号，喂进出图 prompt（Seedream 原生懂中文）
+        line = " ".join(content.split())[:60].replace('"', "").replace("'", "")
+        self._last_speech_by_place[place] = {"speaker": aid, "seq": self._speech_seq, "line": line}
 
     def _build_scene(self, t: int):
         from agent_world.hbm_demo.core.runner.integration import scene_render
@@ -83,6 +86,7 @@ class HbmWorldStep(WorldStep):
         phase = self._tick_context.get("phase") if self._tick_context else None
         last = self._last_speech_by_place.get(player_place or "")
         speaker_id = last["speaker"] if last else None
+        speaker_line = last.get("line") if last else None
         return scene_render.SceneState(
             tick=int(t),
             place=player_place or "default",
@@ -90,6 +94,7 @@ class HbmWorldStep(WorldStep):
             occupant_count=occupant_count,
             has_speaker=speaker_id is not None or occupant_count > 1,
             speaker_id=speaker_id,
+            speaker_line=speaker_line,
         )
 
     def _scene_signature(self, scene) -> Tuple:

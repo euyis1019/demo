@@ -31,6 +31,7 @@ class SceneState:
     occupant_count: int = 0
     has_speaker: bool = False
     speaker_id: Optional[int] = None
+    speaker_line: Optional[str] = None  # 说话人当前真实台词（喂进 prompt，让画面体现实际对话/动作）
 
 
 @dataclass
@@ -88,6 +89,7 @@ def _as_dict(scene: SceneState) -> Dict[str, Any]:
         "occupant_count": scene.occupant_count,
         "has_speaker": scene.has_speaker,
         "speaker_id": scene.speaker_id,
+        "speaker_line": scene.speaker_line,
     }
 
 
