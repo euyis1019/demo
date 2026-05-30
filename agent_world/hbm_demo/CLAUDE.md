@@ -65,6 +65,8 @@
 
 ## 8. 当前进行中的 feature
 
-- 分支 `aigc-realtime-render`：后端每 tick 实时文生图整帧、完全替换静态渲染。
-  设计见 [dev_logs/39_HBM_Demo_AIGC实时整帧渲染技术设计.md](../../dev_logs/39_HBM_Demo_AIGC实时整帧渲染技术设计.md)。
-  按其中 P0→P5 分阶段推进，每阶段过门禁 + build。
+- 分支 `aigc-realtime-render`：后端每 tick 实时文生图整帧（`features/f18_scene_render`，
+  出图源 Pollinations.ai）。**P0–P5 已落地**——剧情模式舞台改为 AI 实时整帧，上帝模式保留。
+  设计与实现记录见 [dev_logs/39](../../dev_logs/39_HBM_Demo_AIGC实时整帧渲染技术设计.md)。
+  关键约定：F18 经 `core/runner/integration/scene_render` 桥接（D4）；门禁用
+  `HBM_SCENE_RENDER_DISABLED=1` 禁用出图，验收不依赖外部 API。

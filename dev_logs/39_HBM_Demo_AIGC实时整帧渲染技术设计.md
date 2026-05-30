@@ -3,7 +3,8 @@
 把 game 的画面从**静态渲染**（React 组件 + 预制素材按 world-delta 数据拼场景）改为
 **后端每 tick 用极速文生图模型实时生成整帧游戏画面**，前端只负责显示。
 
-> 状态：设计稿（未动代码）。基线 `jensen-hwang-demo @ 4fdbf44`。
+> 状态：**已实现（P0–P5）**。基线 `jensen-hwang-demo @ 4fdbf44`，分支 `aigc-realtime-render`。
+> 实现记录见文末「§11 实现状态」——部分路线在落地时按实际约束/用户反馈调整。
 
 ## 0. 已定路线
 
@@ -141,3 +142,27 @@ character design"）保证风格统一。
 - **完全替换不可逆**：建议 P5 前用 git 分支/双模式保留回退点，门禁绿再删旧渲染。
 - **模型选型待定**：极速文生图的**具体服务/endpoint**未定（DMXAPI 是否提供图像端点需确认），
   P0 第一件事就是确认可用的出图 API。
+
+## 11. 实现状态（P0–P5 已落地）
+
+| 阶段 | commit | 说明 |
+|------|--------|------|
+| P0 | `66cce70` | `features/f18_scene_render`（client/prompt_builder/consistency/render/config/store）+ L0 配置；出图源用 **Pollinations.ai**（免费免密钥，~2s，扁平卡通） |
+| P1+P2后端 | `fa52bf6` | `world_step.run_one_tick` 末挂异步出图 hook（经 `integration/scene_render` 桥接，D4）；帧经 `sim_dir/frames/` 原子写跨进程；`world-delta` 内嵌 base64 data-uri；reset 清帧 |
+| P2前端 | `d94d608` | （后被 P5 重构）world-delta.frame → store SET_FRAME（按 tick 去重） |
+| P3 | `0334f2c` | 降 tick 速率匹配：每 tick `await_render`（shield+wait_for，超 `render_wait_cap_sec` 降级为画面滞后）；`HBM_SCENE_RENDER_DISABLED=1` 门禁禁用，验收不依赖外部 API |
+| P4+P5 | `1d2fa85` | 见下方调整 |
+
+### 与原设计的差异（按实际约束/用户反馈）
+
+- **出图源**：原「极速文生图 endpoint 待定」→ 实测选 **Pollinations.ai**（免费、免密钥、URL 直出图、支持 seed/model/尺寸）。
+- **下发方式**：用户选 **world-delta 内嵌 base64**（非文件 URL）；后端仍经 `frames/` 文件跨进程中转，Flask 读后内嵌。
+- **一致性（P4）**：免费 Pollinations **不支持参考图/IP-Adapter**，故 P4 退化为「每房间固定 seed + prompt 一致性约束」；强一致需换 Replicate/自部署，留待后续。
+- **替换范围（P5）**：原「完全替换 world-stage」→ 用户收窄为 **仅替换剧情模式**沉浸式静态舞台；**上帝模式（双栏 WorldStage）保持原样**。剧情模式保留左上工具栏、上方输入框、右侧对话历史、字幕，仅静态背景换成 AI 整帧。
+- **降 tick**：用户选「降 tick 速率匹配」，但加了 `render_wait_cap_sec` 上限——出图慢/卡时降级为画面滞后，避免世界被外部 API 拖死。
+
+### 仍未做 / 后续
+
+- 强一致性（参考图/角色锁定）需换支持 img2img/ControlNet 的后端。
+- 每 tick base64 重发的带宽优化（独立 frame cursor 或切回文件 URL）。
+- 出图配额/成本控制（长对局累积调用量）。
