@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from agent_world.world.step import WorldStep, _extract_actions
@@ -72,7 +73,7 @@ class HbmWorldStep(WorldStep):
 
             if not scene_render.is_enabled():
                 return
-            sim_dir = self.world_db.path.parent
+            sim_dir = Path(self.world_db.path).parent  # world_db.path 是 str
             scene = self._build_scene(t)
             self._render_inflight = True
             self._render_task = asyncio.create_task(self._render_frame_task(scene, sim_dir))
