@@ -19,6 +19,11 @@ from agent_world.hbm_demo.features.f18_scene_render.render import (
     render_scene_frame,
     render_scene_frame_async,
 )
+from agent_world.hbm_demo.features.f18_scene_render.store import (
+    clear_frames,
+    read_latest_frame_data_uri,
+    write_latest_frame,
+)
 
 __all__ = [
     "SceneState",
@@ -27,4 +32,7 @@ __all__ = [
     "render_scene_frame_async",
     "is_enabled",
     "min_tick_interval_sec",
+    "write_latest_frame",
+    "read_latest_frame_data_uri",
+    "clear_frames",
 ]

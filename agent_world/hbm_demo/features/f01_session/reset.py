@@ -33,6 +33,9 @@ def reset_demo(
     client = get_ipc_client(str(sim))
     send_reset_world(client)
 
+    from agent_world.hbm_demo.features.f18_scene_render import clear_frames
+
+    clear_frames(sim)  # F18：清掉上一局的画面帧
     clear_async_state(sim)
     flask_session.clear()
     hbm = create_session(sim)

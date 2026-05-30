@@ -3,9 +3,17 @@
 from agent_world.hbm_demo.core.runner.integration import (
     abcs,
     prompt_trace,
+    scene_render,
     session,
     story_advance,
     virtual_player,
 )
 
-__all__ = ["abcs", "prompt_trace", "session", "story_advance", "virtual_player"]
+__all__ = [
+    "abcs",
+    "prompt_trace",
+    "scene_render",
+    "session",
+    "story_advance",
+    "virtual_player",
+]

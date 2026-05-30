@@ -19,6 +19,7 @@ class HbmWorldStep(WorldStep):
         self._tick_context: Optional[Dict[str, Any]] = None
         self._passive_ticks_batch: int = 0
         self._batch_tick_index: int = 0
+        self._render_inflight: bool = False  # F18 出图单帧在途节流
 
     def set_tick_context(
         self,
@@ -40,7 +41,59 @@ class HbmWorldStep(WorldStep):
         result = await super().run_one_tick()
         if self._tick_context is not None and self._tick_context.get("player_inject_tick") is None:
             self._batch_tick_index += 1
+        self._maybe_render_frame(int(self.world.clock.t))
         return result
+
+    # ------------------------------------------------------------------ #
+    # F18 场景渲染 hook（经 integration 桥接，D4）                          #
+    # ------------------------------------------------------------------ #
+    def _build_scene(self, t: int):
+        from agent_world.hbm_demo.core.runner.integration import scene_render
+
+        player_place = self.world.location_of(0)
+        occupants = self.world.agents_at(player_place) if player_place else set()
+        occupant_count = len(occupants)
+        phase = self._tick_context.get("phase") if self._tick_context else None
+        return scene_render.SceneState(
+            tick=int(t),
+            place=player_place or "default",
+            phase=phase,
+            occupant_count=occupant_count,
+            has_speaker=occupant_count > 1,
+        )
+
+    def _maybe_render_frame(self, t: int) -> None:
+        """tick 定型后异步出一帧；单帧在途时跳过（天然节流，不阻塞世界逻辑）。"""
+        if self.world_db is None or self._render_inflight:
+            return
+        try:
+            from agent_world.hbm_demo.core.runner.integration import scene_render
+
+            if not scene_render.is_enabled():
+                return
+            sim_dir = self.world_db.path.parent
+            scene = self._build_scene(t)
+            self._render_inflight = True
+            asyncio.create_task(self._render_frame_task(scene, sim_dir))
+        except Exception as exc:  # 出图编排失败绝不拖垮 tick
+            self._render_inflight = False
+            log.warning("F18 render dispatch failed at t=%s: %s", t, exc)
+
+    async def _render_frame_task(self, scene, sim_dir) -> None:
+        from agent_world.hbm_demo.core.runner.integration import scene_render
+
+        try:
+            result = await scene_render.render_scene_frame_async(scene)
+            if result.ok and result.image_b64:
+                scene_render.write_latest_frame(
+                    sim_dir, result.tick, result.image_b64, result.mime
+                )
+            else:
+                log.debug("F18 frame t=%s skipped: %s", scene.tick, result.error)
+        except Exception as exc:
+            log.warning("F18 render task failed t=%s: %s", scene.tick, exc)
+        finally:
+            self._render_inflight = False
 
     def _pick_active(self, t: int) -> List[int]:
         from agent_world.hbm_demo.core.runner.integration import abcs

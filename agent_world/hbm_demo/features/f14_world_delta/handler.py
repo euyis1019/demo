@@ -15,6 +15,7 @@ from agent_world.hbm_demo.features.f05_story_routing.watcher import (
 )
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
 from agent_world.hbm_demo.features.f12_world_sync.delta import build_session_world_delta
+from agent_world.hbm_demo.features.f18_scene_render import read_latest_frame_data_uri
 from agent_world.hbm_demo.shared.env_status import read_env_status
 from agent_world.hbm_demo.shared.errors import RunnerNotReadyError
 
@@ -73,6 +74,12 @@ def get_world_delta(
         "current_phase": hbm.phase if hbm else "Phase 1",
         "player_turn": hbm.player_turn if hbm else 1,
     }
+
+    # F18：内嵌最新整帧画面（base64 data-uri）。每次带最新帧，前端按 tick 去重；
+    # 出图异步滞后于 world tick，故不按 since_tick 门控（否则会漏掉滞后帧）。
+    frame = read_latest_frame_data_uri(sim, since_tick=-1)
+    if frame is not None:
+        result["frame"] = {"tick": frame[0], "data_uri": frame[1]}
 
     game_over = consume_game_over_payload(flask_session)
     if game_over:
