@@ -1,4 +1,4 @@
-"""Load F18 scene-render config (model params +画面 prompt 模板) from L0."""
+"""Load F18 scene-render config (Seedream 模型参数 + 画面 prompt 模板) from L0."""
 
 from __future__ import annotations
 
@@ -15,15 +15,18 @@ from agent_world.hbm_demo.shared.prompt_paths import (
 
 _DEFAULT_CONFIG: Dict[str, Any] = {
     "enabled": True,
-    "provider": "pollinations",
-    "model": "flux",
-    "width": 1280,
-    "height": 720,
+    "provider": "seedream",
+    "model": "doubao-seedream-4-5-251128",
+    "endpoint": "https://ark.cn-beijing.volces.com/api/v3/images/generations",
+    "api_key_env": "ARK_API_KEY",
+    "size": "2560x1440",
+    "output_width": 1280,
+    "output_height": 720,
     "seed_base": 7000,
-    "timeout_sec": 15,
-    "nologo": True,
-    "min_tick_interval_sec": 1.5,
-    "render_wait_cap_sec": 6.0,
+    "watermark": False,
+    "timeout_sec": 60,
+    "min_render_interval_sec": 2.5,
+    "max_chain_depth": 6,
 }
 
 
@@ -53,15 +56,19 @@ def load_prompt_template() -> Dict[str, Any]:
 
 
 def is_enabled() -> bool:
-    # 门禁/E2E 用环境变量强制关闭，避免世界 tick 依赖外部出图 API。
+    # 门禁/E2E 用环境变量强制关闭，避免世界依赖外部出图 API。
     if os.environ.get("HBM_SCENE_RENDER_DISABLED") == "1":
         return False
     return bool(load_config().get("enabled", True))
 
 
-def min_tick_interval_sec() -> float:
-    return float(load_config().get("min_tick_interval_sec", 1.5))
+def api_key() -> str:
+    return str(os.environ.get(str(load_config().get("api_key_env", "ARK_API_KEY"))) or "").strip()
 
 
-def render_wait_cap_sec() -> float:
-    return float(load_config().get("render_wait_cap_sec", 6.0))
+def min_render_interval_sec() -> float:
+    return float(load_config().get("min_render_interval_sec", 2.5))
+
+
+def max_chain_depth() -> int:
+    return int(load_config().get("max_chain_depth", 6))

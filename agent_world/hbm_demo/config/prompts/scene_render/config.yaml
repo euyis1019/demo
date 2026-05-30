@@ -1,15 +1,18 @@
 # F18 场景渲染 · 出图模型配置（L0，纯数据）
-# 改出图行为只动这里；加载器见 features/f18_scene_render/config.py
+# 后端 Doubao-Seedream-4.5（火山 Ark），事件驱动 img2img 链。改出图行为只动这里。
 scene_render:
   enabled: true
-  provider: pollinations        # 免费、免密钥的文生图服务（P0 跑通用）
-  model: flux                   # flux（质量好~3-6s） | turbo（快~2s）
-  width: 1280                   # 16:9 横屏
-  height: 720
-  seed_base: 7000               # 固定基准种子；各房间在此基础上取稳定偏移（一致性）
-  timeout_sec: 15               # 单次出图请求超时（慢于此判失败，快速放弃换新帧）
-  nologo: true
-  # 降 tick 速率匹配：每 tick 等当前帧出完再进下一 tick；
-  # tick 间隔 ≈ max(min_tick_interval_sec, 出图耗时)，但等待不超过 render_wait_cap_sec。
-  min_tick_interval_sec: 1.5
-  render_wait_cap_sec: 6.0      # 单 tick 等出图的上限；超过则降级为画面滞后，不卡世界
+  provider: seedream
+  model: doubao-seedream-4-5-251128
+  endpoint: https://ark.cn-beijing.volces.com/api/v3/images/generations
+  api_key_env: ARK_API_KEY        # 从环境变量读 key，勿写进文件
+  size: "2560x1440"               # Seedream 最小 2K（16:9）
+  output_width: 1280              # 下发前降到 720p（省 base64 带宽）
+  output_height: 720
+  seed_base: 7000                 # t2i 锚定帧的每房间固定 seed
+  watermark: false
+  timeout_sec: 60
+  # 事件驱动限频：两次出图最小间隔（控成本，避免高频事件刷爆）
+  min_render_interval_sec: 2.5
+  # img2img 链最大深度，超过则重出 t2i 锚定帧，避免链式漂移
+  max_chain_depth: 6

@@ -65,8 +65,10 @@
 
 ## 8. 当前进行中的 feature
 
-- 分支 `aigc-realtime-render`：后端每 tick 实时文生图整帧（`features/f18_scene_render`，
-  出图源 Pollinations.ai）。**P0–P5 已落地**——剧情模式舞台改为 AI 实时整帧，上帝模式保留。
-  设计与实现记录见 [dev_logs/39](../../dev_logs/39_HBM_Demo_AIGC实时整帧渲染技术设计.md)。
-  关键约定：F18 经 `core/runner/integration/scene_render` 桥接（D4）；门禁用
-  `HBM_SCENE_RENDER_DISABLED=1` 禁用出图，验收不依赖外部 API。
+- 分支 `aigc-realtime-render`：剧情模式舞台改为 AI 实时出图（`features/f18_scene_render`）。
+  **出图源 Doubao-Seedream-4.5（火山 Ark）**，**事件驱动 img2img 链**：世界有事件
+  （说话/移动/换房间）才出图，同房间以上一帧为参考锁角色、只改动作（让世界"活"且人物一致），
+  换房间/链过深则重出 t2i 锚定帧。出图 2K，下发前降到 720p base64。
+  设计/实现记录见 [dev_logs/39](../../dev_logs/39_HBM_Demo_AIGC实时整帧渲染技术设计.md)。
+  关键约定：F18 经 `core/runner/integration/scene_render` 桥接（D4）；**需环境变量
+  `ARK_API_KEY`**；门禁用 `HBM_SCENE_RENDER_DISABLED=1` 禁用出图，验收不依赖外部 API。

@@ -1,18 +1,16 @@
-"""F18 场景渲染 — 后端文生图生成整帧游戏画面（替换前端静态渲染）。
+"""F18 场景渲染 — 后端 Seedream 实时出图，替换剧情模式静态舞台。
 
-公共 API（L1/L3 只从这里导入，勿深引内部模块）：
-  - SceneState：与 Runner 解耦的轻量场景描述
-  - FrameResult：出图结果（含 base64 / data_uri）
-  - render_scene_frame / render_scene_frame_async：出一帧
-  - is_enabled / min_tick_interval_sec：配置查询
+事件驱动 + img2img 链：以上一帧为参考锁住角色/场景、只改动作，让世界"活起来"。
+
+公共 API（L1/L3 只从这里导入，勿深引内部模块）。
 """
 
 from __future__ import annotations
 
 from agent_world.hbm_demo.features.f18_scene_render.config import (
     is_enabled,
-    min_tick_interval_sec,
-    render_wait_cap_sec,
+    max_chain_depth,
+    min_render_interval_sec,
 )
 from agent_world.hbm_demo.features.f18_scene_render.render import (
     FrameResult,
@@ -32,8 +30,8 @@ __all__ = [
     "render_scene_frame",
     "render_scene_frame_async",
     "is_enabled",
-    "min_tick_interval_sec",
-    "render_wait_cap_sec",
+    "min_render_interval_sec",
+    "max_chain_depth",
     "write_latest_frame",
     "read_latest_frame_data_uri",
     "clear_frames",

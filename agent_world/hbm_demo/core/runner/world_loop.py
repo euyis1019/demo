@@ -275,19 +275,11 @@ class WorldLoopOrchestrator:
     async def _loop(self) -> None:
         interval = abcs.world_loop_tick_interval()
         max_ticks = abcs.world_loop_max_ticks()
-        # F18：开启实时出图时降 tick 速率匹配——每 tick 等当前帧出完再进下一拍，
-        # tick 下限取 max(world_loop_interval, F18 min_tick_interval)。
+        # F18：开局先出一帧——启动即异步渲染一帧 t2i 锚定帧，避免出第一帧前被暂停而卡占位。
+        # 出图是事件驱动、异步、限频的（见 world_step._maybe_render_frame），不阻塞世界节奏。
         from agent_world.hbm_demo.core.runner.integration import scene_render
 
-        render_pacing = scene_render.is_enabled()
-        floor = (
-            max(interval, scene_render.min_tick_interval_sec())
-            if render_pacing
-            else interval
-        )
-        # F18：开局先出一帧——不等世界推进，启动即异步渲染一帧，
-        # 这样即便世界随后被暂停（出第一帧前就停），前端也已有画面、不再永远占位。
-        if render_pacing and hasattr(self._world_step, "render_opening_frame"):
+        if scene_render.is_enabled() and hasattr(self._world_step, "render_opening_frame"):
             asyncio.create_task(self._world_step.render_opening_frame())
         try:
             while self._running:
@@ -297,13 +289,9 @@ class WorldLoopOrchestrator:
                 if self._ticks_run >= max_ticks:
                     log.warning("world loop hit max_ticks=%s — stopping", max_ticks)
                     break
-                t0 = asyncio.get_event_loop().time()
                 await self._run_one_cycle()
                 self._ticks_run += 1
-                if render_pacing and hasattr(self._world_step, "await_render"):
-                    await self._world_step.await_render(scene_render.render_wait_cap_sec())
-                spent = asyncio.get_event_loop().time() - t0
-                await asyncio.sleep(max(0.0, floor - spent))
+                await asyncio.sleep(interval)
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001

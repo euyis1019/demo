@@ -1,23 +1,22 @@
-"""文生图客户端。P0 用 Pollinations.ai（免费、免密钥、URL 直出图）。
+"""文生图 / 图生图客户端 —— Doubao-Seedream-4.5（火山 Ark）。
 
-只依赖标准库 urllib，避免新增第三方依赖。提供同步 fetch 与 async 包装
-（async 用 asyncio.to_thread，便于 P1 接入异步 tick 循环而不阻塞事件循环）。
+只依赖标准库 urllib（+ certifi 证书），避免新增第三方依赖。
+- 无 ref_image_url → 文生图(t2i)，出新锚定帧。
+- 有 ref_image_url → 图生图(img2img)，以上一帧为参考锁住角色/场景、只改动作。
+返回的 ImageResult 带回图片字节与 Seedream 返回的 url（作为下一帧的参考）。
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import ssl
-import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from typing import Optional
 
-_POLLINATIONS_BASE = "https://image.pollinations.ai/prompt/"
-
 
 def _ssl_context() -> ssl.SSLContext:
-    """用 certifi 根证书构建上下文，规避 macOS 自带 Python 缺根证书问题。"""
     try:
         import certifi
 
@@ -34,74 +33,91 @@ class ImageResult:
     ok: bool
     image_bytes: Optional[bytes]
     mime: str
-    url: str
+    url: str  # Seedream 返回的图片 url（用作下一帧 img2img 的参考）
     error: Optional[str] = None
 
 
-def build_pollinations_url(
-    prompt: str,
-    *,
-    width: int,
-    height: int,
-    seed: int,
-    model: str,
-    nologo: bool,
-) -> str:
-    encoded = urllib.parse.quote(prompt, safe="")
-    query = urllib.parse.urlencode(
-        {
-            "width": width,
-            "height": height,
-            "seed": seed,
-            "model": model,
-            "nologo": "true" if nologo else "false",
-        }
+def _http_json(url: str, *, payload: dict, api_key: str, timeout: float) -> dict:
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
     )
-    return f"{_POLLINATIONS_BASE}{encoded}?{query}"
+    with urllib.request.urlopen(req, timeout=timeout, context=_SSL_CTX) as resp:
+        return json.loads(resp.read().decode("utf-8"))
 
 
-def fetch_image_sync(
+def _http_get_bytes(url: str, *, timeout: float) -> bytes:
+    req = urllib.request.Request(url, headers={"User-Agent": "hbm-demo-f18/2.0"})
+    with urllib.request.urlopen(req, timeout=timeout, context=_SSL_CTX) as resp:
+        return resp.read()
+
+
+def generate_sync(
     prompt: str,
     *,
-    width: int,
-    height: int,
-    seed: int,
+    endpoint: str,
     model: str,
-    nologo: bool,
+    api_key: str,
+    size: str,
+    watermark: bool,
     timeout_sec: float,
+    seed: Optional[int] = None,
+    ref_image_url: Optional[str] = None,
 ) -> ImageResult:
-    url = build_pollinations_url(
-        prompt, width=width, height=height, seed=seed, model=model, nologo=nologo
-    )
+    if not api_key:
+        return ImageResult(False, None, "image/jpeg", "", "missing ARK_API_KEY")
+    payload: dict = {
+        "model": model,
+        "prompt": prompt,
+        "size": size,
+        "response_format": "url",
+        "watermark": watermark,
+    }
+    if seed is not None:
+        payload["seed"] = int(seed)
+    if ref_image_url:
+        payload["image"] = ref_image_url
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "hbm-demo-f18/1.0"})
-        with urllib.request.urlopen(req, timeout=timeout_sec, context=_SSL_CTX) as resp:
-            data = resp.read()
-            mime = resp.headers.get("Content-Type", "image/jpeg")
-        if not data:
-            return ImageResult(False, None, mime, url, "empty response")
-        return ImageResult(True, data, mime, url)
-    except Exception as exc:  # 网络/超时统一兜底，渲染失败不应拖垮世界逻辑
-        return ImageResult(False, None, "image/jpeg", url, str(exc))
+        data = _http_json(endpoint, payload=payload, api_key=api_key, timeout=timeout_sec)
+        items = data.get("data") or []
+        url = items[0].get("url") if items else None
+        if not url:
+            return ImageResult(False, None, "image/jpeg", "", str(data.get("error") or "no url"))
+        img = _http_get_bytes(url, timeout=timeout_sec)
+        if not img:
+            return ImageResult(False, None, "image/jpeg", url, "empty image")
+        return ImageResult(True, img, "image/jpeg", url)
+    except Exception as exc:  # 网络/超时统一兜底，绝不拖垮世界逻辑
+        return ImageResult(False, None, "image/jpeg", "", str(exc))
 
 
-async def fetch_image(
+async def generate(
     prompt: str,
     *,
-    width: int,
-    height: int,
-    seed: int,
+    endpoint: str,
     model: str,
-    nologo: bool,
+    api_key: str,
+    size: str,
+    watermark: bool,
     timeout_sec: float,
+    seed: Optional[int] = None,
+    ref_image_url: Optional[str] = None,
 ) -> ImageResult:
     return await asyncio.to_thread(
-        fetch_image_sync,
+        generate_sync,
         prompt,
-        width=width,
-        height=height,
-        seed=seed,
+        endpoint=endpoint,
         model=model,
-        nologo=nologo,
+        api_key=api_key,
+        size=size,
+        watermark=watermark,
         timeout_sec=timeout_sec,
+        seed=seed,
+        ref_image_url=ref_image_url,
     )

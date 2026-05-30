@@ -52,19 +52,29 @@ def _occupants_desc(tpl: Dict[str, Any], scene: Dict[str, Any]) -> str:
     return ", ".join(parts)
 
 
-def build_scene_prompt(scene: Dict[str, Any]) -> str:
-    """scene: {place, phase, occupant_count, has_speaker, speaker_id, tick}."""
+def build_anchor_prompt(scene: Dict[str, Any]) -> str:
+    """文生图(t2i)锚定帧：完整描述房间 + 在场人物 + 说话人 + 氛围。"""
     tpl = load_prompt_template()
     style = tpl.get("style_prefix") or "cinematic photorealistic photograph"
     place_scene = _place_scene(tpl, str(scene.get("place") or "default"))
     mood = _phase_mood(tpl, scene.get("phase"))
     occupants = _occupants_desc(tpl, scene)
     prompt = f"{style}, {place_scene}, {occupants}, {mood}"
-    # 时间扰动：用世界 tick 做轻微"瞬间"扰动，世界运行时每 tick 刷新画面
-    moment_tpl = tpl.get("moment_template")
-    if moment_tpl:
-        prompt = f"{prompt}, {moment_tpl.format(tick=int(scene.get('tick') or 0))}"
     negative = tpl.get("negative")
     if negative:
         prompt = f"{prompt} | {negative}"
-    return " ".join(prompt.split())  # 折叠多余空白
+    return " ".join(prompt.split())
+
+
+def build_action_prompt(scene: Dict[str, Any]) -> str:
+    """图生图(img2img)：以上一帧为参考，锁住同一批人/场景，只改当前动作。"""
+    tpl = load_prompt_template()
+    if scene.get("has_speaker"):
+        role = _role_for(tpl, scene.get("speaker_id"))
+        action = (tpl.get("action_speaker") or "now {role} is speaking").format(role=role)
+    else:
+        action = tpl.get("action_idle") or "a natural candid moment, photorealistic"
+    negative = tpl.get("negative")
+    if negative:
+        action = f"{action} | {negative}"
+    return " ".join(action.split())

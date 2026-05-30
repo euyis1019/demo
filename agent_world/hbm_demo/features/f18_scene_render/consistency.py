@@ -1,6 +1,6 @@
-"""跨帧一致性：为每个房间派生稳定 seed（同房间跨 tick 不变 → 画面稳定）。
+"""跨帧一致性：为每个房间的 t2i 锚定帧派生稳定 seed（同房间锚定帧风格稳定）。
 
-P0 只做 seed 锁定；参考图(IP-Adapter/ControlNet)留待 P4，pollinations 暂不支持。
+角色一致由 render 的 img2img 链负责（以上一帧为参考）；此处只管锚定帧 seed。
 """
 
 from __future__ import annotations
