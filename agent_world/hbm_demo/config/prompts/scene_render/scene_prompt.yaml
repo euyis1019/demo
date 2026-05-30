@@ -1,12 +1,12 @@
 # F18 场景渲染 · 画面 prompt 模板（L0，纯数据）
 # prompt_builder.py 用这些片段把世界状态拼成一句画面描述。改画风/场景描述只动这里。
 scene_prompt:
-  # 全局画风前缀（扁平卡通）+ 一致性约束（配合每房间固定 seed 降低跨帧抖动）
+  # 全局画风前缀（写实/电影感）+ 一致性约束（配合每房间固定 seed 降低跨帧抖动）
   style_prefix: >-
-    flat illustration cartoon style, clean vector art, soft shadows, flat colors,
-    modern corporate setting, wide cinematic 16:9 composition,
-    consistent character design, consistent color palette, stable eye-level camera angle,
-    same establishing shot framing
+    cinematic photorealistic photograph, realistic natural lighting, global illumination,
+    shallow depth of field, highly detailed, professional corporate photography,
+    realistic human faces and proportions, 35mm lens, wide 16:9 composition,
+    consistent character appearance, stable eye-level camera angle
 
   # 每个房间的场景底图描述（真实 place_id -> 英文场景词）
   places:
@@ -38,9 +38,11 @@ scene_prompt:
 
   # 在场人物片段
   occupants_template: "{count} business people in the room"
-  # 说话人片段（带 take 序号，使每句新台词都换一帧；无新发言则 prompt 不变、画面不动）
-  speaker_template: "{role} is speaking and gesturing, conversation moment {seq}"
+  # 说话人片段（体现"谁在说话"）
+  speaker_template: "{role} is speaking and gesturing to the others"
   empty_room: "an empty room, no people"
+  # 时间扰动：每 tick 用世界时刻做一个轻微"瞬间"扰动，使世界运行时画面持续刷新
+  moment_template: "candid documentary moment {tick}"
 
-  # 负向提示，压低畸形/文字水印
-  negative: "no text, no watermark, no deformed faces, no extra limbs"
+  # 负向提示：压低卡通/畸形/文字水印
+  negative: "cartoon, illustration, flat vector, anime, painting, text, watermark, deformed faces, extra limbs, lowres"

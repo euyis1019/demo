@@ -77,7 +77,6 @@ class HbmWorldStep(WorldStep):
         phase = self._tick_context.get("phase") if self._tick_context else None
         last = self._last_speech_by_place.get(player_place or "")
         speaker_id = last["speaker"] if last else None
-        line_seq = last["seq"] if last else 0
         return scene_render.SceneState(
             tick=int(t),
             place=player_place or "default",
@@ -85,7 +84,6 @@ class HbmWorldStep(WorldStep):
             occupant_count=occupant_count,
             has_speaker=speaker_id is not None or occupant_count > 1,
             speaker_id=speaker_id,
-            line_seq=line_seq,
         )
 
     def _maybe_render_frame(self, t: int) -> None:
@@ -140,14 +138,15 @@ class HbmWorldStep(WorldStep):
             self._render_inflight = False
 
     async def await_render(self, timeout: float) -> None:
-        """降 tick 匹配：等当前帧出完再进下一 tick；超时则让任务后台续跑（画面滞后）。"""
+        """降 tick 匹配：等当前帧出完再进下一 tick；超时则放弃这张慢图，
+        取消任务以释放在途守卫，让下一 tick 能立刻重新出图（避免画面长时间冻结）。"""
         task = self._render_task
         if task is None or task.done():
             return
         try:
             await asyncio.wait_for(asyncio.shield(task), timeout=timeout)
         except asyncio.TimeoutError:
-            pass  # 超过上限：不阻塞世界，帧稍后写入（滞后一两拍）
+            task.cancel()  # 放弃慢图；任务 finally 会复位 _render_inflight
         except Exception:
             pass  # 出图任务自身异常已在任务内兜底
 

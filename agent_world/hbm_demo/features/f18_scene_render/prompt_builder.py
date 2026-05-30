@@ -44,23 +44,26 @@ def _occupants_desc(tpl: Dict[str, Any], scene: Dict[str, Any]) -> str:
             count=occupant_count
         )
     ]
-    # 有人发言 → 体现"谁在说话 + 第几句"，使画面随台词/说话人变化
+    # 有人发言 → 体现"谁在说话"
     if scene.get("has_speaker"):
         role = _role_for(tpl, scene.get("speaker_id"))
-        seq = int(scene.get("line_seq") or 0)
-        spk_tpl = tpl.get("speaker_template") or "{role} is speaking, moment {seq}"
-        parts.append(spk_tpl.format(role=role, seq=seq))
+        spk_tpl = tpl.get("speaker_template") or "{role} is speaking"
+        parts.append(spk_tpl.format(role=role))
     return ", ".join(parts)
 
 
 def build_scene_prompt(scene: Dict[str, Any]) -> str:
-    """scene: {place, phase, occupant_count, has_speaker, speaker_id, line_seq}."""
+    """scene: {place, phase, occupant_count, has_speaker, speaker_id, tick}."""
     tpl = load_prompt_template()
-    style = tpl.get("style_prefix") or "flat illustration cartoon style"
+    style = tpl.get("style_prefix") or "cinematic photorealistic photograph"
     place_scene = _place_scene(tpl, str(scene.get("place") or "default"))
     mood = _phase_mood(tpl, scene.get("phase"))
     occupants = _occupants_desc(tpl, scene)
     prompt = f"{style}, {place_scene}, {occupants}, {mood}"
+    # 时间扰动：用世界 tick 做轻微"瞬间"扰动，世界运行时每 tick 刷新画面
+    moment_tpl = tpl.get("moment_template")
+    if moment_tpl:
+        prompt = f"{prompt}, {moment_tpl.format(tick=int(scene.get('tick') or 0))}"
     negative = tpl.get("negative")
     if negative:
         prompt = f"{prompt} | {negative}"

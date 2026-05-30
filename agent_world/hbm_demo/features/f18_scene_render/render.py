@@ -51,12 +51,12 @@ def _prepare(scene: SceneState):
     cfg = load_config()
     prompt = build_scene_prompt(
         {
+            "tick": scene.tick,
             "place": scene.place,
             "phase": scene.phase,
             "occupant_count": scene.occupant_count,
             "has_speaker": scene.has_speaker,
             "speaker_id": scene.speaker_id,
-            "line_seq": scene.line_seq,
         }
     )
     seed = seed_for_place(scene.place, int(cfg.get("seed_base", 7000)))

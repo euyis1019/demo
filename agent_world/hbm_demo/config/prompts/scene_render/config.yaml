@@ -7,7 +7,7 @@ scene_render:
   width: 1280                   # 16:9 横屏
   height: 720
   seed_base: 7000               # 固定基准种子；各房间在此基础上取稳定偏移（一致性）
-  timeout_sec: 30               # 单次出图请求超时
+  timeout_sec: 15               # 单次出图请求超时（慢于此判失败，快速放弃换新帧）
   nologo: true
   # 降 tick 速率匹配：每 tick 等当前帧出完再进下一 tick；
   # tick 间隔 ≈ max(min_tick_interval_sec, 出图耗时)，但等待不超过 render_wait_cap_sec。

@@ -20,7 +20,7 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "width": 1280,
     "height": 720,
     "seed_base": 7000,
-    "timeout_sec": 30,
+    "timeout_sec": 15,
     "nologo": True,
     "min_tick_interval_sec": 1.5,
     "render_wait_cap_sec": 6.0,
