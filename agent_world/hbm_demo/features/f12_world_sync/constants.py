@@ -16,9 +16,35 @@ HBM_ROOM_PLACES: tuple[str, ...] = (
 
 HBM_AGENT_IDS: tuple[int, ...] = (1, 2, 3, 4, 5, 6, 7)
 
+
+def room_places() -> tuple[str, ...]:
+    """玩家可见场景的地点清单——数据驱动：取活跃 Story Pack 的全部地点；
+    无 pack/异常时回退旧 HBM 四室（保证默认 HBM 路径不变）。"""
+    try:
+        from agent_world.hbm_demo.shared import story_config
+
+        ids = tuple(story_config.active_place_ids())
+        return ids or HBM_ROOM_PLACES
+    except Exception:  # noqa: BLE001
+        return HBM_ROOM_PLACES
+
+
+def agent_roster() -> tuple[int, ...]:
+    """玩家可见的 NPC 名册——数据驱动：取活跃 Story Pack 的全部 NPC id；回退旧 HBM 7 人。"""
+    try:
+        from agent_world.hbm_demo.shared import story_config
+
+        ids = tuple(story_config.active_npc_ids())
+        return ids or HBM_AGENT_IDS
+    except Exception:  # noqa: BLE001
+        return HBM_AGENT_IDS
+
+
 __all__ = [
     "HBM_AGENT_IDS",
     "HBM_ROOM_PLACES",
     "PLACE_MUTATION_HINT",
     "ROUTING_WORLD_EVENT_CONTENT",
+    "agent_roster",
+    "room_places",
 ]

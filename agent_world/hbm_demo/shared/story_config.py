@@ -59,3 +59,15 @@ def player_start_place(story_id: Optional[str] = None) -> str:
     if node and node.place_focus:
         return node.place_focus
     return str((pack.meta.get("player") or {}).get("start_place") or "nvidia_reception")
+
+
+def active_place_ids(story_id: Optional[str] = None) -> List[str]:
+    """活跃故事的全部地点 id（喂玩家可见场景视图：room_f2f 按这些地点取 F2F）。"""
+    places = active_pack(story_id).places.get("places") or []
+    return [str(p.get("place_id")) for p in places if p.get("place_id")]
+
+
+def active_npc_ids(story_id: Optional[str] = None) -> List[int]:
+    """活跃故事的全部 NPC agent id（不含玩家 0；喂玩家可见的 agent 名册/位置/消息）。"""
+    agents = active_pack(story_id).agents.get("agents") or []
+    return [int(a["agent_id"]) for a in agents if int(a.get("agent_id", -1)) > 0]

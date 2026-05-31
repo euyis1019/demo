@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from agent_world.hbm_demo.features.f06_read_model.world_db import ReadOnlyWorldDB
-from agent_world.hbm_demo.features.f12_world_sync.constants import HBM_ROOM_PLACES
+from agent_world.hbm_demo.features.f12_world_sync.constants import room_places
 from agent_world.hbm_demo.features.f12_world_sync.formatter import (
     format_agent_locations,
     parse_place_attrs,
@@ -30,7 +30,7 @@ def build_world_snapshot(
     if runner_locations:
         agent_locations = runner_locations
 
-    place_attrs_raw = db.fetch_place_attrs(list(HBM_ROOM_PLACES))
+    place_attrs_raw = db.fetch_place_attrs(list(room_places()))
     place_attrs = {
         pid: parse_place_attrs(raw) for pid, raw in place_attrs_raw.items()
     }

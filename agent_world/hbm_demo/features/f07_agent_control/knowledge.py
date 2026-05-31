@@ -204,6 +204,99 @@ def _section(title: str, body: Optional[str]) -> str:
     return f"【{title}】\n{text}"
 
 
+def _use_pack_knowledge() -> bool:
+    """活跃故事非 HBM 时，agent 知识块从 Story Pack 数据驱动生成（而非写死的 abcs/HBM 文案）。"""
+    from agent_world.hbm_demo.shared import story_config
+
+    return story_config.active_story_id() != "hbm_memory_war"
+
+
+def _pack_agent(pack: Any, agent_id: int) -> Dict[str, Any]:
+    for a in pack.agents.get("agents") or []:
+        if int(a.get("agent_id", -1)) == int(agent_id):
+            return a
+    return {}
+
+
+def _pack_name(pack: Any, agent_id: int) -> str:
+    return str(_pack_agent(pack, agent_id).get("name") or f"Agent{agent_id}")
+
+
+def _pack_relations_for(pack: Any, agent_id: int) -> str:
+    rels = pack.relations.get("relations") if isinstance(pack.relations, dict) else (pack.relations or [])
+    lines: List[str] = []
+    for r in rels or []:
+        src, dst, rtype = int(r.get("src", -1)), int(r.get("dst", -1)), str(r.get("type", ""))
+        sym = bool(r.get("symmetric", False))
+        if src == agent_id:
+            lines.append(f"- 你对{_pack_name(pack, dst)}：{rtype}")
+        elif dst == agent_id:
+            lines.append(
+                f"- 你与{_pack_name(pack, src)}：{rtype}" if sym
+                else f"- {_pack_name(pack, src)}对你：{rtype}"
+            )
+    return "\n".join(lines)
+
+
+def _pack_place_scene(pack: Any, place_id: str) -> str:
+    for p in pack.places.get("places") or []:
+        if p.get("place_id") == place_id:
+            attrs = p.get("attrs") or {}
+            return ". ".join(s for s in (attrs.get("summary"), attrs.get("behavior_hint")) if s)
+    return ""
+
+
+def build_pack_agent_knowledge(
+    session: Any,
+    agent_id: int,
+    player_text: str,
+    *,
+    channel: str,
+) -> str:
+    """数据驱动的 agent 知识块：人设/目标/当前幕场景/关系 全部从活跃 Story Pack 读，
+    无任何 HBM/黄仁勋写死文案。换 Story Pack 即换角色与剧情。"""
+    from agent_world.hbm_demo.shared import story_config
+
+    pack = story_config.active_pack()
+    aid = int(agent_id)
+    a = _pack_agent(pack, aid)
+    name = str(a.get("name") or f"Agent{aid}")
+
+    node_id = getattr(session, "current_node_id", None) or pack.graph.initial_node
+    node = pack.graph.nodes.get(node_id)
+    place_id = node.place_focus if node else str(getattr(session, "place_id", ""))
+
+    sections: List[str] = [
+        _section(
+            "你是谁",
+            f"你是{name}（{a.get('role', '')}）。{a.get('soul', '')}。"
+            f"\n长期目标：{a.get('long_term_goal', '') or '（随机应变）'}"
+            f"\n此刻状态：{a.get('current_state', '') or ''}",
+        ),
+    ]
+    if node:
+        sections.append(_section("当前剧情", f"{node.beats_label}：{node.summary or ''}"))
+    scene = _pack_place_scene(pack, place_id)
+    if scene:
+        sections.append(_section("所在场景", scene))
+    rels = _pack_relations_for(pack, aid)
+    if rels:
+        sections.append(_section("你与他人的关系", rels))
+
+    if channel == "inject":
+        sections.append(_section(
+            "玩家刚对你说",
+            f"「{player_text}」\n请以{name}的身份、口语化地当面回应玩家"
+            f"（用 speak_to_local 说 1–4 句短话），贴合你的性格与目标，"
+            f"可顺势推动剧情，但不要替玩家做决定，也不要跳出角色。",
+        ))
+    elif channel == "opening":
+        sections.append(_section("开场", f"用 1–2 句符合{name}身份与当前状态的话开场，引出当前剧情。"))
+    else:
+        sections.append(_section("提示", f"留意场上动向，以{name}的身份自然回应，留在角色里。"))
+    return "\n\n".join(s for s in sections if s)
+
+
 def build_agent_knowledge(
     session: Any,
     agent_id: int,
@@ -212,6 +305,8 @@ def build_agent_knowledge(
     channel: str,
 ) -> str:
     """Assemble L4 knowledge block. channel: ``inject`` | ``notification`` | ``opening``."""
+    if _use_pack_knowledge():
+        return build_pack_agent_knowledge(session, agent_id, player_text, channel=channel)
     phase = str(getattr(session, "phase", "Phase 1"))
     player_turn = int(getattr(session, "player_turn", 1))
     shared = load_phase_shared(phase)

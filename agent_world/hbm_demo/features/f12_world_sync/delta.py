@@ -8,8 +8,8 @@ from agent_world.hbm_demo.features.f02_player_turn.task import PendingTask
 from agent_world.hbm_demo.shared.messages import format_messages
 from agent_world.hbm_demo.features.f06_read_model.world_db import ReadOnlyWorldDB
 from agent_world.hbm_demo.features.f12_world_sync.constants import (
-    HBM_AGENT_IDS,
-    HBM_ROOM_PLACES,
+    agent_roster,
+    room_places,
 )
 from agent_world.hbm_demo.features.f12_world_sync.formatter import (
     format_agent_locations,
@@ -40,8 +40,16 @@ def _attach_trace_refs(
     return enrich_world_delta(delta, link_map)
 
 
+def _default_player_place() -> str:
+    try:
+        from agent_world.hbm_demo.shared import story_config
+        return story_config.player_start_place()
+    except Exception:  # noqa: BLE001
+        return "nvidia_reception"
+
+
 def _player_place_id(task: PendingTask) -> str:
-    return str(task.place_id or "nvidia_reception")
+    return str(task.place_id or _default_player_place())
 
 
 def build_world_delta(
@@ -61,7 +69,7 @@ def build_world_delta(
 
     room_f2f: Dict[str, List[Dict[str, Any]]] = {}
     f2f_by_place = db.fetch_f2f_by_places(
-        since_t, t_now, list(HBM_ROOM_PLACES)
+        since_t, t_now, list(room_places())
     )
     for place_id, history in f2f_by_place.items():
         room_f2f[place_id] = format_f2f_history_with_ids(history, name_map)
@@ -70,7 +78,7 @@ def build_world_delta(
 
     agent_messages: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
     # 含玩家(0)：让发往玩家的私信/群消息进 agent_messages["0"]，供前端玩家收件箱展示（体检 P1/B3）。
-    for agent_id in (0, *HBM_AGENT_IDS):
+    for agent_id in (0, *agent_roster()):
         rdc_rows = db.fetch_rdc_for_agent(agent_id, since_t, t_now)
         grp_rows = db.fetch_grp_for_agent(agent_id, since_t, t_now)
         if not rdc_rows and not grp_rows:
@@ -148,13 +156,13 @@ def build_session_world_delta(
     """Session-scoped incremental delta (F14) — no PendingTask boundary."""
     since_t = max(0, int(since_tick))
     t_end = max(int(t_now), since_t)
-    player_place = str(player_place_id or "nvidia_reception")
+    player_place = str(player_place_id or _default_player_place())
 
     room_f2f: Dict[str, List[Dict[str, Any]]] = {
-        place_id: [] for place_id in HBM_ROOM_PLACES
+        place_id: [] for place_id in room_places()
     }
     f2f_by_place = db.fetch_f2f_by_places(
-        since_t, t_end, list(HBM_ROOM_PLACES)
+        since_t, t_end, list(room_places())
     )
     for place_id, history in f2f_by_place.items():
         room_f2f[place_id] = format_f2f_history_with_ids(history, name_map)
@@ -163,7 +171,7 @@ def build_session_world_delta(
 
     agent_messages: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
     # 含玩家(0)：发往玩家的私信/群消息进 agent_messages["0"]，供玩家收件箱展示（体检 P1/B3）。
-    for agent_id in (0, *HBM_AGENT_IDS):
+    for agent_id in (0, *agent_roster()):
         rdc_rows = db.fetch_rdc_for_agent(agent_id, since_t, t_end)
         grp_rows = db.fetch_grp_for_agent(agent_id, since_t, t_end)
         if not rdc_rows and not grp_rows:
@@ -220,7 +228,7 @@ def build_session_world_delta(
 
 
 def empty_delta(through_tick: int, *, player_place_id: str = "") -> Dict[str, Any]:
-    room_f2f = {place_id: [] for place_id in HBM_ROOM_PLACES}
+    room_f2f = {place_id: [] for place_id in room_places()}
     return {
         "through_tick": int(through_tick),
         "player_place_id": player_place_id,
