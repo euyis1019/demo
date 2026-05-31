@@ -57,6 +57,22 @@ def reject_keywords() -> Tuple[str, ...]:
     return _signal_list("reject_keywords", ("拒绝", "请离开", "保安"))
 
 
+def group_consent_keywords() -> Tuple[str, ...]:
+    """NPC 通过 F2F 同意玩家加入其群聊的措辞（群聊门控用，需求三）。"""
+    return _signal_list(
+        "group_consent_keywords",
+        ("同意", "欢迎", "加入", "进群", "拉你进", "带你进", "一起聊", "没问题", "可以进", "算你一个"),
+    )
+
+
+def group_reject_keywords() -> Tuple[str, ...]:
+    """NPC 拒绝玩家入群的措辞（优先级高于 consent，避免「不同意」误判为「同意」）。"""
+    return _signal_list(
+        "group_reject_keywords",
+        ("不同意", "不行", "别进", "不欢迎", "拒绝", "不可以", "免谈", "没你的份"),
+    )
+
+
 def expel_keywords() -> Tuple[str, ...]:
     return _signal_list(
         "expel_keywords",
