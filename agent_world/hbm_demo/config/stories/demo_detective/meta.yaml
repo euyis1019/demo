@@ -1,0 +1,19 @@
+schema_version: 1
+simulation_id: demo_detective
+title: 民国上海，一座孤岛别墅里发生密室凶杀案，台风夜，电话线被切断。你是初出茅庐的年轻
+player:
+  agent_id: 0
+  name: 初出茅庐的年轻探员
+  role: 初出茅庐的年轻探员
+  start_place: 别墅大厅
+clock:
+  start_time: 09:00
+  minutes_per_tick: 2
+runner:
+  parallel_agent_decisions: true
+llm:
+  base_url: https://api.deepseek.com
+  api_key_env: DMXAPI_KEY
+  model: deepseek-chat
+  temperature: 0.7
+  max_tokens: 500

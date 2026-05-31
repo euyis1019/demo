@@ -47,11 +47,12 @@ def _valid_image(path: Path) -> Tuple[bool, str]:
 
 
 def _vision_review(prompt: str, label: str, image_url: str) -> Optional[Tuple[bool, str]]:
-    """best-effort 视觉语义复核：让 Ark 视觉模型看图、判断是否符合需求。
+    """可选的视觉语义复核：让 Ark 视觉模型看图、判断是否符合需求。
 
-    需 ARK_VISION_MODEL（默认 doubao-seed-1-6-250615）+ ARK_API_KEY；模型不可用/出错→返回 None（跳过）。
+    默认**关闭**（能生成即可）——仅当显式设置 ARK_VISION_MODEL=<视觉模型id> 时才启用；
+    模型不可用/出错→返回 None（跳过，交给基础校验）。
     """
-    model = os.environ.get("ARK_VISION_MODEL", "doubao-seed-1-6-250615")
+    model = (os.environ.get("ARK_VISION_MODEL") or "").strip()
     if not model or not image_url:
         return None
     try:
