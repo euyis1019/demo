@@ -84,7 +84,25 @@ CASTING_OUTPUT_SCHEMA: Dict[str, Any] = {
                     "inner": {"type": "string"},  # 内心戏：秘密/真实动机/顾忌（不可对玩家明说，但支配言行）
                     "long_term_goal": {"type": "string"},
                     "current_state": {"type": "string"},
+                    # 范例对白：2-3 条该角色的典型台词，演员据此学口吻（最强的语气示范信号）
+                    "speech_samples": {"type": "array", "items": {"type": "string"}},
+                    # 开场第一句：该角色被引入时的定调台词
+                    "opening_line": {"type": "string"},
                 },
+                # 非玩家 agent（agent_id≠0）必须写满核心人设字段，且不得一句话敷衍（minLength 兜底）。
+                "allOf": [{
+                    "if": {"properties": {"agent_id": {"not": {"const": 0}}}},
+                    "then": {
+                        "required": ["soul", "speech_style", "inner", "long_term_goal", "current_state"],
+                        "properties": {
+                            "soul": {"type": "string", "minLength": 16},
+                            "speech_style": {"type": "string", "minLength": 8},
+                            "inner": {"type": "string", "minLength": 18},
+                            "long_term_goal": {"type": "string", "minLength": 4},
+                            "current_state": {"type": "string", "minLength": 4},
+                        },
+                    },
+                }],
             },
         },
         "places": {
@@ -141,6 +159,38 @@ WRITER_OUTPUT_SCHEMA: Dict[str, Any] = {
             },
         },
         "signals": {"type": "object"},  # 已废弃；导演驱动不再需要关键词/信号
+    },
+}
+
+
+# Critic：对整包草稿按叙事 rubric 评分 + 给针对性可执行修改意见（结构已合法后的「质量门」）。
+CRITIC_OUTPUT_SCHEMA: Dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["scores", "casting_feedback", "writer_feedback"],
+    "properties": {
+        "scores": {
+            "type": "object",
+            "required": ["character_depth", "voice_distinct", "subtext_drama",
+                         "player_agency", "plot_tension"],
+            "properties": {
+                # 角色深度：soul/inner 具体非套话、inner 与剧情/结局挂钩
+                "character_depth": {"type": "integer", "minimum": 1, "maximum": 5},
+                # 声音可区分：各 NPC 说话风格彼此可分辨，非通用 AI 腔
+                "voice_distinct": {"type": "integer", "minimum": 1, "maximum": 5},
+                # 潜台词/戏剧性：directions 有潜台词、反派用算计而非直白敌意
+                "subtext_drama": {"type": "integer", "minimum": 1, "maximum": 5},
+                # 玩家纳入：分支 condition 互斥且有意义、能体现玩家选择
+                "player_agency": {"type": "integer", "minimum": 1, "maximum": 5},
+                # 剧情张力：有起承转合/悬念/转折，非平铺直叙
+                "plot_tension": {"type": "integer", "minimum": 1, "maximum": 5},
+            },
+        },
+        # 针对 Casting（人设/inner/speech_style/speech_samples/声音区分/反派算计）的可执行修改意见；满意则空串
+        "casting_feedback": {"type": "string"},
+        # 针对 Writer（scene_brief/directions 潜台词/condition 互斥与玩家纳入/分支张力）的可执行修改意见；满意则空串
+        "writer_feedback": {"type": "string"},
+        "summary": {"type": "string"},
     },
 }
 

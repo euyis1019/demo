@@ -190,6 +190,10 @@ def build_pack_agent_knowledge(
     who = f"你是{name}（{a.get('role', '')}{('·' + a.get('faction', '')) if a.get('faction') else ''}）。{a.get('soul', '')}"
     if a.get("speech_style"):
         who += f"\n说话风格：{a['speech_style']}"
+    samples = a.get("speech_samples") or []
+    if isinstance(samples, list) and samples:
+        who += "\n你平时的口吻（范例，模仿这种语气节奏，不要照抄原话）：\n" + "\n".join(
+            f"· {s}" for s in samples[:3] if s)
     who += f"\n长期目标：{a.get('long_term_goal', '') or '（随机应变）'}"
     if a.get("current_state"):
         who += f"\n此刻状态：{a['current_state']}"
@@ -224,13 +228,28 @@ def build_pack_agent_knowledge(
         sections.append(_section(
             "玩家刚对你说",
             f"「{player_text}」\n请以{name}的身份、口语化地当面回应玩家（用 speak_to_local 说 1–4 句短话）。"
-            f"要贴合你的性格、说话风格、内心动机与「你这一幕要做的」；可顺势推动剧情，"
-            f"但不要替玩家做决定、不要跳出角色、不要把内心秘密直白说破。",
+            f"先接住玩家这一句的具体内容/情绪、据此回应，再带出你的目的——不要无视玩家、不要把话题硬拉回预设台词。"
+            f"贴合你的性格、说话风格、内心动机与「你这一幕要做的」。情绪强烈时用神态/动作/语气/反问来表现"
+            f"（show，别直接说「我很生气」这种白话）；藏着秘密就用旁敲侧击、客套、回避去演，别直白说破。",
         ))
     elif channel == "opening":
-        sections.append(_section("开场", f"用 1–2 句符合{name}身份、说话风格与此刻处境的话开场，自然引出当前这一幕。"))
+        opening = a.get("opening_line")
+        if opening:
+            sections.append(_section(
+                "开场",
+                f"用接近这句口吻的话开场：「{opening}」——可微调以贴合此刻处境，自然引出当前这一幕。"))
+        else:
+            sections.append(_section(
+                "开场", f"用 1–2 句符合{name}身份、说话风格与此刻处境的话开场，自然引出当前这一幕。"))
     else:
         sections.append(_section("提示", f"留意场上动向，以{name}的身份、贴合「你这一幕要做的」自然回应，始终留在角色里。"))
+
+    # 始终钉一条硬性反 OOC 规则在末尾（防长对话漂移/破戏）
+    sections.append(_section(
+        "始终遵守",
+        f"你就是{name}本人，只说/做此刻{name}会说会做的。绝不跳出角色、不复述人设、不提你是 AI 或在演戏、"
+        f"不替玩家做决定、不替别的角色发言。",
+    ))
     return "\n\n".join(s for s in sections if s)
 
 

@@ -212,13 +212,16 @@ def generate_full(
     brief: Dict[str, Any], *, story_id: str, client: Any,
     target_dir: Optional[Path] = None, max_rounds: int = 3,
     max_llm_calls: Optional[int] = None, trace: Any = None,
+    critic_rounds: int = 2, critic_threshold: int = 3,
 ) -> CompileResult:
-    """完整流水线 Designer→Casting→Writer→assemble→validate(V+X)→失败回灌重生成。
+    """完整流水线 Designer→Casting→Writer→assemble→validate(V+X)→失败回灌重生成，
+    结构合法后再过 **Critic 质量门**（按叙事 rubric 评分，低分则把意见回灌定向重写 Casting/Writer）。
 
-    产出**完整可运行** Story Pack（世界原语 + 控制流全齐）。client 注入，离线可测。
-    可选 max_llm_calls 成本护栏 + trace 生成决策链记录（dev_logs/45 §7）。
+    产出**完整可运行**且经质量评审的 Story Pack。client 注入，离线可测。
+    可选 max_llm_calls 成本护栏 + trace 生成决策链记录。critic_rounds=0 可关闭质量门（如离线 fake client）。
     """
     from agent_world.hbm_demo.tools.story_studio.agents.casting import Casting
+    from agent_world.hbm_demo.tools.story_studio.agents.critic import Critic
     from agent_world.hbm_demo.tools.story_studio.agents.designer import Designer
     from agent_world.hbm_demo.tools.story_studio.agents.writer import Writer
     from agent_world.hbm_demo.tools.story_studio.base_agent import StoryStudioError
@@ -228,17 +231,56 @@ def generate_full(
     designer, casting, writer = Designer(client), Casting(client), Writer(client)
     feedback = ""
     last_issues: List[str] = []
+    d = c = w = None
+    sections: Dict[str, Any] = {}
+    result: Optional[CompileResult] = None
+
+    # ① 结构回路：产出结构/引用合法的整包
+    structural_ok = False
     for _round in range(max_rounds):
         d = designer.run(brief, feedback=feedback)
         c = casting.run(brief, d, feedback=feedback)
-        w = writer.run(d, c, feedback=feedback)
+        w = writer.run(d, c, brief=brief, feedback=feedback)
         sections = assemble_full_sections(brief, story_id, d, c, w)
         result = compile_pack(sections, story_id=story_id, target_dir=target_dir)
         if result.ok:
-            return result
+            structural_ok = True
+            break
         last_issues = result.issues
         feedback = "整包校验未过：\n" + "\n".join(result.issues) + "\n请各自修正引用/结构后重新输出完整 JSON。"
-    raise StoryStudioError(f"generate_full '{story_id}' 失败：{max_rounds} 轮仍未过 validate：{last_issues}")
+    if not structural_ok:
+        raise StoryStudioError(f"generate_full '{story_id}' 失败：{max_rounds} 轮仍未过 validate：{last_issues}")
+
+    # ② 质量回路：Critic 按 rubric 评分，低分项把意见回灌定向重写 Casting/Writer（骨架 d 固定不动）。
+    #    任一重写若破坏结构 → 回滚到上一版已合法的包并停止；评审本身报错也不阻断（保留已合法包）。
+    if critic_rounds > 0:
+        critic = Critic(client)
+        last_good = sections
+        for _q in range(critic_rounds):
+            try:
+                review = critic.review(brief, d, c, w)
+            except Exception:  # noqa: BLE001 — 评审失败不阻断：保留已结构合法的包
+                break
+            scores = review.get("scores") or {}
+            low = [k for k, v in scores.items() if isinstance(v, int) and v < critic_threshold]
+            cfb = (review.get("casting_feedback") or "").strip()
+            wfb = (review.get("writer_feedback") or "").strip()
+            if not low or (not cfb and not wfb):
+                break  # 质量达标 / 评审无可执行意见 → 收工
+            if cfb:
+                c = casting.run(brief, d, feedback="【质量评审，请据此改进角色卡，仍输出完整 JSON】\n" + cfb)
+            w = writer.run(d, c, brief=brief,
+                           feedback="【质量评审，请据此改进分幕，仍输出完整 JSON】\n"
+                           + (wfb or "结合最新角色设定复核并加厚各幕 directions/condition。"))
+            revised = assemble_full_sections(brief, story_id, d, c, w)
+            r2 = compile_pack(revised, story_id=story_id, target_dir=target_dir)
+            if r2.ok:
+                result, last_good = r2, revised
+            else:
+                compile_pack(last_good, story_id=story_id, target_dir=target_dir)  # 回滚已合法包
+                break
+
+    return result
 
 
 def compile_pack(

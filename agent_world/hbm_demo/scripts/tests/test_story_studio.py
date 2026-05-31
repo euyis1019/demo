@@ -245,7 +245,10 @@ _G3_CASTING = {
         {"agent_id": 0, "name": "玩家", "location": "hall", "capabilities": [],
          "soul": "", "long_term_goal": "", "current_state": ""},
         {"agent_id": 1, "name": "守门人", "location": "hall", "capabilities": ["signal_uplink"],
-         "soul": "严谨", "long_term_goal": "守门", "current_state": "值班"},
+         "soul": "严谨刻板的老门房，把守门看得比命重，认死理不通融",
+         "speech_style": "话少、爱用命令句、对生人板着脸",
+         "inner": "你收过一笔贿赂答应今夜放某人进来，正提心吊胆怕被撞破",
+         "long_term_goal": "守好门别出事", "current_state": "在大厅值夜班"},
     ],
     "places": [{"place_id": "hall", "capacity": 5, "attrs": {"summary": "大厅"}}],
     "coverage": [{"src": "hall", "dst": "hall", "latency_ticks": 0}],
@@ -291,7 +294,7 @@ def test_generate_full_produces_valid_complete_pack() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
         result = generate_full(_GOOD_BRIEF, story_id="studio_full", client=_routing_fake(),
-                               target_dir=tmp, max_rounds=2)
+                               target_dir=tmp, max_rounds=2, critic_rounds=0)
         assert result.ok, f"完整包应过 V+X 校验：{result.issues}"
         # 全部世界原语文件都落了盘
         for f in ("meta", "story_graph", "places", "agents", "relations", "relation_types", "groups", "signals"):
@@ -333,9 +336,49 @@ def test_generate_full_regenerates_on_xref_break() -> None:
 
     tmp = Path(tempfile.mkdtemp())
     try:
-        result = generate_full(_GOOD_BRIEF, story_id="studio_xref", client=fake, target_dir=tmp, max_rounds=3)
+        result = generate_full(_GOOD_BRIEF, story_id="studio_xref", client=fake, target_dir=tmp,
+                               max_rounds=3, critic_rounds=0)
         assert result.ok, result.issues
         assert calls["writer"] == 2, f"应在第 2 轮收敛，实际 {calls['writer']}"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_generate_full_critic_revise_loop() -> None:
+    """Critic 第一次低分 + casting_feedback → 触发 Casting/Writer 定向重写；第二次达标 → 停。"""
+    import json
+    import tempfile
+
+    from agent_world.hbm_demo.tools.story_studio import generate_full
+
+    calls = {"casting": 0, "writer": 0, "critic": 0}
+    dims = ("character_depth", "voice_distinct", "subtext_drama", "player_agency", "plot_tension")
+
+    def fake(system: str, user: str) -> str:
+        if "设计师" in system:
+            return json.dumps(_G3_DESIGNER)
+        if "选角" in system:
+            calls["casting"] += 1
+            return json.dumps(_G3_CASTING)
+        if "编剧" in system:
+            calls["writer"] += 1
+            return json.dumps(_G3_WRITER)
+        if "评审" in system or "叙事总监" in system:
+            calls["critic"] += 1
+            if calls["critic"] == 1:  # 低分 → 触发重写
+                return json.dumps({"scores": {**{k: 4 for k in dims}, "character_depth": 2},
+                                   "casting_feedback": "把守门人的 inner 写得更具体", "writer_feedback": ""})
+            return json.dumps({"scores": {k: 4 for k in dims},
+                               "casting_feedback": "", "writer_feedback": ""})  # 达标 → 停
+        raise AssertionError("未知 agent system prompt")
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        result = generate_full(_GOOD_BRIEF, story_id="studio_critic", client=fake,
+                               target_dir=tmp, critic_rounds=2)
+        assert result.ok, result.issues
+        assert calls["critic"] == 2, f"应评审两次（低分→重写→达标），实际 {calls['critic']}"
+        assert calls["casting"] == 2, f"低分应触发 Casting 重写一次（共 2 次），实际 {calls['casting']}"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -365,7 +408,8 @@ def test_regenerate_writer_keeps_cast_and_graph() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
         # 先产完整包
-        gen_result = generate_full(_GOOD_BRIEF, story_id="studio_regen", client=_routing_fake(), target_dir=tmp)
+        gen_result = generate_full(_GOOD_BRIEF, story_id="studio_regen", client=_routing_fake(),
+                                   target_dir=tmp, critic_rounds=0)
         assert gen_result.ok, gen_result.issues
         before = _load_pack_from_dir("studio_regen", tmp)
         cast_before = sorted(a["agent_id"] for a in before.agents["agents"])
@@ -410,7 +454,7 @@ def test_metering_cost_guard_stops() -> None:
         # 完整流水线一轮需 3 次 LLM 调用；护栏设 2 → 超限即停
         try:
             generate_full(_GOOD_BRIEF, story_id="studio_budget", client=_routing_fake(),
-                         target_dir=tmp, max_llm_calls=2)
+                         target_dir=tmp, max_llm_calls=2, critic_rounds=0)
         except BudgetExceededError:
             pass
         else:
@@ -428,7 +472,7 @@ def test_metering_trace_records_calls() -> None:
     try:
         trace = GenerationTrace()
         result = generate_full(_GOOD_BRIEF, story_id="studio_trace", client=_routing_fake(),
-                              target_dir=tmp, trace=trace)
+                              target_dir=tmp, trace=trace, critic_rounds=0)
         assert result.ok
         assert trace.calls == 3, f"应记录 Designer/Casting/Writer 三次调用，实际 {trace.calls}"
         assert trace.total_output_chars > 0
@@ -442,16 +486,17 @@ def test_metering_trace_records_calls() -> None:
 def test_asset_manifest_lists_all_images() -> None:
     from agent_world.hbm_demo.shared.story_pack import load_story_pack
     from agent_world.hbm_demo.tools.story_studio import render_asset_manifest
+    from agent_world.hbm_demo.tools.story_studio.asset_manifest import asset_specs
 
     pack = load_story_pack("canglan_sword")
     text = render_asset_manifest(pack)
-    # 数据驱动：封面 + 每个地点背景 + 每个 NPC 立绘（玩家 0 不出）
+    specs = asset_specs(pack)  # 真相来源：封面 + 每地点背景 + 每 NPC（基础立绘 + 各情绪变体）
     n_places = len(pack.places.get("places") or [])
-    n_npcs = len([a for a in pack.agents["agents"] if int(a["agent_id"]) > 0])
+    n_portraits = sum(1 for s in specs if s.kind == "portrait")
     assert "封面图" in text
     assert text.count("场景背景：") == n_places
-    assert text.count("角色立绘：") == n_npcs
-    assert f"共需 {1 + n_places + n_npcs} 张图片" in text
+    assert text.count("角色立绘：") == n_portraits  # 含情绪变体立绘
+    assert f"共需 {len(specs)} 张图片" in text
     # 提示词含统一画风要求
     assert "统一画风要求" in text
 
