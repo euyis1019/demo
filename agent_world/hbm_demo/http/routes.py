@@ -165,6 +165,27 @@ def player_turn(sim_id: str):
     return jsonify({"success": True, "data": result})
 
 
+@hbm_bp.route("/simulations/<sim_id>/player-action", methods=["POST"])
+def player_action(sim_id: str):
+    """玩家主动动作：私信(rdc)/移动(move)/加群(grp)。加群受群聊门控。"""
+    err = _check_sim_id(sim_id)
+    if err:
+        return err
+
+    body = _json_body()
+    action = str(body.get("action") or "").strip()
+    if not action:
+        return _bad_request("action is required (rdc|move|grp)")
+
+    try:
+        result = gs.handle_player_action(session, sim_id=sim_id, action=action, body=body)
+    except Exception as exc:  # noqa: BLE001
+        payload, code = service_error_payload(exc)
+        return jsonify(payload), code
+
+    return jsonify({"success": True, "data": result})
+
+
 @hbm_bp.route("/simulations/<sim_id>/action-result", methods=["GET"])
 def action_result(sim_id: str):
     """API 2 — poll until NPC activity completes or timeout."""
