@@ -55,7 +55,9 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "modules": [
             "routing",
             "routing_config",
-            "agent_signals",
+            "interpreter",
+            "interpreter_routing",
+            "director",
             "story_signals",
             "watcher",
         ],

@@ -148,25 +148,6 @@ def apply_routing_side_effects(
     ipc_timeout: float,
     async_mode: bool = False,
 ) -> Dict[str, Any]:
-    """F05 routing after inject; mirrors session when nodes fire."""
-    ipc_client = get_ipc_client(str(sim_dir))
-    db = make_readonly_db(sim_dir)
-    routing_info = routing.apply_routing(
-        hbm,
-        ipc_client=ipc_client,
-        db=db,
-        task_id=task_id,
-        current_tick=current_tick,
-        tick_count=tick_count,
-        ipc_timeout=ipc_timeout,
-    )
-    if routing_info.get("nodes"):
-        push_session_mirror(ipc_client, hbm, timeout=ipc_timeout)
-        log.info(
-            "routing applied nodes=%s async=%s start=%s end=%s",
-            routing_info.get("nodes"),
-            async_mode,
-            start_tick,
-            current_tick,
-        )
-    return dict(routing_info) if routing_info else {}
+    """剧情推进已由 watcher 里的 LLM 导演(f05/director)统一负责——玩家这一拍只做注入，
+    不再在此做任何同步路由判定。保留为薄壳以兼容调用方签名。"""
+    return {}

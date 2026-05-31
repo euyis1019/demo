@@ -1,35 +1,19 @@
-"""F05 — Phase routing nodes A/B/C/D and inject payload assembly."""
+"""F05 — 剧情路由：LLM 导演按对话推进剧情 + 玩家台词注入装配（无关键词/相位硬规则）。"""
 
 from agent_world.hbm_demo.features.f05_story_routing.routing import (
-    PHASE_INJECT_AGENTS,
-    apply_routing,
     build_dialogue_event,
     build_inject_payload,
-    classify_turn25_intent,
     format_player_dialogue,
-    inject_agent_ids_for_phase,
-    node_a_applies,
-    node_b_applies,
-    node_c_applies,
-    resolve_ending_id,
-    resolve_turn25_ending,
+    node_inject_ids,
 )
 from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
     is_story_pack_routing_enabled,
 )
 
 __all__ = [
-    "PHASE_INJECT_AGENTS",
-    "apply_routing",
     "build_dialogue_event",
     "build_inject_payload",
-    "classify_turn25_intent",
     "format_player_dialogue",
-    "inject_agent_ids_for_phase",
     "is_story_pack_routing_enabled",
-    "node_a_applies",
-    "node_b_applies",
-    "node_c_applies",
-    "resolve_ending_id",
-    "resolve_turn25_ending",
+    "node_inject_ids",
 ]

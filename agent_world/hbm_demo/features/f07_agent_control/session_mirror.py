@@ -19,10 +19,6 @@ from agent_world.hbm_demo.features.f07_agent_control.turn_context import (
 
 def bootstrap_mirror() -> Dict[str, Any]:
     """Startup default when Flask has not pushed a mirror yet."""
-    from agent_world.hbm_demo.features.f05_story_routing.routing import (
-        inject_agent_ids_for_phase,
-    )
-
     phase = DEFAULT_PHASE
     player_turn = 1
     return {
@@ -32,7 +28,7 @@ def bootstrap_mirror() -> Dict[str, Any]:
         "start_tick": 0,
         "place_id": DEFAULT_PLACE_ID,
         "stats": dict(INITIAL_STATS),
-        "inject_agent_ids": list(inject_agent_ids_for_phase(phase)),
+        "inject_agent_ids": [],  # 启动占位；首个真实 turn 会按当前节点推回 mirror
         "player_text": "",
         "llm_params": resolve_llm_params(phase, player_turn),
         "player_inject_tick": None,

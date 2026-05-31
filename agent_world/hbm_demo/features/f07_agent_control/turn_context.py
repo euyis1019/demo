@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from agent_world.hbm_demo.features.f05_story_routing.routing import (
-    inject_agent_ids_for_phase,
+    node_inject_ids,
 )
 from agent_world.hbm_demo.features.f07_agent_control.config import is_f07_enabled
 from agent_world.hbm_demo.features.f07_agent_control.knowledge import (
@@ -21,7 +21,7 @@ def build_turn_context(session: Any, player_text: str) -> Dict[str, Any]:
     phase = str(getattr(session, "phase", "Phase 1"))
     player_turn = int(getattr(session, "player_turn", 1))
     stats = getattr(session, "stats", None) or {}
-    inject_ids = inject_agent_ids_for_phase(phase)
+    inject_ids = node_inject_ids(session)
     return {
         "enabled": True,
         "phase": phase,

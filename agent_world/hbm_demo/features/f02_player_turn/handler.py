@@ -186,35 +186,8 @@ def _handle_sync_inject(
 
     save_session(flask_session, hbm, sim_id)
 
-    if is_final_turn:
-        db = make_readonly_db(sim)
-        intent = routing.classify_turn25_intent(player_text)
-        ending_id = routing.resolve_turn25_ending(
-            intent,
-            hbm.stats["trust"],
-            db,
-            since_t=start_tick,
-            t_now=current_tick,
-        )
-        log_turn_event(
-            event="player_turn_completed",
-            task_id=task_id,
-            phase=hbm.phase,
-            player_turn=hbm.player_turn - 1,
-            start_tick=start_tick,
-            end_tick=current_tick,
-            extra={"status": "completed", "ending_id": ending_id},
-        )
-        _pause_loop_after_terminal(sim=sim)
-        return {
-            "status": "completed",
-            "ending_id": ending_id,
-            "intent": intent,
-            "stats_update": dict(hbm.stats),
-            "current_phase": hbm.phase,
-            "routing": routing_info,
-            "ipc": ipc_result,
-        }
+    # 结局判断已交由 watcher 里的 LLM 导演（按对话理解判定到达哪个结局）——这里不再有
+    # 写死的「第 25 回合裁定」硬规则；每一拍都是普通回合，导演异步决定何时收尾。
 
     task = PendingTask(
         task_id=task_id,
@@ -358,7 +331,8 @@ def handle_player_turn(
     env = read_env_status(sim) or {}
     start_tick = int(env.get("current_tick", 0))
     task_id = f"task_{uuid.uuid4().hex[:12]}"
-    is_final_turn = hbm.player_turn == 25
+    # 去掉「第 25 回合强制结局」硬规则：结局何时到达完全由 LLM 导演按对话判定，回合数不再封顶。
+    is_final_turn = False
 
     if is_final_turn:
         prep = prepare_turn(hbm, player_text, task_id=task_id)

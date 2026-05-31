@@ -83,26 +83,26 @@ def api(method: str, path: str, body=None, timeout: int = 180):
         conn.close()
 
 
-def _first_keyword(pack, ksets, nid):
+def _first_condition_line(pack, nid):
+    """取该节点第一条出边的自然语言 condition，转成一句玩家第一人称台词（无关键词）。
+    导演读这句话理解玩家意图后推进——这正是端到端验证 LLM 导演。"""
     node = pack.graph.nodes.get(nid)
     if not node:
-        return None, None
-    for e, dst in pack.graph.get_children(nid):
-        t = e.trigger
-        leaf = (t.get("any_of") or [t])[0] if isinstance(t, dict) else t
-        kws = ksets.get(leaf.get("keyword_set"), [])
-        if leaf.get("type") == "f2f_keyword" and kws:
-            return kws[0], dst
-    return None, None
+        return None
+    for e, _dst in pack.graph.get_children(nid):
+        cond = str(getattr(e, "condition", "") or "").strip()
+        if cond:
+            said = cond.replace("玩家决定", "我决定").replace("玩家", "我")
+            return f"（我打定主意）{said}"
+    return None
 
 
 def main() -> int:
-    import yaml
     from agent_world.hbm_demo.shared.story_pack import load_story_pack
     from agent_world.hbm_demo.shared.env_status import is_runner_ready
 
     print("=" * 60)
-    print("  沧澜剑派 验收门禁 (canglan_sword E2E)")
+    print("  沧澜剑派 验收门禁 (canglan_sword E2E · LLM 导演驱动)")
     print("=" * 60)
 
     shutil.rmtree(SIM, ignore_errors=True)
@@ -112,7 +112,6 @@ def main() -> int:
     pack = load_story_pack(SID)
     g = pack.graph
     names = {int(a["agent_id"]): a["name"] for a in pack.agents["agents"]}
-    ksets = (yaml.safe_load((HBM / "config/stories" / SID / "signals.yaml").read_text()) or {}).get("keyword_sets", {})
     label_to_node = {n.beats_label: nid for nid, n in g.nodes.items()}
 
     runner = flask = None
@@ -161,14 +160,14 @@ def main() -> int:
             st, dd = api("GET", f"/world-delta?since_tick={since}")
             cur = (dd.get("data") or {}).get("current_phase") or g.nodes[g.initial_node].beats_label
             nid = label_to_node.get(cur, g.initial_node)
-            kw, _dst = _first_keyword(pack, ksets, nid)
-            if kw is None:
-                raise GateFailure(f"节点 {nid}「{cur}」无可执行台词边——卡住")
-            st, pr = api("POST", "/player-turn", {"player_text": f"我{kw}，看个究竟"})
+            say = _first_condition_line(pack, nid)
+            if say is None:
+                raise GateFailure(f"节点 {nid}「{cur}」无出边 condition——卡住")
+            st, pr = api("POST", "/player-turn", {"player_text": say})
             if st != 200:
                 raise GateFailure(f"/player-turn HTTP {st}: {pr}")
             new_phase, game_over, stable = cur, None, 0
-            for _ in range(30):
+            for _ in range(40):
                 time.sleep(1.5)
                 st, dd = api("GET", f"/world-delta?since_tick={since}")
                 d = dd.get("data") or {}

@@ -9,26 +9,14 @@ from agent_world.hbm_demo.features.f17_virtual_player.config import (
     is_f08_enabled,
     player_agent_id,
 )
-from agent_world.hbm_demo.features.f05_story_routing import (
-    inject_agent_ids_for_phase,
-    is_story_pack_routing_enabled,
-)
+from agent_world.hbm_demo.features.f05_story_routing import node_inject_ids
 
 log = logging.getLogger("agent_world.hbm_demo.f17.player_f2f")
 
-_PHASE_RECIPIENT: Dict[str, int] = {
-    "Phase 1": 1,
-    "Phase 2": 2,
-    "Phase 3": 2,
-    "Phase 4": 2,
-}
-
 
 def f2f_recipient_for_phase(phase: str) -> int:
-    targets = inject_agent_ids_for_phase(str(phase))
-    if targets:
-        return int(targets[0])
-    return int(_PHASE_RECIPIENT.get(str(phase), 1))
+    """无当前节点时的兜底收件人——默认 1（正常情况下走 build_player_f2f_payload 的节点收件人）。"""
+    return 1
 
 
 def build_player_f2f_payload(session: Any, player_text: str) -> Optional[Dict[str, Any]]:
@@ -39,19 +27,15 @@ def build_player_f2f_payload(session: Any, player_text: str) -> Optional[Dict[st
     if not text:
         return None
     phase = str(getattr(session, "phase", "Phase 1"))
-    place_id = str(getattr(session, "place_id", "nvidia_reception"))
-    # 节点驱动：玩家台词收件人=当前节点首个 inject_agent，地点=当前节点 place_focus。
-    # 仅当节点驱动路由实际生效时才信 current_node_id（同 build_inject_payload：旧 HBM 路径
-    # 不推进 current_node_id，会冻结在初始节点，故回退相位表）。
+    place_id = str(getattr(session, "place_id", ""))
+    # 节点驱动：玩家台词收件人=当前节点首个在场 NPC，地点=当前节点 place_focus（数据驱动，无相位硬规则）。
     node_id = getattr(session, "current_node_id", None)
-    if node_id and is_story_pack_routing_enabled():
+    agents = node_inject_ids(session)
+    recipient_id = int(agents[0]) if agents else f2f_recipient_for_phase(phase)
+    if node_id:
         from agent_world.hbm_demo.shared import story_config
 
-        agents = story_config.node_inject_agents(node_id)
-        recipient_id = int(agents[0]) if agents else f2f_recipient_for_phase(phase)
         place_id = story_config.node_place(node_id) or place_id
-    else:
-        recipient_id = f2f_recipient_for_phase(phase)
     return {
         "sender_id": int(player_agent_id()),
         "recipient_id": recipient_id,
