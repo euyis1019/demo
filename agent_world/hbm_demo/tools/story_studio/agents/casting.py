@@ -28,7 +28,13 @@ _SYSTEM = """你是选角 + 世界搭建师。根据故事 brief 与故事图骨
 - 必须包含玩家 agent_id=0（name 用 brief.player.identity，soul/goal/state 留空，capabilities 留空）。
 - 每个 agent 的 location 必须在 places 里；relations 的 src/dst 必须是已列 agent；
   relations.type 必须在 relation_types 里声明。
-- soul 只写人格/价值观，不要写"第几幕做什么"。"""
+- soul 只写人格/价值观，不要写"第几幕做什么"。
+
+涌现社交（重要）：为了让"玩家影响一个 agent 会波及其他 agent"成立——
+- 设计一张**有意义的关系网**：谁信任谁、谁结盟、谁敌对、谁从属谁（亲情/师徒/盟友/对手等都可），
+  关系类型自定但要在 relation_types 声明。关系越交织，连锁反应越多。
+- 人设要**情绪化、会因他人遭遇而反应**（如重视家人/护短/记仇/见风使舵），这样玩家动一个点，
+  相关 agent 会自发串联反应（引擎的关系/感知/记忆系统会在运行时驱动演化，无需脚本）。"""
 
 
 def _build_user_prompt(brief: Dict[str, Any], designer: Dict[str, Any]) -> str:
