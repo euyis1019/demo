@@ -67,6 +67,8 @@ export function ChromaKeyAvatar({ src, className, fallbackSrc }: ChromaKeyAvatar
       src={displaySrc}
       alt=""
       draggable={false}
+      // 最终图仍 404（如玩家无立绘 player.png、或某角色出图失败）→ 优雅隐藏，不显示破图占位符
+      onError={() => setDisplaySrc(null)}
     />
   );
 }
