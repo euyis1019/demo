@@ -396,6 +396,45 @@ def test_regenerate_writer_keeps_cast_and_graph() -> None:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# ---- G6：成本护栏 + 生成 trace ----
+
+def test_metering_cost_guard_stops() -> None:
+    import tempfile
+
+    from agent_world.hbm_demo.tools.story_studio import BudgetExceededError, generate_full
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        # 完整流水线一轮需 3 次 LLM 调用；护栏设 2 → 超限即停
+        try:
+            generate_full(_GOOD_BRIEF, story_id="studio_budget", client=_routing_fake(),
+                         target_dir=tmp, max_llm_calls=2)
+        except BudgetExceededError:
+            pass
+        else:
+            raise AssertionError("max_llm_calls=2 应触发 BudgetExceededError")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_metering_trace_records_calls() -> None:
+    import tempfile
+
+    from agent_world.hbm_demo.tools.story_studio import GenerationTrace, generate_full
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        trace = GenerationTrace()
+        result = generate_full(_GOOD_BRIEF, story_id="studio_trace", client=_routing_fake(),
+                              target_dir=tmp, trace=trace)
+        assert result.ok
+        assert trace.calls == 3, f"应记录 Designer/Casting/Writer 三次调用，实际 {trace.calls}"
+        assert trace.total_output_chars > 0
+        assert "LLM 调用 3 次" in trace.summary()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_import_graph_red_line() -> None:
     """story_studio 源码不得引用 kernel/seed/world_db/http（dev_logs/45 §1.2 机制级红线）。"""
     studio_dir = Path(__file__).resolve().parents[2] / "tools" / "story_studio"

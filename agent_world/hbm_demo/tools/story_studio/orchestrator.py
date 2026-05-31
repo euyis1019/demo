@@ -211,16 +211,20 @@ def regenerate_writer(
 def generate_full(
     brief: Dict[str, Any], *, story_id: str, client: Any,
     target_dir: Optional[Path] = None, max_rounds: int = 3,
+    max_llm_calls: Optional[int] = None, trace: Any = None,
 ) -> CompileResult:
     """完整流水线 Designer→Casting→Writer→assemble→validate(V+X)→失败回灌重生成。
 
     产出**完整可运行** Story Pack（世界原语 + 控制流全齐）。client 注入，离线可测。
+    可选 max_llm_calls 成本护栏 + trace 生成决策链记录（dev_logs/45 §7）。
     """
     from agent_world.hbm_demo.tools.story_studio.agents.casting import Casting
     from agent_world.hbm_demo.tools.story_studio.agents.designer import Designer
     from agent_world.hbm_demo.tools.story_studio.agents.writer import Writer
     from agent_world.hbm_demo.tools.story_studio.base_agent import StoryStudioError
+    from agent_world.hbm_demo.tools.story_studio.metering import metering_client
 
+    client = metering_client(client, max_calls=max_llm_calls, trace=trace)
     designer, casting, writer = Designer(client), Casting(client), Writer(client)
     feedback = ""
     last_issues: List[str] = []

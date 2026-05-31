@@ -144,6 +144,18 @@ def test_reject_ending_as_source() -> None:
     assert any(it.startswith("[V3]") for it in issues), issues
 
 
+def test_reject_unsupported_schema_version() -> None:
+    g = StoryGraph.from_mapping({
+        "schema_version": 99,
+        "initial_node": "a",
+        "nodes": [{"id": "a"}],
+        "endings": [{"id": "win"}],
+        "edges": [{"id": "e1", "from": "a", "to": "win"}],
+    })
+    issues = g.validate()
+    assert any(it.startswith("[V0]") for it in issues), issues
+
+
 def test_validate_or_raise_raises() -> None:
     g = _graph(
         nodes=[{"id": "a"}],

@@ -28,6 +28,9 @@ from agent_world.hbm_demo.shared.story_pack.model import (
     StoryNode,
 )
 
+# 当前解释器支持的 story_graph schema 版本（dev_logs/46 C-5：演进需可检测）。
+SUPPORTED_SCHEMA_VERSIONS = (1,)
+
 
 @dataclass
 class StoryGraph:
@@ -157,6 +160,12 @@ class StoryGraph:
         issues: List[str] = []
         node_ids = set(self.nodes)
         ending_ids = set(self.endings)
+
+        # V0 schema 版本兼容性
+        if self.schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+            issues.append(
+                f"[V0] 不支持的 schema_version={self.schema_version}（当前支持 {SUPPORTED_SCHEMA_VERSIONS}）"
+            )
 
         # V1 initial_node
         if self.initial_node not in node_ids:

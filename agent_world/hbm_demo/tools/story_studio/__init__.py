@@ -23,6 +23,11 @@ from agent_world.hbm_demo.tools.story_studio.base_agent import (
     call_json_with_schema,
 )
 from agent_world.hbm_demo.tools.story_studio.brief_schema import BRIEF_SCHEMA, validate_brief
+from agent_world.hbm_demo.tools.story_studio.metering import (
+    BudgetExceededError,
+    GenerationTrace,
+    metering_client,
+)
 from agent_world.hbm_demo.tools.story_studio.agents import Casting, Designer, Writer
 from agent_world.hbm_demo.tools.story_studio.orchestrator import (
     CompileResult,
@@ -60,6 +65,9 @@ __all__ = [
     "assemble_full_sections",
     "assemble_sections",
     "render_review",
+    "GenerationTrace",
+    "BudgetExceededError",
+    "metering_client",
     "Designer",
     "Casting",
     "Writer",
