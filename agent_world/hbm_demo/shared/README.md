@@ -12,6 +12,7 @@
 | `errors.py` | 领域异常：`RunnerNotReadyError`、`IpcFailedError`、`IpcTimeoutError`、`DatabaseReadError`、`WorldLoopDisabledError` |
 | `messages.py` | 跨 Feature 的消息格式化辅助 |
 | `routing_events.py` | F05↔F12 **解耦契约**：`format_routing_world_events`、`ROUTING_WORLD_EVENT_CONTENT`（节点 A/B/C 的世界事件文案）——让 F05 产出原始路由事件、F12/F14 消费而不互相 import |
+| `story_config.py` | 活跃故事运行期配置门面（运行期数据驱动化）：`active_story_id`（env `HBM_STORY_ID`，默认 hbm_memory_war）、`active_pack`、`initial_node_id`、`node_place`、`node_exists`、`node_inject_agents`、`node_beats_label`、`player_start_place`——纯读 `shared/story_pack`（D3），L1/L2 据此换故事即换游戏 |
 | `__init__.py` | 统一再导出常用符号 |
 
 > `env_status.json` 被 Runner 每 tick(~1s)重写、Flask 每次轮询读取；原子写避免读到

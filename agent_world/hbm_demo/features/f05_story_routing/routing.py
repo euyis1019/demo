@@ -100,11 +100,23 @@ def build_inject_payload(
     )
 
     # 节点驱动：玩家这句话注入给「当前节点的 inject_agents」；无节点时回退 HBM 相位表。
+    # 节点驱动 inject 只在节点驱动路由实际生效时可信——因为只有 route_story 会推进
+    # current_node_id；旧 HBM apply_routing 路径只推进 phase、不动 current_node_id（它会冻结
+    # 在初始节点），此时必须回退相位表，否则各相位都误投到初始节点的 inject_agents。
+    from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
+        is_story_pack_routing_enabled,
+    )
+
     node_id = getattr(session, "current_node_id", None)
-    if node_id:
+    if node_id and is_story_pack_routing_enabled():
         from agent_world.hbm_demo.shared import story_config
 
-        agent_ids = story_config.node_inject_agents(node_id) or inject_agent_ids_for_phase(session.phase)
+        # 节点存在就用它的 inject_agents（即便为空列表＝该节点设计上不注入任何人）；
+        # 仅当 node_id 查无此节点（脏 cookie/换包残留）时才回退写死的 HBM 相位表。
+        if story_config.node_exists(node_id):
+            agent_ids = story_config.node_inject_agents(node_id)
+        else:
+            agent_ids = inject_agent_ids_for_phase(session.phase)
     else:
         agent_ids = inject_agent_ids_for_phase(session.phase)
     turn_context: Optional[Dict[str, Any]] = None
@@ -360,7 +372,7 @@ def apply_routing(
 
     applied: Dict[str, Any] = {"nodes": []}
 
-    from agent_world.hbm_demo.features.f17_virtual_player.player_entity import (
+    from agent_world.hbm_demo.features.f17_virtual_player import (  # D2: 经 f17 公共出口
         sync_player_place_on_routing,
     )
 

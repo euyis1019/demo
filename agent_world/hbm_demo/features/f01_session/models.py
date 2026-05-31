@@ -25,6 +25,7 @@ class HbmSession:
     stats: Dict[str, int] = field(default_factory=lambda: dict(INITIAL_STATS))
     phase2_start_tick: Optional[int] = None
     phase3_start_tick: Optional[int] = None
+    phase4_start_tick: Optional[int] = None
     ending_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -38,6 +39,7 @@ class HbmSession:
             "stats": dict(self.stats),
             "phase2_start_tick": self.phase2_start_tick,
             "phase3_start_tick": self.phase3_start_tick,
+            "phase4_start_tick": self.phase4_start_tick,
             "ending_id": self.ending_id,
         }
 
@@ -55,5 +57,6 @@ class HbmSession:
             stats=stats,
             phase2_start_tick=data.get("phase2_start_tick"),
             phase3_start_tick=data.get("phase3_start_tick"),
+            phase4_start_tick=data.get("phase4_start_tick"),
             ending_id=data.get("ending_id"),
         )

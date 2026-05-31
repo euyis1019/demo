@@ -99,6 +99,7 @@ edges:
       - {type: move_agent, agent: 4, to: nvidia_reception}
       - {type: move_agent, agent: 5, to: nvidia_reception}
       - {type: move_agent, agent: 6, to: nvidia_reception}
+      - {type: set_session, field: phase4_start_tick, value: current_tick}
       - {type: advance_player_place, new_phase: "Phase 4"}
 
   # —— 节点 D：Phase 4 → 结局（detect_phase4_offer_ending / classify_phase4_conclusion / resolve_turn25_ending）——

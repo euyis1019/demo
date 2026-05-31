@@ -36,6 +36,11 @@ def node_place(node_id: str, story_id: Optional[str] = None) -> str:
     return node.place_focus if node and node.place_focus else ""
 
 
+def node_exists(node_id: str, story_id: Optional[str] = None) -> bool:
+    """该 node_id 是否为活跃包里的已知节点（区分『查无此节点』与『节点存在但 inject 为空』）。"""
+    return node_id in active_pack(story_id).graph.nodes
+
+
 def node_inject_agents(node_id: str, story_id: Optional[str] = None) -> List[int]:
     node = active_pack(story_id).graph.nodes.get(node_id)
     return list(node.inject_agents) if node else []

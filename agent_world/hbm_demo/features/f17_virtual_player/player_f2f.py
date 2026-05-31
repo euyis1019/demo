@@ -9,8 +9,9 @@ from agent_world.hbm_demo.features.f17_virtual_player.config import (
     is_f08_enabled,
     player_agent_id,
 )
-from agent_world.hbm_demo.features.f05_story_routing.routing import (
+from agent_world.hbm_demo.features.f05_story_routing import (
     inject_agent_ids_for_phase,
+    is_story_pack_routing_enabled,
 )
 
 log = logging.getLogger("agent_world.hbm_demo.f17.player_f2f")
@@ -40,8 +41,10 @@ def build_player_f2f_payload(session: Any, player_text: str) -> Optional[Dict[st
     phase = str(getattr(session, "phase", "Phase 1"))
     place_id = str(getattr(session, "place_id", "nvidia_reception"))
     # 节点驱动：玩家台词收件人=当前节点首个 inject_agent，地点=当前节点 place_focus。
+    # 仅当节点驱动路由实际生效时才信 current_node_id（同 build_inject_payload：旧 HBM 路径
+    # 不推进 current_node_id，会冻结在初始节点，故回退相位表）。
     node_id = getattr(session, "current_node_id", None)
-    if node_id:
+    if node_id and is_story_pack_routing_enabled():
         from agent_world.hbm_demo.shared import story_config
 
         agents = story_config.node_inject_agents(node_id)

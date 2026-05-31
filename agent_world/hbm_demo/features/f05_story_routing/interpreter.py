@@ -3,7 +3,7 @@
 读 Story Pack（story_graph + signals），把节点转移条件（trigger）与副作用（actions）
 当**数据**来评估/规划，替代 features/f05_story_routing 里写死的 detect_node_* if 链与
 apply_routing 常量。本切片（G0-Slice3）只做**纯决策**：
-  - detect_edge / active_edges：评估某条边的 trigger 是否触发（与 agent_signals 等价）
+  - detect_edge：评估某条边的 trigger 是否触发（与 agent_signals 等价）
   - plan_actions：把边的 actions 解析成结构化 effects（移动/地点变异/换 phase），不执行 IPC
 
 真正把 effects 落到运行期（IPC 移动、place_mutation 入队、phase 切换）是 G0-Slice4 的桥接层。
@@ -200,14 +200,6 @@ class StoryInterpreter:
         since_t = self._resolve_since(session, edge.src)
         ctx = DetectContext(db=db, since_t=since_t, t_now=int(tick), session=session)
         return self._eval_trigger(edge.trigger, ctx)
-
-    def active_edges(self, node_id: str, db: Any, session: Any, tick: int) -> List[StoryEdge]:
-        """从 node_id 出发、当前触发的全部边（按声明顺序）。"""
-        out: List[StoryEdge] = []
-        for edge, _dst in self.graph.get_children(node_id):
-            if self.detect_edge(edge, db, session, tick):
-                out.append(edge)
-        return out
 
     def plan_actions(self, edge: StoryEdge, *, current_tick: int) -> List[Dict[str, Any]]:
         """把边的 actions 解析成结构化 effects（不执行 IPC；Slice4 桥接层消费）。"""

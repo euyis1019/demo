@@ -14,6 +14,9 @@ from agent_world.hbm_demo.features.f05_story_routing.routing import (
     resolve_ending_id,
     resolve_turn25_ending,
 )
+from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
+    is_story_pack_routing_enabled,
+)
 
 __all__ = [
     "PHASE_INJECT_AGENTS",
@@ -23,6 +26,7 @@ __all__ = [
     "classify_turn25_intent",
     "format_player_dialogue",
     "inject_agent_ids_for_phase",
+    "is_story_pack_routing_enabled",
     "node_a_applies",
     "node_b_applies",
     "node_c_applies",
