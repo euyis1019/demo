@@ -6,29 +6,35 @@ schema_version: 1
 initial_node: phase1_reception
 
 nodes:
+  # window_since：检测「离开本节点」的转移时，时间窗起点用 session 的哪个字段（缺省回退 start_tick）。
+  # 忠实映射 detect_node_* 各自的 since_t（node_a=start_tick / node_b=phase2_start_tick / node_c=phase3_start_tick）。
   - id: phase1_reception
     beats_label: "Phase 1"
     summary: 玩家在前台，需用革命性算法说服前台引荐给 Jensen。
     place_focus: nvidia_reception
     inject_agents: [1]              # 替代 routing.PHASE_INJECT_AGENTS["Phase 1"]
+    window_since: start_tick
 
   - id: phase2_private
     beats_label: "Phase 2"
     summary: Jensen 私人会议室技术审查，求证 Tech VP。
     place_focus: jensen_private_room
     inject_agents: [2]
+    window_since: phase2_start_tick
 
   - id: phase3_negotiation
     beats_label: "Phase 3"
     summary: 多方谈判，三大存储巨头围攻，玩家与 NVIDIA 联手压价。
     place_focus: negotiation_room
     inject_agents: [2, 3, 4, 5, 6]
+    window_since: phase3_start_tick
 
   - id: phase4_finale
     beats_label: "Phase 4"
     summary: 清场后 1v1 终局谈判，决定结局。
     place_focus: negotiation_room
     inject_agents: [2, 3]           # 注：F07 开启时运行期收窄为 [2]，属运行期开关（dev_logs/46 A-7），后续切片处理
+    window_since: phase4_start_tick
 
 endings:
   - id: ending_join_nvidia

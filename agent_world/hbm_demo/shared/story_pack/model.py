@@ -32,6 +32,7 @@ class StoryNode:
     summary: str = ""
     place_focus: str = ""
     inject_agents: List[int] = field(default_factory=list)
+    window_since: str = "start_tick"  # 检测离开本节点的转移时，时间窗起点用的 session 字段
     raw: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -45,6 +46,7 @@ class StoryNode:
             summary=str(data.get("summary", "")),
             place_focus=str(data.get("place_focus", "")),
             inject_agents=inject_agents,
+            window_since=str(data.get("window_since", "start_tick")),
             raw=dict(data),
         )
 
