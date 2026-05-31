@@ -83,7 +83,8 @@ class StoryEdge:
     id: str
     src: str
     dst: str
-    trigger: Dict[str, Any] = field(default_factory=dict)
+    condition: str = ""  # 自然语言：玩家做到这件事时，导演(LLM)才把剧情推到 dst（无关键词/硬规则）
+    trigger: Dict[str, Any] = field(default_factory=dict)  # 旧硬规则触发，已废弃；仅向后兼容读取
     actions: List[Dict[str, Any]] = field(default_factory=list)
     raw: Dict[str, Any] = field(default_factory=dict)
 
@@ -92,6 +93,7 @@ class StoryEdge:
         eid = str(_require(data, "id", "edge"))
         src = str(_require(data, "from", "edge"))
         dst = str(_require(data, "to", "edge"))
+        condition = str(data.get("condition", "") or "")
         trigger = data.get("trigger") or {}
         actions = data.get("actions") or []
         if not isinstance(trigger, dict):
@@ -102,6 +104,7 @@ class StoryEdge:
             id=eid,
             src=src,
             dst=dst,
+            condition=condition,
             trigger=dict(trigger),
             actions=[dict(a) for a in actions],
             raw=dict(data),

@@ -9,21 +9,9 @@ from typing import Any, Dict, List
 from agent_world.hbm_demo.features.f01_session.lifecycle import save_session
 from agent_world.hbm_demo.features.f01_session.models import HbmSession
 from agent_world.hbm_demo.features.f01_session.paths import get_name_map
-from agent_world.hbm_demo.features.f05_story_routing import routing
-from agent_world.hbm_demo.features.f05_story_routing.agent_signals import (
-    detect_bad_end,
-    detect_phase4_offer_ending,
-    fetch_bad_end_public_messages,
-    phase4_deal_transcript,
-)
-from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
-    is_agent_driven,
-    is_story_pack_routing_enabled,
-)
 from agent_world.hbm_demo.features.f05_story_routing import interpreter_routing
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
 from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop_enabled
-from agent_world.hbm_demo.shared.routing_events import format_routing_world_events
 from agent_world.hbm_demo.features.f13_world_loop_control import pause_world_loop
 from agent_world.hbm_demo.http.ipc_helper import get_ipc_client, push_session_mirror
 from agent_world.hbm_demo.shared.env_status import read_env_status
@@ -113,156 +101,52 @@ def scan_routing_if_needed(
     db = make_readonly_db(sim_dir)
     task_id = f"route_{tick}"
 
-    # ===== 节点驱动路由（数据驱动，任意 Story Pack；HBM_STORY_PACK_ROUTING=1）=====
-    if is_story_pack_routing_enabled():
-        interp = interpreter_routing.get_interpreter(sim_id)
-        if last_scan < 0:  # 开局首扫：把初始节点的场景(玩家+在场NPC)聚到初始地点
-            interpreter_routing.setup_scene_for_node(
-                interp, hbm, ipc_client=ipc_client, ipc_timeout=ipc_timeout
-            )
-        result = interpreter_routing.route_story(
-            interp, hbm, ipc_client=ipc_client, db=db, task_id=task_id,
-            current_tick=tick, ipc_timeout=ipc_timeout,
+    # ===== 导演驱动路由（LLM 推进世界，无任何硬规则）=====
+    interp = interpreter_routing.get_interpreter(sim_id)
+    if last_scan < 0:  # 开局首扫：把初始节点的场景(玩家+在场NPC)聚到初始地点
+        interpreter_routing.setup_scene_for_node(
+            interp, hbm, ipc_client=ipc_client, ipc_timeout=ipc_timeout
         )
-        if result.get("ending"):
-            ending = str(result["ending"])
-            end_node = interp.graph.endings.get(ending)
-            kind = end_node.kind if end_node else "neutral"
-            hbm.ending_id = ending
-            save_session(flask_session, hbm, sim_id)
-            try:
-                pause_world_loop(sim_dir=sim_dir)
-            except Exception as exc:  # noqa: BLE001
-                log.warning("ending pause_world_loop failed: %s", exc)
-            state["pending_game_over"] = {
-                "status": "game_over" if kind == "bad" else "completed",
-                "ending_id": ending,
-                "stats_update": dict(hbm.stats),
-                "current_phase": hbm.phase,
-                "at_tick": tick,
-            }
-            state["last_scan_tick"] = tick
-            state["last_routing_info"] = {"ending": ending}
-            log.info("story ending %s (%s) at tick=%s", ending, kind, tick)
-            return dict(state["last_routing_info"])
-        if result.get("nodes"):
-            save_session(flask_session, hbm, sim_id)
-            push_session_mirror(ipc_client, hbm, timeout=ipc_timeout)
-            pending = state.setdefault("pending_world_events", [])
-            known_ids = {str(e.get("id") or "") for e in pending}
-            for event in result.get("events") or []:
-                eid = str(event.get("id") or "")
-                if eid and eid in known_ids:
-                    continue
-                pending.append(event)
-                if eid:
-                    known_ids.add(eid)
-            log.info("story watcher advanced nodes=%s at tick=%s", result.get("nodes"), tick)
-        state["last_scan_tick"] = tick
-        state["last_routing_info"] = {"nodes": result.get("nodes") or []}
-        _mark_session_modified(flask_session)
-        return dict(state["last_routing_info"])
-
-    # ===== 旧 HBM phase if 链路径（默认/回退）=====
-    if is_agent_driven() and detect_bad_end(hbm, db, t_now=tick):
-        name_map = get_name_map()
-        public_messages = fetch_bad_end_public_messages(
-            db, t_now=tick, name_map=name_map, since_t=int(hbm.start_tick or 0)
-        )
-        hbm.ending_id = "bad_reject"
+    result = interpreter_routing.route_story(
+        interp, hbm, ipc_client=ipc_client, db=db, task_id=task_id,
+        current_tick=tick, ipc_timeout=ipc_timeout, name_map=get_name_map(),
+    )
+    if result.get("ending"):
+        ending = str(result["ending"])
+        end_node = interp.graph.endings.get(ending)
+        kind = end_node.kind if end_node else "neutral"
+        hbm.ending_id = ending
         save_session(flask_session, hbm, sim_id)
         try:
             pause_world_loop(sim_dir=sim_dir)
         except Exception as exc:  # noqa: BLE001
-            log.warning("bad_end pause_world_loop failed: %s", exc)
+            log.warning("ending pause_world_loop failed: %s", exc)
         state["pending_game_over"] = {
-            "status": "game_over",
-            "ending_id": "bad_reject",
-            "public_messages": public_messages,
+            "status": "game_over" if kind == "bad" else "completed",
+            "ending_id": ending,
             "stats_update": dict(hbm.stats),
             "current_phase": hbm.phase,
             "at_tick": tick,
         }
         state["last_scan_tick"] = tick
-        state["last_routing_info"] = {"bad_end": True}
-        log.info("routing watcher bad_end at tick=%s", tick)
+        state["last_routing_info"] = {"ending": ending}
+        log.info("story ending %s (%s) at tick=%s", ending, kind, tick)
         return dict(state["last_routing_info"])
-
-    # Phase 4 early-end: settle the finale the moment the deal concludes instead
-    # of idling to the Turn-25 gate. Two paths: (1) precise story_advance offer_*
-    # signal; (2) when Jensen only *talks* the deal (he rarely calls the tool),
-    # a cheap broad keyword gate on NEW Jensen F2F triggers one LLM check that
-    # robustly decides "concluded? join/seed?" — beating brittle keyword lists.
-    if hbm.phase == "Phase 4":
-        offer_since = max(0, int(getattr(hbm, "start_tick", 0) or 0))
-        early_ending = detect_phase4_offer_ending(db, since_t=offer_since, t_now=tick)
-        if not early_ending:
-            transcript = phase4_deal_transcript(
-                db, gate_since=last_scan, context_since=offer_since, t_now=tick
-            )
-            if transcript:
-                early_ending = routing.classify_phase4_conclusion(transcript)
-        if early_ending:
-            hbm.ending_id = early_ending
-            save_session(flask_session, hbm, sim_id)
-            try:
-                pause_world_loop(sim_dir=sim_dir)
-            except Exception as exc:  # noqa: BLE001
-                log.warning("phase4 early-end pause_world_loop failed: %s", exc)
-            state["pending_game_over"] = {
-                "status": "completed",
-                "ending_id": early_ending,
-                "stats_update": dict(hbm.stats),
-                "current_phase": hbm.phase,
-                "at_tick": tick,
-            }
-            state["last_scan_tick"] = tick
-            state["last_routing_info"] = {"phase4_offer_end": early_ending}
-            log.info(
-                "routing watcher phase4 early-end %s at tick=%s", early_ending, tick
-            )
-            return dict(state["last_routing_info"])
-
-    routing_info = routing.apply_routing(
-        hbm,
-        ipc_client=ipc_client,
-        db=db,
-        task_id=task_id,
-        current_tick=tick,
-        tick_count=1,
-        ipc_timeout=ipc_timeout,
-    )
-
-    if routing_info.get("nodes"):
+    if result.get("nodes"):
         save_session(flask_session, hbm, sim_id)
         push_session_mirror(ipc_client, hbm, timeout=ipc_timeout)
-        applied_nodes = set(state.get("applied_routing_nodes") or [])
-        new_nodes = [n for n in routing_info.get("nodes") or [] if n not in applied_nodes]
-        if new_nodes:
-            applied_nodes.update(new_nodes)
-            state["applied_routing_nodes"] = sorted(applied_nodes)
-            events = format_routing_world_events(
-                {**routing_info, "nodes": new_nodes},
-                at_tick=tick,
-                task_id=task_id,
-            )
-            pending = state.setdefault("pending_world_events", [])
-            known_ids = {str(e.get("id") or "") for e in pending}
-            for event in events:
-                event_id = str(event.get("id") or "")
-                if event_id and event_id in known_ids:
-                    continue
-                pending.append(event)
-                if event_id:
-                    known_ids.add(event_id)
-        log.info(
-            "routing watcher applied nodes=%s at tick=%s",
-            routing_info.get("nodes"),
-            tick,
-        )
-
+        pending = state.setdefault("pending_world_events", [])
+        known_ids = {str(e.get("id") or "") for e in pending}
+        for event in result.get("events") or []:
+            eid = str(event.get("id") or "")
+            if eid and eid in known_ids:
+                continue
+            pending.append(event)
+            if eid:
+                known_ids.add(eid)
+        log.info("story watcher advanced nodes=%s at tick=%s", result.get("nodes"), tick)
     state["last_scan_tick"] = tick
-    state["last_routing_info"] = dict(routing_info) if routing_info else {}
+    state["last_routing_info"] = {"nodes": result.get("nodes") or []}
     _mark_session_modified(flask_session)
     return dict(state["last_routing_info"])
 

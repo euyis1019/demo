@@ -37,6 +37,7 @@ def create_session(sim_dir: Path | None = None) -> HbmSession:
         place_id=place_id,
         phase=phase,
         current_node_id=init_node,
+        node_entered_tick=start_tick,
         player_turn=1,
         stats=initial_stats(),
     )

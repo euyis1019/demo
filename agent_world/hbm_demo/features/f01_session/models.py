@@ -21,6 +21,10 @@ class HbmSession:
     phase: str = DEFAULT_PHASE
     # 当前剧情节点 id（节点驱动；phase 降级为该节点 beats_label 的显示值）。
     current_node_id: Optional[str] = None
+    # 进入当前节点的 tick（导演读「本幕」对话的起点）。
+    node_entered_tick: Optional[int] = None
+    # 导演已判定到的最后一句玩家发言 tick（避免对同一句反复判，且只在玩家有新发言时再判）。
+    last_judged_player_tick: Optional[int] = None
     player_turn: int = 1
     stats: Dict[str, int] = field(default_factory=lambda: dict(INITIAL_STATS))
     phase2_start_tick: Optional[int] = None
@@ -35,6 +39,8 @@ class HbmSession:
             "place_id": self.place_id,
             "phase": self.phase,
             "current_node_id": self.current_node_id,
+            "node_entered_tick": self.node_entered_tick,
+            "last_judged_player_tick": self.last_judged_player_tick,
             "player_turn": self.player_turn,
             "stats": dict(self.stats),
             "phase2_start_tick": self.phase2_start_tick,
@@ -53,6 +59,8 @@ class HbmSession:
             place_id=str(data.get("place_id") or DEFAULT_PLACE_ID),
             phase=str(data.get("phase") or DEFAULT_PHASE),
             current_node_id=data.get("current_node_id"),
+            node_entered_tick=data.get("node_entered_tick"),
+            last_judged_player_tick=data.get("last_judged_player_tick"),
             player_turn=int(data.get("player_turn", 1)),
             stats=stats,
             phase2_start_tick=data.get("phase2_start_tick"),

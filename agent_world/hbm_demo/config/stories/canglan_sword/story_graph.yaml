@@ -62,112 +62,53 @@ endings:
 - id: leave_sect
   kind: neutral
   summary: 你厌倦权斗，雨夜悄然离开，浪迹天涯。
+# 边的推进交由 LLM 导演判断：玩家在对话中明确做到/表达 condition 所述时才走那条（无关键词硬规则）。
 edges:
 - id: e1
   from: start
   to: investigate_ghost
-  trigger:
-    type: f2f_keyword
-    place: start
-    sender: 0
-    keyword_set: track_ghost
-  actions: []
+  condition: 玩家决定悄悄跟踪/尾随鬼影，去查探他深夜的去向
 - id: e2
   from: start
   to: confront_ling
-  trigger:
-    type: f2f_keyword
-    place: start
-    sender: 0
-    keyword_set: tell_ling
-  actions: []
+  condition: 玩家决定去找大师兄凌轩，把鬼影的可疑举动报告或试探凌轩
 - id: e3
   from: investigate_ghost
   to: ally_su
-  trigger:
-    type: f2f_keyword
-    place: back_hill
-    sender: 0
-    keyword_set: share_with_su
-  actions: []
+  condition: 玩家决定把鬼影密谈下毒的情报告诉二师姐苏绾，与她联手
 - id: e4
   from: investigate_ghost
   to: bribe_zhou
-  trigger:
-    type: f2f_keyword
-    place: back_hill
-    sender: 0
-    keyword_set: buy_info
-  actions: []
+  condition: 玩家决定花钱找三师弟周平打听消息或买情报
 - id: e5
   from: confront_ling
   to: ally_su
-  trigger:
-    type: f2f_keyword
-    place: main_hall
-    sender: 0
-    keyword_set: trust_su
-  actions: []
+  condition: 玩家选择相信苏绾、与二师姐联手对付鬼影/凌轩
 - id: e6
   from: confront_ling
   to: bribe_zhou
-  trigger:
-    type: f2f_keyword
-    place: main_hall
-    sender: 0
-    keyword_set: bribe_zhou_ling
-  actions: []
+  condition: 玩家决定收买三师弟周平、花钱买情报
 - id: e7
   from: ally_su
   to: search_study
-  trigger:
-    type: f2f_keyword
-    place: training_ground
-    sender: 0
-    keyword_set: night_raid
-  actions: []
+  condition: 玩家与苏绾决定夜探掌门书房、去找真凶的证据
 - id: e8
   from: bribe_zhou
   to: search_study
-  trigger:
-    type: f2f_keyword
-    place: market_street
-    sender: 0
-    keyword_set: search_study_zhou
-  actions: []
+  condition: 玩家决定潜入掌门书房搜查、去找证据
 - id: e9
   from: search_study
   to: final_showdown
-  trigger:
-    type: f2f_keyword
-    place: study
-    sender: 0
-    keyword_set: confront_all
-  actions: []
+  condition: 玩家拿到密信证据后，决定召集众人当面对质
 - id: e10
   from: final_showdown
   to: expose_heir
-  trigger:
-    type: f2f_keyword
-    place: main_hall
-    sender: 0
-    keyword_set: expose_ghost
-  actions: []
+  condition: 玩家当众揭穿鬼影是内奸、出示证据指证鬼影
 - id: e11
   from: final_showdown
   to: framed_fall
-  trigger:
-    type: f2f_keyword
-    place: main_hall
-    sender: 0
-    keyword_set: accuse_ling
-  actions: []
+  condition: 玩家把矛头指向大师兄凌轩、指控凌轩是主谋或下毒者
 - id: e12
   from: final_showdown
   to: leave_sect
-  trigger:
-    type: f2f_keyword
-    place: main_hall
-    sender: 0
-    keyword_set: leave_sect_now
-  actions: []
+  condition: 玩家厌倦门派权斗，选择离开、一走了之
