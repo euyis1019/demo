@@ -14,6 +14,7 @@
 | `errors.py` | `StoryPackError` / `StoryPackValidationError`（聚合违例列表）|
 | `loader.py` | 从 `config/stories/<id>/` 读 meta.yaml + story_graph.yaml；`load_and_validate_*` 加载即校验 |
 | `pack.py` | `StoryPack` 整包聚合（meta+graph+世界原语文件）+ **跨文件引用闭合校验**（X 系列）+ `load_story_pack` |
+| `scenario_adapter.py` | `StoryPack` → 运行期 scenario dict 投影（`seed_world`/`build_kernel` 消费）+ 播种开关 `is_story_pack_seed_enabled()` |
 
 ## validate 不变量（V1–V6，详见 graph.py docstring）
 

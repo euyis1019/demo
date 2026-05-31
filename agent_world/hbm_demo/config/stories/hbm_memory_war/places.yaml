@@ -15,10 +15,12 @@ places:
       timezone: America/Los_Angeles
       roster_visible: true
       summary: 充满火药味的主谈判会议室。
+      # behavior_hint 与 hbm_scenario.yaml 字节一致（含末行注记，保证 seed 等价）。
+      # Phase 3 节点 B 后由 place_mutation(behavior_hint_ref: node_b_silence) 改写。
       behavior_hint: |
         这是 HBM 价格谈判的战场。存储巨头咄咄逼人，英伟达处于防守态势。
         所有人说话都极具攻击性和商业算计。
-      # 注：Phase 3 节点 B 后由 place_mutation 改写为「死一般的寂静…」(behavior_hint_ref: node_b_silence)
+        (注：Phase 3 节点 B 后由 PlaceMutationEffect 改写为「死一般的寂静…」)
 
   - place_id: jensen_private_room
     capacity: 3

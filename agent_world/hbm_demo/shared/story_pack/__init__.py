@@ -32,6 +32,11 @@ from agent_world.hbm_demo.shared.story_pack.pack import (
     load_and_validate_story_pack,
     load_story_pack,
 )
+from agent_world.hbm_demo.shared.story_pack.scenario_adapter import (
+    is_story_pack_seed_enabled,
+    load_scenario_from_story_pack,
+    story_pack_to_scenario,
+)
 
 __all__ = [
     "StoryGraph",
@@ -44,6 +49,9 @@ __all__ = [
     "load_and_validate_story_graph",
     "load_story_pack",
     "load_and_validate_story_pack",
+    "story_pack_to_scenario",
+    "load_scenario_from_story_pack",
+    "is_story_pack_seed_enabled",
     "load_meta",
     "StoryPackError",
     "StoryPackValidationError",

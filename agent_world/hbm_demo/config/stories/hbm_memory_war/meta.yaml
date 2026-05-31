@@ -16,6 +16,9 @@ player:
   # 玩家拥有 agent 的全部交互权限：私信(RDC)/面对面(F2F)/群聊(GRP)/移动(MOVE)。
   capabilities: [signal_uplink, f2f, group_chat, move]
 
+runner:
+  parallel_agent_decisions: true
+
 clock:
   start_time: "14:00"
   minutes_per_tick: 2

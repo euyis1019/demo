@@ -158,6 +158,27 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 1
 
     scenario = load_scenario(config_path)
+
+    # 开关式：从 Story Pack 播种世界（默认关，旧 hbm_scenario.yaml 路径不变）。dev_logs/46 C-1。
+    # L1 只读 shared/ 的助手（不违反 D4）。播种等价已离线证明，仍 fail-fast 校验后才替换。
+    from agent_world.hbm_demo.shared.story_pack import (
+        list_story_ids,
+        load_and_validate_story_pack,
+    )
+    from agent_world.hbm_demo.shared.story_pack.scenario_adapter import (
+        is_story_pack_seed_enabled,
+        story_pack_to_scenario,
+    )
+
+    if is_story_pack_seed_enabled():
+        sid = scenario.get("simulation_id")
+        if sid in list_story_ids():
+            pack = load_and_validate_story_pack(sid)  # 校验不过即抛，拒绝带病启动
+            scenario = story_pack_to_scenario(pack)
+            log.info("HBM_STORY_PACK_SEED: 从 Story Pack '%s' 播种世界", sid)
+        else:
+            log.warning("HBM_STORY_PACK_SEED 已开启，但无 '%s' 的 Story Pack，回退 hbm_scenario.yaml", sid)
+
     try:
         return asyncio.run(_run(sim_dir, scenario))
     except KeyboardInterrupt:
