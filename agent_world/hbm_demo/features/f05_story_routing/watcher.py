@@ -16,7 +16,11 @@ from agent_world.hbm_demo.features.f05_story_routing.agent_signals import (
     fetch_bad_end_public_messages,
     phase4_deal_transcript,
 )
-from agent_world.hbm_demo.features.f05_story_routing.routing_config import is_agent_driven
+from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
+    is_agent_driven,
+    is_story_pack_routing_enabled,
+)
+from agent_world.hbm_demo.features.f05_story_routing import interpreter_routing
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
 from agent_world.hbm_demo.features.f07_agent_control.config import is_world_loop_enabled
 from agent_world.hbm_demo.shared.routing_events import format_routing_world_events
@@ -109,7 +113,16 @@ def scan_routing_if_needed(
     db = make_readonly_db(sim_dir)
     task_id = f"route_{tick}"
 
-    if is_agent_driven() and detect_bad_end(hbm, db, t_now=tick):
+    # 开关式：Story Pack 解释器路径（默认关，旧 if 链路径不变）。dev_logs/45 §6 G0-Slice4。
+    use_pack = is_story_pack_routing_enabled()
+    interp = interpreter_routing.get_interpreter(sim_id) if use_pack else None
+
+    bad_end_now = (
+        interpreter_routing.detect_bad_end_via_interpreter(interp, hbm, db, tick)
+        if use_pack
+        else detect_bad_end(hbm, db, t_now=tick)
+    )
+    if is_agent_driven() and bad_end_now:
         name_map = get_name_map()
         public_messages = fetch_bad_end_public_messages(
             db, t_now=tick, name_map=name_map, since_t=int(hbm.start_tick or 0)
@@ -168,15 +181,26 @@ def scan_routing_if_needed(
             )
             return dict(state["last_routing_info"])
 
-    routing_info = routing.apply_routing(
-        hbm,
-        ipc_client=ipc_client,
-        db=db,
-        task_id=task_id,
-        current_tick=tick,
-        tick_count=1,
-        ipc_timeout=ipc_timeout,
-    )
+    if use_pack:
+        routing_info = interpreter_routing.apply_routing_via_interpreter(
+            interp,
+            hbm,
+            ipc_client=ipc_client,
+            db=db,
+            task_id=task_id,
+            current_tick=tick,
+            ipc_timeout=ipc_timeout,
+        )
+    else:
+        routing_info = routing.apply_routing(
+            hbm,
+            ipc_client=ipc_client,
+            db=db,
+            task_id=task_id,
+            current_tick=tick,
+            tick_count=1,
+            ipc_timeout=ipc_timeout,
+        )
 
     if routing_info.get("nodes"):
         save_session(flask_session, hbm, sim_id)

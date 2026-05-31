@@ -57,7 +57,6 @@ coverage:
 place_behaviors:
   negotiation_room:
     mutations:
+      # 文本必须与 routing.NODE_B_BEHAVIOR_HINT 字节一致（节点 B place_mutation 等价性依赖）。
       - label: node_b_silence
-        behavior_hint: |
-          死一般的寂静，所有人都被 Jensen 带来的底牌震撼了。
-          局势逆转，英伟达从防守转入反击。
+        behavior_hint: "死一般的寂静，所有人都被 Jensen 带来的底牌震撼了…"

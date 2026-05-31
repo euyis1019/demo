@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Tuple
@@ -113,3 +114,12 @@ def max_turns_phase1_without_approve() -> int:
 def is_story_advance_enabled() -> bool:
     block = load_routing_config().get("story_advance") or {}
     return bool(block.get("enabled", True))
+
+
+def is_story_pack_routing_enabled() -> bool:
+    """是否用 Story Pack 解释器驱动路由（默认关，旧 if 链路径不变）。
+
+    开关式接入：`HBM_STORY_PACK_ROUTING=1` 才启用解释器路径（dev_logs/45 §6 G0-Slice4 /
+    dev_logs/46 E-1 灰度）。等价性已由离线回归证明；切换前仍应跑完整 E2E 门禁。
+    """
+    return os.environ.get("HBM_STORY_PACK_ROUTING", "").strip() in ("1", "true", "True", "yes", "on")

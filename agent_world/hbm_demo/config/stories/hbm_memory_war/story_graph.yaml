@@ -55,6 +55,7 @@ edges:
   - id: node_a
     from: phase1_reception
     to: phase2_private
+    legacy_label: A                  # 对应旧 routing 节点标签（驱动 world_events 文案/玩家移动）
     trigger:
       any_of:
         - {type: story_advance, signal: approve_visitor}
@@ -72,6 +73,7 @@ edges:
   - id: node_b
     from: phase2_private
     to: phase3_negotiation
+    legacy_label: B
     trigger:
       any_of:
         - {type: story_advance, signal: return_to_negotiation}
@@ -87,6 +89,7 @@ edges:
   - id: node_c
     from: phase3_negotiation
     to: phase4_finale
+    legacy_label: C
     trigger:
       any_of:
         - {type: story_advance, signal: expel_ceos}
