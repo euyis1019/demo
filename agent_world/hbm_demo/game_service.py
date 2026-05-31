@@ -29,7 +29,10 @@ from agent_world.hbm_demo.features.f02_player_turn.handler import (
     handle_player_turn,
     run_debug_inject,
 )
-from agent_world.hbm_demo.features.f02_player_turn.player_action import handle_player_action
+from agent_world.hbm_demo.features.f02_player_turn.player_action import (
+    get_joinable_groups,
+    handle_player_action,
+)
 from agent_world.hbm_demo.features.f02_player_turn.inject import BAD_END_PUBLIC_MESSAGES
 from agent_world.hbm_demo.features.f02_player_turn.inject import build_inject_events
 from agent_world.hbm_demo.features.f02_player_turn.task import PendingTask, load_task, save_task
@@ -80,6 +83,7 @@ __all__ = [
     "get_world_db_path",
     "handle_player_turn",
     "handle_player_action",
+    "get_joinable_groups",
     "initial_stats",
     "load_session",
     "load_task",

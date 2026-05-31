@@ -494,6 +494,7 @@ def test_m4_http_modules() -> None:
         "/simulations/<sim_id>/env-status",
         "/simulations/<sim_id>/player-turn",
         "/simulations/<sim_id>/player-action",
+        "/simulations/<sim_id>/joinable-groups",
         "/simulations/<sim_id>/action-result",
         "/simulations/<sim_id>/world-snapshot",
         "/simulations/<sim_id>/world-delta",

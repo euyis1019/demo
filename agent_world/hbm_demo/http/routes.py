@@ -186,6 +186,20 @@ def player_action(sim_id: str):
     return jsonify({"success": True, "data": result})
 
 
+@hbm_bp.route("/simulations/<sim_id>/joinable-groups", methods=["GET"])
+def joinable_groups(sim_id: str):
+    """玩家当前可加入的群 id 列表（前端只展示可加群，避免盲填）。"""
+    err = _check_sim_id(sim_id)
+    if err:
+        return err
+    try:
+        result = gs.get_joinable_groups(session, sim_id=sim_id)
+    except Exception as exc:  # noqa: BLE001
+        payload, code = service_error_payload(exc)
+        return jsonify(payload), code
+    return jsonify({"success": True, "data": result})
+
+
 @hbm_bp.route("/simulations/<sim_id>/action-result", methods=["GET"])
 def action_result(sim_id: str):
     """API 2 — poll until NPC activity completes or timeout."""

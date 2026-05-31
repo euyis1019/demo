@@ -1,5 +1,9 @@
-import { useState } from "react";
-import { postPlayerAction, type PlayerActionRequest } from "../../api/hbm";
+import { useCallback, useEffect, useState } from "react";
+import {
+  getJoinableGroups,
+  postPlayerAction,
+  type PlayerActionRequest,
+} from "../../api/hbm";
 import { PLAYER_AGENT_ID, VIRTUAL_PLAYER_AGENT_ID } from "../../constants/agents";
 import { ROOM_GRID } from "../../utils/places";
 
@@ -27,6 +31,22 @@ export function PlayerActionBar({ placeId, nameMap, disabled }: PlayerActionBarP
   const [rdcTarget, setRdcTarget] = useState<string>(agentOptions[0] ?? "");
   const [rdcText, setRdcText] = useState<string>("");
   const [groupId, setGroupId] = useState<string>("");
+  const [joinable, setJoinable] = useState<number[] | null>(null); // null=门控关/未知，[]=暂无可加群
+
+  const refreshJoinable = useCallback(async () => {
+    try {
+      const res = await getJoinableGroups();
+      if (res.success && res.data) {
+        setJoinable(res.data.gate_enabled ? res.data.groups.map((g) => g.group_id) : null);
+      }
+    } catch {
+      /* ignore — 失败则回退自由输入 */
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshJoinable();
+  }, [refreshJoinable]);
 
   async function run(request: PlayerActionRequest, label: string) {
     if (busy || disabled) return;
@@ -44,6 +64,7 @@ export function PlayerActionBar({ placeId, nameMap, disabled }: PlayerActionBarP
       setStatus(`✗ ${label}请求出错`);
     } finally {
       setBusy(false);
+      void refreshJoinable(); // 动作后刷新可加群（如刚被同意）
     }
   }
 
@@ -102,14 +123,29 @@ export function PlayerActionBar({ placeId, nameMap, disabled }: PlayerActionBarP
 
       <div className="player-action-bar__row">
         <label>加群</label>
-        <input
-          type="text"
-          inputMode="numeric"
-          value={groupId}
-          placeholder="群号"
-          onChange={(e) => setGroupId(e.target.value.replace(/\D/g, ""))}
-          disabled={off}
-        />
+        {joinable !== null ? (
+          // 门控开：只列当前可加入的群（已 F2F 见过成员且其同意）
+          <select value={groupId} onChange={(e) => setGroupId(e.target.value)} disabled={off}>
+            <option value="">
+              {joinable.length ? "选择可加入的群…" : "暂无可加群(先 F2F 取得同意)"}
+            </option>
+            {joinable.map((gid) => (
+              <option key={gid} value={String(gid)}>
+                群 {gid}
+              </option>
+            ))}
+          </select>
+        ) : (
+          // 门控关：自由输入群号
+          <input
+            type="text"
+            inputMode="numeric"
+            value={groupId}
+            placeholder="群号"
+            onChange={(e) => setGroupId(e.target.value.replace(/\D/g, ""))}
+            disabled={off}
+          />
+        )}
         <button
           type="button"
           disabled={off || !groupId}

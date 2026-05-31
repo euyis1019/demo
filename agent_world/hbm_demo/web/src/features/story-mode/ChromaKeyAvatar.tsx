@@ -33,6 +33,9 @@ export function ChromaKeyAvatar({ src, className, fallbackSrc }: ChromaKeyAvatar
         }
         // src 失败（情绪变体缺图等）→ 回退基础立绘再处理一次
         if (fallbackSrc && fallbackSrc !== src) {
+          if (import.meta.env.DEV) {
+            console.warn(`[立绘] 情绪变体图缺失，回退基础图：${src}（体检 P6）`);
+          }
           try {
             const out = await process(fallbackSrc);
             if (!cancelled) {

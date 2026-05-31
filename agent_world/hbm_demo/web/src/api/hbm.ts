@@ -103,6 +103,18 @@ export async function postPlayerAction(
   });
 }
 
+export interface JoinableGroupsData {
+  groups: { group_id: number }[];
+  gate_enabled: boolean;
+}
+
+/** GET /joinable-groups — 玩家当前可加入的群（已 F2F 见过成员且其同意）。 */
+export async function getJoinableGroups(): Promise<ApiResponse<JoinableGroupsData>> {
+  return apiGet<JoinableGroupsData>(`${API_PREFIX}/joinable-groups`, undefined, {
+    timeoutMs: READ_TIMEOUT_MS,
+  });
+}
+
 /** GET /action-result — optional since_tick for F11 incremental delta. */
 export async function getActionResult(
   taskId: string,

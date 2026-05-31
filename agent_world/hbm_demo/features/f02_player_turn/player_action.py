@@ -15,7 +15,10 @@ from typing import Any, Dict, Optional
 from agent_world.hbm_demo.features.f01_session.lifecycle import save_session
 from agent_world.hbm_demo.features.f01_session.paths import get_sim_dir
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
-from agent_world.hbm_demo.features.f07_agent_control.group_gate import can_player_join_group
+from agent_world.hbm_demo.features.f07_agent_control.group_gate import (
+    can_player_join_group,
+    joinable_groups_for_player,
+)
 from agent_world.hbm_demo.features.f17_virtual_player.config import is_f08_enabled, player_agent_id
 from agent_world.hbm_demo.features.f17_virtual_player.player_actions import (
     build_player_grp_payload,
@@ -99,6 +102,22 @@ def handle_player_action(session: Any, *, sim_id: str, action: str, body: Dict[s
     return {"accepted": False, "reason": f"unknown_action:{act}"}
 
 
+def get_joinable_groups(session: Any, *, sim_id: str) -> Dict[str, Any]:
+    """玩家当前可加入的群 id 列表（已 F2F 见过某成员且其同意）。供前端只显示可加群（P5）。"""
+    if not is_f08_enabled() or not _group_gate_enabled():
+        # 门控关时所有群都可加；但不查全部群避免越权，返回空让前端走自由输入兜底。
+        return {"groups": [], "gate_enabled": _group_gate_enabled()}
+    sim = get_sim_dir(sim_id)
+    db = make_readonly_db(sim)
+    gids = joinable_groups_for_player(
+        db,
+        player_place=str(getattr(session, "place_id", "nvidia_reception")),
+        since_t=int(getattr(session, "start_tick", 0) or 0),
+        t_now=_current_tick(sim) or 10**9,
+    )
+    return {"groups": [{"group_id": int(g)} for g in gids], "gate_enabled": True}
+
+
 def save_session_safe(session: Any, sim_id: str) -> None:
     from flask import session as flask_session
 
@@ -108,4 +127,4 @@ def save_session_safe(session: Any, sim_id: str) -> None:
         log.warning("save_session after move failed: %s", exc)
 
 
-__all__ = ["handle_player_action"]
+__all__ = ["handle_player_action", "get_joinable_groups"]
