@@ -58,7 +58,6 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
             "interpreter",
             "interpreter_routing",
             "director",
-            "story_signals",
             "watcher",
         ],
     },
