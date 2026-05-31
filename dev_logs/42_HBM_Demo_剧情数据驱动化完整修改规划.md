@@ -599,7 +599,8 @@ def resolve_ending(session, db, *, since_t, t_now):
 
 | 要素 | 现状位置 | 补到 Story Pack |
 |------|---------|----------------|
-| **初始关系网 relations**(关键遗漏) | `hbm_scenario.yaml` `relations:` → `RelationGraph.add()` | **★新增 `relations.yaml`**:`[{src_role,dst_role,type,symmetric,metadata?}]`,src/dst 用 `agents.roles` 解引用。**运行期实时变化(结盟/背刺)由通用 `relation_change` 工具驱动,无需故事配置——引擎已通用。** |
+| **初始关系网 relations**(关键遗漏) | `hbm_scenario.yaml` `relations:` → `RelationGraph.add()` | **★新增 `relations.yaml`**:`[{src_role,dst_role,type,symmetric,metadata?}]`,src/dst 用 `agents.roles` 解引用。**运行期增删边(结盟/背刺)由通用 `relation_change` 工具驱动——引擎已通用。** 注意:`relation_change` 只增删边、不创建类型语义,见 §9.3 缺口②。 |
+| **关系类型语义**(★对抗审查新增) | `world/relation_types/`(空占位)→ 未注册类型走 `_require_meta` 默认 `is_contact=True` | **★新增 `relation_types.yaml`**:逐类型 `{type,is_contact,symmetric,mutually_exclusive:[...],project_to_pool,display_template}`,`seed.py` 播种边前先灌进 `RelationGraph.type_meta`。**这是 RDC 远端可达(`connectivity.phi_rdc`→`contacts_of` 按 `is_contact` 过滤)与互斥校验(`RelationConflict`)的唯一配置来源。** 见 §9.3 缺口②。 |
 | **能力 capabilities** | `hbm_scenario.yaml` `capabilities:` → `CapabilityTable.grant()` | `agents.yaml` 每 agent 补 `capabilities:[...]`;运行期动态授予走 `timed_events` 的 `capability_grant/revoke` action。 |
 | **连通性 coverage** | `hbm_scenario.yaml` `coverage:` | 并入 `places.yaml`:`coverage:[{src_place,dst_place,latency_ticks,can_reach}]`。 |
 | **地点变异 place_mutation** | `routing.py:NODE_B_BEHAVIOR_HINT` 硬写 + `attrs.behavior_hint` | **★新增 `place_behaviors.yaml`**:`{place:{initial_behavior_hint,mutations:[{label,text}]}}`;边/timed_events 的 `place_mutations` 引用 `label`。 |
@@ -619,7 +620,8 @@ config/stories/<story_id>/
 ├── places.yaml            # 地点表;☆补 coverage[]
 ├── place_behaviors.yaml   # ★新增:behavior_hint 初值 + mutations 库
 ├── agents.yaml            # 角色表 + roles{} + factions{};☆补 capabilities[]/soul/goal/state
-├── relations.yaml         # ★新增:初始关系网（运行期变化由通用引擎驱动）
+├── relations.yaml         # ★新增:初始关系网（边）；运行期增删边由通用引擎驱动
+├── relation_types.yaml    # ★新增:关系类型语义 is_contact/互斥/显示模板（决定 RDC 可达），见 §9.3
 ├── groups.yaml            # 群组/阵营（动态成员走 timed_events.group_action）
 ├── signals.yaml           # story_advance 白名单 + keyword_sets + intent_heuristics
 ├── tools.yaml             # ★新增(可选):通用工具描述
@@ -635,6 +637,27 @@ config/stories/<story_id>/
 ```
 
 > 一句话:补齐后,**world.db 的每张表(place/coverage/capability/relation/group/agent_location/segment)都有明确的 Story Pack 配置来源**,真正做到"改 config 换世界"。端到端设计与运行流程见 dev_logs/44。
+
+### 9.3 核心 feature「玩家影响 A→A 波及 B→B 反应」的存活性与真实缺口(源码级对抗审查结论)
+
+> 背景:用户核心诉求是确保重构后保留"玩家欺负儿子→儿子找父亲→父亲生气"这类**社交涟漪**。对 `world/`、`script/effects/`、`hbm_demo/core/runner/`、`f05_story_routing/` 做了逐环源码追踪 + 三路对抗反驳,结论如下。
+
+**判定:社交涟漪的脚手架在引擎层(感知/关系图/消息总线/`current_state` 反馈环),换故事零改动保留;** 但有两点必须如实记录:
+
+1. **这条链是 LLM 自发涌现,不是确定性因果。** 引擎里**没有** emotion/mood 字段,也**没有**"欺负→生气"的语义。情绪 = `AgentRuntime.current_state` 自由文本(`world/state.py`),靠通用 `UPDATE_STATE` 写回、下一拍由 `PerceptionBuilder.build` 注回系统提示词"# Current State"段。"理解成被欺负""决定找父亲""决定生气""迁怒第三方"全是 LLM 当拍自由决策。引擎只保证消息能送达、关系能进 prompt(`contacts_of`→`demo_agent._observation_to_text` 渲染成 `[关系类型]`)、状态能写回——**不保证父亲一定生气**。换故事原样继承这层不确定性。
+2. **物理"走过去找人"被 HBM 主动关死,不在保留范围。** `HbmActionDispatcher.dispatch` 把 agent 自发的 `request_move` 直接吞掉(`{success:False,reason:"hbm_move_ipc_only",noop:True}`,`hbm_dispatcher.py`),搬人由 `routing.apply_routing` 的 `send_move_agent(...)` 脚本 IPC 写死。**社交层(`send_message`/RDC)才是自主的**——且正是 phase 推进的必要扳机(`agent_signals.detect_node_*` 读 DB 里 agent 自发的 RDC 链),HBM 不拦截。
+
+**两处真实缺口(对抗阶段 refuted=true,已核实属实):**
+
+- **缺口①(超出 Story Pack,需引擎工作项):关系变更→情绪无任何级联 hook。** `RelationGraph.register_on_change` 全仓唯一消费者是 `pools/manager.py`,而 HBM 内核装 `NullPoolManager`(`kernel.py`),**从不注册 hook**,`_fire` 空转。即便 seed 了父子边,"儿子被攻击→父亲变愤怒"也**没有确定性代码兜底**。
+  - 若要"护短"成为**确定性**保证:需在 `kernel.build_kernel` 里 `relation_graph.register_on_change` 注册 hook,命中"子受攻击/关系被 break"时定位 parent 并 `set_current_state(parent, 愤怒, t)` 或注入 scripted_notification。**这是引擎改动,不是 Story Pack 数据,§9 不覆盖,单列为工作项。**
+  - 若接受"靠 LLM 涌现、不保证必然触发":只需 `relations.yaml` 补父子边 + `agents` soul 写"重视家人/受激时先 update_state",但须如实告知产品方这层不确定性。
+
+- **缺口②(Story Pack schema 实缺,已补进 §9.1/§9.2):`relation_types.yaml`。** `phi_rdc`(`connectivity.py`)→`contacts_of`(`relation_graph.py`)按 `meta.is_contact` 过滤决定 RDC 远端可达;`world/relation_types/` 是空占位,未注册类型一律默认 `is_contact=True`。原 `relations.yaml` 只有 `symmetric` 单旗标,**无法表达"父子不能远程私信、只能见面说"(`is_contact=False`)、也无法声明"结盟与背叛互斥"(`mutually_exclusive`,否则 `RelationConflict` 永不触发)。** 已新增 `relation_types.yaml` 承载五字段语义,并要求 `seed.py` 播种边前先灌入 `RelationGraph.type_meta`。
+
+- **缺口③(设计级,移植成本大头):`node.agent_behaviors` 缺字段级 schema。** 最重的硬编码是 `hbm_agent._hbm_short_action_rules` 的 240+ 行 `if aid==N and phase=='Phase X'` 行为卡。§9.1 仅一句带过,未规定 `respond_rule/length_rule` 如何按"有无未读RDC/有无玩家inject"**条件切换**(现为 Python if)。建议 `agent_behaviors` 补条件分支 schema(`when:{has_unread_rdc/has_player_inject/...}→text`)+ 完整示例,并立规约:**soul 只写人格/情绪/价值观,所有"第几幕做什么/调什么工具/发给谁"一律落 `node.agent_behaviors`,不得写进 soul 字符串。**
+
+> 结论一句话:**社交涟漪的能力换碟保留(引擎层),Story Pack 配初始关系+类型语义+能力+人设+行为卡即可复现;但"父亲必然生气"是 LLM 涌现而非引擎保证,若要确定性护短需额外加 relation on_change hook(引擎工作项)。**
 
 ---
 
