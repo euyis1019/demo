@@ -591,6 +591,53 @@ def resolve_ending(session, db, *, since_t, t_now):
 
 ---
 
+## 9. 补全(完备性审查后增补):World Primitives 与 Agent overlay 的 Story Pack 落点
+
+§3 的 Story Pack 把"叙事控制流"(story_graph/signals/endings/judges/timed_events)规划完整了,但**漏掉了"世界原语播种"这一排**——`relations / capabilities / coverage / place_mutation / 初始 memory / perception`。这些现在写在 `hbm_scenario.yaml` 里由 `kernel.seed_world()` 播种,必须随包替换才能"换 config 换世界"。本节增补它们的落点。
+
+### 9.1 新增/扩展的文件与字段
+
+| 要素 | 现状位置 | 补到 Story Pack |
+|------|---------|----------------|
+| **初始关系网 relations**(关键遗漏) | `hbm_scenario.yaml` `relations:` → `RelationGraph.add()` | **★新增 `relations.yaml`**:`[{src_role,dst_role,type,symmetric,metadata?}]`,src/dst 用 `agents.roles` 解引用。**运行期实时变化(结盟/背刺)由通用 `relation_change` 工具驱动,无需故事配置——引擎已通用。** |
+| **能力 capabilities** | `hbm_scenario.yaml` `capabilities:` → `CapabilityTable.grant()` | `agents.yaml` 每 agent 补 `capabilities:[...]`;运行期动态授予走 `timed_events` 的 `capability_grant/revoke` action。 |
+| **连通性 coverage** | `hbm_scenario.yaml` `coverage:` | 并入 `places.yaml`:`coverage:[{src_place,dst_place,latency_ticks,can_reach}]`。 |
+| **地点变异 place_mutation** | `routing.py:NODE_B_BEHAVIOR_HINT` 硬写 + `attrs.behavior_hint` | **★新增 `place_behaviors.yaml`**:`{place:{initial_behavior_hint,mutations:[{label,text}]}}`;边/timed_events 的 `place_mutations` 引用 `label`。 |
+| **初始 memory** | 无 seed 接口(`SegmentStore` 仅运行期自动累积) | **★新增 `memory.yaml`(可选)**:`initial_memories:{agent_role:[{created_at,content,importance,tags}]}` + `segment_compressor` 策略。需补 `SegmentStore` seed 接口。**默认不配时引擎通用。** |
+| **perception 感知** | `world/perception.py` 写死(F2F/旁听/RDC 优先级) | **★新增 `perception.yaml`(可选)**:per-agent per-modality 过滤。**默认全开通用,仅"某 agent 不该听同室"才配。** |
+| **agent soul/goal/state、行为卡** | `scenario.agents[].soul`、`hbm_agent._hbm_short_action_rules` | `agents.yaml` 扩 `soul_template/long_term_goal/initial_state`;行为卡迁 `story_graph` 的 `node.agent_behaviors{aid:{respond_rule,length_rule,tool_constraints}}`。 |
+| **knowledge/memory overlay** | `config/prompts/abcs/story_knowledge/{agents,shared}/*.yaml` | 整目录迁 `config/stories/<id>/prompts/`(含 `initial_memory` 段);`knowledge.py:load_agent_overlay()` 改按 `story_id` 查路径。 |
+| **群组动态成员、可用工具白名单、tools** | `groups`(初始)、`hbm_agent` 工具描述 | `timed_events.group_action`;`signals.valid_signals` 动态拼 tool;可选 `tools.yaml`。 |
+| overhear / direct_message / 两类 log / 消息总线 | 引擎 + world.db | **引擎已通用无需配置**(overhear 是 F2F 衍生,log 是审计自动生成,与故事无关)。 |
+
+### 9.2 更新后的完整 Story Pack 文件清单(在 §3 的 11 文件基础上 +新增/扩展)
+
+```
+config/stories/<story_id>/
+├── meta.yaml              # simulation_id / timeline / 初始 node / game_config / 玩家
+├── story_graph.yaml       # ★核心 DAG: nodes + edges;node 内补 agent_behaviors{}
+├── places.yaml            # 地点表;☆补 coverage[]
+├── place_behaviors.yaml   # ★新增:behavior_hint 初值 + mutations 库
+├── agents.yaml            # 角色表 + roles{} + factions{};☆补 capabilities[]/soul/goal/state
+├── relations.yaml         # ★新增:初始关系网（运行期变化由通用引擎驱动）
+├── groups.yaml            # 群组/阵营（动态成员走 timed_events.group_action）
+├── signals.yaml           # story_advance 白名单 + keyword_sets + intent_heuristics
+├── tools.yaml             # ★新增(可选):通用工具描述
+├── endings.yaml           # 结局决策表 + bad_end
+├── judges.yaml            # 裁判维度 + tech_keywords + LLM prompt 模板
+├── timed_events.yaml      # ★实现:Turn N 广播/激活/inject + group_action + capability_grant/revoke
+├── memory.yaml            # ★新增(可选):compressor 策略 + initial_memories
+├── perception.yaml        # ★新增(可选):per-agent per-modality 过滤
+├── language_style.yaml    # 禁用术语 / 大白话 / forbidden_actions
+├── ui_text.yaml           # 前端可见子集（随 session 下发）
+├── prompts/               # ★迁入:agent 人设 overlay + knowledge（含 initial_memory）
+└── assets/                # 背景图 / 头像
+```
+
+> 一句话:补齐后,**world.db 的每张表(place/coverage/capability/relation/group/agent_location/segment)都有明确的 Story Pack 配置来源**,真正做到"改 config 换世界"。端到端设计与运行流程见 dev_logs/44。
+
+---
+
 **关键文件索引(绝对路径)**
 - 借鉴源:`/Users/dawson/Documents/GitHub/demo/AI4VisualNovel/agents/story_graph.py`(StoryGraph 直接抄)、`agents/schemas.py`(nodes/edges schema)、`game_engine/scenes.py`(`load_line()` dispatch L215-303)、`game_engine/state.py`(GameState `[IF]` 求值)。
 - 改造目标:`/Users/dawson/Documents/GitHub/demo/agent_world/hbm_demo/features/f05_story_routing/routing.py`(`apply_routing` L338、`resolve_ending_id` L252、`node_*_applies` L155-183、`build_inject_payload` L89)、`agent_signals.py`(`detect_node_a/b/c` L94-162、`detect_bad_end` L223)、`story_signals.py`(`VALID_STORY_SIGNALS` L7)、`core/runner/hbm_agent.py`(`_hbm_short_action_rules` L233)、`features/f04_stats/scoring.py`(L43/L69)、`features/f07_agent_control/pick_active.py`(`_primary_ids` L42)。
