@@ -1,0 +1,87 @@
+places:
+- place_id: start
+  capacity: 1
+  attrs:
+    summary: 弟子居所外的小径，深夜寂静
+    behavior_hint: 可听到远处脚步声，适合跟踪
+- place_id: bedchamber
+  capacity: 3
+  attrs:
+    summary: 掌门沈孤鸿的卧房，药味弥漫
+    behavior_hint: 掌门卧床，可探病或搜查
+- place_id: main_hall
+  capacity: 10
+  attrs:
+    summary: 门派正厅，庄严肃穆
+    behavior_hint: 大师兄凌轩常在此召集弟子
+- place_id: training_ground
+  capacity: 20
+  attrs:
+    summary: 练武场，兵器架林立
+    behavior_hint: 二师姐苏绾常在此练剑
+- place_id: market_street
+  capacity: 30
+  attrs:
+    summary: 山脚集市，人来人往
+    behavior_hint: 三师兄周平喜欢在此打听消息
+- place_id: back_hill
+  capacity: 5
+  attrs:
+    summary: 后山密林，有一处隐蔽山洞
+    behavior_hint: 鬼影长老的秘密据点
+- place_id: study
+  capacity: 3
+  attrs:
+    summary: 掌门书房，书架满墙
+    behavior_hint: 藏有密信和药方
+- place_id: pharmacy
+  capacity: 5
+  attrs:
+    summary: 门派药房，存放药材
+    behavior_hint: 可查药材出入记录
+coverage:
+- src: start
+  dst: bedchamber
+  latency_ticks: 2
+- src: start
+  dst: main_hall
+  latency_ticks: 1
+- src: start
+  dst: training_ground
+  latency_ticks: 2
+- src: start
+  dst: market_street
+  latency_ticks: 3
+- src: start
+  dst: back_hill
+  latency_ticks: 4
+- src: bedchamber
+  dst: main_hall
+  latency_ticks: 2
+- src: bedchamber
+  dst: study
+  latency_ticks: 1
+- src: main_hall
+  dst: training_ground
+  latency_ticks: 1
+- src: main_hall
+  dst: market_street
+  latency_ticks: 2
+- src: training_ground
+  dst: market_street
+  latency_ticks: 2
+- src: training_ground
+  dst: back_hill
+  latency_ticks: 3
+- src: market_street
+  dst: back_hill
+  latency_ticks: 2
+- src: back_hill
+  dst: study
+  latency_ticks: 3
+- src: study
+  dst: pharmacy
+  latency_ticks: 1
+- src: pharmacy
+  dst: back_hill
+  latency_ticks: 2

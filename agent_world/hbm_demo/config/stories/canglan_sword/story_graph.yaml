@@ -1,0 +1,173 @@
+schema_version: 1
+initial_node: start
+nodes:
+- id: start
+  beats_label: 第一幕：夜闻异声
+  summary: 深夜，你无意间撞见鬼影长老在掌门窗外徘徊，神色可疑。
+  inject_agents:
+  - 5
+  place_focus: start
+  window_since: start_tick
+- id: investigate_ghost
+  beats_label: 第二幕：暗访鬼影
+  summary: 你跟踪鬼影至后山密室，发现他与一个蒙面人密谈，提及‘药已下’。
+  inject_agents:
+  - 5
+  place_focus: back_hill
+  window_since: start_tick
+- id: confront_ling
+  beats_label: 第二幕：试探大师兄
+  summary: 你向凌轩透露鬼影可疑，凌轩却斥你多管闲事，并暗示你站队。
+  inject_agents:
+  - 2
+  place_focus: main_hall
+  window_since: start_tick
+- id: ally_su
+  beats_label: 第三幕：联手二师姐
+  summary: 你与苏绾交换情报，她怀疑鬼影与大师兄勾结，提议夜探掌门书房。
+  inject_agents:
+  - 3
+  place_focus: training_ground
+  window_since: start_tick
+- id: bribe_zhou
+  beats_label: 第三幕：收买三师兄
+  summary: 你花银子从周平处买到消息：鬼影曾从药房取走一味罕见毒草。
+  inject_agents:
+  - 4
+  place_focus: market_street
+  window_since: start_tick
+- id: search_study
+  beats_label: 第四幕：书房寻证
+  summary: 你潜入掌门书房，找到一封密信，揭露鬼影受雇于敌对门派。
+  inject_agents:
+  - 1
+  place_focus: study
+  window_since: start_tick
+- id: final_showdown
+  beats_label: 第四幕：真相大白
+  summary: 你召集众人当面对质，鬼影狗急跳墙，凌轩或苏绾出手相助。
+  inject_agents:
+  - 2
+  - 3
+  - 5
+  place_focus: main_hall
+  window_since: start_tick
+endings:
+- id: expose_heir
+  kind: good
+  summary: 你揭穿鬼影阴谋，辅佐苏绾继位，成为门派新秀。
+- id: framed_fall
+  kind: bad
+  summary: 你被凌轩构陷为下毒者，身败名裂，逐出师门。
+- id: leave_sect
+  kind: neutral
+  summary: 你厌倦权斗，雨夜悄然离开，浪迹天涯。
+edges:
+- id: e1
+  from: start
+  to: investigate_ghost
+  trigger:
+    type: f2f_keyword
+    place: start
+    sender: 0
+    keyword_set: track_ghost
+  actions: []
+- id: e2
+  from: start
+  to: confront_ling
+  trigger:
+    type: f2f_keyword
+    place: start
+    sender: 0
+    keyword_set: tell_ling
+  actions: []
+- id: e3
+  from: investigate_ghost
+  to: ally_su
+  trigger:
+    type: f2f_keyword
+    place: back_hill
+    sender: 0
+    keyword_set: share_with_su
+  actions: []
+- id: e4
+  from: investigate_ghost
+  to: bribe_zhou
+  trigger:
+    type: f2f_keyword
+    place: back_hill
+    sender: 0
+    keyword_set: buy_info
+  actions: []
+- id: e5
+  from: confront_ling
+  to: ally_su
+  trigger:
+    type: f2f_keyword
+    place: main_hall
+    sender: 0
+    keyword_set: trust_su
+  actions: []
+- id: e6
+  from: confront_ling
+  to: bribe_zhou
+  trigger:
+    type: f2f_keyword
+    place: main_hall
+    sender: 0
+    keyword_set: bribe_zhou_ling
+  actions: []
+- id: e7
+  from: ally_su
+  to: search_study
+  trigger:
+    type: f2f_keyword
+    place: training_ground
+    sender: 0
+    keyword_set: night_raid
+  actions: []
+- id: e8
+  from: bribe_zhou
+  to: search_study
+  trigger:
+    type: f2f_keyword
+    place: market_street
+    sender: 0
+    keyword_set: search_study_zhou
+  actions: []
+- id: e9
+  from: search_study
+  to: final_showdown
+  trigger:
+    type: f2f_keyword
+    place: study
+    sender: 0
+    keyword_set: confront_all
+  actions: []
+- id: e10
+  from: final_showdown
+  to: expose_heir
+  trigger:
+    type: f2f_keyword
+    place: main_hall
+    sender: 0
+    keyword_set: expose_ghost
+  actions: []
+- id: e11
+  from: final_showdown
+  to: framed_fall
+  trigger:
+    type: f2f_keyword
+    place: main_hall
+    sender: 0
+    keyword_set: accuse_ling
+  actions: []
+- id: e12
+  from: final_showdown
+  to: leave_sect
+  trigger:
+    type: f2f_keyword
+    place: main_hall
+    sender: 0
+    keyword_set: leave_sect_now
+  actions: []

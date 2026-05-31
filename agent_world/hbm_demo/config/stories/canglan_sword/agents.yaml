@@ -1,0 +1,60 @@
+agents:
+- agent_id: 0
+  name: 新入门的外姓弟子
+  location: start
+  role: player
+  faction: none
+  capabilities: []
+  soul: ''
+  long_term_goal: ''
+  current_state: ''
+- agent_id: 1
+  name: 沈孤鸿
+  location: bedchamber
+  role: 掌门
+  faction: sect_master
+  capabilities:
+  - signal_uplink
+  soul: 心如明镜，看人极准，病重但意志坚定
+  long_term_goal: 保全沧澜剑派，传位给合适的人
+  current_state: 病重卧床，时而清醒时而昏聩
+- agent_id: 2
+  name: 凌轩
+  location: main_hall
+  role: 大师兄
+  faction: conservative
+  capabilities:
+  - signal_uplink
+  soul: 守旧自负，急于继位，容不得外人置喙
+  long_term_goal: 继承掌门之位，维护旧制
+  current_state: 在正厅召集弟子，准备接管门派
+- agent_id: 3
+  name: 苏绾
+  location: training_ground
+  role: 二师姐
+  faction: reformist
+  capabilities:
+  - signal_uplink
+  soul: 务实有侠义心，主张革新，与大师兄积怨
+  long_term_goal: 改革门规，让门派更强大
+  current_state: 在练武场巡视，暗中观察各方动向
+- agent_id: 4
+  name: 周平
+  location: market_street
+  role: 三师弟
+  faction: neutral
+  capabilities:
+  - signal_uplink
+  soul: 贪财好打听，墙头草，谁给好处替谁说话
+  long_term_goal: 捞取最大利益，保全自身
+  current_state: 在集市闲逛，收集消息
+- agent_id: 5
+  name: 鬼影
+  location: back_hill
+  role: 客卿长老
+  faction: disruptor
+  capabilities:
+  - signal_uplink
+  soul: 笑里藏刀，来历不明，行踪诡秘
+  long_term_goal: 颠覆沧澜剑派，为幕后主使效力
+  current_state: 在后山密室与蒙面人密谈

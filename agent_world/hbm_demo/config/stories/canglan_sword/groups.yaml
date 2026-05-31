@@ -1,0 +1,16 @@
+groups:
+- group_id: 1
+  name: 保守派
+  members:
+  - 2
+  creator_id: 2
+- group_id: 2
+  name: 革新派
+  members:
+  - 3
+  creator_id: 3
+- group_id: 3
+  name: 中立派
+  members:
+  - 4
+  creator_id: 4

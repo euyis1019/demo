@@ -1,0 +1,65 @@
+story_advance:
+  enabled: true
+  valid_signals: []
+keyword_sets:
+  track_ghost:
+  - 跟踪
+  - 尾随
+  - 看看鬼影去哪
+  - 跟上去
+  tell_ling:
+  - 告诉大师兄
+  - 汇报凌轩
+  - 找大师兄
+  - 禀报凌轩
+  share_with_su:
+  - 告诉二师姐
+  - 找苏绾
+  - 和苏绾商量
+  - 分享情报
+  buy_info:
+  - 买消息
+  - 找周平
+  - 花钱打听
+  - 贿赂周平
+  trust_su:
+  - 相信苏绾
+  - 和苏绾联手
+  - 找二师姐
+  - 合作
+  bribe_zhou_ling:
+  - 收买周平
+  - 花钱买情报
+  - 找周平
+  - 打听消息
+  night_raid:
+  - 夜探书房
+  - 潜入书房
+  - 搜查书房
+  - 找证据
+  search_study_zhou:
+  - 去书房
+  - 找证据
+  - 搜查书房
+  - 夜探
+  confront_all:
+  - 对质
+  - 召集众人
+  - 当面对质
+  - 揭穿
+  expose_ghost:
+  - 揭穿鬼影
+  - 鬼影是内奸
+  - 证据在此
+  - 真相大白
+  accuse_ling:
+  - 凌轩是主谋
+  - 大师兄陷害
+  - 凌轩下毒
+  - 指控凌轩
+  leave_sect_now:
+  - 离开
+  - 退出
+  - 浪迹天涯
+  - 一走了之
+params: {}

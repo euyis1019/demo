@@ -1,0 +1,13 @@
+relation_types:
+- type: 师徒
+  is_contact: true
+  symmetric: true
+- type: 敌对
+  is_contact: true
+  symmetric: true
+- type: 利用
+  is_contact: true
+  symmetric: false
+- type: 暗中合作
+  is_contact: true
+  symmetric: true

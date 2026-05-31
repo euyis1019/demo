@@ -17,22 +17,29 @@ _SYSTEM = """你是编剧。给故事图的节点与边补上运行所需细节�
 只输出 JSON：
 {
   "nodes": [{"id": "节点id", "inject_agents": [agent_id...], "place_focus": "地点id",
-             "window_since": "start_tick|phaseN_start_tick"}],
-  "edges": [{"id": "边id", "legacy_label": "可选",
-             "trigger": {触发条件}, "actions": [副作用...]}],
-  "signals": {"story_advance": {"enabled": true, "valid_signals": ["信号名"...]},
-              "keyword_sets": {"集合名": ["词"...]}, "params": {"参数名": 值}}
+             "window_since": "start_tick"}],
+  "edges": [{"id": "边id", "trigger": {触发条件}, "actions": [副作用...]}],
+  "signals": {"story_advance": {"enabled": true, "valid_signals": []},
+              "keyword_sets": {"集合名": ["词"...]}, "params": {}}
 }
-trigger 叶子类型可用：
-  {"type":"story_advance","signal":"信号名"}   // signal 必须在 signals.valid_signals 里
-  {"type":"rdc_keyword","sender":id,"recipient":id,"keyword_set":"集合名"}
-  {"type":"f2f_keyword","place":"地点id","sender":id,"keyword_set":"集合名"}
-  可用 {"any_of":[...]} / {"all_of":[...]} 组合。
+
+★最重要：触发必须「运行期可执行」。玩家靠**说话(台词)**推进剧情——玩家做某个选择 = 玩家说出含
+特定关键词的一句话。所以**每条边的 trigger 用玩家台词关键词**：
+  {"type":"f2f_keyword","place":"该边起点节点的地点","sender":0,"keyword_set":"集合名"}
+  （sender:0 就是玩家本人；keyword_set 放玩家做这个选择时**可能说出的 3-6 个词/短语**）
+并在 signals.keyword_sets 里定义每个 keyword_set。
+
+✗ 不要用 {"type":"story_advance",...}！那种信号只有 NPC 调工具才发得出，玩家发不出，会导致
+  剧情永远卡住推不动。把所有「玩家选择」一律写成 f2f_keyword(sender:0)。valid_signals 留空 []。
+
+一个节点有多条出边时（分支），各边的 keyword_set 要用**不同**的关键词区分玩家的不同选择。
+
 硬性约束：
-- 每个非终结节点都要有 inject_agents（玩家这句话注入给谁），且都是已存在的 agent_id；
+- 每个非终结节点都要有 inject_agents（玩家在此节拍会对话的在场 NPC，至少 1 个已存在 agent_id）；
   place_focus 必须是已存在地点。
-- 每条边都要有 trigger；trigger 里引用的 signal 必须在 signals.valid_signals，keyword_set 必须在
-  signals.keyword_sets。指向结局的边也要有 trigger。"""
+- 每条边都要有 f2f_keyword 触发(sender:0)，place 用该边起点节点的 place_focus，
+  keyword_set 必须在 signals.keyword_sets 里定义。指向结局的边也照此。
+- window_since 一律用 "start_tick"。"""
 
 
 def _build_user_prompt(designer: Dict[str, Any], casting: Dict[str, Any]) -> str:
