@@ -99,7 +99,14 @@ def build_inject_payload(
         is_f07_enabled,
     )
 
-    agent_ids = inject_agent_ids_for_phase(session.phase)
+    # 节点驱动：玩家这句话注入给「当前节点的 inject_agents」；无节点时回退 HBM 相位表。
+    node_id = getattr(session, "current_node_id", None)
+    if node_id:
+        from agent_world.hbm_demo.shared import story_config
+
+        agent_ids = story_config.node_inject_agents(node_id) or inject_agent_ids_for_phase(session.phase)
+    else:
+        agent_ids = inject_agent_ids_for_phase(session.phase)
     turn_context: Optional[Dict[str, Any]] = None
 
     if is_f07_enabled():

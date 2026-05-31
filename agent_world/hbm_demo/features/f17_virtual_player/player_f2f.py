@@ -39,9 +39,19 @@ def build_player_f2f_payload(session: Any, player_text: str) -> Optional[Dict[st
         return None
     phase = str(getattr(session, "phase", "Phase 1"))
     place_id = str(getattr(session, "place_id", "nvidia_reception"))
+    # 节点驱动：玩家台词收件人=当前节点首个 inject_agent，地点=当前节点 place_focus。
+    node_id = getattr(session, "current_node_id", None)
+    if node_id:
+        from agent_world.hbm_demo.shared import story_config
+
+        agents = story_config.node_inject_agents(node_id)
+        recipient_id = int(agents[0]) if agents else f2f_recipient_for_phase(phase)
+        place_id = story_config.node_place(node_id) or place_id
+    else:
+        recipient_id = f2f_recipient_for_phase(phase)
     return {
         "sender_id": int(player_agent_id()),
-        "recipient_id": f2f_recipient_for_phase(phase),
+        "recipient_id": recipient_id,
         "place_id": place_id,
         "content": text,
     }

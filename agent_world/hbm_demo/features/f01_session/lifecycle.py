@@ -22,11 +22,21 @@ def create_session(sim_dir: Path | None = None) -> HbmSession:
     sim = sim_dir or get_sim_dir()
     env = read_env_status(sim) or {}
     start_tick = int(env.get("current_tick", 0))
+    # 节点驱动：从活跃 Story Pack 取初始节点/地点（替代写死的 HBM Phase 1 / nvidia_reception）。
+    from agent_world.hbm_demo.shared import story_config
+
+    try:
+        init_node = story_config.initial_node_id()
+        place_id = story_config.player_start_place()
+        phase = story_config.node_beats_label(init_node) or DEFAULT_PHASE
+    except Exception:  # noqa: BLE001 — 无 Story Pack 时回退默认
+        init_node, place_id, phase = None, DEFAULT_PLACE_ID, DEFAULT_PHASE
     return HbmSession(
         task_id=f"task_{uuid.uuid4().hex[:12]}",
         start_tick=start_tick,
-        place_id=DEFAULT_PLACE_ID,
-        phase=DEFAULT_PHASE,
+        place_id=place_id,
+        phase=phase,
+        current_node_id=init_node,
         player_turn=1,
         stats=initial_stats(),
     )

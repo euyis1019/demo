@@ -171,7 +171,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
 
     if is_story_pack_seed_enabled():
-        sid = scenario.get("simulation_id")
+        from agent_world.hbm_demo.shared.story_config import active_story_id
+
+        sid = active_story_id()  # env HBM_STORY_ID（默认 hbm_memory_war）——决定播哪个故事
         if sid in list_story_ids():
             pack = load_and_validate_story_pack(sid)  # 校验不过即抛，拒绝带病启动
             scenario = story_pack_to_scenario(pack)

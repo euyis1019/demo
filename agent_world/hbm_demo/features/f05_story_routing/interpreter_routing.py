@@ -29,11 +29,105 @@ def get_interpreter(story_id: str) -> StoryInterpreter:
 
 
 def _current_node_id(interp: StoryInterpreter, phase: str) -> Optional[str]:
-    """由 session.phase（beats_label）定位当前节点 id。"""
+    """由 session.phase（beats_label）定位当前节点 id（旧 HBM 路径用）。"""
     for nid, node in interp.graph.nodes.items():
         if node.beats_label == phase:
             return nid
     return None
+
+
+def _gather_scene(ipc_client: Any, place: str, agent_ids: List[int], ipc_timeout: float) -> None:
+    """把这一拍该在场的角色(玩家+本节点 inject_agents)聚到该地点，让对话同场可见。"""
+    from agent_world.hbm_demo.http.ipc_helper import send_move_agent
+
+    if not place:
+        return
+    for aid in agent_ids:
+        try:
+            send_move_agent(ipc_client, agent_id=int(aid), place_id=str(place), timeout=ipc_timeout)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("gather_scene move %s→%s failed: %s", aid, place, exc)
+
+
+def setup_scene_for_node(interp: StoryInterpreter, hbm: Any, *, ipc_client: Any, ipc_timeout: float) -> None:
+    """把当前节点的场景布好：玩家 + 该节点 inject_agents 聚到该节点地点。会话开局/换节点各调一次。"""
+    node = interp.graph.nodes.get(getattr(hbm, "current_node_id", None) or interp.graph.initial_node)
+    if node is None:
+        return
+    place = node.place_focus or getattr(hbm, "place_id", "")
+    _gather_scene(ipc_client, place, [0, *node.inject_agents], ipc_timeout)
+
+
+def route_story(
+    interp: StoryInterpreter,
+    hbm: Any,
+    *,
+    ipc_client: Any,
+    db: Any,
+    task_id: str,
+    current_tick: int,
+    ipc_timeout: float,
+) -> Dict[str, Any]:
+    """节点驱动路由：当前节点的出边被玩家台词触发即推进；指向结局则返回 ending（watcher 收尾）。
+
+    完全数据驱动，无 HBM phase/agent_id 硬编码。换任意 Story Pack 即换游戏。
+    """
+    from agent_world.hbm_demo.http.ipc_helper import send_enqueue_script_event
+
+    g = interp.graph
+    applied: Dict[str, Any] = {"nodes": [], "ending": None, "events": []}
+    guard = 0
+    while guard <= len(g.nodes):
+        guard += 1
+        node_id = getattr(hbm, "current_node_id", None) or g.initial_node
+        node = g.nodes.get(node_id)
+        if node is None:
+            break
+        fired = next(
+            (e for e, _dst in g.get_children(node_id) if interp.detect_edge(e, db, hbm, int(current_tick))),
+            None,
+        )
+        if fired is None:
+            break
+
+        # 边的显式副作用（移动指定 agent / 地点变异）
+        planned = interp.plan_actions(fired, current_tick=int(current_tick))
+        for eff in [p for p in planned if p["type"] == "move_agent"]:
+            _gather_scene(ipc_client, str(eff["to"]), [int(eff["agent"])], ipc_timeout)
+        for eff in [p for p in planned if p["type"] == "place_mutation"]:
+            send_enqueue_script_event(
+                ipc_client,
+                events=[{
+                    "id": f"mutate_{node_id}_{task_id}",
+                    "trigger": {"type": "at_condition", "expr": "True"},
+                    "effect": {"type": "place_mutation", "place_id": str(eff["place"]),
+                               "attrs_patch": {"behavior_hint": str(eff["behavior_hint"])}},
+                }],
+                timeout=ipc_timeout,
+            )
+
+        if g.is_ending(fired.dst):
+            applied["ending"] = fired.dst
+            return applied
+
+        # 推进到下一节点：布好新场景（玩家 + 该节点 inject_agents 聚到新地点）
+        nxt = g.nodes[fired.dst]
+        place = nxt.place_focus or hbm.place_id
+        _gather_scene(ipc_client, place, [0, *nxt.inject_agents], ipc_timeout)
+        hbm.current_node_id = fired.dst
+        hbm.phase = nxt.beats_label or hbm.phase
+        hbm.place_id = place
+        applied["nodes"].append(fired.dst)
+        applied["events"].append({
+            "id": f"node_{fired.dst}_{task_id}",
+            "at_tick": int(current_tick),
+            "kind": "phase_route",
+            "title": nxt.beats_label or fired.dst,
+            "content": nxt.summary or "",
+            "place_id": place,
+        })
+        log.info("story node → %s (%s)", fired.dst, nxt.beats_label)
+    return applied
 
 
 def _transition_edges(interp: StoryInterpreter, node_id: str) -> List[StoryEdge]:
