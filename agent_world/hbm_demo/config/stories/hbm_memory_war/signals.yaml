@@ -1,0 +1,32 @@
+# 剧情信号与关键词集合（从 features/f05_story_routing/routing_config.py 抽出）。
+# story_graph.yaml 的 trigger 按名引用 keyword_sets / story_advance 信号 / params；解释器在此解析。
+schema_version: 1
+
+# story_advance 工具的合法信号白名单（替代散落的 has_story_signal 调用点）。
+story_advance:
+  enabled: true
+  valid_signals:
+    - approve_visitor        # 节点 A：Jensen 批准访客
+    - return_to_negotiation  # 节点 B：Jensen 认可方案回谈判室
+    - expel_ceos             # 节点 C：Jensen 清场
+    - offer_join             # 节点 D：给玩家入职 offer
+    - offer_seed             # 节点 D：给玩家种子轮
+    - reject_visitor         # 坏结局：前台/Jensen 拒绝访客
+
+# 关键词集合（trigger 的 keyword_set 按名引用）。值来自 routing_config 的默认列表。
+keyword_sets:
+  approve_keywords: ["私人会议室", "私密会议室", "可以见", "带进来", "批准", "这边请", "请跟我来"]
+  reject_keywords: ["拒绝", "请离开", "保安"]
+  expel_keywords: ["请离场", "谈完了", "出去", "请出去", "你们出去", "先出去", "离场", "谈够了"]
+  escort_keywords: ["请跟我来", "这边请"]
+  return_to_negotiation_keywords: ["回谈判室", "回到谈判", "回主谈判", "进谈判室", "去谈判室", "跟我进谈判室", "方案可行", "认可"]
+  positive_rdc_keywords: ["可行", "核武器", "理论上成立", "理论上可行", "成立"]
+  phase4_deal_keywords:
+    ["offer", "合同", "签字", "入职", "加入", "录用", "入伙", "高管", "种子", "融资",
+     "估值", "投资", "期权", "股权", "敲定", "算定", "同意", "这么定", "拍桌", "收回",
+     "Distinguished", "DE"]
+
+# 路由参数（trigger 的 gte_ref / 开关按名引用）。
+params:
+  max_turns_phase1_without_approve: 10
+  require_reception_escort_f2f: false

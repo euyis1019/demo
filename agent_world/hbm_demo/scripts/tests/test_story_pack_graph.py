@@ -20,8 +20,10 @@ from agent_world.hbm_demo.shared.story_pack import (
     StoryGraph,
     StoryPackValidationError,
     load_and_validate_story_graph,
+    load_and_validate_story_pack,
     load_meta,
     load_story_graph,
+    load_story_pack,
 )
 
 STORY_ID = "hbm_memory_war"
@@ -155,6 +157,115 @@ def test_validate_or_raise_raises() -> None:
         assert exc.issues
     else:
         raise AssertionError("坏图应抛 StoryPackValidationError")
+
+
+# ---------- Slice2：整包聚合 + 跨文件引用闭合 ----------
+
+def test_hbm_full_pack_validates() -> None:
+    pack = load_story_pack(STORY_ID)
+    issues = pack.validate()
+    assert issues == [], f"HBM 整包不该有违例，却得到：{issues}"
+    # 聚合加载到位
+    assert pack.agent_ids() == {0, 1, 2, 3, 4, 5, 6, 7}, pack.agent_ids()
+    assert pack.place_ids() == {
+        "nvidia_reception",
+        "negotiation_room",
+        "jensen_private_room",
+        "openai_hq",
+    }, pack.place_ids()
+    assert pack.relation_type_names() == {
+        "subordinate",
+        "colleague",
+        "business_partner",
+        "ally",
+    }
+    assert "approve_keywords" in pack.keyword_set_names()
+    assert "approve_visitor" in pack.story_advance_signals()
+    assert "max_turns_phase1_without_approve" in pack.param_names()
+
+
+def test_load_and_validate_pack_helper() -> None:
+    load_and_validate_story_pack(STORY_ID)  # 不抛即通过
+
+
+def test_pack_rejects_unknown_inject_agent() -> None:
+    pack = load_story_pack(STORY_ID)
+    pack.graph.nodes["phase1_reception"].inject_agents.append(99)  # 不存在的 agent
+    issues = pack.validate()
+    assert any(it.startswith("[X1]") for it in issues), issues
+
+
+def test_pack_rejects_unknown_move_place() -> None:
+    pack = load_story_pack(STORY_ID)
+    edge = next(e for e in pack.graph.edges if e.id == "node_a")
+    edge.actions.append({"type": "move_agent", "agent": 2, "to": "ghost_room"})
+    issues = pack.validate()
+    assert any(it.startswith("[X2]") for it in issues), issues
+
+
+def test_pack_rejects_unknown_keyword_set() -> None:
+    pack = load_story_pack(STORY_ID)
+    # 删掉 approve_keywords，让 node_a trigger 的引用悬空
+    del pack.signals["keyword_sets"]["approve_keywords"]
+    issues = pack.validate()
+    assert any(it.startswith("[X4]") for it in issues), issues
+
+
+def test_pack_rejects_unknown_relation_type() -> None:
+    pack = load_story_pack(STORY_ID)
+    pack.relations["relations"].append({"src": 1, "dst": 7, "type": "nemesis"})
+    issues = pack.validate()
+    assert any(it.startswith("[X5]") for it in issues), issues
+
+
+def test_pack_faithful_to_scenario() -> None:
+    """G0 回归锚点：HBM 参考包的世界原语必须与 hbm_scenario.yaml 逐项一致(无漂移)。"""
+    import yaml
+
+    from agent_world.hbm_demo.shared.prompt_paths import scenario_path
+
+    scn = yaml.safe_load(scenario_path().read_text(encoding="utf-8"))
+    pack = load_story_pack(STORY_ID)
+
+    def sset(seq, *keys):
+        return sorted(tuple(d.get(k) for k in keys) for d in seq)
+
+    assert sset(scn["places"], "place_id", "capacity") == sset(
+        pack.places["places"], "place_id", "capacity"
+    )
+    assert sset(scn["coverage"], "src", "dst", "latency_ticks") == sset(
+        pack.places["coverage"], "src", "dst", "latency_ticks"
+    )
+    assert sset(scn["agents"], "agent_id", "name", "location") == sset(
+        pack.agents["agents"], "agent_id", "name", "location"
+    )
+    assert sset(scn["relations"], "src", "dst", "type") == sset(
+        pack.relations["relations"], "src", "dst", "type"
+    )
+    assert sset(scn["groups"], "group_id", "name", "creator_id") == sset(
+        pack.groups["groups"], "group_id", "name", "creator_id"
+    )
+    # CapabilityTable 播种一致：scenario.capabilities 行 == 各 agent.capabilities 展开
+    scn_caps = sorted((c["agent_id"], c["capability"]) for c in scn["capabilities"])
+    pack_caps = sorted(
+        (a["agent_id"], cap)
+        for a in pack.agents["agents"]
+        for cap in (a.get("capabilities") or [])
+    )
+    assert scn_caps == pack_caps, f"能力播种漂移：{scn_caps} vs {pack_caps}"
+    # soul 全文一致
+    scn_soul = {a["agent_id"]: (a.get("soul") or "").strip() for a in scn["agents"]}
+    pack_soul = {a["agent_id"]: (a.get("soul") or "").strip() for a in pack.agents["agents"]}
+    assert scn_soul == pack_soul, "agent soul 文本漂移"
+
+
+def test_pack_optional_files_degrade() -> None:
+    # 去掉 agents/places（模拟可选文件缺失）→ 不应因引用闭合报错（降级跳过）
+    pack = load_story_pack(STORY_ID)
+    pack.agents = {}
+    pack.places = {}
+    issues = [it for it in pack.validate() if it.startswith(("[X1]", "[X2]"))]
+    assert issues == [], f"缺 agents/places 时应降级跳过 X1/X2，却报：{issues}"
 
 
 def main() -> int:

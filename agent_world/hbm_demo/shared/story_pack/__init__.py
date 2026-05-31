@@ -26,14 +26,22 @@ from agent_world.hbm_demo.shared.story_pack.model import (
     StoryEnding,
     StoryNode,
 )
+from agent_world.hbm_demo.shared.story_pack.pack import (
+    StoryPack,
+    load_and_validate_story_pack,
+    load_story_pack,
+)
 
 __all__ = [
     "StoryGraph",
     "StoryNode",
     "StoryEnding",
     "StoryEdge",
+    "StoryPack",
     "load_story_graph",
     "load_and_validate_story_graph",
+    "load_story_pack",
+    "load_and_validate_story_pack",
     "load_meta",
     "StoryPackError",
     "StoryPackValidationError",
