@@ -137,13 +137,104 @@ def test_base_agent_generate_validate_retry() -> None:
         raise AssertionError("始终非法应抛 StoryStudioError")
 
 
+def test_designer_agent_with_fake_client() -> None:
+    import json
+
+    from agent_world.hbm_demo.tools.story_studio import Designer
+
+    def fake(system: str, user: str) -> str:
+        return json.dumps(_GOOD_DESIGNER)
+
+    out = Designer(fake).run(_GOOD_BRIEF)
+    assert out["initial_node"] == "n1"
+    assert {n["id"] for n in out["nodes"]} == {"n1", "n2"}
+
+
+def test_generate_pipeline_happy_path() -> None:
+    import json
+    import tempfile
+
+    from agent_world.hbm_demo.tools.story_studio import generate
+
+    def fake(system: str, user: str) -> str:
+        return json.dumps(_GOOD_DESIGNER)
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        result = generate(_GOOD_BRIEF, story_id="studio_gen", client=fake, target_dir=tmp)
+        assert result.ok, result.issues
+        assert (tmp / "story_graph.yaml").is_file() and (tmp / "meta.yaml").is_file()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_generate_regenerate_loop_converges() -> None:
+    """Designer 第一版产环图(validate V4 失败)→回灌反馈→第二版合法 → 回路收敛。"""
+    import json
+    import tempfile
+
+    from agent_world.hbm_demo.tools.story_studio import generate
+
+    cyclic = {
+        "initial_node": "n1",
+        "nodes": [{"id": "n1"}, {"id": "n2"}],
+        "endings": [{"id": "win", "kind": "good"}],
+        "edges": [
+            {"id": "e1", "from": "n1", "to": "n2"},
+            {"id": "e2", "from": "n2", "to": "n1"},  # 环
+            {"id": "e3", "from": "n1", "to": "win"},
+        ],
+    }
+    calls = {"n": 0}
+
+    def fake(system: str, user: str) -> str:
+        calls["n"] += 1
+        # 第一次产环图(过 schema 但 validate V4 失败)，之后产合法图
+        return json.dumps(cyclic if calls["n"] == 1 else _GOOD_DESIGNER)
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        result = generate(_GOOD_BRIEF, story_id="studio_loop", client=fake, target_dir=tmp, max_rounds=3)
+        assert result.ok, result.issues
+        assert calls["n"] == 2, f"应在第 2 轮收敛，实际 {calls['n']} 轮"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_generate_raises_after_max_rounds() -> None:
+    import json
+    import tempfile
+
+    from agent_world.hbm_demo.tools.story_studio import generate
+
+    bad = {
+        "initial_node": "n1",
+        "nodes": [{"id": "n1"}],
+        "endings": [{"id": "win", "kind": "good"}, {"id": "lost", "kind": "bad"}],
+        "edges": [{"id": "e1", "from": "n1", "to": "win"}],  # lost 永不可达 → V6
+    }
+
+    def always_bad(system: str, user: str) -> str:
+        return json.dumps(bad)
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        generate(_GOOD_BRIEF, story_id="studio_fail", client=always_bad, target_dir=tmp, max_rounds=2)
+    except StoryStudioError:
+        pass
+    else:
+        raise AssertionError("始终不可达结局应在轮次耗尽后抛 StoryStudioError")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_import_graph_red_line() -> None:
     """story_studio 源码不得引用 kernel/seed/world_db/http（dev_logs/45 §1.2 机制级红线）。"""
     studio_dir = Path(__file__).resolve().parents[2] / "tools" / "story_studio"
     forbidden = ("core.runner.kernel", "core.runner.seed", "persistence.world_db",
                  "hbm_demo.http", "build_kernel", "seed_world", "WorldDB")
     offenders = []
-    for py in studio_dir.glob("*.py"):
+    for py in studio_dir.rglob("*.py"):
         src = py.read_text(encoding="utf-8")
         for token in forbidden:
             # 只看 import 行，避免命中注释/文档里的字样

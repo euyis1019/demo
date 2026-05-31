@@ -52,9 +52,28 @@ def _cmd_compile(args: argparse.Namespace) -> int:
 
 
 def _cmd_generate(args: argparse.Namespace) -> int:
-    print("generate（brief→管理 agent 工作室→整包）将在 G2/G3 实现，需 LLM 客户端。")
-    print("当前可用：validate-brief（校验输入）、compile（由 sections 落盘+校验）。")
-    return 2
+    brief = _load_any(Path(args.brief))
+    issues = validate_brief(brief)
+    if issues:
+        print(f"✗ brief 校验未过（{len(issues)} 项），先修 brief：")
+        for it in issues:
+            print(f"    {it}")
+        return 1
+    from agent_world.hbm_demo.tools.story_studio.base_agent import StoryStudioError
+    from agent_world.hbm_demo.tools.story_studio.llm_client import make_llm_client
+    from agent_world.hbm_demo.tools.story_studio.orchestrator import generate
+
+    try:
+        client = make_llm_client(brief.get("llm"))
+        result = generate(brief, story_id=args.story_id, client=client, max_rounds=args.max_rounds)
+    except StoryStudioError as exc:
+        print(f"✗ 生成失败：{exc}")
+        return 1
+    except RuntimeError as exc:  # 缺 key 等
+        print(f"✗ {exc}")
+        return 1
+    print(f"✓ 已生成 Story Pack '{args.story_id}' → {result.target_dir}（G2 骨架级；G3 补全世界原语）")
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -70,8 +89,10 @@ def build_parser() -> argparse.ArgumentParser:
     pc.add_argument("sections")
     pc.set_defaults(func=_cmd_compile)
 
-    pg = sub.add_parser("generate", help="(G2) 由 brief 经管理 agent 工作室生成整包")
+    pg = sub.add_parser("generate", help="由 brief 经 Designer + validate 回路生成 Story Pack 骨架")
+    pg.add_argument("story_id")
     pg.add_argument("brief")
+    pg.add_argument("--max-rounds", type=int, default=3, dest="max_rounds")
     pg.set_defaults(func=_cmd_generate)
     return p
 
