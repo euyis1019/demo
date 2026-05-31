@@ -5,11 +5,8 @@ Stimulus-driven tick gating + prompt hints:
 - Inject agents tick while ``player_memory`` is pending, then drop off.
 - After outbound RDC with no reply, discourage repeat spam via prompt hints.
 
-This module owns the public API + the orchestrator ``build_conversation_hints``;
-the per-rule hint builders live in ``f2f_rules`` / ``batch_rules`` and the
-world.db query helpers in ``queries`` (this file imports from them, not vice
-versa — keeping the dependency acyclic: queries ← batch_rules ← f2f_rules ←
-control).
+提示全部是数据驱动、与故事无关的通用对话节奏（未读须回、已发别重复催、本批 inject 回应过别复读），
+world.db 查询经叶子模块 ``queries``。已无任何 HBM/相位/角色硬编码提示。
 """
 
 from __future__ import annotations
@@ -17,20 +14,8 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from agent_world.hbm_demo.features.f07_agent_control.config import load_turn_control
-from agent_world.hbm_demo.features.f07_agent_control.conversation.batch_rules import (
-    _node_a_progress_hints,
-)
-from agent_world.hbm_demo.features.f07_agent_control.conversation.f2f_rules import (
-    _jensen_reception_spam_hints,
-    _jensen_vp_link_hints,
-    _move_and_location_hints,
-    _negotiation_room_hints,
-    _rdc_reply_obligation_hints,
-    _reception_jensen_spam_hints,
-)
 from agent_world.hbm_demo.features.f07_agent_control.conversation.queries import (
     _has_rdc_reply_from,
-    _recent_rdc_count,
     _unread_rdc_sender_ids,
 )
 
@@ -150,129 +135,61 @@ def mark_communication_action(
                 agent._last_rdc_out_content = last_out  # noqa: SLF001
 
 
-def _agent_place(world: Any, agent_id: int) -> str:
-    places = getattr(world, "places", None)
-    if places is None:
-        return ""
-    return str(places.L_t(int(agent_id)) or "")
-
-
 def build_conversation_hints(
     agent_id: int,
     agent: Any,
     world: Any,
     t: int,
 ) -> str:
-    """Soft prompt block: reply when inbox non-empty; do_nothing when spamming."""
+    """软提示块（数据驱动、与故事无关的通用对话节奏）：有未读就本拍回复；已发未回别重复催；
+    本批 inject 回应过就别复读。无任何 HBM/相位/角色硬编码。"""
     lines: List[str] = []
     db = resolve_world_db(world)
     aid = int(agent_id)
     tick = int(t)
-    phase = ""
-    ctx = getattr(agent, "_batch_turn_context", None)
-    if isinstance(ctx, dict):
-        phase = str(ctx.get("phase") or "")
-
-    place = _agent_place(world, aid)
     mem = getattr(agent, "player_memory", None)
-    lines.extend(_move_and_location_hints(aid, phase, place))
-    lines.extend(_negotiation_room_hints(aid, agent, world, tick, phase, place))
-    if db is not None:
-        lines.extend(_node_a_progress_hints(aid, agent, phase, db, tick, mem=mem))
-        lines.extend(_rdc_reply_obligation_hints(aid, agent, world, tick, phase, db))
-        lines.extend(_jensen_reception_spam_hints(aid, agent, world, tick, phase, db))
-        lines.extend(_jensen_vp_link_hints(aid, agent, phase, world, tick, db))
-        lines.extend(_reception_jensen_spam_hints(aid, phase, tick, db))
 
+    # 1) 收件箱有未读 → 本拍处理；逐个提示待回的 RDC 发件人
     if has_unread_inbound(aid, agent, world, tick):
         lines.append(
             "【收件箱】未读消息须本拍处理：RDC 用 send_message 回复发件人，"
             "同室 F2F 用 speak_to_local；不要空过。"
         )
-        if aid == 3 and has_unread_inbound(aid, agent, world, tick, rdc_from=2):
+        for sid in (_unread_rdc_sender_ids(aid, agent, world, tick, db) if db else []):
             lines.append(
-                "【Jensen 求证】send_message→2，1–3 句技术评估；"
-                "正面含「可行/核武器/理论上成立」。"
+                f"【私信回复】Agent{sid} 的 RDC 等待回复——本拍 send_message→{sid}。"
             )
-        elif aid == 1 and has_unread_inbound(aid, agent, world, tick, rdc_from=2):
-            lines.append(
-                "【Jensen 回信】send_message→2 确认收到，并 speak_to_local 转告玩家。"
-            )
-        else:
-            for sid in _unread_rdc_sender_ids(aid, agent, world, tick, db) if db else []:
-                if sid in (1, 2, 3) and (
-                    (aid == 2 and sid == 1)
-                    or (aid == 3 and sid == 2)
-                    or (aid == 1 and sid == 2)
-                ):
-                    continue
-                lines.append(
-                    f"【私信回复】Agent{sid} 的 RDC 等待回复——本拍 send_message→{sid}。"
-                )
 
+    # 2) 已发 RDC 尚未收到回复 → 别用相同内容重复催（防刷屏）
     pending: Dict[int, int] = dict(getattr(agent, "_pending_rdc_out", {}) or {})
     if db is not None:
         still_pending: Dict[int, int] = {}
         for target, sent_t in pending.items():
             if _has_rdc_reply_from(
-                db,
-                agent_id=aid,
-                sender_id=int(target),
-                since_t=int(sent_t),
-                t_now=tick,
+                db, agent_id=aid, sender_id=int(target), since_t=int(sent_t), t_now=tick
             ):
                 continue
             still_pending[int(target)] = int(sent_t)
             if tick - int(sent_t) >= 1:
                 lines.append(
                     f"【待发跟进】你已在 t={sent_t} 向 Agent{target} 发过 RDC，对方尚未回复。"
-                    "本拍勿用相同内容重复催促；可选 do_nothing、update_state，"
-                    "或等对方回信后再行动。"
+                    "本拍勿用相同内容重复催促；可选 do_nothing、update_state，或等对方回信后再行动。"
                 )
         if still_pending != pending:
             agent._pending_rdc_out = still_pending  # noqa: SLF001
 
+    # 3) 玩家 inject 回应状态
     if mem:
         lines.append(
             "【玩家 inject】本批对话你尚未完成首次回应；回应玩家后不必每拍重复相同简报。"
         )
-        if aid == 1 and phase == "Phase 1" and db is not None:
-            since_t = max(0, tick - 50)
-            if (
-                _recent_rdc_count(
-                    db, sender_id=1, recipient_id=2, since_t=since_t, t_now=tick
-                )
-                == 0
-            ):
-                lines.append(
-                    "【节点 A·同批 RDC】F2F 回应玩家后，本批仍须 send_message→2 简报 Jensen，"
-                    "不可 speak_to_local 后就 do_nothing。"
-                )
-    elif getattr(agent, "_inject_responded", False) and not has_unread_inbound(
-        aid, agent, world, tick
-    ):
-        if (
-            aid == 1
-            and phase == "Phase 1"
-            and db is not None
-            and _recent_rdc_count(
-                db, sender_id=1, recipient_id=2, since_t=max(0, tick - 20), t_now=tick
-            )
-            == 0
-        ):
-            lines.append(
-                "【节点 A·补 RDC】你已 F2F 回应玩家但尚未 send_message→2 简报 Jensen——"
-                "本拍须 RDC→2（一句即可），然后再 do_nothing。"
-            )
-        else:
-            lines.append(
-                "【本批已回应】你已处理过本轮玩家 inject 且无新未读消息。"
-                "不必重复相同 F2F/RDC；若玩家仍在场或场景有变化，可 update_state 或短句跟进；"
-                "确无新信息时再 do_nothing。"
-            )
+    elif getattr(agent, "_inject_responded", False) and not has_unread_inbound(aid, agent, world, tick):
+        lines.append(
+            "【本批已回应】你已处理过本轮玩家 inject 且无新未读消息。"
+            "不必重复相同 F2F/RDC；若玩家仍在场或场景有变化，可 update_state 或短句跟进；"
+            "确无新信息时再 do_nothing。"
+        )
 
-    if not lines:
-        return ""
     return "\n".join(lines)
 
 

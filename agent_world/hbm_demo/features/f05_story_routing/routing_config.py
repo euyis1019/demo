@@ -1,10 +1,14 @@
-"""Load F05 routing.yaml — agent-driven story signals."""
+"""F05 路由开关 + 群聊门控关键词。
+
+剧情推进已由 LLM 导演(director.py)负责，旧的相位/谈判关键词集合(approve/reject/escort/expel/
+phase4_deal/return_to_negotiation 等)与超时兜底已删；这里只剩：路由模式开关、节点(导演)驱动开关、
+以及群聊门控(需求三)用的"同意/拒绝入群"关键词。
+"""
 
 from __future__ import annotations
 
 import os
 from functools import lru_cache
-from pathlib import Path
 from typing import Any, Dict, Tuple
 
 import yaml
@@ -17,7 +21,7 @@ _ROUTING_PATH = routing_config_path()
 @lru_cache(maxsize=1)
 def load_routing_config() -> Dict[str, Any]:
     if not _ROUTING_PATH.is_file():
-        return {"mode": "agent_driven", "stats_display_only": True, "signals": {}}
+        return {"mode": "agent_driven", "signals": {}}
     with _ROUTING_PATH.open(encoding="utf-8") as fh:
         data = yaml.safe_load(fh) or {}
     block = data.get("routing") if isinstance(data, dict) else {}
@@ -32,10 +36,6 @@ def is_agent_driven() -> bool:
     return routing_mode() == "agent_driven"
 
 
-def stats_display_only() -> bool:
-    return bool(load_routing_config().get("stats_display_only", True))
-
-
 def _signal_list(key: str, default: Tuple[str, ...]) -> Tuple[str, ...]:
     signals = load_routing_config().get("signals") or {}
     raw = signals.get(key)
@@ -44,17 +44,6 @@ def _signal_list(key: str, default: Tuple[str, ...]) -> Tuple[str, ...]:
         if out:
             return out
     return default
-
-
-def approve_keywords() -> Tuple[str, ...]:
-    return _signal_list(
-        "approve_keywords",
-        ("私人会议室", "私密会议室", "可以见", "带进来", "批准", "这边请", "请跟我来"),
-    )
-
-
-def reject_keywords() -> Tuple[str, ...]:
-    return _signal_list("reject_keywords", ("拒绝", "请离开", "保安"))
 
 
 def group_consent_keywords() -> Tuple[str, ...]:
@@ -73,69 +62,6 @@ def group_reject_keywords() -> Tuple[str, ...]:
     )
 
 
-def expel_keywords() -> Tuple[str, ...]:
-    return _signal_list(
-        "expel_keywords",
-        ("请离场", "谈完了", "出去", "请出去", "你们出去", "先出去", "离场", "谈够了"),
-    )
-
-
-def escort_keywords() -> Tuple[str, ...]:
-    return _signal_list("escort_keywords", ("请跟我来", "这边请"))
-
-
-def return_to_negotiation_keywords() -> Tuple[str, ...]:
-    return _signal_list(
-        "return_to_negotiation_keywords",
-        (
-            "回谈判室",
-            "回到谈判",
-            "回主谈判",
-            "进谈判室",
-            "去谈判室",
-            "跟我进谈判室",
-            "方案可行",
-            "认可",
-        ),
-    )
-
-
-def phase4_deal_keywords() -> Tuple[str, ...]:
-    """Broad pre-filter for Phase 4 deal talk — decides only whether to spend an
-    LLM conclusion check; intentionally generous (the LLM makes the real call)."""
-    return _signal_list(
-        "phase4_deal_keywords",
-        (
-            "offer", "合同", "签字", "入职", "加入", "录用", "入伙", "高管",
-            "种子", "融资", "估值", "投资", "期权", "股权", "敲定", "算定",
-            "同意", "这么定", "拍桌", "收回", "Distinguished", "DE",
-        ),
-    )
-
-
-def require_reception_escort_f2f() -> bool:
-    signals = load_routing_config().get("signals") or {}
-    return bool(signals.get("require_reception_escort_f2f", False))
-
-
-def max_turns_phase1_without_approve() -> int:
-    signals = load_routing_config().get("signals") or {}
-    raw = signals.get("max_turns_phase1_without_approve", 10)
-    try:
-        return max(1, int(raw))
-    except (TypeError, ValueError):
-        return 10
-
-
-def is_story_advance_enabled() -> bool:
-    block = load_routing_config().get("story_advance") or {}
-    return bool(block.get("enabled", True))
-
-
 def is_story_pack_routing_enabled() -> bool:
-    """是否用 Story Pack 解释器驱动路由（默认关，旧 if 链路径不变）。
-
-    开关式接入：`HBM_STORY_PACK_ROUTING=1` 才启用解释器路径（dev_logs/45 §6 G0-Slice4 /
-    dev_logs/46 E-1 灰度）。等价性已由离线回归证明；切换前仍应跑完整 E2E 门禁。
-    """
+    """是否走导演驱动路由（默认开）；HBM_STORY_PACK_ROUTING=0 才关。"""
     return os.environ.get("HBM_STORY_PACK_ROUTING", "1").strip() not in ("0", "false", "False", "no", "off")

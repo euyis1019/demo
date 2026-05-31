@@ -1,8 +1,0 @@
-# Phase → player place_id (dev_log/34 §5.6 · single source of truth)
-phases:
-  "Phase 1": nvidia_reception
-  "Phase 2": jensen_private_room
-  "Phase 3": negotiation_room
-  "Phase 4": negotiation_room
-
-default_place: nvidia_reception

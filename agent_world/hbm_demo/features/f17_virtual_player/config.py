@@ -7,10 +7,7 @@ from typing import Any, Dict
 
 import yaml
 
-from agent_world.hbm_demo.shared.prompt_paths import (
-    virtual_player_config_path,
-    virtual_player_phase_places_path,
-)
+from agent_world.hbm_demo.shared.prompt_paths import virtual_player_config_path
 
 
 @lru_cache(maxsize=1)
@@ -29,7 +26,3 @@ def is_f08_enabled() -> bool:
 
 def player_agent_id() -> int:
     return int(load_f08_config().get("player_agent_id", 0))
-
-
-def phase_places_path():
-    return virtual_player_phase_places_path()

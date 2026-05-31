@@ -6,7 +6,6 @@ from agent_world.hbm_demo.features.f17_virtual_player.config import (
 )
 from agent_world.hbm_demo.features.f17_virtual_player.player_entity import (
     is_virtual_player_agent,
-    sync_player_place_on_routing,
 )
 from agent_world.hbm_demo.features.f17_virtual_player.player_f2f import (
     apply_player_f2f_payload,
@@ -19,5 +18,4 @@ __all__ = [
     "is_f08_enabled",
     "is_virtual_player_agent",
     "player_agent_id",
-    "sync_player_place_on_routing",
 ]

@@ -23,21 +23,9 @@ def turn_control_path() -> Path:
     return PROMPTS_ROOT / "abcs" / "turn_control.yaml"
 
 
-def story_knowledge_dir() -> Path:
-    return PROMPTS_ROOT / "abcs" / "story_knowledge"
-
-
 def routing_config_path() -> Path:
     return PROMPTS_ROOT / "routing" / "routing.yaml"
 
 
 def virtual_player_config_path() -> Path:
     return PROMPTS_ROOT / "virtual_player" / "config.yaml"
-
-
-def virtual_player_phase_places_path() -> Path:
-    return PROMPTS_ROOT / "virtual_player" / "phase_places.yaml"
-
-
-def scenario_path() -> Path:
-    return _HBM_ROOT / "hbm_scenario.yaml"

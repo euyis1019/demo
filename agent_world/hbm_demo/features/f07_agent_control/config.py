@@ -8,10 +8,7 @@ from typing import Any, Dict
 
 import yaml
 
-from agent_world.hbm_demo.shared.prompt_paths import (
-    story_knowledge_dir as _prompt_story_knowledge_dir,
-    turn_control_path,
-)
+from agent_world.hbm_demo.shared.prompt_paths import turn_control_path
 
 _FEATURE_DIR = Path(__file__).resolve().parent
 _TURN_CONTROL_PATH = turn_control_path()
@@ -70,10 +67,6 @@ def resolve_inject_tick_count(phase: str, tick_count: int) -> int:
     if str(phase) == "Phase 1":
         return max(n, 8)
     return n
-
-
-def story_knowledge_dir() -> Path:
-    return _prompt_story_knowledge_dir()
 
 
 def world_loop_block() -> Dict[str, Any]:

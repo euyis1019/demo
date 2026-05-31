@@ -1,7 +1,0 @@
-groups:
-- group_id: 1
-  name: 客栈势力
-  members:
-  - 1
-  - 2
-  creator_id: 1
