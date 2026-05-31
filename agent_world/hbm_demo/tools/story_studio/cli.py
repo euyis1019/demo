@@ -80,6 +80,25 @@ def _cmd_regenerate(args: argparse.Namespace) -> int:
     return 0 if result.ok else 1
 
 
+def _cmd_assets(args: argparse.Namespace) -> int:
+    from agent_world.hbm_demo.shared.story_pack import list_story_ids, load_story_pack
+    from agent_world.hbm_demo.tools.story_studio.asset_manifest import (
+        render_asset_manifest,
+        write_asset_manifest,
+    )
+
+    if args.story_id not in list_story_ids():
+        print(f"✗ 不存在 Story Pack '{args.story_id}'")
+        return 2
+    pack = load_story_pack(args.story_id)
+    if args.write:
+        path = write_asset_manifest(pack)
+        print(f"✓ 已写素材清单 → {path}")
+    else:
+        print(render_asset_manifest(pack))
+    return 0
+
+
 def _cmd_generate(args: argparse.Namespace) -> int:
     brief = _load_any(Path(args.brief))
     issues = validate_brief(brief)
@@ -132,6 +151,11 @@ def build_parser() -> argparse.ArgumentParser:
     prg.add_argument("story_id")
     prg.add_argument("section", choices=["writer"])
     prg.set_defaults(func=_cmd_regenerate)
+
+    pa = sub.add_parser("assets", help="生成图片素材清单 txt（列出需要的图 + 详细提示词，用户自备）")
+    pa.add_argument("story_id")
+    pa.add_argument("--write", action="store_true", help="写入 <story>/ASSETS_TODO.txt（默认仅打印）")
+    pa.set_defaults(func=_cmd_assets)
     return p
 
 

@@ -40,6 +40,10 @@ from agent_world.hbm_demo.tools.story_studio.orchestrator import (
     generate_full,
     regenerate_writer,
 )
+from agent_world.hbm_demo.tools.story_studio.asset_manifest import (
+    render_asset_manifest,
+    write_asset_manifest,
+)
 from agent_world.hbm_demo.tools.story_studio.review import render_review
 from agent_world.hbm_demo.tools.story_studio.safety import (
     StoryStudioSafetyError,
@@ -65,6 +69,8 @@ __all__ = [
     "assemble_full_sections",
     "assemble_sections",
     "render_review",
+    "render_asset_manifest",
+    "write_asset_manifest",
     "GenerationTrace",
     "BudgetExceededError",
     "metering_client",

@@ -435,6 +435,40 @@ def test_metering_trace_records_calls() -> None:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# ---- G5：素材清单 txt ----
+
+def test_asset_manifest_lists_all_images() -> None:
+    from agent_world.hbm_demo.shared.story_pack import load_story_pack
+    from agent_world.hbm_demo.tools.story_studio import render_asset_manifest
+
+    text = render_asset_manifest(load_story_pack("hbm_memory_war"))
+    # 封面 + 4 地点背景 + 7 个 NPC 立绘（玩家 0 不出）= 12 张
+    assert "封面图" in text
+    assert text.count("场景背景：") == 4
+    assert text.count("角色立绘：") == 7  # agents 1..7（排除玩家 0）
+    assert "共需 12 张图片" in text
+    # 提示词含统一画风 + 具体内容
+    assert "统一画风要求" in text and "Jensen Hwang" in text
+
+
+def test_asset_manifest_write_to_tmp_and_safety() -> None:
+    import shutil
+    import tempfile
+
+    from agent_world.hbm_demo.shared.story_pack import load_story_pack
+    from agent_world.hbm_demo.tools.story_studio import write_asset_manifest
+    from agent_world.hbm_demo.tools.story_studio.asset_manifest import MANIFEST_FILENAME
+
+    pack = load_story_pack("hbm_memory_war")
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        path = write_asset_manifest(pack, target_dir=tmp)
+        assert path.name == MANIFEST_FILENAME and path.is_file()
+        assert "图片素材清单" in path.read_text(encoding="utf-8")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_import_graph_red_line() -> None:
     """story_studio 源码不得引用 kernel/seed/world_db/http（dev_logs/45 §1.2 机制级红线）。"""
     studio_dir = Path(__file__).resolve().parents[2] / "tools" / "story_studio"
