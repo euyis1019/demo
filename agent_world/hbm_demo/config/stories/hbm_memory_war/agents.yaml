@@ -8,9 +8,8 @@ agents:
     soul: ""
     long_term_goal: ""
     current_state: ""
-    # 玩家全部交互权限(私信/F2F/群聊/移动)记在 meta.player.capabilities，经虚拟玩家路径下发；
-    # 这里保持空，与 hbm_scenario.yaml 的 CapabilityTable 播种一致(scenario 不给 agent 0 能力行)。
-    capabilities: []
+    # signal_uplink：玩家加群后群发须经 phi_grp 投递给 NPC（需求三），与 hbm_scenario.yaml 一致。
+    capabilities: [signal_uplink]
 
   - agent_id: 1
     name: "接待前台"

@@ -34,8 +34,9 @@ class FakeGrpBus:
         self.joined: List[tuple] = []
         self.sent: List[tuple] = []
 
-    async def join_group(self, gid: int, agent_id: int) -> bool:
-        self.joined.append((gid, agent_id))
+    async def join_group(self, agent_id: int, group_id: int) -> bool:
+        # 与真实 GroupMessageBus.join_group(agent_id, group_id) 签名一致，防假桩漂绿。
+        self.joined.append((agent_id, group_id))
         return True
 
     async def send_to_group(self, sender: int, gid: int, content: str, t: int) -> int:
@@ -77,7 +78,7 @@ def test_apply_grp_joins_and_sends() -> None:
     payload = build_player_grp_payload(FakeSession(), 100, "各位好")
     ok = asyncio.run(apply_player_grp_payload(FakeWorldDB(), bus, payload, t=9))
     assert ok is True
-    assert bus.joined == [(100, 0)]            # 幂等入群(gid, agent0)
+    assert bus.joined == [(0, 100)]            # 入群(agent_id=0, group_id=100)，顺序与真实总线一致
     assert bus.sent and bus.sent[0][:3] == (0, 100, "各位好")
 
 
@@ -85,7 +86,7 @@ def test_apply_grp_join_only_no_content() -> None:
     bus = FakeGrpBus()
     payload = build_player_grp_payload(FakeSession(), 200, "")  # 只加群不发言
     ok = asyncio.run(apply_player_grp_payload(FakeWorldDB(), bus, payload, t=3))
-    assert ok is True and bus.joined == [(200, 0)] and bus.sent == []
+    assert ok is True and bus.joined == [(0, 200)] and bus.sent == []
 
 
 def main() -> int:

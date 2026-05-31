@@ -79,9 +79,10 @@ async def apply_player_grp_payload(
     gid = int(payload.get("group_id"))
     at_t = max(1, int(t))
     try:
-        await grp_bus.join_group(gid, sender)  # 幂等
+        # 真实签名是 join_group(agent_id, group_id)，用关键字传参杜绝位置写反。
+        await grp_bus.join_group(agent_id=sender, group_id=gid)  # 幂等
     except Exception as exc:  # noqa: BLE001
-        log.warning("player join_group(%s,%s) failed: %s", gid, sender, exc)
+        log.warning("player join_group(agent=%s, group=%s) failed: %s", sender, gid, exc)
         return False
     content = str(payload.get("content") or "").strip()
     if content:

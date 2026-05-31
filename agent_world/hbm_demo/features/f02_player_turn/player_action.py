@@ -63,8 +63,13 @@ def handle_player_action(session: Any, *, sim_id: str, action: str, body: Dict[s
         place_id = str(body.get("place_id") or "").strip()
         if not place_id:
             return {"accepted": False, "reason": "invalid_move"}
-        send_move_agent(ipc_client, agent_id=int(player_agent_id()), place_id=place_id)
-        session.place_id = place_id  # 同步玩家位置（后续 F2F/inject 用新地点）
+        resp = send_move_agent(ipc_client, agent_id=int(player_agent_id()), place_id=place_id)
+        # 引擎把非法地点/容量满吞成 status=completed + result.error；不能盲目同步 session 位置。
+        move_err = (getattr(resp, "result", None) or {}).get("error")
+        if move_err:
+            log.warning("player move → %s rejected: %s", place_id, move_err)
+            return {"accepted": False, "reason": "move_failed", "detail": str(move_err)}
+        session.place_id = place_id  # 仅在引擎确认移动后同步（后续 F2F/inject 用新地点）
         save_session_safe(session, sim_id)
         log.info("player move → %s", place_id)
         return {"accepted": True, "action": "move", "place_id": place_id}

@@ -69,6 +69,8 @@ coverage:
   - {src: openai_hq, dst: openai_hq, latency_ticks: 0}
 
 capabilities:
+  # agent 0 = 玩家：给 signal_uplink 让玩家加群后群发能经 phi_grp 投递给 NPC（需求三）。
+  - {agent_id: 0, capability: signal_uplink}
   - {agent_id: 1, capability: signal_uplink}
   - {agent_id: 2, capability: signal_uplink}
   - {agent_id: 3, capability: signal_uplink}
