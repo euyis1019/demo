@@ -60,6 +60,88 @@ DESIGNER_OUTPUT_SCHEMA: Dict[str, Any] = {
 }
 
 
+# Casting：brief + DesignerOutput → 世界原语（角色花名册 + 舞台 + 关系 + 群组）。
+CASTING_OUTPUT_SCHEMA: Dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["agents", "places"],
+    "properties": {
+        "agents": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "required": ["agent_id", "name", "location"],
+                "properties": {
+                    "agent_id": {"type": "integer"},
+                    "name": {"type": "string"},
+                    "location": {"type": "string"},
+                    "role": {"type": "string"},
+                    "faction": {"type": "string"},
+                    "capabilities": {"type": "array", "items": {"type": "string"}},
+                    "soul": {"type": "string"},
+                    "long_term_goal": {"type": "string"},
+                    "current_state": {"type": "string"},
+                },
+            },
+        },
+        "places": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "required": ["place_id"],
+                "properties": {
+                    "place_id": {"type": "string"},
+                    "capacity": {"type": "integer"},
+                    "attrs": {"type": "object"},
+                },
+            },
+        },
+        "coverage": {"type": "array"},
+        "relations": {"type": "array"},
+        "relation_types": {"type": "array"},
+        "groups": {"type": "array"},
+    },
+}
+
+# Writer：DesignerOutput + Casting → 给节点绑注入/地点、给边补触发/动作、产 signals。
+WRITER_OUTPUT_SCHEMA: Dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["nodes", "edges"],
+    "properties": {
+        "nodes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                    "id": {"type": "string"},
+                    "inject_agents": {"type": "array", "items": {"type": "integer"}},
+                    "place_focus": {"type": "string"},
+                    "window_since": {"type": "string"},
+                },
+            },
+        },
+        "edges": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                    "id": {"type": "string"},
+                    "trigger": {"type": "object"},
+                    "actions": {"type": "array"},
+                    "legacy_label": {"type": "string"},
+                },
+            },
+        },
+        "signals": {"type": "object"},
+    },
+}
+
+
 def validate_against(data: Dict[str, Any], schema: Dict[str, Any], *, label: str = "output") -> List[str]:
     """通用 JSON Schema 校验，返回违例列表（空 = 通过）。"""
     validator = jsonschema.Draft202012Validator(schema)

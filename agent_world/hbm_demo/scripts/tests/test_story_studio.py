@@ -228,6 +228,118 @@ def test_generate_raises_after_max_rounds() -> None:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# ---- G3：完整流水线（Designer+Casting+Writer）----
+
+_G3_DESIGNER = {
+    "initial_node": "n1",
+    "nodes": [{"id": "n1", "beats_label": "序", "summary": "开场"},
+              {"id": "n2", "beats_label": "终", "summary": "结尾"}],
+    "endings": [{"id": "win", "kind": "good", "summary": "赢"},
+                {"id": "lose", "kind": "bad", "summary": "输"}],
+    "edges": [{"id": "adv", "from": "n1", "to": "n2"},
+              {"id": "fin", "from": "n2", "to": "win"},
+              {"id": "fail", "from": "n1", "to": "lose"}],
+}
+_G3_CASTING = {
+    "agents": [
+        {"agent_id": 0, "name": "玩家", "location": "hall", "capabilities": [],
+         "soul": "", "long_term_goal": "", "current_state": ""},
+        {"agent_id": 1, "name": "守门人", "location": "hall", "capabilities": ["signal_uplink"],
+         "soul": "严谨", "long_term_goal": "守门", "current_state": "值班"},
+    ],
+    "places": [{"place_id": "hall", "capacity": 5, "attrs": {"summary": "大厅"}}],
+    "coverage": [{"src": "hall", "dst": "hall", "latency_ticks": 0}],
+    "relations": [], "relation_types": [], "groups": [],
+}
+_G3_WRITER = {
+    "nodes": [{"id": "n1", "inject_agents": [1], "place_focus": "hall", "window_since": "start_tick"},
+              {"id": "n2", "inject_agents": [1], "place_focus": "hall", "window_since": "phase2_start_tick"}],
+    "edges": [{"id": "adv", "legacy_label": "A", "trigger": {"type": "story_advance", "signal": "go_on"}, "actions": []},
+              {"id": "fin", "trigger": {"type": "story_advance", "signal": "finish"}, "actions": []},
+              {"id": "fail", "trigger": {"type": "story_advance", "signal": "reject"}, "actions": []}],
+    "signals": {"story_advance": {"enabled": True, "valid_signals": ["go_on", "finish", "reject"]},
+                "keyword_sets": {}, "params": {}},
+}
+
+
+def _routing_fake(designer=None, casting=None, writer=None):
+    """按 system prompt 路由到对应 agent 的固定输出。"""
+    import json
+
+    d = designer if designer is not None else _G3_DESIGNER
+    c = casting if casting is not None else _G3_CASTING
+    w = writer if writer is not None else _G3_WRITER
+
+    def fake(system: str, user: str) -> str:
+        if "设计师" in system:
+            return json.dumps(d)
+        if "选角" in system:
+            return json.dumps(c)
+        if "编剧" in system:
+            return json.dumps(w)
+        raise AssertionError("未知 agent system prompt")
+
+    return fake
+
+
+def test_generate_full_produces_valid_complete_pack() -> None:
+    import tempfile
+
+    from agent_world.hbm_demo.shared.story_pack import load_story_pack
+    from agent_world.hbm_demo.tools.story_studio import generate_full
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        result = generate_full(_GOOD_BRIEF, story_id="studio_full", client=_routing_fake(),
+                               target_dir=tmp, max_rounds=2)
+        assert result.ok, f"完整包应过 V+X 校验：{result.issues}"
+        # 全部世界原语文件都落了盘
+        for f in ("meta", "story_graph", "places", "agents", "relations", "relation_types", "groups", "signals"):
+            assert (tmp / f"{f}.yaml").is_file(), f"缺 {f}.yaml"
+        # 从该目录就地加载并复核 V+X 干净，且枚举路径命中两个结局
+        from agent_world.hbm_demo.tools.story_studio.orchestrator import _load_pack_from_dir
+        pack = _load_pack_from_dir("studio_full", tmp)
+        assert pack.validate() == []
+        reached = {p[-1] for p in pack.graph.enumerate_all_paths() if p[-1] in pack.graph.endings}
+        assert reached == {"win", "lose"}, reached
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_generate_full_regenerates_on_xref_break() -> None:
+    """Writer 第一版 inject 一个不存在的 agent(X1 失败)→回灌→第二版修好 → 回路收敛。"""
+    import tempfile
+
+    from agent_world.hbm_demo.tools.story_studio import generate_full
+
+    broken_writer = {
+        "nodes": [{"id": "n1", "inject_agents": [99], "place_focus": "hall", "window_since": "start_tick"},
+                  {"id": "n2", "inject_agents": [1], "place_focus": "hall", "window_since": "phase2_start_tick"}],
+        "edges": _G3_WRITER["edges"],
+        "signals": _G3_WRITER["signals"],
+    }
+    calls = {"writer": 0}
+    import json
+
+    def fake(system: str, user: str) -> str:
+        if "设计师" in system:
+            return json.dumps(_G3_DESIGNER)
+        if "选角" in system:
+            return json.dumps(_G3_CASTING)
+        if "编剧" in system:
+            calls["writer"] += 1
+            return json.dumps(broken_writer if calls["writer"] == 1 else _G3_WRITER)
+        raise AssertionError("未知 agent")
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        result = generate_full(_GOOD_BRIEF, story_id="studio_xref", client=fake, target_dir=tmp, max_rounds=3)
+        assert result.ok, result.issues
+        assert calls["writer"] == 2, f"应在第 2 轮收敛，实际 {calls['writer']}"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_import_graph_red_line() -> None:
     """story_studio 源码不得引用 kernel/seed/world_db/http（dev_logs/45 §1.2 机制级红线）。"""
     studio_dir = Path(__file__).resolve().parents[2] / "tools" / "story_studio"

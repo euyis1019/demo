@@ -90,6 +90,91 @@ def generate(
     )
 
 
+def _merge_by_id(base: List[Dict[str, Any]], enrich: List[Dict[str, Any]], keys) -> List[Dict[str, Any]]:
+    """按 id 把 enrich 的若干键并进 base（base 顺序为准）。"""
+    em = {e.get("id"): e for e in enrich}
+    out: List[Dict[str, Any]] = []
+    for item in base:
+        merged = dict(item)
+        e = em.get(item.get("id"))
+        if e:
+            for k in keys:
+                if k in e:
+                    merged[k] = e[k]
+        out.append(merged)
+    return out
+
+
+def assemble_full_sections(
+    brief: Dict[str, Any], story_id: str, designer: Dict[str, Any],
+    casting: Dict[str, Any], writer: Dict[str, Any],
+) -> Dict[str, Any]:
+    """合并 Designer(骨架) + Writer(节点/边血肉) + Casting(世界原语) → 完整 Story Pack sections。"""
+    nodes = _merge_by_id(designer.get("nodes", []), writer.get("nodes", []),
+                         ("inject_agents", "place_focus", "window_since"))
+    edges = _merge_by_id(designer.get("edges", []), writer.get("edges", []),
+                         ("trigger", "actions", "legacy_label"))
+    story_graph = {
+        "schema_version": 1,
+        "initial_node": designer["initial_node"],
+        "nodes": nodes,
+        "endings": designer.get("endings", []),
+        "edges": edges,
+    }
+
+    meta = brief_to_meta(brief, story_id)
+    agents = casting.get("agents", [])
+    player_loc = next((a.get("location") for a in agents if int(a.get("agent_id", -1)) == 0), None)
+    if player_loc:
+        meta["player"]["start_place"] = player_loc
+    meta["clock"] = {"start_time": "09:00", "minutes_per_tick": 2}
+    meta["runner"] = {"parallel_agent_decisions": True}
+    meta["llm"] = brief.get("llm") or {
+        "base_url": "https://api.deepseek.com", "api_key_env": "DMXAPI_KEY",
+        "model": "deepseek-chat", "temperature": 0.7, "max_tokens": 500,
+    }
+
+    return {
+        "meta": meta,
+        "story_graph": story_graph,
+        "places": {"places": casting.get("places", []), "coverage": casting.get("coverage", [])},
+        "agents": {"agents": agents},
+        "relations": {"relations": casting.get("relations", [])},
+        "relation_types": {"relation_types": casting.get("relation_types", [])},
+        "groups": {"groups": casting.get("groups", [])},
+        "signals": writer.get("signals", {}),
+    }
+
+
+def generate_full(
+    brief: Dict[str, Any], *, story_id: str, client: Any,
+    target_dir: Optional[Path] = None, max_rounds: int = 3,
+) -> CompileResult:
+    """完整流水线 Designer→Casting→Writer→assemble→validate(V+X)→失败回灌重生成。
+
+    产出**完整可运行** Story Pack（世界原语 + 控制流全齐）。client 注入，离线可测。
+    """
+    from agent_world.hbm_demo.tools.story_studio.agents.casting import Casting
+    from agent_world.hbm_demo.tools.story_studio.agents.designer import Designer
+    from agent_world.hbm_demo.tools.story_studio.agents.writer import Writer
+    from agent_world.hbm_demo.tools.story_studio.base_agent import StoryStudioError
+
+    designer, casting, writer = Designer(client), Casting(client), Writer(client)
+    feedback = ""
+    last_issues: List[str] = []
+    for _round in range(max_rounds):
+        d = designer.run(brief, feedback=feedback)
+        c = casting.run(brief, d, feedback=feedback)
+        w = writer.run(d, c, feedback=feedback)
+        sections = assemble_full_sections(brief, story_id, d, c, w)
+        result = compile_pack(sections, story_id=story_id, target_dir=target_dir)
+        if result.ok:
+            return result
+        last_issues = result.issues
+        feedback = "整包校验未过：\n" + "\n".join(result.issues) + "\n请各自修正引用/结构后重新输出完整 JSON。"
+    raise StoryStudioError(f"generate_full '{story_id}' 失败：{max_rounds} 轮仍未过 validate：{last_issues}")
+
+
 def compile_pack(
     sections: Dict[str, Any],
     *,

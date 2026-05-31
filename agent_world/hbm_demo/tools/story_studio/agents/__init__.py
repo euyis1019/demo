@@ -3,6 +3,8 @@
 G2：Designer（brief→故事图骨架）。Casting/Writer/Producer/Artist 在 G3 接入。
 """
 
+from agent_world.hbm_demo.tools.story_studio.agents.casting import Casting
 from agent_world.hbm_demo.tools.story_studio.agents.designer import Designer
+from agent_world.hbm_demo.tools.story_studio.agents.writer import Writer
 
-__all__ = ["Designer"]
+__all__ = ["Designer", "Casting", "Writer"]

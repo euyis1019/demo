@@ -23,13 +23,15 @@ from agent_world.hbm_demo.tools.story_studio.base_agent import (
     call_json_with_schema,
 )
 from agent_world.hbm_demo.tools.story_studio.brief_schema import BRIEF_SCHEMA, validate_brief
-from agent_world.hbm_demo.tools.story_studio.agents import Designer
+from agent_world.hbm_demo.tools.story_studio.agents import Casting, Designer, Writer
 from agent_world.hbm_demo.tools.story_studio.orchestrator import (
     CompileResult,
+    assemble_full_sections,
     brief_to_meta,
     compile_pack,
     designer_output_to_story_graph,
     generate,
+    generate_full,
 )
 from agent_world.hbm_demo.tools.story_studio.safety import (
     StoryStudioSafetyError,
@@ -50,7 +52,11 @@ __all__ = [
     "designer_output_to_story_graph",
     "brief_to_meta",
     "generate",
+    "generate_full",
+    "assemble_full_sections",
     "Designer",
+    "Casting",
+    "Writer",
     "write_story_pack",
     "assert_safe_target",
     "StoryStudioSafetyError",
