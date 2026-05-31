@@ -17,6 +17,8 @@ export interface GameMessage {
   sender: string;
   content: string;
   type: "F2F" | "RDC" | "GRP";
+  /** 按台词内容标注的情绪标签，剧情立绘据此随「说的话」切表情。 */
+  emotion?: string;
   attempted_at?: number;
   recipient?: string;
   group_id?: number;

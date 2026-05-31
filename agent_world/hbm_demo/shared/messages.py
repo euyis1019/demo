@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 from agent_world.hbm_demo.features.f06_read_model.world_db import sender_display_name
+from agent_world.hbm_demo.shared.emotion import classify_emotion
 
 
 def format_messages(
@@ -33,6 +34,8 @@ def format_messages(
             item["delivered"] = int(row["delivered"])
         if row["sender_id"] is not None and int(row["sender_id"]) == -1:
             item["is_system"] = True
+        # 按台词内容标注情绪，前端立绘据此随「说的话」切表情（体检 G1）。
+        item["emotion"] = classify_emotion(item["content"])
         out.append(item)
     return out
 
@@ -48,6 +51,7 @@ def format_f2f_public_messages(
             "type": "F2F",
             "attempted_at": at_t,
             "sender_id": int(sender_id),
+            "emotion": classify_emotion(content),  # 立绘随台词情绪切换（体检 G1）
         }
         for at_t, sender_id, _mid, content in history
         if at_t > 0

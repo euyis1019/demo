@@ -24,11 +24,13 @@ function buildLine(
     return null;
   }
   const speakerId = resolveSpeakerAgentId(message, nameMap) ?? "1";
+  // 立绘情绪优先用「这句台词」的情绪(每句都刷新)，无则回退该 agent 最新 OS 情绪(agentMood)。
+  const mood = message.emotion || agentMood[speakerId];
   return {
     message,
     speakerId,
     speakerName: agentDisplayName(speakerId, nameMap),
-    avatarUrl: storyAvatarUrl(speakerId, agentMood[speakerId]),
+    avatarUrl: storyAvatarUrl(speakerId, mood),
     avatarFallbackUrl: storyAvatarBaseUrl(speakerId),
   };
 }
