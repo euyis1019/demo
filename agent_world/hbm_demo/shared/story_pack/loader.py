@@ -8,11 +8,11 @@ places/agents/relations/... 的加载与跨文件引用闭合校验（dev_logs/4
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import yaml
 
-from agent_world.hbm_demo.shared.prompt_paths import story_dir
+from agent_world.hbm_demo.shared.prompt_paths import stories_root, story_dir
 from agent_world.hbm_demo.shared.story_pack.errors import StoryPackError
 from agent_world.hbm_demo.shared.story_pack.graph import StoryGraph
 
@@ -25,6 +25,18 @@ def _load_yaml(path: Path) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise StoryPackError(f"{path} 顶层必须是 mapping，实际为 {type(data).__name__}")
     return data
+
+
+def list_story_ids() -> List[str]:
+    """发现 config/stories/ 下的全部 Story Pack（含 meta.yaml + story_graph.yaml 的目录）。"""
+    root = stories_root()
+    if not root.is_dir():
+        return []
+    out: List[str] = []
+    for child in sorted(root.iterdir()):
+        if child.is_dir() and (child / "meta.yaml").is_file() and (child / "story_graph.yaml").is_file():
+            out.append(child.name)
+    return out
 
 
 def load_meta(story_id: str) -> Dict[str, Any]:

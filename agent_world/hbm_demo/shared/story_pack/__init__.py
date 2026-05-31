@@ -17,6 +17,7 @@ from agent_world.hbm_demo.shared.story_pack.errors import (
 )
 from agent_world.hbm_demo.shared.story_pack.graph import StoryGraph
 from agent_world.hbm_demo.shared.story_pack.loader import (
+    list_story_ids,
     load_and_validate_story_graph,
     load_meta,
     load_story_graph,
@@ -38,6 +39,7 @@ __all__ = [
     "StoryEnding",
     "StoryEdge",
     "StoryPack",
+    "list_story_ids",
     "load_story_graph",
     "load_and_validate_story_graph",
     "load_story_pack",

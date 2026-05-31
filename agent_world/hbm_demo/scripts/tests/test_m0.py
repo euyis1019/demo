@@ -4321,12 +4321,26 @@ def stop_stack(runner: subprocess.Popen[Any], flask: subprocess.Popen[Any]) -> N
                 proc.kill()
 
 
+def test_story_pack_acceptance() -> None:
+    """通用 Story Pack 校验闸门（dev_logs/46 C-3）：对 config/stories/ 全部包跑 V+X 校验。"""
+    section("T-SP Story Pack 通用校验闸门")
+    from agent_world.hbm_demo.shared.story_pack import list_story_ids, load_story_pack
+
+    ids = list_story_ids()
+    assert ids, "config/stories/ 下应至少有一个 Story Pack"
+    for sid in ids:
+        issues = load_story_pack(sid).validate()
+        assert not issues, f"Story Pack {sid} 校验失败: {issues}"
+        ok(f"Story Pack {sid} 校验通过")
+
+
 def main() -> int:
     print("HBM Demo M0–M7 Acceptance Tests (dev_logs/26)")
     failures: List[str] = []
 
     for fn in (
         test_static_imports,
+        test_story_pack_acceptance,
         test_m1_shared_modules,
         test_m2_game_service_shims,
         test_m3_runner_modules,
