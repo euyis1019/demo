@@ -111,7 +111,7 @@ def assemble_sections(
 ) -> Dict[str, Any]:
     """合并 meta + Designer(骨架) + Writer(节点/边血肉) + Casting(世界原语) → 完整 sections。"""
     nodes = _merge_by_id(designer.get("nodes", []), writer.get("nodes", []),
-                         ("inject_agents", "place_focus", "window_since"))
+                         ("inject_agents", "place_focus", "scene_brief", "directions"))
     edges = _merge_by_id(designer.get("edges", []), writer.get("edges", []),
                          ("condition", "actions", "legacy_label"))
     story_graph = {

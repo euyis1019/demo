@@ -13,27 +13,30 @@ from agent_world.hbm_demo.tools.story_studio.authoring_schemas import WRITER_OUT
 from agent_world.hbm_demo.tools.story_studio.base_agent import LLMClient, call_json_with_schema
 
 _SYSTEM = """你是编剧。给故事图的节点与边补上运行所需细节。
+这一幕里的每个 NPC 会被 LLM「演员」实时扮演——**你给的每一幕情境与表演指引越具体，演员越贴剧情、不跑题**。
 只输出 JSON：
 {
-  "nodes": [{"id": "节点id", "inject_agents": [agent_id...], "place_focus": "地点id"}],
+  "nodes": [{"id": "节点id", "inject_agents": [agent_id...], "place_focus": "地点id",
+             "scene_brief": "这一幕的戏剧情境：此刻正发生什么、张力/冲突在哪、玩家处在什么位置（2-3 句，画面感）",
+             "directions": {"agent_id(字符串或整数)": "这个在场角色这一幕该怎么演：他此刻想要什么、对玩家是什么态度、"
+                            "会怎么试探/帮助/阻挠玩家、藏着什么不能说（第二人称，2-3 句，紧扣他的人设与 inner）"}}],
   "edges": [{"id": "边id", "condition": "一句自然语言"}]
 }
 
-★最重要：剧情推进交由 LLM「导演」按这一幕的真实对话来判断——**不要写任何关键词、信号、触发器、
-keyword_set 或 story_advance**。每条边只写一句自然语言 condition，描述「玩家在对话里做到/表达了
-什么，剧情才走这条边」。导演会读这一幕玩家与 NPC 的真实对话，判断玩家是否已明确做到某条 condition。
+★剧情推进交由 LLM「导演」按这一幕的真实对话来判断——**不要写任何关键词、信号、触发器、keyword_set
+或 story_advance**。每条边只写一句自然语言 condition，描述「玩家在对话里做到/表达了什么，剧情才走这条边」。
 
-condition 示例：
-  "玩家决定跟踪那个可疑的长老，去查他深夜的去向"
-  "玩家选择相信二师姐、与她联手对付幕后黑手"
-  "玩家当众出示证据、指认真正的内奸"
+★每个节点都要写 scene_brief（这一幕的情境）+ directions（**该节点 inject_agents 里每个角色**这一幕的表演指引）——
+这是让演员"知道这一幕自己要干什么、怎么和玩家周旋"的关键，直接决定 NPC 演得贴不贴剧情。directions 的 key
+用 inject_agents 里的 agent_id；指引要紧扣该角色在 casting 里的 soul/inner（比如卧底这一幕要怎么试探、怎么遮掩）。
 
-一个节点有多条出边时（分支），各边的 condition 要清楚区分玩家的不同选择，彼此不重叠、不含糊。
+condition 示例："玩家决定跟踪那个可疑长老去查他的去向" / "玩家当众出示证据、指认真正的内奸"。
+一个节点有多条出边时（分支），各边 condition 要清楚区分玩家的不同选择，彼此不重叠。
 
 硬性约束：
-- 每个非终结节点都要有 inject_agents（玩家在此节拍会对话的在场 NPC，至少 1 个已存在 agent_id）；
-  place_focus 必须是已存在地点。
-- 每条边都要有一句非空、具体的 condition；指向结局的边也照此（描述触发该结局的玩家选择）。
+- 每个非终结节点都要有 inject_agents（玩家在此节拍会对话的在场 NPC，至少 1 个已存在 agent_id）+ place_focus（已存在地点）
+  + scene_brief + 覆盖全部 inject_agents 的 directions。
+- 每条边都要有一句非空、具体的 condition；指向结局的边也照此。
 - 不要输出 signals / keyword_sets / trigger / window_since 等字段。"""
 
 

@@ -33,6 +33,8 @@ class StoryNode:
     place_focus: str = ""
     inject_agents: List[int] = field(default_factory=list)
     window_since: str = "start_tick"  # 检测离开本节点的转移时，时间窗起点用的 session 字段
+    scene_brief: str = ""  # 这一幕的戏剧情境：此刻正发生什么、张力/冲突在哪、玩家处境（给所有在场 NPC 的共同背景）
+    directions: Dict[int, str] = field(default_factory=dict)  # {agent_id: 这一幕该角色的具体表演指引（想要什么/对玩家态度/怎么演）}
     raw: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -40,6 +42,7 @@ class StoryNode:
         nid = str(_require(data, "id", "node"))
         agents_raw = data.get("inject_agents") or []
         inject_agents = [int(a) for a in agents_raw]
+        directions = {int(k): str(v) for k, v in (data.get("directions") or {}).items()}
         return cls(
             id=nid,
             beats_label=str(data.get("beats_label", "")),
@@ -47,6 +50,8 @@ class StoryNode:
             place_focus=str(data.get("place_focus", "")),
             inject_agents=inject_agents,
             window_since=str(data.get("window_since", "start_tick")),
+            scene_brief=str(data.get("scene_brief", "")),
+            directions=directions,
             raw=dict(data),
         )
 

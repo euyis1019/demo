@@ -80,6 +80,8 @@ CASTING_OUTPUT_SCHEMA: Dict[str, Any] = {
                     "faction": {"type": "string"},
                     "capabilities": {"type": "array", "items": {"type": "string"}},
                     "soul": {"type": "string"},
+                    "speech_style": {"type": "string"},  # 说话风格/口头禅/语气，让演员说话有辨识度
+                    "inner": {"type": "string"},  # 内心戏：秘密/真实动机/顾忌（不可对玩家明说，但支配言行）
                     "long_term_goal": {"type": "string"},
                     "current_state": {"type": "string"},
                 },
@@ -120,7 +122,8 @@ WRITER_OUTPUT_SCHEMA: Dict[str, Any] = {
                     "id": {"type": "string"},
                     "inject_agents": {"type": "array", "items": {"type": "integer"}},
                     "place_focus": {"type": "string"},
-                    "window_since": {"type": "string"},
+                    "scene_brief": {"type": "string"},  # 这一幕的戏剧情境：此刻在发生什么/张力在哪/玩家处境
+                    "directions": {"type": "object"},  # {agent_id: 这一幕该角色的具体表演指引}
                 },
             },
         },

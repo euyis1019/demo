@@ -186,34 +186,51 @@ def build_pack_agent_knowledge(
     node = pack.graph.nodes.get(node_id)
     place_id = node.place_focus if node else str(getattr(session, "place_id", ""))
 
-    sections: List[str] = [
-        _section(
-            "你是谁",
-            f"你是{name}（{a.get('role', '')}）。{a.get('soul', '')}。"
-            f"\n长期目标：{a.get('long_term_goal', '') or '（随机应变）'}"
-            f"\n此刻状态：{a.get('current_state', '') or ''}",
-        ),
-    ]
+    # 1) 你是谁——人设尽量厚：身份/性格/说话风格/目标/此刻状态
+    who = f"你是{name}（{a.get('role', '')}{('·' + a.get('faction', '')) if a.get('faction') else ''}）。{a.get('soul', '')}"
+    if a.get("speech_style"):
+        who += f"\n说话风格：{a['speech_style']}"
+    who += f"\n长期目标：{a.get('long_term_goal', '') or '（随机应变）'}"
+    if a.get("current_state"):
+        who += f"\n此刻状态：{a['current_state']}"
+    sections: List[str] = [_section("你是谁", who)]
+
+    # 2) 你的内心戏——秘密/真实动机/顾忌（不可对玩家明说，但左右你的言行）
+    if a.get("inner"):
+        sections.append(_section("你的内心（不可明说，但支配你的言行）", str(a["inner"])))
+
+    # 3) 当前这一幕——情境 + 概要
     if node:
-        sections.append(_section("当前剧情", f"{node.beats_label}：{node.summary or ''}"))
+        cur = f"{node.beats_label}：{node.summary or ''}"
+        if node.scene_brief:
+            cur += f"\n此刻情境：{node.scene_brief}"
+        sections.append(_section("当前这一幕", cur))
+
+    # 4) 你这一幕要怎么演——针对本幕、本角色的具体表演指引（最关键，决定是否贴剧情）
+    direction = node.directions.get(aid) if node else None
+    if direction:
+        sections.append(_section("你这一幕要做的", direction))
+
+    # 5) 所在场景 + 关系
     scene = _pack_place_scene(pack, place_id)
     if scene:
         sections.append(_section("所在场景", scene))
     rels = _pack_relations_for(pack, aid)
     if rels:
-        sections.append(_section("你与他人的关系", rels))
+        sections.append(_section("你与在场/相关之人的关系", rels))
 
+    # 6) 玩家互动 + 留在角色里的硬性要求
     if channel == "inject":
         sections.append(_section(
             "玩家刚对你说",
-            f"「{player_text}」\n请以{name}的身份、口语化地当面回应玩家"
-            f"（用 speak_to_local 说 1–4 句短话），贴合你的性格与目标，"
-            f"可顺势推动剧情，但不要替玩家做决定，也不要跳出角色。",
+            f"「{player_text}」\n请以{name}的身份、口语化地当面回应玩家（用 speak_to_local 说 1–4 句短话）。"
+            f"要贴合你的性格、说话风格、内心动机与「你这一幕要做的」；可顺势推动剧情，"
+            f"但不要替玩家做决定、不要跳出角色、不要把内心秘密直白说破。",
         ))
     elif channel == "opening":
-        sections.append(_section("开场", f"用 1–2 句符合{name}身份与当前状态的话开场，引出当前剧情。"))
+        sections.append(_section("开场", f"用 1–2 句符合{name}身份、说话风格与此刻处境的话开场，自然引出当前这一幕。"))
     else:
-        sections.append(_section("提示", f"留意场上动向，以{name}的身份自然回应，留在角色里。"))
+        sections.append(_section("提示", f"留意场上动向，以{name}的身份、贴合「你这一幕要做的」自然回应，始终留在角色里。"))
     return "\n\n".join(s for s in sections if s)
 
 

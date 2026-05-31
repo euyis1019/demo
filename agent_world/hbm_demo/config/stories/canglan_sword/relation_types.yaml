@@ -2,12 +2,27 @@ relation_types:
 - type: 师徒
   is_contact: true
   symmetric: true
-- type: 敌对
+- type: 暗中勾结
+  is_contact: false
+  symmetric: true
+- type: 敌对怀疑
   is_contact: true
   symmetric: true
-- type: 利用
+- type: 师门竞争
+  is_contact: true
+  symmetric: true
+- type: 表面恭敬
   is_contact: true
   symmetric: false
-- type: 暗中合作
+- type: 表面友好
   is_contact: true
+  symmetric: false
+- type: 畏惧防备
+  is_contact: true
+  symmetric: false
+- type: 暗中托付
+  is_contact: false
   symmetric: true
+- type: 临时交易
+  is_contact: true
+  symmetric: false

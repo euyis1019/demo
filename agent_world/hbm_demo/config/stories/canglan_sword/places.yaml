@@ -1,87 +1,51 @@
 places:
-- place_id: start
-  capacity: 1
-  attrs:
-    summary: 弟子居所外的小径，深夜寂静
-    behavior_hint: 可听到远处脚步声，适合跟踪
-- place_id: bedchamber
-  capacity: 3
-  attrs:
-    summary: 掌门沈孤鸿的卧房，药味弥漫
-    behavior_hint: 掌门卧床，可探病或搜查
-- place_id: main_hall
+- place_id: 后庭院
   capacity: 10
   attrs:
-    summary: 门派正厅，庄严肃穆
-    behavior_hint: 大师兄凌轩常在此召集弟子
-- place_id: training_ground
-  capacity: 20
-  attrs:
-    summary: 练武场，兵器架林立
-    behavior_hint: 二师姐苏绾常在此练剑
-- place_id: market_street
-  capacity: 30
-  attrs:
-    summary: 山脚集市，人来人往
-    behavior_hint: 三师兄周平喜欢在此打听消息
-- place_id: back_hill
+    summary: 月黑风高，几株老槐树投下浓重阴影，碎石小径通往掌门寝居和后院偏门。墙角有一口枯井，井边青苔湿滑。
+    behavior_hint: 适合撞破秘密、鬼祟跟踪、或藏身偷听，也适合发生短暂的冲突或对话。
+- place_id: 掌门寝居
   capacity: 5
   attrs:
-    summary: 后山密林，有一处隐蔽山洞
-    behavior_hint: 鬼影长老的秘密据点
-- place_id: study
-  capacity: 3
+    summary: 室内弥漫着苦涩的药味，烛火摇曳，沈孤鸿躺在屏风后的病榻上，床前小几上放着半碗未喝完的药。窗外偶尔有巡逻弟子经过。
+    behavior_hint: 适合探病、密谈、或下毒/搜查证据，气氛压抑且神圣，大声喧哗会惊动守卫。
+- place_id: 藏书阁密室
+  capacity: 4
   attrs:
-    summary: 掌门书房，书架满墙
-    behavior_hint: 藏有密信和药方
-- place_id: pharmacy
-  capacity: 5
+    summary: 藏书阁深处一堵暗墙之后，不到三丈见方的斗室，堆满积灰的卷宗。一张破木桌，两把椅子，桌上烛台蜡油堆积。隔音极差，能清晰听见阁楼外的脚步声。
+    behavior_hint: 适合进行见不得光的密谋、偷听、或藏匿赃物，也是制造‘撞破’戏码的理想场所。
+- place_id: 膳房
+  capacity: 8
   attrs:
-    summary: 门派药房，存放药材
-    behavior_hint: 可查药材出入记录
+    summary: 灶台余温尚存，大铁锅里煮着明日早粥，案板上放着半坛黄酒和几只碗。墙角米缸旁有个暗格，是周平藏私房钱的地方。窗户临街，可以翻窗逃走。
+    behavior_hint: 适合私下交易、传递物品、或躲避追捕。烟火气重，能让紧张的剧情稍作喘息。
+- place_id: 练功房
+  capacity: 15
+  attrs:
+    summary: 宽阔的青砖地面，两侧兵器架上刀枪剑戟俱全，正中挂着一个大大的‘剑’字。苏绾的专属角落放着一张矮几，上面堆着书籍和药瓶。窗外月光照进来，在地面投下冷白的光。
+    behavior_hint: 适合密谋大计、展示信任、交接重要物品（如解药和令符），也适合爆发对峙或决斗。
 coverage:
-- src: start
-  dst: bedchamber
-  latency_ticks: 2
-- src: start
-  dst: main_hall
+- src: 后庭院
+  dst: 掌门寝居
   latency_ticks: 1
-- src: start
-  dst: training_ground
+- src: 后庭院
+  dst: 藏书阁密室
   latency_ticks: 2
-- src: start
-  dst: market_street
+- src: 后庭院
+  dst: 膳房
   latency_ticks: 3
-- src: start
-  dst: back_hill
-  latency_ticks: 4
-- src: bedchamber
-  dst: main_hall
+- src: 后庭院
+  dst: 练功房
   latency_ticks: 2
-- src: bedchamber
-  dst: study
-  latency_ticks: 1
-- src: main_hall
-  dst: training_ground
-  latency_ticks: 1
-- src: main_hall
-  dst: market_street
+- src: 藏书阁密室
+  dst: 膳房
   latency_ticks: 2
-- src: training_ground
-  dst: market_street
-  latency_ticks: 2
-- src: training_ground
-  dst: back_hill
+- src: 藏书阁密室
+  dst: 练功房
   latency_ticks: 3
-- src: market_street
-  dst: back_hill
+- src: 膳房
+  dst: 练功房
   latency_ticks: 2
-- src: back_hill
-  dst: study
-  latency_ticks: 3
-- src: study
-  dst: pharmacy
-  latency_ticks: 1
-- src: pharmacy
-  dst: back_hill
+- src: 掌门寝居
+  dst: 练功房
   latency_ticks: 2

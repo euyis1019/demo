@@ -1,11 +1,11 @@
 schema_version: 1
 simulation_id: canglan_sword
-title: 沧澜剑派掌门沈孤鸿突染重疾、命在旦夕，传位之争一夜爆发。你是三个月前才入门的外姓
+title: 沧澜剑派掌门沈孤鸿突染重疾、命在旦夕，传位之争一夜爆发。门中暗流涌动：守旧的大师
 player:
   agent_id: 0
   name: 新入门的外姓弟子
-  role: player
-  start_place: start
+  role: 卷入夺嫡之争的局外人
+  start_place: 后庭院
 clock:
   start_time: 09:00
   minutes_per_tick: 2
@@ -15,3 +15,5 @@ llm:
   base_url: https://api.deepseek.com
   api_key_env: DMXAPI_KEY
   model: deepseek-chat
+  temperature: 0.7
+  max_tokens: 500
