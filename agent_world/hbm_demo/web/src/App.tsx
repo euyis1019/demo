@@ -14,6 +14,7 @@ import {
   GameOverScreen,
   LoadingOverlay,
   PhaseToast,
+  PlayerActionBar,
   PlayerInput,
   RunnerNotReadyModal,
   StatusPanel,
@@ -100,11 +101,18 @@ function GameApp() {
   );
 
   const storyModeInput = (
-    <StoryPlayerInput
-      onSend={(text) => void sendTurn(text)}
-      disabled={loading || view !== "playing"}
-      placeholder="输入你的台词…"
-    />
+    <>
+      <StoryPlayerInput
+        onSend={(text) => void sendTurn(text)}
+        disabled={loading || view !== "playing"}
+        placeholder="输入你的台词…"
+      />
+      <PlayerActionBar
+        placeId={placeId}
+        nameMap={nameMap}
+        disabled={loading || view !== "playing"}
+      />
+    </>
   );
 
   const worldControls = {

@@ -445,3 +445,51 @@
     font-size: 1.18rem;
   }
 }
+
+/* 玩家主动动作条：移动 / 私信 / 加群 */
+.player-action-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+.player-action-bar__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.player-action-bar__row > label {
+  flex: 0 0 36px;
+  color: #cbd5e1;
+}
+.player-action-bar__row select,
+.player-action-bar__row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e8eef7;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+}
+.player-action-bar__row button {
+  flex: 0 0 auto;
+  padding: 4px 12px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.player-action-bar__row button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.player-action-bar__status {
+  margin: 2px 0 0;
+  color: #fbbf24;
+}

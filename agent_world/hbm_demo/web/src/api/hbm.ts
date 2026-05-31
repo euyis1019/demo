@@ -78,6 +78,31 @@ export async function postPlayerTurn(
   });
 }
 
+/** 玩家主动动作请求（私信/移动/加群）。 */
+export interface PlayerActionRequest {
+  action: "rdc" | "move" | "grp";
+  target_id?: number;
+  place_id?: string;
+  group_id?: number;
+  content?: string;
+}
+
+export interface PlayerActionData {
+  accepted: boolean;
+  reason?: string;
+  hint?: string;
+  [key: string]: unknown;
+}
+
+/** POST /player-action — 玩家私信(rdc)/移动(move)/加群(grp)。加群受门控。 */
+export async function postPlayerAction(
+  request: PlayerActionRequest,
+): Promise<ApiResponse<PlayerActionData>> {
+  return apiPost<PlayerActionData>(`${API_PREFIX}/player-action`, request, {
+    timeoutMs: READ_TIMEOUT_MS,
+  });
+}
+
 /** GET /action-result — optional since_tick for F11 incremental delta. */
 export async function getActionResult(
   taskId: string,
