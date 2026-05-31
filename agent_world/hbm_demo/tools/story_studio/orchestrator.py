@@ -105,11 +105,11 @@ def _merge_by_id(base: List[Dict[str, Any]], enrich: List[Dict[str, Any]], keys)
     return out
 
 
-def assemble_full_sections(
-    brief: Dict[str, Any], story_id: str, designer: Dict[str, Any],
+def assemble_sections(
+    meta: Dict[str, Any], designer: Dict[str, Any],
     casting: Dict[str, Any], writer: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """合并 Designer(骨架) + Writer(节点/边血肉) + Casting(世界原语) → 完整 Story Pack sections。"""
+    """合并 meta + Designer(骨架) + Writer(节点/边血肉) + Casting(世界原语) → 完整 sections。"""
     nodes = _merge_by_id(designer.get("nodes", []), writer.get("nodes", []),
                          ("inject_agents", "place_focus", "window_since"))
     edges = _merge_by_id(designer.get("edges", []), writer.get("edges", []),
@@ -121,10 +121,23 @@ def assemble_full_sections(
         "endings": designer.get("endings", []),
         "edges": edges,
     }
+    return {
+        "meta": meta,
+        "story_graph": story_graph,
+        "places": {"places": casting.get("places", []), "coverage": casting.get("coverage", [])},
+        "agents": {"agents": casting.get("agents", [])},
+        "relations": {"relations": casting.get("relations", [])},
+        "relation_types": {"relation_types": casting.get("relation_types", [])},
+        "groups": {"groups": casting.get("groups", [])},
+        "signals": writer.get("signals", {}),
+    }
 
+
+def _full_meta(brief: Dict[str, Any], story_id: str, casting: Dict[str, Any]) -> Dict[str, Any]:
     meta = brief_to_meta(brief, story_id)
-    agents = casting.get("agents", [])
-    player_loc = next((a.get("location") for a in agents if int(a.get("agent_id", -1)) == 0), None)
+    player_loc = next(
+        (a.get("location") for a in casting.get("agents", []) if int(a.get("agent_id", -1)) == 0), None
+    )
     if player_loc:
         meta["player"]["start_place"] = player_loc
     meta["clock"] = {"start_time": "09:00", "minutes_per_tick": 2}
@@ -133,17 +146,66 @@ def assemble_full_sections(
         "base_url": "https://api.deepseek.com", "api_key_env": "DMXAPI_KEY",
         "model": "deepseek-chat", "temperature": 0.7, "max_tokens": 500,
     }
+    return meta
 
+
+def assemble_full_sections(
+    brief: Dict[str, Any], story_id: str, designer: Dict[str, Any],
+    casting: Dict[str, Any], writer: Dict[str, Any],
+) -> Dict[str, Any]:
+    """从 brief 出发组装完整 sections（生成路径）。"""
+    return assemble_sections(_full_meta(brief, story_id, casting), designer, casting, writer)
+
+
+def _pack_to_designer(pack: Any) -> Dict[str, Any]:
+    """从已加载的 StoryPack 反推 DesignerOutput 形状（供局部重生成喂下游 agent）。"""
+    g = pack.graph
     return {
-        "meta": meta,
-        "story_graph": story_graph,
-        "places": {"places": casting.get("places", []), "coverage": casting.get("coverage", [])},
-        "agents": {"agents": agents},
-        "relations": {"relations": casting.get("relations", [])},
-        "relation_types": {"relation_types": casting.get("relation_types", [])},
-        "groups": {"groups": casting.get("groups", [])},
-        "signals": writer.get("signals", {}),
+        "initial_node": g.initial_node,
+        "nodes": [{"id": n.id, "beats_label": n.beats_label, "summary": n.summary} for n in g.nodes.values()],
+        "endings": [{"id": e.id, "kind": e.kind, "summary": e.summary} for e in g.endings.values()],
+        "edges": [{"id": e.id, "from": e.src, "to": e.dst} for e in g.edges],
     }
+
+
+def _pack_to_casting(pack: Any) -> Dict[str, Any]:
+    return {
+        "agents": pack.agents.get("agents", []),
+        "places": pack.places.get("places", []),
+        "coverage": pack.places.get("coverage", []),
+        "relations": pack.relations.get("relations", []),
+        "relation_types": pack.relation_types.get("relation_types", []),
+        "groups": pack.groups.get("groups", []),
+    }
+
+
+def regenerate_writer(
+    story_id: str, *, client: Any, target_dir: Optional[Path] = None, max_rounds: int = 2,
+) -> CompileResult:
+    """局部重生成：固定 cast + 图骨架，只让 Writer 重产触发/注入/signals（dev_logs/45 §5.3）。
+
+    这是最安全的局部重生（Writer 仅依赖 designer+casting，二者不动）。其余 section 原样保留。
+    """
+    from agent_world.hbm_demo.shared.story_pack import load_story_pack
+    from agent_world.hbm_demo.tools.story_studio.agents.writer import Writer
+    from agent_world.hbm_demo.tools.story_studio.base_agent import StoryStudioError
+
+    target = Path(target_dir) if target_dir is not None else story_dir(story_id)
+    pack = load_story_pack(story_id) if target == story_dir(story_id) else _load_pack_from_dir(story_id, target)
+    designer, casting, meta = _pack_to_designer(pack), _pack_to_casting(pack), pack.meta
+
+    writer = Writer(client)
+    feedback = ""
+    last_issues: List[str] = []
+    for _round in range(max_rounds):
+        w = writer.run(designer, casting, feedback=feedback)
+        sections = assemble_sections(meta, designer, casting, w)
+        result = compile_pack(sections, story_id=story_id, target_dir=target)
+        if result.ok:
+            return result
+        last_issues = result.issues
+        feedback = "重生成校验未过：\n" + "\n".join(result.issues) + "\n请修正后重新输出完整 JSON。"
+    raise StoryStudioError(f"regenerate_writer '{story_id}' 失败：{max_rounds} 轮仍未过：{last_issues}")
 
 
 def generate_full(

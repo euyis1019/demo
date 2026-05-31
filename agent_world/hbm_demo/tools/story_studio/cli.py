@@ -51,6 +51,35 @@ def _cmd_compile(args: argparse.Namespace) -> int:
     return 1
 
 
+def _cmd_review(args: argparse.Namespace) -> int:
+    from agent_world.hbm_demo.shared.story_pack import list_story_ids, load_story_pack
+    from agent_world.hbm_demo.tools.story_studio.review import render_review
+
+    if args.story_id not in list_story_ids():
+        print(f"✗ 不存在 Story Pack '{args.story_id}'")
+        return 2
+    print(render_review(load_story_pack(args.story_id)))
+    return 0
+
+
+def _cmd_regenerate(args: argparse.Namespace) -> int:
+    from agent_world.hbm_demo.tools.story_studio.base_agent import StoryStudioError
+    from agent_world.hbm_demo.tools.story_studio.llm_client import make_llm_client
+    from agent_world.hbm_demo.tools.story_studio.orchestrator import regenerate_writer
+
+    if args.section != "writer":
+        print(f"暂仅支持局部重生成 section=writer（你给的是 {args.section}）。")
+        return 2
+    try:
+        client = make_llm_client()
+        result = regenerate_writer(args.story_id, client=client)
+    except (StoryStudioError, RuntimeError) as exc:
+        print(f"✗ 局部重生成失败：{exc}")
+        return 1
+    print(f"{'✓' if result.ok else '✗'} 已局部重生成 '{args.story_id}' 的 writer 层（{result.target_dir}）")
+    return 0 if result.ok else 1
+
+
 def _cmd_generate(args: argparse.Namespace) -> int:
     brief = _load_any(Path(args.brief))
     issues = validate_brief(brief)
@@ -94,6 +123,15 @@ def build_parser() -> argparse.ArgumentParser:
     pg.add_argument("brief")
     pg.add_argument("--max-rounds", type=int, default=3, dest="max_rounds")
     pg.set_defaults(func=_cmd_generate)
+
+    pr = sub.add_parser("review", help="审阅 Story Pack（ASCII 故事图 + 校验报告）")
+    pr.add_argument("story_id")
+    pr.set_defaults(func=_cmd_review)
+
+    prg = sub.add_parser("regenerate", help="局部重生成（section=writer：只重产触发/注入/signals）")
+    prg.add_argument("story_id")
+    prg.add_argument("section", choices=["writer"])
+    prg.set_defaults(func=_cmd_regenerate)
     return p
 
 

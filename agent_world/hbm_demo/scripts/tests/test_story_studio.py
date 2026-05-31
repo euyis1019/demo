@@ -340,6 +340,62 @@ def test_generate_full_regenerates_on_xref_break() -> None:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# ---- G4：人在环 review + 局部重生成 ----
+
+def test_review_renders_hbm_pack() -> None:
+    from agent_world.hbm_demo.shared.story_pack import load_story_pack
+    from agent_world.hbm_demo.tools.story_studio import render_review
+
+    text = render_review(load_story_pack("hbm_memory_war"))
+    assert "Story Pack 审阅：hbm_memory_war" in text
+    assert "phase1_reception" in text and "ending_join_nvidia" in text
+    assert "✓ 校验通过" in text  # HBM 参考包应渲染为校验通过
+
+
+def test_regenerate_writer_keeps_cast_and_graph() -> None:
+    """局部重生成 writer 层：先用完整流水线产一个包，再只重生 writer，cast/图不变且仍过校验。"""
+    import json
+    import tempfile
+
+    from agent_world.hbm_demo.tools.story_studio import generate_full, regenerate_writer
+    from agent_world.hbm_demo.tools.story_studio.orchestrator import _load_pack_from_dir
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        # 先产完整包
+        gen_result = generate_full(_GOOD_BRIEF, story_id="studio_regen", client=_routing_fake(), target_dir=tmp)
+        assert gen_result.ok, gen_result.issues
+        before = _load_pack_from_dir("studio_regen", tmp)
+        cast_before = sorted(a["agent_id"] for a in before.agents["agents"])
+
+        # 只重生 writer 层（换一套 signals 名，但仍闭合）—— 用只产 writer 的 fake
+        alt_writer = {
+            "nodes": _G3_WRITER["nodes"],
+            "edges": [
+                {"id": "adv", "trigger": {"type": "story_advance", "signal": "proceed"}, "actions": []},
+                {"id": "fin", "trigger": {"type": "story_advance", "signal": "done"}, "actions": []},
+                {"id": "fail", "trigger": {"type": "story_advance", "signal": "kicked"}, "actions": []},
+            ],
+            "signals": {"story_advance": {"enabled": True, "valid_signals": ["proceed", "done", "kicked"]},
+                        "keyword_sets": {}, "params": {}},
+        }
+
+        def writer_only_fake(system: str, user: str) -> str:
+            assert "编剧" in system, "局部重生成只应调用 Writer"
+            return json.dumps(alt_writer)
+
+        regen = regenerate_writer("studio_regen", client=writer_only_fake, target_dir=tmp)
+        assert regen.ok, regen.issues
+        after = _load_pack_from_dir("studio_regen", tmp)
+        # cast 与图骨架不变
+        assert sorted(a["agent_id"] for a in after.agents["agents"]) == cast_before
+        assert set(after.graph.nodes) == set(before.graph.nodes)
+        # writer 层确实变了（新 signal 名进了 signals）
+        assert "proceed" in after.story_advance_signals()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_import_graph_red_line() -> None:
     """story_studio 源码不得引用 kernel/seed/world_db/http（dev_logs/45 §1.2 机制级红线）。"""
     studio_dir = Path(__file__).resolve().parents[2] / "tools" / "story_studio"

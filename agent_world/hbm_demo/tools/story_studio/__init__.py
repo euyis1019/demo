@@ -27,12 +27,15 @@ from agent_world.hbm_demo.tools.story_studio.agents import Casting, Designer, Wr
 from agent_world.hbm_demo.tools.story_studio.orchestrator import (
     CompileResult,
     assemble_full_sections,
+    assemble_sections,
     brief_to_meta,
     compile_pack,
     designer_output_to_story_graph,
     generate,
     generate_full,
+    regenerate_writer,
 )
+from agent_world.hbm_demo.tools.story_studio.review import render_review
 from agent_world.hbm_demo.tools.story_studio.safety import (
     StoryStudioSafetyError,
     assert_safe_target,
@@ -53,7 +56,10 @@ __all__ = [
     "brief_to_meta",
     "generate",
     "generate_full",
+    "regenerate_writer",
     "assemble_full_sections",
+    "assemble_sections",
+    "render_review",
     "Designer",
     "Casting",
     "Writer",
