@@ -1,0 +1,126 @@
+# HBM 故事图（DAG）——把 features/f05_story_routing 的 if 链/常量抽成数据。
+# nodes = 旧 Phase 的数据化身（beats_label 只读展示，不再控制流）。
+# edges = 旧节点 A/B/C/D；trigger 忠实映射 agent_signals.detect_node_*，actions 映射 routing.apply_routing。
+# 关键词集合（approve_keywords 等）按名引用，后续切片落到 signals.yaml；本层对 trigger/actions 不透明。
+schema_version: 1
+initial_node: phase1_reception
+
+nodes:
+  - id: phase1_reception
+    beats_label: "Phase 1"
+    summary: 玩家在前台，需用革命性算法说服前台引荐给 Jensen。
+    place_focus: nvidia_reception
+    inject_agents: [1]              # 替代 routing.PHASE_INJECT_AGENTS["Phase 1"]
+
+  - id: phase2_private
+    beats_label: "Phase 2"
+    summary: Jensen 私人会议室技术审查，求证 Tech VP。
+    place_focus: jensen_private_room
+    inject_agents: [2]
+
+  - id: phase3_negotiation
+    beats_label: "Phase 3"
+    summary: 多方谈判，三大存储巨头围攻，玩家与 NVIDIA 联手压价。
+    place_focus: negotiation_room
+    inject_agents: [2, 3, 4, 5, 6]
+
+  - id: phase4_finale
+    beats_label: "Phase 4"
+    summary: 清场后 1v1 终局谈判，决定结局。
+    place_focus: negotiation_room
+    inject_agents: [2, 3]           # 注：F07 开启时运行期收窄为 [2]，属运行期开关（dev_logs/46 A-7），后续切片处理
+
+endings:
+  - id: ending_join_nvidia
+    kind: good
+    summary: 玩家接受 offer 加入 NVIDIA。
+  - id: ending_seed_round
+    kind: good
+    summary: 玩家拿到 NVIDIA 种子轮，独立创业。
+  - id: ending_cold_deal
+    kind: neutral
+    summary: 冷淡成交，未进核心圈。
+  - id: ending_bad_reject
+    kind: bad
+    summary: 前台拒绝/超时未获引荐，被请离。
+
+edges:
+  # —— 节点 A：Phase 1 → 2（detect_node_a / apply_routing node A）——
+  - id: node_a
+    from: phase1_reception
+    to: phase2_private
+    trigger:
+      any_of:
+        - {type: story_advance, signal: approve_visitor}
+        - all_of:
+            - {type: rdc_pair, sender: 1, recipient: 2}          # 前台→Jensen 汇报
+            - {type: rdc_pair, sender: 2, recipient: 3}          # Jensen→Tech VP 求证
+            - {type: rdc_keyword, sender: 2, recipient: 1, keyword_set: approve_keywords}
+            # 可选：require_reception_escort_f2f（默认 false）→ escort_f2f，后续切片按 signals.yaml 开关
+    actions:
+      - {type: move_agent, agent: 2, to: jensen_private_room}
+      - {type: set_session, field: phase2_start_tick, value: current_tick}
+      - {type: advance_player_place, new_phase: "Phase 2"}
+
+  # —— 节点 B：Phase 2 → 3（detect_node_b / apply_routing node B）——
+  - id: node_b
+    from: phase2_private
+    to: phase3_negotiation
+    trigger:
+      any_of:
+        - {type: story_advance, signal: return_to_negotiation}
+        - {type: rdc_keyword, sender: 3, recipient: 2, keyword_set: positive_rdc_keywords}  # Tech VP 正面评估
+        - {type: f2f_keyword, place: jensen_private_room, sender: 2, keyword_set: return_to_negotiation_keywords}
+    actions:
+      - {type: move_agent, agent: 2, to: negotiation_room}
+      - {type: place_mutation, place: negotiation_room, behavior_hint_ref: node_b_silence}
+      - {type: set_session, field: phase3_start_tick, value: current_tick}
+      - {type: advance_player_place, new_phase: "Phase 3"}
+
+  # —— 节点 C：Phase 3 → 4（detect_node_c / apply_routing node C）——
+  - id: node_c
+    from: phase3_negotiation
+    to: phase4_finale
+    trigger:
+      any_of:
+        - {type: story_advance, signal: expel_ceos}
+        - {type: rdc_keyword, sender: 2, recipient: [4, 5, 6], keyword_set: expel_keywords}
+        - {type: f2f_keyword, place: negotiation_room, sender: 2, keyword_set: expel_keywords}
+    actions:
+      - {type: move_agent, agent: 4, to: nvidia_reception}
+      - {type: move_agent, agent: 5, to: nvidia_reception}
+      - {type: move_agent, agent: 6, to: nvidia_reception}
+      - {type: advance_player_place, new_phase: "Phase 4"}
+
+  # —— 节点 D：Phase 4 → 结局（detect_phase4_offer_ending / classify_phase4_conclusion / resolve_turn25_ending）——
+  - id: node_d_join
+    from: phase4_finale
+    to: ending_join_nvidia
+    trigger:
+      any_of:
+        - {type: story_advance, signal: offer_join}
+        - {type: phase4_conclusion, ending: join_nvidia}             # Jensen 谈成的 LLM 裁定
+        - {type: turn25_decision, intent: join_nvidia, trust_min: 25} # Turn25 兜底
+  - id: node_d_seed
+    from: phase4_finale
+    to: ending_seed_round
+    trigger:
+      any_of:
+        - {type: story_advance, signal: offer_seed}
+        - {type: phase4_conclusion, ending: seed_round}
+        - {type: turn25_decision, intent: seed_round, trust_min: 15}
+  - id: node_d_cold
+    from: phase4_finale
+    to: ending_cold_deal
+    trigger:
+      type: turn25_decision_default   # Turn25 到达且未命中 join/seed → 冷淡成交（resolve_ending_id 兜底）
+
+  # —— 坏结局：Phase 1 → bad（detect_bad_end）——
+  - id: bad_end_reject
+    from: phase1_reception
+    to: ending_bad_reject
+    trigger:
+      any_of:
+        - {type: story_advance, signal: reject_visitor}
+        - {type: f2f_keyword, place: nvidia_reception, sender: 1, keyword_set: reject_keywords}
+        - {type: timeout, field: player_turn, gte_ref: max_turns_phase1_without_approve, unless_edge: node_a}
