@@ -4,18 +4,21 @@ import { agentDisplayName } from "../../constants/agents";
 import { sortMessages } from "../../utils/messages";
 import type { PlaceId } from "../../utils/places";
 import { resolveSpeakerAgentId } from "../world-stage";
-import { storyAvatarUrl } from "./storyAssets";
+import { storyAvatarBaseUrl, storyAvatarUrl } from "./storyAssets";
 
 export interface StoryDialogueLine {
   message: GameMessage;
   speakerId: string;
   speakerName: string;
   avatarUrl: string;
+  /** 基础立绘 URL，供情绪变体图缺失时回退。 */
+  avatarFallbackUrl: string;
 }
 
 function buildLine(
   message: GameMessage | undefined,
   nameMap: Record<string, string>,
+  agentMood: Record<string, string> = {},
 ): StoryDialogueLine | null {
   if (!message) {
     return null;
@@ -25,18 +28,20 @@ function buildLine(
     message,
     speakerId,
     speakerName: agentDisplayName(speakerId, nameMap),
-    avatarUrl: storyAvatarUrl(speakerId),
+    avatarUrl: storyAvatarUrl(speakerId, agentMood[speakerId]),
+    avatarFallbackUrl: storyAvatarBaseUrl(speakerId),
   };
 }
 
 export function useStoryDialogue(
   roomMessages: GameMessage[] | undefined,
   nameMap: Record<string, string>,
+  agentMood: Record<string, string> = {},
 ): StoryDialogueLine | null {
   return useMemo(() => {
     const sorted = sortMessages(roomMessages ?? []);
-    return buildLine(sorted.at(-1), nameMap);
-  }, [roomMessages, nameMap]);
+    return buildLine(sorted.at(-1), nameMap, agentMood);
+  }, [roomMessages, nameMap, agentMood]);
 }
 
 export interface StoryDialogueQueue {
@@ -62,6 +67,7 @@ export interface StoryDialogueQueue {
 export function useStoryDialogueQueue(
   roomMessages: GameMessage[] | undefined,
   nameMap: Record<string, string>,
+  agentMood: Record<string, string> = {},
 ): StoryDialogueQueue {
   const sorted = useMemo(() => sortMessages(roomMessages ?? []), [roomMessages]);
 
@@ -100,8 +106,8 @@ export function useStoryDialogueQueue(
 
   const safeCursor = Math.min(cursor, Math.max(0, tickMessages.length - 1));
   const line = useMemo(
-    () => buildLine(tickMessages[safeCursor], nameMap),
-    [tickMessages, safeCursor, nameMap],
+    () => buildLine(tickMessages[safeCursor], nameMap, agentMood),
+    [tickMessages, safeCursor, nameMap, agentMood],
   );
   const remaining = Math.max(0, tickMessages.length - 1 - safeCursor);
   const advance = useCallback(() => {

@@ -68,6 +68,8 @@ export interface StateChange {
   agent_id: number;
   content: string;
   at_tick: number;
+  /** 离散情绪标签（neutral/happy/angry/sad/anxious/confident），前端据此切立绘。 */
+  emotion?: string;
   prompt_trace_id?: string;
   ref_key?: string;
 }

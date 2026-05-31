@@ -51,6 +51,8 @@ export interface GameState {
   roomF2f: Record<PlaceId, GameMessage[]>;
   agentLocations: Record<string, { placeId: string; arrivedAt: number }>;
   agentInbox: Record<string, AgentInbox>;
+  /** 每个 agent 最新情绪标签（驱动剧情立绘切换）。 */
+  agentMood: Record<string, string>;
   worldEvents: WorldEvent[];
   pendingWorldEvent: WorldEvent | null;
   processedWorldEventIds: string[];
@@ -89,6 +91,7 @@ export function createInitialState(): GameState {
     roomF2f: emptyRoomF2f(),
     agentLocations: {},
     agentInbox: {},
+    agentMood: {},
     worldEvents: [],
     pendingWorldEvent: null,
     processedWorldEventIds: [],
@@ -163,6 +166,7 @@ function withWorldDelta(
     roomF2f: patch.roomF2f,
     agentLocations: patch.agentLocations,
     agentInbox: patch.agentInbox,
+    agentMood: patch.agentMood,
     worldEvents: patch.worldEvents,
     pendingWorldEvent: patch.pendingWorldEvent,
     processedWorldEventIds: patch.processedWorldEventIds,
@@ -182,6 +186,7 @@ function resetWorldState(): Pick<
   | "roomF2f"
   | "agentLocations"
   | "agentInbox"
+  | "agentMood"
   | "worldEvents"
   | "pendingWorldEvent"
   | "processedWorldEventIds"
@@ -201,6 +206,7 @@ function resetWorldState(): Pick<
     roomF2f: emptyRoomF2f(),
     agentLocations: {},
     agentInbox: {},
+    agentMood: {},
     worldEvents: [],
     pendingWorldEvent: null,
     processedWorldEventIds: [],
@@ -340,6 +346,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           roomF2f: state.roomF2f,
           agentLocations: snap.agentLocations,
           agentInbox: state.agentInbox,
+          agentMood: state.agentMood,
           worldEvents: state.worldEvents,
           pendingWorldEvent: state.pendingWorldEvent,
           processedWorldEventIds: state.processedWorldEventIds,

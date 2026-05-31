@@ -186,6 +186,7 @@ function GameApp() {
           placeId={placeId as PlaceId}
           roomF2f={roomF2f}
           nameMap={nameMap}
+          agentMood={state.agentMood}
           pendingWorldEvent={pendingWorldEvent}
           lastError={lastError}
           inputSlot={storyModeInput}

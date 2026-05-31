@@ -16,10 +16,21 @@ export function storyPlaceBackground(placeId: string): string {
   return PLACE_BACKGROUNDS.nvidia_reception;
 }
 
-/** Avatar for subtitle strip — agent id or ``player`` (pre-keyed PNG). */
-export function storyAvatarUrl(speakerId: string): string {
+/** 基础立绘（一 agent 一张，无情绪维度）；玩家走 player.png。 */
+export function storyAvatarBaseUrl(speakerId: string): string {
   if (speakerId === PLAYER_AGENT_ID) {
     return "/assets/story/avatars/player.png";
   }
   return `/assets/story/avatars/agent_${speakerId}.png`;
+}
+
+/**
+ * 立绘 URL。给了非 neutral 情绪标签时返回情绪变体 `agent_{id}_{mood}.png`，
+ * 缺该变体图时由 ChromaKeyAvatar 的 fallbackSrc 回退到基础立绘（见 storyAvatarBaseUrl）。
+ */
+export function storyAvatarUrl(speakerId: string, mood?: string): string {
+  if (speakerId !== PLAYER_AGENT_ID && mood && mood !== "neutral") {
+    return `/assets/story/avatars/agent_${speakerId}_${mood}.png`;
+  }
+  return storyAvatarBaseUrl(speakerId);
 }

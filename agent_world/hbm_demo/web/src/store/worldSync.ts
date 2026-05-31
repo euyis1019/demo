@@ -91,6 +91,8 @@ export interface WorldDeltaPatch {
   roomF2f: Record<PlaceId, GameMessage[]>;
   agentLocations: Record<string, { placeId: string; arrivedAt: number }>;
   agentInbox: Record<string, AgentInbox>;
+  /** 每个 agent 最新情绪标签（来自 state_changes.emotion），前端据此切立绘。 */
+  agentMood: Record<string, string>;
   worldEvents: WorldEvent[];
   pendingWorldEvent: WorldEvent | null;
   processedWorldEventIds: string[];
@@ -141,6 +143,7 @@ export function applyWorldDelta(
     roomF2f: Record<PlaceId, GameMessage[]>;
     agentLocations: Record<string, { placeId: string; arrivedAt: number }>;
     agentInbox: Record<string, AgentInbox>;
+    agentMood: Record<string, string>;
     worldEvents: WorldEvent[];
     pendingWorldEvent: WorldEvent | null;
     processedWorldEventIds: string[];
@@ -188,12 +191,21 @@ export function applyWorldDelta(
 
   const recentRdcLinks = extractRdcLinks(delta.agent_messages, delta.observer_messages);
 
+  // 情绪：取每个 agent state_changes 里最新一条的 emotion，并入既有 mood。
+  const agentMood: Record<string, string> = { ...current.agentMood };
+  for (const sc of delta.state_changes ?? []) {
+    if (sc.emotion) {
+      agentMood[String(sc.agent_id)] = sc.emotion;
+    }
+  }
+
   return {
     placeId: playerPlace,
     worldTick: delta.through_tick,
     roomF2f,
     agentLocations,
     agentInbox,
+    agentMood,
     worldEvents: eventPatch.worldEvents,
     pendingWorldEvent: eventPatch.pendingWorldEvent,
     processedWorldEventIds: eventPatch.processedWorldEventIds,

@@ -15,6 +15,8 @@ export interface StoryModeStageProps {
   placeId: PlaceId;
   roomF2f: Record<PlaceId, GameMessage[]>;
   nameMap: Record<string, string>;
+  /** 每个 agent 最新情绪标签，驱动字幕立绘按情绪切换。 */
+  agentMood?: Record<string, string>;
   pendingWorldEvent: WorldEvent | null;
   lastError?: string;
   inputSlot: ReactNode;
@@ -33,6 +35,7 @@ export function StoryModeStage({
   placeId,
   roomF2f,
   nameMap,
+  agentMood,
   pendingWorldEvent,
   lastError,
   inputSlot,
@@ -46,7 +49,7 @@ export function StoryModeStage({
   onDismissWorldEvent,
 }: StoryModeStageProps) {
   const roomMessages = playerRoomMessages(roomF2f, placeId);
-  const dialogue = useStoryDialogueQueue(roomMessages, nameMap);
+  const dialogue = useStoryDialogueQueue(roomMessages, nameMap, agentMood);
   const backgroundUrl = storyPlaceBackground(placeId);
 
   const subtitlePlaceholder = `【${placeDisplayName(placeId)}】`;

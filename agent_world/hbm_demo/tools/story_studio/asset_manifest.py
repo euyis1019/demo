@@ -70,6 +70,9 @@ def render_asset_manifest(pack: StoryPack) -> str:
         lines.append(f"[{n}] 角色立绘：{name}{role_txt}  → assets/avatars/agent_{a['agent_id']}.png  （1024×1536，竖，半身）")
         lines.append(f"    提示词：人物半身立绘，{name}{role_txt}。性格气质：{persona}。"
                      f"正面或四分之三侧面，干净纯色背景便于抠图，{_STYLE}")
+        lines.append(f"    情绪变体(可选)：同一角色不同表情 → "
+                     f"assets/avatars/agent_{a['agent_id']}_{{angry,happy,sad,anxious,confident}}.png"
+                     f"（前端按 agent 情绪自动切换；缺某变体则回退基础立绘。提示词在上句基础上加对应表情）")
         lines.append("")
 
     lines.append(f"# 共需 {n} 张图片。出好后按上面文件名放入 assets/ 即可。")

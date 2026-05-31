@@ -59,14 +59,22 @@ def format_location_changes(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def format_state_changes(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    return [
-        {
-            "agent_id": int(row["agent_id"]),
-            "content": str(row["content"]),
-            "at_tick": int(row["at_tick"]),
-        }
-        for row in rows
-    ]
+    from agent_world.hbm_demo.shared.emotion import classify_emotion, normalize_emotion
+
+    out: List[Dict[str, Any]] = []
+    for row in rows:
+        content = str(row["content"])
+        # 优先用引擎透传的离散情绪标签（update_state 的 emotion 参数）；缺失则按文本兜底分类。
+        emotion = normalize_emotion(row["emotion"]) if row.get("emotion") else classify_emotion(content)
+        out.append(
+            {
+                "agent_id": int(row["agent_id"]),
+                "content": content,
+                "at_tick": int(row["at_tick"]),
+                "emotion": emotion,
+            }
+        )
+    return out
 
 
 def format_group_social_events(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

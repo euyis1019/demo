@@ -62,6 +62,7 @@ export function StorySubtitle({
               {!isPlayer ? (
                 <ChromaKeyAvatar
                   src={line.avatarUrl}
+                  fallbackSrc={line.avatarFallbackUrl}
                   className="story-subtitle__avatar"
                 />
               ) : null}
@@ -79,6 +80,7 @@ export function StorySubtitle({
               {isPlayer ? (
                 <ChromaKeyAvatar
                   src={line.avatarUrl}
+                  fallbackSrc={line.avatarFallbackUrl}
                   className="story-subtitle__avatar"
                 />
               ) : null}

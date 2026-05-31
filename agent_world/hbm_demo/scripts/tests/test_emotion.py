@@ -49,6 +49,23 @@ def test_normalize_emotion() -> None:
         assert normalize_emotion(e) == e
 
 
+def test_format_state_changes_attaches_emotion() -> None:
+    """f12 format_state_changes 给每条 state change 附上离散情绪标签（随 world-delta 下发前端）。"""
+    from agent_world.hbm_demo.features.f12_world_sync.formatter import format_state_changes
+
+    rows = [
+        {"agent_id": 2, "content": "我被气炸了，简直愤怒", "at_tick": 5},
+        {"agent_id": 3, "content": "平静地推演着技术细节", "at_tick": 6},
+        {"agent_id": 4, "content": "随便写的", "at_tick": 7, "emotion": "happy"},  # 引擎透传优先
+    ]
+    out = format_state_changes(rows)
+    assert out[0]["emotion"] == "angry", out[0]
+    assert out[1]["emotion"] == "neutral", out[1]
+    assert out[2]["emotion"] == "happy", out[2]  # 用透传值而非分类
+    # 原字段保留
+    assert out[0]["agent_id"] == 2 and out[0]["at_tick"] == 5 and out[0]["content"]
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
