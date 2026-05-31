@@ -7,42 +7,36 @@ nodes:
   inject_agents:
   - 5
   place_focus: start
-  window_since: start_tick
 - id: investigate_ghost
   beats_label: 第二幕：暗访鬼影
   summary: 你跟踪鬼影至后山密室，发现他与一个蒙面人密谈，提及‘药已下’。
   inject_agents:
   - 5
   place_focus: back_hill
-  window_since: start_tick
 - id: confront_ling
   beats_label: 第二幕：试探大师兄
   summary: 你向凌轩透露鬼影可疑，凌轩却斥你多管闲事，并暗示你站队。
   inject_agents:
   - 2
   place_focus: main_hall
-  window_since: start_tick
 - id: ally_su
   beats_label: 第三幕：联手二师姐
   summary: 你与苏绾交换情报，她怀疑鬼影与大师兄勾结，提议夜探掌门书房。
   inject_agents:
   - 3
   place_focus: training_ground
-  window_since: start_tick
 - id: bribe_zhou
   beats_label: 第三幕：收买三师兄
   summary: 你花银子从周平处买到消息：鬼影曾从药房取走一味罕见毒草。
   inject_agents:
   - 4
   place_focus: market_street
-  window_since: start_tick
 - id: search_study
   beats_label: 第四幕：书房寻证
   summary: 你潜入掌门书房，找到一封密信，揭露鬼影受雇于敌对门派。
   inject_agents:
   - 1
   place_focus: study
-  window_since: start_tick
 - id: final_showdown
   beats_label: 第四幕：真相大白
   summary: 你召集众人当面对质，鬼影狗急跳墙，凌轩或苏绾出手相助。
@@ -51,7 +45,6 @@ nodes:
   - 3
   - 5
   place_focus: main_hall
-  window_since: start_tick
 endings:
 - id: expose_heir
   kind: good

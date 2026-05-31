@@ -131,13 +131,13 @@ WRITER_OUTPUT_SCHEMA: Dict[str, Any] = {
                 "required": ["id"],
                 "properties": {
                     "id": {"type": "string"},
-                    "trigger": {"type": "object"},
+                    "condition": {"type": "string"},  # 自然语言：导演据此判断玩家是否推进到该边
                     "actions": {"type": "array"},
                     "legacy_label": {"type": "string"},
                 },
             },
         },
-        "signals": {"type": "object"},
+        "signals": {"type": "object"},  # 已废弃；导演驱动不再需要关键词/信号
     },
 }
 

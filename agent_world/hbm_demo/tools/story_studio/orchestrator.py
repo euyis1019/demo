@@ -113,7 +113,7 @@ def assemble_sections(
     nodes = _merge_by_id(designer.get("nodes", []), writer.get("nodes", []),
                          ("inject_agents", "place_focus", "window_since"))
     edges = _merge_by_id(designer.get("edges", []), writer.get("edges", []),
-                         ("trigger", "actions", "legacy_label"))
+                         ("condition", "actions", "legacy_label"))
     story_graph = {
         "schema_version": 1,
         "initial_node": designer["initial_node"],
