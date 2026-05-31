@@ -1,7 +1,7 @@
 """活跃故事的运行期配置门面(运行期数据驱动化)。
 
 把"当前在玩哪个故事 + 该故事的节点/地点/注入对象"从写死的 HBM phase 表，统一改成读
-活跃 Story Pack。活跃故事由 env `HBM_STORY_ID` 决定(默认 hbm_memory_war)。纯读 shared/story_pack
+活跃 Story Pack。活跃故事由 env `HBM_STORY_ID` 决定(默认 canglan_sword)。纯读 shared/story_pack
 (D3：不依赖 features)，L1/L2 都可用。
 """
 

@@ -22,7 +22,7 @@ from agent_world.persistence.world_db import WorldDB
 
 RECEPTION = "nvidia_reception"
 NEGOTIATION = "negotiation_room"
-SIM = ROOT / "agent_world" / "hbm_demo" / "sim" / "hbm_memory_war"
+SIM = ROOT / "agent_world" / "hbm_demo" / "sim" / "canglan_sword"
 
 
 class TestFailure(Exception):

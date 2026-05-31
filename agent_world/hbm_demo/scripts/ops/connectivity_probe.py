@@ -34,7 +34,7 @@ from urllib.parse import urlparse, parse_qs
 # --- 样例数据：形状贴近 demo，但全部为固定假数据，可安全对外 ----------------
 
 SAMPLE_SUMMARY = {
-    "sim_id": "hbm_memory_war",
+    "sim_id": "canglan_sword",
     "title": "HBM 内存争夺战",
     "phase": 3,
     "phase_label": "Phase 3 · 董事会博弈",
@@ -71,7 +71,7 @@ SAMPLE_WORLD = {
 }
 
 SAMPLE_SESSION = {
-    "sim_id": "hbm_memory_war",
+    "sim_id": "canglan_sword",
     "turn": 14,
     "phase": 3,
     "player_score": 72,

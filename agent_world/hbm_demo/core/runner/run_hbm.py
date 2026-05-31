@@ -3,7 +3,7 @@
 Usage:
     python -m agent_world.hbm_demo.run_hbm \\
         --config agent_world/hbm_demo/hbm_scenario.yaml \\
-        --sim-dir agent_world/hbm_demo/sim/hbm_memory_war/
+        --sim-dir agent_world/hbm_demo/sim/canglan_sword/
 """
 
 from __future__ import annotations

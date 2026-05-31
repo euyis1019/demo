@@ -342,14 +342,16 @@ def test_generate_full_regenerates_on_xref_break() -> None:
 
 # ---- G4：人在环 review + 局部重生成 ----
 
-def test_review_renders_hbm_pack() -> None:
+def test_review_renders_pack() -> None:
     from agent_world.hbm_demo.shared.story_pack import load_story_pack
     from agent_world.hbm_demo.tools.story_studio import render_review
 
-    text = render_review(load_story_pack("hbm_memory_war"))
-    assert "Story Pack 审阅：hbm_memory_war" in text
-    assert "phase1_reception" in text and "ending_join_nvidia" in text
-    assert "✓ 校验通过" in text  # HBM 参考包应渲染为校验通过
+    pack = load_story_pack("canglan_sword")
+    text = render_review(pack)
+    assert "Story Pack 审阅：canglan_sword" in text
+    assert pack.graph.initial_node in text  # 初始节点渲染出
+    assert any(eid in text for eid in pack.graph.endings)  # 至少一个结局渲染出
+    assert "✓ 校验通过" in text  # canglan 包应渲染为校验通过
 
 
 def test_regenerate_writer_keeps_cast_and_graph() -> None:
@@ -441,14 +443,17 @@ def test_asset_manifest_lists_all_images() -> None:
     from agent_world.hbm_demo.shared.story_pack import load_story_pack
     from agent_world.hbm_demo.tools.story_studio import render_asset_manifest
 
-    text = render_asset_manifest(load_story_pack("hbm_memory_war"))
-    # 封面 + 4 地点背景 + 7 个 NPC 立绘（玩家 0 不出）= 12 张
+    pack = load_story_pack("canglan_sword")
+    text = render_asset_manifest(pack)
+    # 数据驱动：封面 + 每个地点背景 + 每个 NPC 立绘（玩家 0 不出）
+    n_places = len(pack.places.get("places") or [])
+    n_npcs = len([a for a in pack.agents["agents"] if int(a["agent_id"]) > 0])
     assert "封面图" in text
-    assert text.count("场景背景：") == 4
-    assert text.count("角色立绘：") == 7  # agents 1..7（排除玩家 0）
-    assert "共需 12 张图片" in text
-    # 提示词含统一画风 + 具体内容
-    assert "统一画风要求" in text and "Jensen Hwang" in text
+    assert text.count("场景背景：") == n_places
+    assert text.count("角色立绘：") == n_npcs
+    assert f"共需 {1 + n_places + n_npcs} 张图片" in text
+    # 提示词含统一画风要求
+    assert "统一画风要求" in text
 
 
 def test_asset_manifest_write_to_tmp_and_safety() -> None:
@@ -459,7 +464,7 @@ def test_asset_manifest_write_to_tmp_and_safety() -> None:
     from agent_world.hbm_demo.tools.story_studio import write_asset_manifest
     from agent_world.hbm_demo.tools.story_studio.asset_manifest import MANIFEST_FILENAME
 
-    pack = load_story_pack("hbm_memory_war")
+    pack = load_story_pack("canglan_sword")
     tmp = Path(tempfile.mkdtemp())
     try:
         path = write_asset_manifest(pack, target_dir=tmp)

@@ -16,7 +16,7 @@ from agent_world.hbm_demo.shared.story_pack import list_story_ids, load_story_pa
 def test_at_least_one_pack_exists() -> None:
     ids = list_story_ids()
     assert ids, "config/stories/ 下应至少有一个 Story Pack"
-    assert "hbm_memory_war" in ids, ids
+    assert "canglan_sword" in ids, ids
 
 
 def test_all_packs_validate() -> None:
