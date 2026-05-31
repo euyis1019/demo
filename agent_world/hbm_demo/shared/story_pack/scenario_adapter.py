@@ -26,6 +26,15 @@ def is_story_pack_seed_enabled() -> bool:
     """
     return os.environ.get("HBM_STORY_PACK_SEED", "").strip() in ("1", "true", "True", "yes", "on")
 
+
+def is_free_move_enabled() -> bool:
+    """是否放开 agent 自主移动（request_move 真正生效）。默认关——旧版脚本搬人不变。
+
+    开关式：`HBM_FREE_MOVE=1` 才放开（用户旋钮2）。放开时仍以 prompt 强引导「非必要不移动」，
+    避免 agent 乱跑导致剧情卡死。本助手放 shared/ 以便 L1 Runner/dispatcher 读取（不违反 D4）。
+    """
+    return os.environ.get("HBM_FREE_MOVE", "").strip() in ("1", "true", "True", "yes", "on")
+
 # scenario 里每个 agent 需要的键（其余如 role/faction/capabilities 不进 scenario.agents）。
 _AGENT_KEYS = ("agent_id", "name", "location", "soul", "long_term_goal", "current_state", "short_term_goal")
 

@@ -27,7 +27,8 @@ def _action_name(action_type: Any) -> str:
 
 
 class HbmActionDispatcher(ActionDispatcher):
-    """Silently ignore agent ``request_move``; location changes use Flask IPC."""
+    """Suppress agent ``request_move`` by default (location via Flask IPC);
+    ``HBM_FREE_MOVE=1`` lets request_move through to the generic dispatcher (旋钮2)."""
 
     async def dispatch(
         self,
@@ -62,8 +63,14 @@ class HbmActionDispatcher(ActionDispatcher):
             except ValueError:
                 pass
 
+        # 旋钮2：默认抑制 agent 自主移动（旧版脚本搬人）；HBM_FREE_MOVE=1 时放开，
+        # request_move 落到通用 dispatcher 真正生效（移动引导见 hbm_agent prompt「非必要不移动」）。
+        from agent_world.hbm_demo.shared.story_pack.scenario_adapter import (
+            is_free_move_enabled,
+        )
+
         move_type = getattr(ActionType, "REQUEST_MOVE", "request_move")
-        if action_type == move_type or action_type == "request_move":
+        if (action_type == move_type or action_type == "request_move") and not is_free_move_enabled():
             place_id = kwargs.get("place_id") or kwargs.get("target")
             log.info(
                 "HBM dispatcher: ignore agent request_move agent=%s place=%s t=%s",

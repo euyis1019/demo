@@ -350,13 +350,27 @@ class HbmAgent(DemoAgent):
         elif aid in (2, 3, 4, 5, 6, 7):
             length_rule += "   技术词最多 1 个，且须紧跟「说白了就是……」。\n"
 
+        from agent_world.hbm_demo.shared.story_pack.scenario_adapter import (
+            is_free_move_enabled,
+        )
+
+        if is_free_move_enabled():
+            move_rule = (
+                "4) 你可以 request_move 到相邻地点，但**非必要不要移动**——"
+                "仅当剧情确实需要（如被叫去某处、追随某人）才移动；台词须与移动一致。\n"
+            )
+        else:
+            move_rule = (
+                "4) 遵守系统约束中的阶段禁止项（MOVE/GRP 等）；request_move 被引擎忽略，"
+                "台词里不要说「我去XX室」——位置不会变。\n"
+            )
+
         return (
             "【本回合行动要求（HBM Demo · F07）】\n"
             f"{respond_rule}"
             f"{length_rule}"
             f"{reception_extra}"
-            "4) 遵守系统约束中的阶段禁止项（MOVE/GRP 等）；request_move 被引擎忽略，"
-            "台词里不要说「我去XX室」——位置不会变。\n"
+            f"{move_rule}"
             "5) 每一拍只调用一个工具，参数严格符合 schema。\n"
             "6) 无未读 RDC、无新 inject、且本批已说过话 → 可 do_nothing；有未读 RDC 时禁止 do_nothing。\n"
             "7) incoming_messages / 未读 RDC → 本拍必须 send_message 回复发件人，不要拖到下一拍。\n"
