@@ -14,15 +14,27 @@ from typing import Any, Dict, List, Optional
 log = logging.getLogger("agent_world.hbm_demo.f05.director")
 
 _SYSTEM = (
-    "你是一部互动剧情的「导演」。职责：读这一幕的剧情背景与最近真实发生的对话，判断玩家是否"
-    "已经把剧情明确推向某个走向。你不靠任何关键词，只靠对剧情与对话的理解来判断。\n"
+    "你是一部互动剧情的「导演」。职责：纵观整个故事的走向地图，读这一幕的剧情背景与最近真实发生的"
+    "对话，判断玩家是否已经把剧情推向某个走向。你不靠任何关键词，只靠对剧情与对话的理解来判断。\n"
     "规则：\n"
-    "1. 只有当对话清楚显示玩家做出/表达了某个走向『条件』所描述的选择或行动时，才推进到那个走向；\n"
-    "2. 玩家只是闲聊、提问、犹豫、尚未明确选择 → 保持当前幕(stay)；\n"
-    "3. 若多个走向都沾边，选最贴合玩家明确意图的那个；拿不准就 stay；\n"
+    "1. 当对话显示玩家做出/表达了某个走向『条件』所描述的选择或行动——或玩家用别的方式把局势实质地"
+    "朝那个走向推进了——就推进到那个走向。抓玩家的真实意图与造成的效果，不必逐字命中条件措辞；\n"
+    "2. 玩家只是闲聊、寒暄、提问、还在打探、或明显犹豫未定 → 保持当前幕(stay)；\n"
+    "3. 若多个走向都沾边，选最贴合玩家明确意图的那个；玩家确实还没推动任何走向时才 stay；\n"
     "4. 严格只输出一行 JSON："
     '{"decision":"advance或stay","target":"走向id或空串","reason":"一句中文理由"}'
 )
+
+
+def _story_outline(graph: Any, current_node_id: str) -> str:
+    """整张故事走向地图（所有幕 + 结局），标出当前所在幕，给导演全局视野而非只看当前出边。"""
+    lines: List[str] = []
+    for nid, n in graph.nodes.items():
+        mark = "▶现在" if nid == current_node_id else "　"
+        lines.append(f"{mark}[{nid}] {n.beats_label}：{n.summary}")
+    for eid, e in graph.endings.items():
+        lines.append(f"　(结局·{e.kind})[{eid}] {e.summary}")
+    return "\n".join(lines)
 
 
 def _client_and_cfg():
@@ -93,11 +105,12 @@ def judge_transition(graph: Any, node_id: str, transcript: str, name_map: Dict[i
         return None
 
     user = (
+        f"【整个故事的走向地图】（▶ 标出你现在所在的幕）：\n{_story_outline(graph, node_id)}\n\n"
         f"【当前这一幕】{node.beats_label}：{node.summary}\n\n"
-        "【可能的走向】（玩家明确做到对应『条件』时才走那条）：\n"
+        "【从这一幕可能的走向】（玩家把局势推向对应『条件』所描述的方向时走那条）：\n"
         + "\n".join(f"- id={o['id']}｜条件：{o['condition']}｜走向后：{o['outcome']}" for o in options)
         + f"\n\n【这一幕里最近真实发生的对话】：\n{transcript or '（暂无对话）'}\n\n"
-        "判断玩家是否已明确推动到某个走向。严格只输出一行 JSON。"
+        "结合整个故事走向，判断玩家是否已把剧情推动到某个走向。严格只输出一行 JSON。"
     )
     try:
         from agent_world.hbm_demo.core.runner.kernel import llm_request_extras

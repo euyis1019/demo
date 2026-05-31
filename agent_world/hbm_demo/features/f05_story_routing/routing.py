@@ -14,15 +14,36 @@ log = logging.getLogger("agent_world.hbm_demo.routing")
 
 
 def node_inject_ids(session: Any) -> List[int]:
-    """玩家这句话注入给当前剧情节点的 inject_agents（无节点/查无即空，不做相位兜底）。"""
-    node_id = getattr(session, "current_node_id", None)
-    if not node_id:
-        return []
-    from agent_world.hbm_demo.shared import story_config
+    """玩家这句话注入给：当前剧情节点的 inject_agents ∪ 与玩家同处一地的所有 NPC。
 
-    if story_config.node_exists(node_id):
-        return story_config.node_inject_agents(node_id)
-    return []
+    解除「只有剧本这一幕安排的人能听见玩家」的硬白名单——玩家可自由找在场的任意角色搭话，
+    自由交互不再被节点忽略（去线性化）。剧情推进仍由导演按对话理解判断，不受此影响。
+    """
+    ids: set = set()
+    node_id = getattr(session, "current_node_id", None)
+    if node_id:
+        from agent_world.hbm_demo.shared import story_config
+
+        if story_config.node_exists(node_id):
+            ids.update(int(a) for a in story_config.node_inject_agents(node_id))
+    ids.update(_present_npc_ids(session))
+    return sorted(ids)
+
+
+def _present_npc_ids(session: Any) -> List[int]:
+    """与玩家同处一地的 NPC（读只读世界库）；查不到/出错则空，绝不抛。"""
+    place = str(getattr(session, "place_id", "") or "")
+    if not place:
+        return []
+    try:
+        from agent_world.hbm_demo.features.f01_session.paths import get_sim_dir
+        from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
+
+        present = make_readonly_db(get_sim_dir()).agents_at(place)
+        return [int(a) for a in present if int(a) != 0]
+    except Exception as exc:  # noqa: BLE001
+        log.debug("present_npc lookup failed: %s", exc)
+        return []
 
 
 def format_player_dialogue(player_text: str) -> str:
