@@ -14,10 +14,17 @@ _name_map_cache: Dict[int, str] | None = None
 
 
 def get_sim_dir() -> Path:
-    pkg = Path(__file__).resolve().parents[2]
-    default = pkg / "sim" / DEFAULT_SIM_ID
-    raw = Path(os.environ.get("HBM_SIM_DIR", str(default)))
-    return raw.resolve()
+    # 当前在玩哪个故事 → 哪个 sim 目录（前端选/建故事后可运行期切换）。
+    from agent_world.hbm_demo.shared.active_game import active_sim_dir
+
+    return active_sim_dir()
+
+
+def clear_scenario_cache() -> None:
+    """切换故事时清掉按故事缓存的 scenario / name_map（否则会沿用上一个故事）。"""
+    global _scenario_cache, _name_map_cache
+    _scenario_cache = None
+    _name_map_cache = None
 
 
 def get_world_db_path(sim_dir: Path | None = None) -> Path:

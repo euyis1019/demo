@@ -1,6 +1,14 @@
-/** HBM demo API constants — aligned with backend `game_service.DEFAULT_SIM_ID`. */
+/** HBM demo API constants。SIM_ID 运行期可变：大厅里选/建故事并激活后 setSimId 切换。 */
 
-export const SIM_ID = "hbm_memory_war";
+let _simId = "canglan_sword";
+
+export function getSimId(): string {
+  return _simId;
+}
+
+export function setSimId(simId: string): void {
+  if (simId) _simId = simId;
+}
 
 /** Vite dev proxy serves `/api` on same origin; Node tests set `VITE_API_BASE`. */
 function readNodeEnv(key: string): string | undefined {
@@ -24,7 +32,13 @@ function readApiRoot(): string {
 
 export const API_ROOT = readApiRoot();
 
-export const API_PREFIX = `${API_ROOT}/api/hbm/simulations/${SIM_ID}`;
+/** 当前故事的 API 前缀（运行期按 setSimId 变化，故用函数而非常量）。 */
+export function apiPrefix(): string {
+  return `${API_ROOT}/api/hbm/simulations/${encodeURIComponent(_simId)}`;
+}
+
+/** 大厅（选/建/激活故事）API 根。 */
+export const LOBBY_ROOT = `${API_ROOT}/api/hbm/lobby`;
 
 /** PLAN2 §四 — ensures API 2 timeout path (start_tick + 8). */
 export const DEFAULT_TICK_COUNT = 8;

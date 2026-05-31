@@ -1,13 +1,13 @@
 import { useEffect, useRef } from "react";
 import type { WorldDeltaData } from "../../api/types";
-import { API_PREFIX } from "../../api/hbm";
+import { apiPrefix } from "../../api/hbm";
 import { WORLD_STREAM_FALLBACK_POLL_MS } from "../../constants/gameLoop";
 import { useGameStoreContext } from "../../store";
 import { applyWorldDeltaPayload } from "./worldDeltaApply";
 
 function worldStreamUrl(): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//${window.location.host}${API_PREFIX}/world-stream`;
+  return `${proto}//${window.location.host}${apiPrefix()}/world-stream`;
 }
 
 /** F16 — WebSocket push for session delta (dev_logs/31 Phase 5 §14.4). */

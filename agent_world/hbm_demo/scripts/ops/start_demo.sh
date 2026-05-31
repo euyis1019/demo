@@ -15,7 +15,6 @@ STOP_SCRIPT="$SCRIPT_DIR/stop_demo.sh"
 # shellcheck source=demo_ports.sh
 source "$SCRIPT_DIR/demo_ports.sh"
 
-HBM_SIM_DIR="${HBM_SIM_DIR:-$ROOT/agent_world/hbm_demo/sim/hbm_memory_war}"
 VITE_PORT="${VITE_PORT:-$HBM_DEMO_VITE_PORT_DEFAULT}"
 
 RUNNER_PID=""
@@ -96,7 +95,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 cd "$ROOT"
-mkdir -p "$RUN_DIR" "$HBM_SIM_DIR"
+mkdir -p "$RUN_DIR"
 
 load_env_file "$HBM_DIR/.env"
 load_env_file "$ROOT/agent_world/demo/.env"
@@ -123,7 +122,8 @@ if [[ "$NODE_MAJOR" -lt 18 ]]; then
 fi
 
 FLASK_PORT="$(pick_flask_port)"
-HEALTH_URL="http://127.0.0.1:${FLASK_PORT}/api/hbm/simulations/hbm_memory_war/health"
+# 大厅就绪探针：不带 sim_id（此刻还没选故事），用 /lobby/stories 判 Flask 是否起来。
+HEALTH_URL="http://127.0.0.1:${FLASK_PORT}/api/hbm/lobby/stories"
 
 if port_in_use "$VITE_PORT"; then
   echo "错误: 端口 ${VITE_PORT} 已被占用（前端 dev server）。" >&2
@@ -133,49 +133,13 @@ fi
 # E8 — repeatable start: clean stale processes first.
 "$STOP_SCRIPT" >/dev/null 2>&1 || true
 
-export HBM_SIM_DIR
+# 大厅模型：不预启动 Runner——玩家在前端「选择/新建故事」并激活后，由 WorldManager 按需为
+# 该故事拉起对应 Runner（/api/hbm/lobby/activate）。这里只起 Flask + 前端；故事世界的 Runner
+# 生命周期完全交给大厅。注意：不导出 HBM_SIM_DIR，让 Flask 读路径跟随激活的故事（见 active_game）。
 export FLASK_APP=agent_world.app:create_app
 export FLASK_RUN_PORT="$FLASK_PORT"
 export VITE_API_PROXY_TARGET="http://127.0.0.1:${FLASK_PORT}"
 export VITE_PORT="$VITE_PORT"
-
-echo "正在启动 Runner…"
-"$PYTHON" -m agent_world.hbm_demo.run_hbm \
-  --config "$HBM_DIR/hbm_scenario.yaml" \
-  --sim-dir "$HBM_SIM_DIR" \
-  --log-level WARNING \
-  >>"$RUN_DIR/runner.log" 2>&1 &
-RUNNER_PID=$!
-
-runner_ready=0
-for _ in $(seq 1 120); do
-  if "$PYTHON" -c "from agent_world.hbm_demo.shared.env_status import is_runner_ready; import sys; sys.exit(0 if is_runner_ready('${HBM_SIM_DIR}') else 1)"; then
-    runner_ready=1
-    break
-  fi
-  if ! kill -0 "$RUNNER_PID" 2>/dev/null; then
-    echo "错误: Runner 进程意外退出。日志: $RUN_DIR/runner.log" >&2
-    tail -20 "$RUN_DIR/runner.log" >&2 || true
-    exit 1
-  fi
-  sleep 0.5
-done
-if [[ "$runner_ready" -ne 1 ]]; then
-  echo "错误: Runner 在 60s 内未就绪（env_status.status!=running）。" >&2
-  exit 1
-fi
-
-for _ in $(seq 1 30); do
-  if [[ -f "$HBM_SIM_DIR/world.db" && -f "$HBM_SIM_DIR/env_status.json" ]]; then
-    break
-  fi
-  sleep 0.5
-done
-if [[ ! -f "$HBM_SIM_DIR/world.db" ]]; then
-  echo "错误: Runner 已启动但 world.db 未生成，请查看 $RUN_DIR/runner.log" >&2
-  tail -20 "$RUN_DIR/runner.log" >&2 || true
-  exit 1
-fi
 
   echo "正在启动 Flask（端口 ${FLASK_PORT}）…"
   "$PYTHON" -m flask run --host 127.0.0.1 --port "$FLASK_PORT" --with-threads \
@@ -209,9 +173,9 @@ fi
 cat <<EOF
 
 HBM Demo 已启动
-  Runner : OK
   Flask  : http://127.0.0.1:${FLASK_PORT}
   前端   : http://localhost:${VITE_PORT}
+  Runner : 由大厅按需启动（在前端选/建故事后自动拉起）
 按 Ctrl+C 停止全部进程
 
 EOF

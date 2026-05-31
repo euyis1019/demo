@@ -1,8 +1,9 @@
 """活跃故事的运行期配置门面(运行期数据驱动化)。
 
 把"当前在玩哪个故事 + 该故事的节点/地点/注入对象"从写死的 HBM phase 表，统一改成读
-活跃 Story Pack。活跃故事由 env `HBM_STORY_ID` 决定(默认 canglan_sword)。纯读 shared/story_pack
-(D3：不依赖 features)，L1/L2 都可用。
+活跃 Story Pack。活跃故事默认 canglan_sword，运行期可由 active_game / WorldManager（大厅选/建
+故事后）切换——active_story_id() 委托 active_game.get_active_story()，不再只读 env。纯读
+shared/story_pack(D3：不依赖 features)，L1/L2 都可用。
 """
 
 from __future__ import annotations
@@ -15,12 +16,20 @@ from agent_world.hbm_demo.shared.story_pack import StoryPack, load_story_pack
 
 
 def active_story_id() -> str:
-    return (os.environ.get("HBM_STORY_ID") or "canglan_sword").strip() or "canglan_sword"
+    from agent_world.hbm_demo.shared import active_game
+
+    return active_game.get_active_story()
 
 
 @lru_cache(maxsize=8)
 def _pack(story_id: str) -> StoryPack:
     return load_story_pack(story_id)
+
+
+def clear_pack_cache() -> None:
+    """清空活跃 Story Pack 的 lru 缓存。切故事后由 WorldManager 调，确保读到新故事的包，
+    而不是上一个故事的残留缓存（公共出口，避免外部 reach-in 私有 _pack）。"""
+    _pack.cache_clear()
 
 
 def active_pack(story_id: Optional[str] = None) -> StoryPack:

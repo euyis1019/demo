@@ -10,7 +10,8 @@ Flask Blueprint (`hbm_bp`)：把浏览器请求委托给 L2 features，并提供
 
 | 文件 | 作用 |
 |------|------|
-| `routes.py` | `hbm_bp` Blueprint：所有 REST 端点，做参数解析 + 委托 L2 + 错误映射（薄路由） |
+| `routes.py` | `hbm_bp` Blueprint：所有 REST 端点（含大厅 `/lobby/*`），做参数解析 + 委托 L2 + 错误映射（薄路由） |
+| `world_manager.py` | Flask 侧「大厅/世界生命周期」单例 `WORLD_MANAGER`：`list_stories`、`create_story`（后台线程异步跑 story_studio 生成整包 + 可选出图，用 job 跟踪）、`activate`（按故事起/重启 Runner 子进程并设为当前故事） |
 | `ipc_helper.py` | **Flask 侧 IPC 客户端**：`get_ipc_client`、`send_inject_batch/enqueue_player_input/move_agent/reset_world`、`push_session_mirror`、`wait_for_loop_window`、`resolve_loop_min_ticks`；错误→`IpcFailedError/IpcTimeoutError` |
 | `ws.py` | F16 WebSocket 注册：`register_world_stream_routes(app)`，推送 world-delta 流 |
 | `health.py` | `check_stack_health`：Runner 就绪 + world.db 可读探针（兜底捕获异常） |
@@ -33,6 +34,15 @@ Flask Blueprint (`hbm_bp`)：把浏览器请求委托给 L2 features，并提供
 | GET/POST | `world-loop/status\|pause\|resume` | F13 | 常驻 loop 控制 |
 | GET | `prompt-trace/<id>` · `prompt-trace/by-ref` · `prompt-traces` | F15 | Prompt Inspector |
 | POST | `debug-inject` | F02 | 调试用手动 IPC inject |
+
+## 大厅端点（前缀 `/api/hbm/lobby/`，不带 `<sim_id>`）
+
+| 方法 | 路径 | 委托 | 说明 |
+|------|------|------|------|
+| GET | `lobby/stories` | WorldManager | 列出已有故事（story_id/title/有无图片素材/NPC 数） |
+| POST | `lobby/stories` | WorldManager | 输入一段剧情 → 后台异步生成整包，返回 `job_id` |
+| GET | `lobby/jobs/<job_id>` | WorldManager | 轮询生成进度（running/done/error + step） |
+| POST | `lobby/activate` | WorldManager | 激活某故事（起 Runner、设为当前故事），返回 `{story_id, ready}` |
 
 响应统一 `{"success": bool, "data": {...}}`；端点只校验 `sim_id` 并转发，不含业务编排
 （loop 自动 resume 等已下沉 F13 service）。

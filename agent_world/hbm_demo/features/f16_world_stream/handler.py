@@ -14,6 +14,7 @@ from agent_world.hbm_demo.features.f16_world_stream.config import (
 )
 from agent_world.hbm_demo.features.f14_world_delta.handler import get_world_delta
 from agent_world.hbm_demo.shared.env_status import is_runner_ready
+from agent_world.hbm_demo.shared.story_config import active_story_id
 
 log = logging.getLogger("agent_world.hbm_demo.f16")
 
@@ -67,7 +68,9 @@ def register_world_stream_routes(sock: Any, *, url_prefix: str) -> None:
             _safe_send(ws, {"success": False, "error": "world_stream disabled"})
             return
 
-        if sim_id != gs.DEFAULT_SIM_ID:
+        # 与 REST 的 _check_sim_id 同口径：放行「当前激活的故事」（运行期可切），
+        # 不能用导入期冻结的 gs.DEFAULT_SIM_ID，否则大厅选/建的非默认故事会被拒连、丢实时推送。
+        if sim_id != active_story_id():
             _safe_send(ws, {"success": False, "error": f"unknown simulation_id: {sim_id}"})
             return
 

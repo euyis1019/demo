@@ -25,7 +25,7 @@ import {
 import type { WorldEvent } from "../api/types";
 
 export type EndingId = PlayerTurnCompleted["ending_id"];
-export type GameView = "boot" | "playing" | "game_over" | "ending";
+export type GameView = "select" | "boot" | "playing" | "game_over" | "ending";
 
 export interface GameState {
   view: GameView;
@@ -73,7 +73,7 @@ export const INITIAL_STATS: Stats = {
 
 export function createInitialState(): GameState {
   return {
-    view: "boot",
+    view: "select",
     healthChecking: true,
     runnerReady: false,
     sessionInitialized: false,
@@ -103,6 +103,7 @@ export function createInitialState(): GameState {
 }
 
 export type GameAction =
+  | { type: "ENTER_BOOT" }
   | { type: "HEALTH_CHECK_START" }
   | { type: "HEALTH_CHECK_DONE"; ready: boolean; error?: string }
   | { type: "START_SESSION"; data: SessionStartData }
@@ -218,6 +219,9 @@ function resetWorldState(): Pick<
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
+    case "ENTER_BOOT":
+      // 大厅选/建并激活某故事后，进入开局健康检查流程。
+      return { ...state, view: "boot", healthChecking: true, healthError: undefined };
     case "HEALTH_CHECK_START":
       return { ...state, healthChecking: true, healthError: undefined };
     case "HEALTH_CHECK_DONE":

@@ -34,7 +34,8 @@ if [[ -f "$PID_FILE" ]]; then
 fi
 
 # Fallback: pattern cleanup (handles orphaned demo processes only).
-pkill -f "agent_world.hbm_demo.run_hbm.*hbm_memory_war" 2>/dev/null || true
+# 大厅会为任意故事拉起 Runner（--sim-dir sim/<story_id>），故按通用 run_hbm 模式清理。
+pkill -f "agent_world.hbm_demo.run_hbm" 2>/dev/null || true
 for port in $(seq "$HBM_DEMO_FLASK_PORT_DEFAULT" "$HBM_DEMO_FLASK_PORT_MAX"); do
   pkill -f "flask run --host 127.0.0.1 --port ${port}" 2>/dev/null || true
 done

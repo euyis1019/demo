@@ -57,3 +57,5 @@ world.db
 /docs/agents/
 /docs/adr/
 .claude/
+# 外部参考仓库（dev_logs/41 参考用，非本项目代码）
+AI4VisualNovel/

@@ -50,8 +50,10 @@ from agent_world.hbm_demo.tools.story_studio.safety import (
     assert_safe_target,
 )
 from agent_world.hbm_demo.tools.story_studio.writer import write_story_pack
+from agent_world.hbm_demo.tools.story_studio.naming import slug_story_id
 
 __all__ = [
+    "slug_story_id",
     "BRIEF_SCHEMA",
     "validate_brief",
     "DESIGNER_OUTPUT_SCHEMA",

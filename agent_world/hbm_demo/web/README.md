@@ -34,6 +34,7 @@ src/
 │   ├── agentInbox.ts        #   「Agent 手机/消息」域（RDC/GRP 线程、RdcLink、社交事件）
 │   └── index.ts             #   store 公共出口
 ├── features/                # 按屏/域拆分（app → features → shared/api/store）
+│   ├── select/              #   开局选择界面：选已有故事 / 输入剧情新建（大厅 lobby API）
 │   ├── boot/                #   启动屏、健康检查、Runner 503 Modal
 │   ├── game-loop/           #   回合循环：发回合、world-delta 轮询(F14)、WS(F16)、loop 控制(F13)
 │   ├── layout/              #   双栏布局、StatusPanel

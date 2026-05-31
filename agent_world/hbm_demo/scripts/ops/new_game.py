@@ -13,13 +13,18 @@ from __future__ import annotations
 
 import argparse
 import os
-import re
 import sys
 import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
 HBM = Path(__file__).resolve().parents[2]
+
+# 直接以脚本方式跑时（非 -m）也能 import agent_world：先把仓库根放进 sys.path，再导入。
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from agent_world.hbm_demo.tools.story_studio.naming import slug_story_id as _slug  # noqa: E402
 
 
 def _load_env() -> None:
@@ -30,11 +35,6 @@ def _load_env() -> None:
             if line and not line.startswith("#") and "=" in line:
                 k, v = line.split("=", 1)
                 os.environ.setdefault(k, v)
-
-
-def _slug(premise: str) -> str:
-    base = re.sub(r"[^0-9a-zA-Z一-鿿]+", "_", premise.strip())[:16].strip("_") or "story"
-    return f"{base}_{int(time.time()) % 100000}"
 
 
 def _deepseek_client():
@@ -79,7 +79,6 @@ def main(argv=None) -> int:
     args = p.parse_args(argv)
 
     story_id = args.story_id or _slug(args.premise)
-    sys.path.insert(0, str(ROOT))
 
     if args.reuse and (HBM / "config" / "stories" / story_id).is_dir():
         print(f"① 复用已有 Story Pack：{story_id}（跳过设计）", flush=True)

@@ -8,7 +8,8 @@ from typing import Dict
 
 _HBM_DEMO_ROOT = Path(__file__).resolve().parents[2]
 
-# 活跃故事 = 当前在玩哪个 Story Pack（env HBM_STORY_ID 切换；默认 hbm_memory_war）。
+# 活跃故事 = 当前在玩哪个 Story Pack（默认 canglan_sword；env HBM_STORY_ID 设初值，
+# 运行期由 active_game/WorldManager 在大厅选/建故事后切换）。
 # 它同时是 HTTP sim_id（routes 放行）、watcher 解释器加载的故事、Runner 播种的故事。
 DEFAULT_SIM_ID = (os.environ.get("HBM_STORY_ID") or "canglan_sword").strip() or "canglan_sword"
 DEFAULT_PLACE_ID = "nvidia_reception"

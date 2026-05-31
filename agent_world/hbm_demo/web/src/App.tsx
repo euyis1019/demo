@@ -19,6 +19,7 @@ import {
   RunnerNotReadyModal,
   StatusPanel,
   StoryModeStage,
+  StorySelectScreen,
   StoryPlayerInput,
   TwoColumnLayout,
   useGameLoop,
@@ -31,6 +32,7 @@ import {
   useWorldLoopControl,
   WorldStage,
 } from "./features";
+import { setSimId } from "./api/hbm";
 import { agentsInPlace } from "./store/worldSync";
 import { GameStoreProvider, useGameStoreContext } from "./store";
 import { placeDisplayName, type PlaceId } from "./utils/places";
@@ -123,6 +125,18 @@ function GameApp() {
     onResumeWorld: () => void resumeWorld(),
     onReset: () => void resetDemo(),
   };
+
+  if (view === "select") {
+    return (
+      <StorySelectScreen
+        onReady={(simId) => {
+          setSimId(simId);
+          // 切到 boot 后，useHealthCheck 的 effect 会对这个新 sim 自动跑一次健康检查
+          dispatch({ type: "ENTER_BOOT" });
+        }}
+      />
+    );
+  }
 
   if (healthChecking) {
     return (

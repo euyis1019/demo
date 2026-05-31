@@ -25,8 +25,6 @@ from agent_world.hbm_demo.shared.env_status import is_runner_ready, read_env_sta
 
 hbm_bp = Blueprint("hbm", __name__)
 
-SIM_ID = gs.DEFAULT_SIM_ID
-
 
 def _json_body() -> Dict[str, Any]:
     return request.get_json(silent=True) or {}
@@ -37,9 +35,65 @@ def _bad_request(message: str, status: int = 400):
 
 
 def _check_sim_id(sim_id: str):
-    if sim_id != SIM_ID:
-        return _bad_request(f"unknown simulation_id: {sim_id}", 404)
+    # 放行「当前激活的故事」（前端在大厅选/建并激活某故事后，用其 story_id 作 sim_id 玩）。
+    from agent_world.hbm_demo.shared.story_config import active_story_id
+
+    if sim_id != active_story_id():
+        return _bad_request(
+            f"unknown or inactive simulation_id: {sim_id}（请先在大厅激活该故事）", 404
+        )
     return None
+
+
+# ============ 大厅：选已有故事 / 建新故事 / 激活起世界 ============
+
+@hbm_bp.route("/lobby/stories", methods=["GET"])
+def lobby_stories():
+    from agent_world.hbm_demo.http.world_manager import WORLD_MANAGER
+
+    return jsonify({"success": True, "data": {"stories": WORLD_MANAGER.list_stories()}})
+
+
+@hbm_bp.route("/lobby/stories", methods=["POST"])
+def lobby_create_story():
+    from agent_world.hbm_demo.http.world_manager import WORLD_MANAGER
+
+    body = _json_body()
+    premise = str(body.get("premise") or "").strip()
+    if len(premise) < 8:
+        return _bad_request("请输入一段大概的剧情（至少 8 个字）")
+    job_id = WORLD_MANAGER.create_story(
+        premise=premise,
+        player=str(body.get("player") or "一名卷入其中的外来者"),
+        title=body.get("title"),
+        acts=int(body.get("acts") or 4),
+        with_assets=bool(body.get("with_assets", True)),
+    )
+    return jsonify({"success": True, "data": {"job_id": job_id}})
+
+
+@hbm_bp.route("/lobby/jobs/<job_id>", methods=["GET"])
+def lobby_job_status(job_id: str):
+    from agent_world.hbm_demo.http.world_manager import WORLD_MANAGER
+
+    job = WORLD_MANAGER.jobs.get(job_id)
+    if not job:
+        return _bad_request("未知任务", 404)
+    return jsonify({"success": True, "data": dict(job)})
+
+
+@hbm_bp.route("/lobby/activate", methods=["POST"])
+def lobby_activate():
+    from agent_world.hbm_demo.http.world_manager import WORLD_MANAGER
+
+    story_id = str(_json_body().get("story_id") or "").strip()
+    try:
+        ready = WORLD_MANAGER.activate(story_id)
+    except ValueError as exc:
+        return _bad_request(str(exc), 404)
+    except Exception as exc:  # noqa: BLE001
+        return _bad_request(f"起世界失败：{exc}", 500)
+    return jsonify({"success": True, "data": {"story_id": story_id, "ready": ready}})
 
 
 @hbm_bp.route("/simulations/<sim_id>/session/start", methods=["POST"])

@@ -31,3 +31,4 @@ export * from "./shared";
 export * from "./world-stage";
 export * from "./prompt-trace";
 export * from "./story-mode";
+export * from "./select";

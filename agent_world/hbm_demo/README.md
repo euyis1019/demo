@@ -7,13 +7,13 @@
 scenario。运行时由三部分组成：
 
 - **Runner** — `python -m agent_world.hbm_demo.run_hbm`：跑 LLM 多 Agent 世界仿真，
-  写 `sim/hbm_memory_war/world.db`，按 tick 推进。
+  写 `sim/<story_id>/world.db`（默认 `canglan_sword`），按 tick 推进。
 - **Flask**（`agent_world.app` + `hbm_bp`）：会话、玩家回合 API、只读 DB、增量同步。
 - **React + Vite 前端**（`web/`，默认 `:5173`）：双栏世界舞台 + 可选沉浸式剧情模式。
 
 ```text
 浏览器(Vite:5173) → Flask(hbm_bp) → features/* handler → IPC → Runner(run_hbm)
-                                                              → sim/hbm_memory_war/world.db
+                                                              → sim/<story_id>/world.db
 玩家每发一句 → 打分(F04) → inject 到 Runner(F11/F07) → 世界 tick → 前端靠 F14
 /world-delta 轮询(+F16 WS)合并增量,回放各 Agent 动作。
 ```
@@ -84,7 +84,7 @@ agent_world/hbm_demo/
 ├── shared/                   # 跨层工具（见 shared/README.md）
 ├── scripts/                  # 运维 + 验收（见 scripts/README.md）
 ├── web/                      # L3 React 前端（见 web/README.md）
-└── sim/hbm_memory_war/       # 运行时产物（world.db / ipc / env_status.json，gitignore）
+└── sim/<story_id>/           # 运行时产物（world.db / ipc / env_status.json，gitignore）
 ```
 
 > 根目录三个 shim（`run_hbm.py` / `routes.py` / `game_service.py`）只做转发/再导出，
@@ -122,7 +122,9 @@ agent_world/hbm_demo/
 
 ## HTTP API
 
-前缀：`/api/hbm/simulations/hbm_memory_war/`（端点细节见 [`http/README.md`](http/README.md)）
+前缀：`/api/hbm/simulations/<story_id>/`（`story_id` 在大厅选/建并激活后动态确定，默认
+`canglan_sword`；另有不带 `<story_id>` 的大厅端点 `/api/hbm/lobby/*`。端点细节见
+[`http/README.md`](http/README.md)）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
