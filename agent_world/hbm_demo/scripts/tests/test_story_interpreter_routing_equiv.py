@@ -119,6 +119,15 @@ def test_node_c_via_rdc_equiv() -> None:
     )
 
 
+def test_node_d_endings_not_driven_by_interpreter() -> None:
+    """约定锁定(体检 P3)：phase4_finale 的结局边(node_d_*)不由 apply_routing_via_interpreter 承担——
+    结局判定恒走旧路径(watcher phase4 块 + f02 Turn25)。防将来误删旧块指望解释器接管而静默失效。"""
+    from agent_world.hbm_demo.features.f05_story_routing import interpreter_routing as ir
+    assert ir._transition_edges(_INTERP, "phase4_finale") == [], (
+        "phase4_finale 不应有指向『节点』的转移边；结局边指向 ending，不经解释器"
+    )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

@@ -228,6 +228,11 @@ def test_signals_match_routing_config() -> None:
     assert tuple(ks["return_to_negotiation_keywords"]) == RC.return_to_negotiation_keywords()
     assert tuple(ks["positive_rdc_keywords"]) == POSITIVE_RDC_KEYWORDS
     assert _INTERP._param("max_turns_phase1_without_approve") == RC.max_turns_phase1_without_approve()
+    # G3 漂移守卫：解释器(signals.yaml)与旧路径(routing.yaml)的 story_advance.enabled 必须同源一致，
+    # 否则开/关 HBM_STORY_PACK_ROUTING 节点推进条件不同，破坏等价性承诺。
+    assert _INTERP._story_advance_enabled == RC.is_story_advance_enabled(), (
+        "story_advance.enabled 双源漂移：signals.yaml 与 routing.yaml 不一致"
+    )
 
 
 def main() -> int:
