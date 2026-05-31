@@ -15,7 +15,7 @@ from agent_world.hbm_demo.shared.story_pack import StoryPack, load_story_pack
 
 
 def active_story_id() -> str:
-    return (os.environ.get("HBM_STORY_ID") or "hbm_memory_war").strip() or "hbm_memory_war"
+    return (os.environ.get("HBM_STORY_ID") or "canglan_sword").strip() or "canglan_sword"
 
 
 @lru_cache(maxsize=8)

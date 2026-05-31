@@ -24,7 +24,7 @@ def is_story_pack_seed_enabled() -> bool:
     开关式：`HBM_STORY_PACK_SEED=1` 才启用（dev_logs/46 C-1 / E-1 灰度）。播种等价已离线证明；
     切换前仍应跑完整 E2E 门禁。本助手放 shared/ 以便 L1 Runner 读取（不违反 D4）。
     """
-    return os.environ.get("HBM_STORY_PACK_SEED", "").strip() in ("1", "true", "True", "yes", "on")
+    return os.environ.get("HBM_STORY_PACK_SEED", "1").strip() not in ("0", "false", "False", "no", "off")
 
 
 def is_free_move_enabled() -> bool:

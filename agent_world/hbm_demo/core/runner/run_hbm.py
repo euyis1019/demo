@@ -27,7 +27,7 @@ log = logging.getLogger("agent_world.hbm_demo")
 
 _HBM_DEMO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = _HBM_DEMO_ROOT / "hbm_scenario.yaml"
-DEFAULT_SIM_DIR = _HBM_DEMO_ROOT / "sim" / "hbm_memory_war"
+DEFAULT_SIM_DIR = _HBM_DEMO_ROOT / "sim" / "canglan_sword"
 
 
 def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
@@ -153,14 +153,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     config_path = args.config.resolve()
     sim_dir = args.sim_dir.resolve()
 
-    if not config_path.is_file():
-        log.error("config not found: %s", config_path)
-        return 1
-
-    scenario = load_scenario(config_path)
-
-    # 开关式：从 Story Pack 播种世界（默认关，旧 hbm_scenario.yaml 路径不变）。dev_logs/46 C-1。
-    # L1 只读 shared/ 的助手（不违反 D4）。播种等价已离线证明，仍 fail-fast 校验后才替换。
+    # 数据驱动：默认从活跃 Story Pack 播种世界（env HBM_STORY_ID，默认 canglan_sword）。
+    # L1 只读 shared/ 的助手（不违反 D4）。校验不过即抛，拒绝带病启动。
     from agent_world.hbm_demo.shared.story_pack import (
         list_story_ids,
         load_and_validate_story_pack,
@@ -173,13 +167,19 @@ def main(argv: Optional[list[str]] = None) -> int:
     if is_story_pack_seed_enabled():
         from agent_world.hbm_demo.shared.story_config import active_story_id
 
-        sid = active_story_id()  # env HBM_STORY_ID（默认 hbm_memory_war）——决定播哪个故事
-        if sid in list_story_ids():
-            pack = load_and_validate_story_pack(sid)  # 校验不过即抛，拒绝带病启动
-            scenario = story_pack_to_scenario(pack)
-            log.info("HBM_STORY_PACK_SEED: 从 Story Pack '%s' 播种世界", sid)
-        else:
-            log.warning("HBM_STORY_PACK_SEED 已开启，但无 '%s' 的 Story Pack，回退 hbm_scenario.yaml", sid)
+        sid = active_story_id()  # 决定播哪个故事
+        if sid not in list_story_ids():
+            log.error("活跃故事 '%s' 无对应 Story Pack（config/stories/%s/）", sid, sid)
+            return 1
+        pack = load_and_validate_story_pack(sid)  # 校验不过即抛
+        scenario = story_pack_to_scenario(pack)
+        log.info("从 Story Pack '%s' 播种世界", sid)
+    else:
+        # 仅当显式关闭播种时才需要外部 scenario 文件。
+        if not config_path.is_file():
+            log.error("config not found: %s", config_path)
+            return 1
+        scenario = load_scenario(config_path)
 
     try:
         return asyncio.run(_run(sim_dir, scenario))

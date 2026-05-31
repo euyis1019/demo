@@ -138,4 +138,4 @@ def is_story_pack_routing_enabled() -> bool:
     开关式接入：`HBM_STORY_PACK_ROUTING=1` 才启用解释器路径（dev_logs/45 §6 G0-Slice4 /
     dev_logs/46 E-1 灰度）。等价性已由离线回归证明；切换前仍应跑完整 E2E 门禁。
     """
-    return os.environ.get("HBM_STORY_PACK_ROUTING", "").strip() in ("1", "true", "True", "yes", "on")
+    return os.environ.get("HBM_STORY_PACK_ROUTING", "1").strip() not in ("0", "false", "False", "no", "off")

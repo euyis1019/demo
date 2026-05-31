@@ -370,7 +370,7 @@ async def build_kernel(
         compressor=None,
         world_db=world_db,
         scheduler=None,
-        sim_id=scenario.get("simulation_id", "hbm_memory_war"),
+        sim_id=scenario.get("simulation_id", "canglan_sword"),
     )
 
     return HbmKernel(

@@ -27,7 +27,19 @@ def get_world_db_path(sim_dir: Path | None = None) -> Path:
 def get_scenario() -> Dict[str, Any]:
     global _scenario_cache
     if _scenario_cache is None:
-        _scenario_cache = load_scenario(DEFAULT_CONFIG)
+        # 数据驱动：默认从活跃 Story Pack 投影出 scenario（与 Runner 播种同源），
+        # 仅当显式关闭播种时才回退外部 hbm_scenario.yaml。
+        from agent_world.hbm_demo.shared.story_pack.scenario_adapter import (
+            is_story_pack_seed_enabled,
+            story_pack_to_scenario,
+        )
+
+        if is_story_pack_seed_enabled():
+            from agent_world.hbm_demo.shared import story_config
+
+            _scenario_cache = story_pack_to_scenario(story_config.active_pack())
+        else:
+            _scenario_cache = load_scenario(DEFAULT_CONFIG)
     return _scenario_cache
 
 
