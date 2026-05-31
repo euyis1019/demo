@@ -109,18 +109,23 @@ def _cmd_generate(args: argparse.Namespace) -> int:
         return 1
     from agent_world.hbm_demo.tools.story_studio.base_agent import StoryStudioError
     from agent_world.hbm_demo.tools.story_studio.llm_client import make_llm_client
-    from agent_world.hbm_demo.tools.story_studio.orchestrator import generate
+    from agent_world.hbm_demo.tools.story_studio.metering import GenerationTrace
+    from agent_world.hbm_demo.tools.story_studio.orchestrator import generate_full
 
+    trace = GenerationTrace()
     try:
         client = make_llm_client(brief.get("llm"))
-        result = generate(brief, story_id=args.story_id, client=client, max_rounds=args.max_rounds)
+        result = generate_full(
+            brief, story_id=args.story_id, client=client,
+            max_rounds=args.max_rounds, trace=trace,
+        )
     except StoryStudioError as exc:
-        print(f"✗ 生成失败：{exc}")
+        print(f"✗ 生成失败（{trace.summary()}）：{exc}")
         return 1
     except RuntimeError as exc:  # 缺 key 等
         print(f"✗ {exc}")
         return 1
-    print(f"✓ 已生成 Story Pack '{args.story_id}' → {result.target_dir}（G2 骨架级；G3 补全世界原语）")
+    print(f"✓ 已生成完整 Story Pack '{args.story_id}' → {result.target_dir}（{trace.summary()}）")
     return 0
 
 

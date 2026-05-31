@@ -1,0 +1,22 @@
+relation_types:
+- type: 庇护
+  is_contact: true
+  symmetric: false
+- type: 感激
+  is_contact: true
+  symmetric: false
+- type: 交易
+  is_contact: true
+  symmetric: false
+- type: 追捕
+  is_contact: true
+  symmetric: false
+- type: 提防
+  is_contact: true
+  symmetric: true
+- type: 敌意
+  is_contact: true
+  symmetric: true
+- type: 觊觎
+  is_contact: true
+  symmetric: false

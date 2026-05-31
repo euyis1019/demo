@@ -1,0 +1,51 @@
+places:
+- place_id: inn_hall
+  capacity: 10
+  attrs:
+    summary: 听雨客栈的大堂，昏暗的油灯，几张木桌，窗外雨声潺潺
+    behavior_hint: 可在此观察、交谈、休息
+- place_id: inn_kitchen
+  capacity: 3
+  attrs:
+    summary: 客栈后厨，老板娘常在此忙碌
+    behavior_hint: 可偷听或私下交谈
+- place_id: inn_room1
+  capacity: 2
+  attrs:
+    summary: 旅人投宿的房间，简陋但干净
+    behavior_hint: 可休息或藏匿物品
+- place_id: inn_room2
+  capacity: 2
+  attrs:
+    summary: 剑客的房间，门紧锁
+    behavior_hint: 可尝试潜入或敲门
+- place_id: inn_stable
+  capacity: 5
+  attrs:
+    summary: 客栈后院的马厩，可通往外面
+    behavior_hint: 可藏身或逃跑
+coverage:
+- src: inn_hall
+  dst: inn_kitchen
+  latency_ticks: 1
+- src: inn_hall
+  dst: inn_room1
+  latency_ticks: 1
+- src: inn_hall
+  dst: inn_room2
+  latency_ticks: 1
+- src: inn_hall
+  dst: inn_stable
+  latency_ticks: 2
+- src: inn_kitchen
+  dst: inn_hall
+  latency_ticks: 1
+- src: inn_room1
+  dst: inn_hall
+  latency_ticks: 1
+- src: inn_room2
+  dst: inn_hall
+  latency_ticks: 1
+- src: inn_stable
+  dst: inn_hall
+  latency_ticks: 2
