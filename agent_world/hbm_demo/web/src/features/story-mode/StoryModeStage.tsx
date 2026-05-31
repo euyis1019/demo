@@ -1,9 +1,12 @@
 import type { ReactNode } from "react";
-import type { GameMessage, WorldEvent } from "../../api/types";
+import type { GameMessage, Stats, WorldEvent } from "../../api/types";
+import type { AgentInbox } from "../../store/agentInbox";
 import type { PlaceId } from "../../utils/places";
 import { placeDisplayName } from "../../utils/places";
 import { WorldEventModal } from "../world-stage";
 import { storyPlaceBackground } from "./storyAssets";
+import { StoryPlayerInbox } from "./StoryPlayerInbox";
+import { StoryStatsHud } from "./StoryStatsHud";
 import { StorySubtitle } from "./StorySubtitle";
 import { StoryDialogueHistory } from "./StoryDialogueHistory";
 import { StoryModeToolbar } from "./StoryModeToolbar";
@@ -17,6 +20,10 @@ export interface StoryModeStageProps {
   nameMap: Record<string, string>;
   /** 每个 agent 最新情绪标签，驱动字幕立绘按情绪切换。 */
   agentMood?: Record<string, string>;
+  /** 玩家(agent 0)收件箱：收到的私信/群聊。 */
+  playerInbox?: AgentInbox;
+  /** 玩家数值，剧情模式 HUD 显示。 */
+  stats?: Stats;
   pendingWorldEvent: WorldEvent | null;
   lastError?: string;
   inputSlot: ReactNode;
@@ -36,6 +43,8 @@ export function StoryModeStage({
   roomF2f,
   nameMap,
   agentMood,
+  playerInbox,
+  stats,
   pendingWorldEvent,
   lastError,
   inputSlot,
@@ -74,13 +83,18 @@ export function StoryModeStage({
         aria-label={placeDisplayName(placeId)}
       />
 
+      {stats ? <StoryStatsHud stats={stats} /> : null}
+
       {lastError ? (
         <p className="story-mode-stage__error game-error" role="alert">
           {lastError}
         </p>
       ) : null}
 
-      <div className="story-mode-stage__input">{inputSlot}</div>
+      <div className="story-mode-stage__input">
+        <StoryPlayerInbox inbox={playerInbox} nameMap={nameMap} />
+        {inputSlot}
+      </div>
 
       <StorySubtitle
         line={dialogue.line}

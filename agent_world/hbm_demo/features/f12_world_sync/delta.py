@@ -69,7 +69,8 @@ def build_world_delta(
             msg["place_id"] = place_id
 
     agent_messages: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
-    for agent_id in HBM_AGENT_IDS:
+    # 含玩家(0)：让发往玩家的私信/群消息进 agent_messages["0"]，供前端玩家收件箱展示（体检 P1/B3）。
+    for agent_id in (0, *HBM_AGENT_IDS):
         rdc_rows = db.fetch_rdc_for_agent(agent_id, since_t, t_now)
         grp_rows = db.fetch_grp_for_agent(agent_id, since_t, t_now)
         if not rdc_rows and not grp_rows:
@@ -161,7 +162,8 @@ def build_session_world_delta(
             msg["place_id"] = place_id
 
     agent_messages: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
-    for agent_id in HBM_AGENT_IDS:
+    # 含玩家(0)：发往玩家的私信/群消息进 agent_messages["0"]，供玩家收件箱展示（体检 P1/B3）。
+    for agent_id in (0, *HBM_AGENT_IDS):
         rdc_rows = db.fetch_rdc_for_agent(agent_id, since_t, t_end)
         grp_rows = db.fetch_grp_for_agent(agent_id, since_t, t_end)
         if not rdc_rows and not grp_rows:

@@ -195,6 +195,8 @@ function GameApp() {
           roomF2f={roomF2f}
           nameMap={nameMap}
           agentMood={state.agentMood}
+          playerInbox={state.agentInbox["0"]}
+          stats={state.stats}
           pendingWorldEvent={pendingWorldEvent}
           lastError={lastError}
           inputSlot={storyModeInput}

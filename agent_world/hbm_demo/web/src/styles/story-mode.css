@@ -493,3 +493,100 @@
   margin: 2px 0 0;
   color: #fbbf24;
 }
+
+/* 剧情模式数值 HUD（右上角浮层） */
+.story-stats-hud {
+  position: absolute;
+  top: 56px;
+  right: 12px;
+  display: flex;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  z-index: 5;
+}
+.story-stats-hud__item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: #e8eef7;
+}
+.story-stats-hud__item.is-warn .story-stats-hud__value {
+  color: #f87171;
+  font-weight: 700;
+}
+.story-stats-hud__label {
+  color: #94a3b8;
+}
+.story-stats-hud__value {
+  font-weight: 600;
+}
+.story-stats-hud__delta {
+  font-size: 0.72rem;
+}
+.story-stats-hud__delta.up {
+  color: #4ade80;
+}
+.story-stats-hud__delta.down {
+  color: #f87171;
+}
+
+/* 剧情模式玩家收件箱（输入区上方折叠条） */
+.story-inbox {
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+}
+.story-inbox__toggle {
+  width: 100%;
+  text-align: left;
+  padding: 5px 10px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #cbd5e1;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.story-inbox__panel {
+  margin-top: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.story-inbox__tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.story-inbox__tabs button {
+  padding: 2px 10px;
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.story-inbox__tabs button.is-active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+.story-inbox__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 140px;
+  overflow-y: auto;
+}
+.story-inbox__item {
+  padding: 2px 0;
+  color: #e8eef7;
+  line-height: 1.4;
+}
+.story-inbox__from {
+  color: #93c5fd;
+}
+.story-inbox__empty {
+  color: #64748b;
+}
