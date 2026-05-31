@@ -1,27 +1,27 @@
-import type { PlaceId } from "../../utils/places";
-import { ROOM_GRID } from "../../utils/places";
+import { API_ROOT, getSimId } from "../../api/config";
 import { PLAYER_AGENT_ID } from "../../constants/agents";
 
-const PLACE_BACKGROUNDS: Record<PlaceId, string> = {
-  nvidia_reception: "/assets/story/places/nvidia_reception_bg.webp",
-  jensen_private_room: "/assets/story/places/jensen_private_room_bg.webp",
-  negotiation_room: "/assets/story/places/negotiation_room_bg.webp",
-  openai_hq: "/assets/story/places/openai_hq_bg.webp",
-};
-
-export function storyPlaceBackground(placeId: string): string {
-  if (ROOM_GRID.includes(placeId as PlaceId)) {
-    return PLACE_BACKGROUNDS[placeId as PlaceId];
-  }
-  return PLACE_BACKGROUNDS.nvidia_reception;
+/**
+ * 剧情模式图片资源 = 当前激活故事在设计期由 Artist 出好、落在
+ * config/stories/<story_id>/assets/ 的图，经 Flask 只读路由
+ * `/api/hbm/stories/<story_id>/assets/...` 提供（见 http/routes.py story_asset）。
+ * 这里按 place_id / agent_id 拼 URL；缺图时由 ChromaKeyAvatar / 背景容器回退占位。
+ */
+function assetsBase(): string {
+  return `${API_ROOT}/api/hbm/stories/${encodeURIComponent(getSimId())}/assets`;
 }
 
-/** 基础立绘（一 agent 一张，无情绪维度）；玩家走 player.png。 */
+/** 地点背景（空镜、无人物）：按 place_id 取 assets/places/<place_id>.png。 */
+export function storyPlaceBackground(placeId: string): string {
+  return `${assetsBase()}/places/${encodeURIComponent(placeId)}.png`;
+}
+
+/** 基础立绘（一 agent 一张，无情绪维度）；玩家走 player.png（通常无此图，回退为空）。 */
 export function storyAvatarBaseUrl(speakerId: string): string {
   if (speakerId === PLAYER_AGENT_ID) {
-    return "/assets/story/avatars/player.png";
+    return `${assetsBase()}/avatars/player.png`;
   }
-  return `/assets/story/avatars/agent_${speakerId}.png`;
+  return `${assetsBase()}/avatars/agent_${speakerId}.png`;
 }
 
 /**
@@ -30,7 +30,7 @@ export function storyAvatarBaseUrl(speakerId: string): string {
  */
 export function storyAvatarUrl(speakerId: string, mood?: string): string {
   if (speakerId !== PLAYER_AGENT_ID && mood && mood !== "neutral") {
-    return `/assets/story/avatars/agent_${speakerId}_${mood}.png`;
+    return `${assetsBase()}/avatars/agent_${speakerId}_${encodeURIComponent(mood)}.png`;
   }
   return storyAvatarBaseUrl(speakerId);
 }

@@ -71,8 +71,14 @@ class ImageResult:
 
 
 def generate_image(prompt: str, *, size_hint: str, out_path: Path, watermark: bool = False,
-                   timeout_sec: float = 180.0) -> ImageResult:
-    """调 Seedream 出一张图，下载并写入 out_path。返回 ImageResult。"""
+                   negative_prompt: str = "", seed: Optional[int] = None,
+                   ref_image_url: str = "", timeout_sec: float = 180.0) -> ImageResult:
+    """调 Seedream 出一张图，下载并写入 out_path。返回 ImageResult。
+
+    negative_prompt：负向约束（如场景图的「无人物」），非空时透传给模型，从机制上排除不想要的内容。
+    seed：固定随机种子——同一角色的基础立绘与各情绪变体用同一 seed，锚定同一人物形象保持一致。
+    ref_image_url：参考图 URL（图生图 img2img，锁住角色/构图只改局部，如情绪表情）；为空则纯文生图。
+    """
     key = require_api_key()  # 缺 key 直接抛 ImageKeyMissing
     payload = {
         "model": ARK_T2I_MODEL,
@@ -81,6 +87,12 @@ def generate_image(prompt: str, *, size_hint: str, out_path: Path, watermark: bo
         "response_format": "url",
         "watermark": watermark,
     }
+    if negative_prompt and negative_prompt.strip():
+        payload["negative_prompt"] = negative_prompt.strip()
+    if seed is not None:
+        payload["seed"] = int(seed)
+    if ref_image_url:
+        payload["image"] = ref_image_url
     req = urllib.request.Request(
         ARK_ENDPOINT, data=json.dumps(payload).encode("utf-8"), method="POST",
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},

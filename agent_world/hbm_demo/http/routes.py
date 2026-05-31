@@ -96,6 +96,29 @@ def lobby_activate():
     return jsonify({"success": True, "data": {"story_id": story_id, "ready": ready}})
 
 
+# ============ 故事图片资源（设计期 Artist 落盘的封面/场景背景/角色立绘）============
+
+@hbm_bp.route("/stories/<story_id>/assets/<path:subpath>", methods=["GET"])
+def story_asset(story_id: str, subpath: str):
+    """只读服务某故事的图片资源 config/stories/<story_id>/assets/<subpath>。
+    剧情模式前端按 place_id/agent_id 据此加载背景与立绘；缺图返回 404 让前端回退占位。"""
+    from flask import send_from_directory
+    from werkzeug.exceptions import NotFound
+
+    from agent_world.hbm_demo.shared.prompt_paths import story_dir
+    from agent_world.hbm_demo.shared.story_pack import list_story_ids
+
+    if story_id not in list_story_ids():
+        return _bad_request("未知故事", 404)
+    base = (story_dir(story_id) / "assets").resolve()
+    if not base.is_dir():
+        return _bad_request("该故事暂无图片资源", 404)
+    try:
+        return send_from_directory(base, subpath, max_age=3600)
+    except NotFound:
+        return _bad_request("资源不存在", 404)
+
+
 @hbm_bp.route("/simulations/<sim_id>/session/start", methods=["POST"])
 def session_start(sim_id: str):
     """Initialize Flask session with default stats / phase / place_id."""

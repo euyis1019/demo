@@ -315,7 +315,7 @@
 
 .story-subtitle__inner {
   display: grid;
-  grid-template-columns: minmax(160px, 200px) minmax(0, 1fr) minmax(160px, 200px);
+  grid-template-columns: minmax(170px, 240px) minmax(0, 1fr) minmax(170px, 240px);
   align-items: end;
   gap: 1rem;
   width: 100%;
@@ -333,23 +333,35 @@
   grid-template-columns: 1fr;
 }
 
+/* 立绘槽：relative + 让立绘绝对定位、底边贴字幕条上沿向上长出（不占字幕行高、不挤文字）。 */
 .story-subtitle__slot {
+  position: relative;
   display: flex;
   align-items: flex-end;
   justify-content: center;
   min-height: 176px;
 }
 
+/* 立绘放大到接近源图人物大小：脱离 grid 行高约束、向上溢出到背景之上；按视口高度自适应。 */
 .story-subtitle__avatar {
-  flex: 0 0 auto;
-  width: 176px;
-  height: 176px;
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: auto;
+  height: clamp(260px, 46vh, 560px);
+  max-width: clamp(220px, 26vw, 380px);
   object-fit: contain;
   object-position: bottom center;
-  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.55));
+  filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.6));
+  pointer-events: none;
+  z-index: 1;
 }
 
+/* 文字区抬到立绘之上：即便大立绘横向略微溢入中列，字幕也始终在最上层、不被遮挡。 */
 .story-subtitle__text-block {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -423,7 +435,7 @@
   }
 
   .story-subtitle__inner {
-    grid-template-columns: minmax(96px, 120px) minmax(0, 1fr) minmax(96px, 120px);
+    grid-template-columns: minmax(110px, 150px) minmax(0, 1fr) minmax(110px, 150px);
     min-height: 9.5rem;
     padding: 1rem 0.75rem 1.35rem;
   }
@@ -433,8 +445,9 @@
   }
 
   .story-subtitle__avatar {
-    width: 120px;
-    height: 120px;
+    width: auto;
+    height: clamp(180px, 34vh, 320px);
+    max-width: clamp(120px, 40vw, 220px);
   }
 
   .story-subtitle__name {
