@@ -208,11 +208,15 @@ class WorldLoopOrchestrator:
         turn_context = dict(payload.get("turn_context") or {})
         broadcast = payload.get("broadcast")
         player_f2f = payload.get("player_f2f")
+        player_rdc = payload.get("player_rdc")
+        player_grp = payload.get("player_grp")
         item = PlayerInputItem(
             events=events,
             turn_context=turn_context,
             broadcast=broadcast if isinstance(broadcast, dict) else None,
             player_f2f=player_f2f if isinstance(player_f2f, dict) else None,
+            player_rdc=player_rdc if isinstance(player_rdc, dict) else None,
+            player_grp=player_grp if isinstance(player_grp, dict) else None,
         )
         if not self._queue.enqueue_player(item):
             return {"accepted": False, "reason": "queue_full"}
@@ -331,6 +335,19 @@ class WorldLoopOrchestrator:
                 await virtual_player.apply_player_f2f_payload(
                     self._world_db,
                     item.player_f2f,
+                    t=int(self._world_state.clock.t),
+                )
+            if item.player_rdc:
+                await virtual_player.apply_player_rdc_payload(
+                    self._world_db,
+                    item.player_rdc,
+                    t=int(self._world_state.clock.t),
+                )
+            if item.player_grp:
+                await virtual_player.apply_player_grp_payload(
+                    self._world_db,
+                    getattr(self._world_step, "grp_bus", None),
+                    item.player_grp,
                     t=int(self._world_state.clock.t),
                 )
             if item.broadcast:

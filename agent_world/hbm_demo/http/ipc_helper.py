@@ -124,6 +124,8 @@ def send_enqueue_player_input(
     turn_context: Optional[Dict[str, Any]] = None,
     broadcast: Optional[Dict[str, Any]] = None,
     player_f2f: Optional[Dict[str, Any]] = None,
+    player_rdc: Optional[Dict[str, Any]] = None,
+    player_grp: Optional[Dict[str, Any]] = None,
     timeout: float = DEFAULT_IPC_TIMEOUT,
 ) -> IPCResponse:
     payload: Dict[str, Any] = {"events": events}
@@ -133,6 +135,10 @@ def send_enqueue_player_input(
         payload["turn_context"] = turn_context
     if player_f2f:
         payload["player_f2f"] = player_f2f
+    if player_rdc:
+        payload["player_rdc"] = player_rdc
+    if player_grp:
+        payload["player_grp"] = player_grp
     try:
         resp = client.send_command(
             CommandType.ENQUEUE_PLAYER_INPUT,
