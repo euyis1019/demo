@@ -19,7 +19,7 @@ export function BootScreen({
   return (
     <div className="screen-overlay boot-screen" role="dialog" aria-modal="true">
       <div className="boot-screen__card">
-        <h1 className="boot-screen__title">HBM 显存价格保卫战</h1>
+        <h1 className="boot-screen__title">互动剧情</h1>
         <p className="boot-screen__subtitle">{message}</p>
         {!runnerReady && !checking ? (
           <p className="boot-screen__warn">

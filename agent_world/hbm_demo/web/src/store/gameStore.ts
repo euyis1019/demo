@@ -62,6 +62,9 @@ export interface GameState {
   recentMoveKeys: string[];
   recentRdcLinks: RdcLink[];
   endingId?: EndingId;
+  /** 当前结局的一句话描述与好坏（后端数据驱动下发，结局屏据此显示）。 */
+  endingSummary?: string;
+  endingKind?: string;
   lastError?: string;
   runnerModalOpen: boolean;
 }
@@ -317,7 +320,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           state,
           {
             through_tick: state.worldTick,
-            public_messages: action.data.public_messages,
+            public_messages: action.data.public_messages ?? [],
             observer_messages: [],
             group_messages: [],
             player_place_id: state.placeId,
@@ -328,6 +331,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         loading: false,
         stats: { ...action.data.stats_update },
         ...applyPhaseChange(state, action.data.current_phase),
+        endingId: action.data.ending_id,
+        endingSummary: action.data.ending_summary,
+        endingKind: action.data.ending_kind,
       };
     case "SET_ENDING":
       return {
@@ -337,6 +343,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         stats: { ...action.data.stats_update },
         ...applyPhaseChange(state, action.data.current_phase),
         endingId: action.data.ending_id,
+        endingSummary: action.data.ending_summary,
+        endingKind: action.data.ending_kind,
       };
     case "SET_ERROR":
       return { ...state, lastError: action.message, loading: false };

@@ -4,11 +4,11 @@ export interface GameOverScreenProps {
   description?: string;
 }
 
-/** F2-6 — Bad End 静态占位（F4 接 game_over）。 */
+/** Bad End 屏：标题/描述数据驱动（由后端结局 summary 传入），不写死任何故事文案。 */
 export function GameOverScreen({
   onRestart,
-  title = "Bad End · 被请出大楼",
-  description = "你的技术阐述未能通过前台筛选，保安礼貌地请你离开 NVIDIA 总部。",
+  title = "游戏结束",
+  description = "故事在此走向了一个遗憾的结局。",
 }: GameOverScreenProps) {
   return (
     <div className="screen-overlay ending-screen ending-screen--bad" role="dialog">

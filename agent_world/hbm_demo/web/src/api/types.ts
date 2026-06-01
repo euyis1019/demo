@@ -195,15 +195,23 @@ export interface PlayerTurnProcessing {
 
 export interface PlayerTurnGameOver {
   status: "game_over";
-  ending_id: "bad_reject";
-  public_messages: GameMessage[];
+  /** 任意故事的结局 id（不再写死）。 */
+  ending_id: string;
+  /** 该结局的一句话描述（后端按故事下发，数据驱动）。 */
+  ending_summary?: string;
+  /** 结局好坏：good | neutral | bad。 */
+  ending_kind?: string;
+  public_messages?: GameMessage[];
   stats_update: Stats;
   current_phase: string;
 }
 
 export interface PlayerTurnCompleted {
   status: "completed";
-  ending_id: "ending_join_nvidia" | "ending_seed_round" | "ending_cold_deal";
+  /** 任意故事的结局 id（不再写死）。 */
+  ending_id: string;
+  ending_summary?: string;
+  ending_kind?: string;
   intent?: string;
   stats_update: Stats;
   current_phase: string;

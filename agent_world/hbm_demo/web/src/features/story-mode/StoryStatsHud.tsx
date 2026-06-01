@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Stats } from "../../api/types";
+import { INITIAL_STATS } from "../../store/gameStore";
 
 export interface StoryStatsHudProps {
   stats: Stats;
@@ -37,6 +38,7 @@ export function StoryStatsHud({ stats, tension }: StoryStatsHudProps) {
   }, [stats]);
 
   const tensionPct = Math.max(0, Math.min(100, Math.round(tension ?? 0)));
+  const statsUsed = ROWS.some(({ key }) => (stats[key] ?? 0) !== INITIAL_STATS[key]);
   return (
     <div className="story-stats-hud">
       {tension != null ? (
@@ -51,22 +53,25 @@ export function StoryStatsHud({ stats, tension }: StoryStatsHudProps) {
           <span className="story-stats-hud__value">{tensionPct}</span>
         </div>
       ) : null}
-      {ROWS.map(({ key, label }) => {
-        const val = stats[key] ?? 0;
-        const delta = pulse[key];
-        const warn = key === "burnout" && val >= 70;
-        return (
-          <div key={key} className={`story-stats-hud__item ${warn ? "is-warn" : ""}`}>
-            <span className="story-stats-hud__label">{label}</span>
-            <span className="story-stats-hud__value">{val}</span>
-            {delta != null ? (
-              <span className={`story-stats-hud__delta ${delta > 0 ? "up" : "down"}`}>
-                {delta > 0 ? `+${delta}` : delta}
-              </span>
-            ) : null}
-          </div>
-        );
-      })}
+      {/* 数值是旧 HBM 故事专属；当前故事从未驱动它们(全初始值)就不显示。 */}
+      {statsUsed
+        ? ROWS.map(({ key, label }) => {
+            const val = stats[key] ?? 0;
+            const delta = pulse[key];
+            const warn = key === "burnout" && val >= 70;
+            return (
+              <div key={key} className={`story-stats-hud__item ${warn ? "is-warn" : ""}`}>
+                <span className="story-stats-hud__label">{label}</span>
+                <span className="story-stats-hud__value">{val}</span>
+                {delta != null ? (
+                  <span className={`story-stats-hud__delta ${delta > 0 ? "up" : "down"}`}>
+                    {delta > 0 ? `+${delta}` : delta}
+                  </span>
+                ) : null}
+              </div>
+            );
+          })
+        : null}
     </div>
   );
 }

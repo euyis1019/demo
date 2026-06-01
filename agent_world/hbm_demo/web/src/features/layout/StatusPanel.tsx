@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { Stats, WorldLoopState } from "../../api/types";
+import { INITIAL_STATS } from "../../store/gameStore";
 
 export interface StatusPanelProps {
   stats: Stats;
   phase: string;
   playerTurn: number;
-  maxTurns?: number;
   placeLabel: string;
   presentAgents?: string[];
   worldTick?: number;
@@ -30,7 +30,6 @@ export function StatusPanel({
   stats,
   phase,
   playerTurn,
-  maxTurns = 25,
   placeLabel,
   presentAgents = [],
   worldTick,
@@ -44,6 +43,9 @@ export function StatusPanel({
 }: StatusPanelProps) {
   const prevStatsRef = useRef(stats);
   const [pulseKeys, setPulseKeys] = useState<Set<keyof Stats>>(new Set());
+  // 数值是旧 HBM 故事专属概念；当前故事若从未驱动它们（全为初始值）就不显示，避免给数据驱动故事
+  // 套一组无意义的数值。
+  const statsUsed = STAT_ROWS.some(({ key }) => stats[key] !== INITIAL_STATS[key]);
   const isPaused = worldLoopState === "paused";
   const showPauseControl = Boolean(onPauseWorld && onResumeWorld);
 
@@ -69,40 +71,40 @@ export function StatusPanel({
       <div className="panel__header">Status</div>
       <div className="status-panel__wrap">
         <div className="panel__body status-panel">
-          <section className="status-panel__section">
-          <h2 className="status-panel__title">核心数值</h2>
-          <ul className="stat-list">
-            {STAT_ROWS.map(({ key, label }) => (
-              <li key={key} className="stat-list__item">
-                <span className="stat-list__label">{label}</span>
-                <span
-                  className={[
-                    "stat-list__value",
-                    pulseKeys.has(key) ? "stat-list__value--pulse" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                >
-                  {stats[key]}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+          {statsUsed ? (
+            <section className="status-panel__section">
+              <h2 className="status-panel__title">核心数值</h2>
+              <ul className="stat-list">
+                {STAT_ROWS.map(({ key, label }) => (
+                  <li key={key} className="stat-list__item">
+                    <span className="stat-list__label">{label}</span>
+                    <span
+                      className={[
+                        "stat-list__value",
+                        pulseKeys.has(key) ? "stat-list__value--pulse" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    >
+                      {stats[key]}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
         <section className="status-panel__section">
           <h2 className="status-panel__title">进度</h2>
           <dl className="meta-list">
             <div className="meta-list__row">
-              <dt>Phase</dt>
+              <dt>当前幕</dt>
               <dd>{phase}</dd>
             </div>
             <div className="meta-list__row">
-              <dt>Turn</dt>
+              <dt>回合</dt>
               <dd className="meta-list__turn">
                 <span className="meta-list__turn-current">{playerTurn}</span>
-                <span className="meta-list__turn-sep">/</span>
-                <span className="meta-list__turn-max">{maxTurns}</span>
               </dd>
             </div>
           </dl>

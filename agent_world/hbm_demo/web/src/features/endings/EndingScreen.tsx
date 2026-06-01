@@ -1,44 +1,31 @@
-export type EndingId =
-  | "ending_join_nvidia"
-  | "ending_seed_round"
-  | "ending_cold_deal";
+/** 结局屏：完全数据驱动——标题/好坏来自后端按故事下发的 ending summary/kind，不写死任何故事的结局。 */
 
-const ENDING_COPY: Record<
-  EndingId,
-  { title: string; description: string; badge: string }
-> = {
-  ending_join_nvidia: {
-    badge: "结局 A",
-    title: "加入 NVIDIA",
-    description: "Jensen 向你伸出手：「Welcome to the NVIDIA family.」",
-  },
-  ending_seed_round: {
-    badge: "结局 B",
-    title: "独立融资",
-    description: "你保留算法主权，拿到一笔可观的 seed round。",
-  },
-  ending_cold_deal: {
-    badge: "结局 C",
-    title: "冷处理协议",
-    description: "信任不足，双方签下一纸冷冰冰的有限合作备忘录。",
-  },
+export type EndingId = string;
+
+const KIND_BADGE: Record<string, string> = {
+  good: "美满结局",
+  neutral: "故事落幕",
+  bad: "遗憾结局",
 };
 
 export interface EndingScreenProps {
-  endingId: EndingId;
+  endingId: string;
+  /** 该结局的一句话描述（后端下发）。 */
+  summary?: string;
+  /** good | neutral | bad。 */
+  kind?: string;
   onRestart?: () => void;
 }
 
-/** F2-6 — Turn 25 结局静态占位（F4 接 completed）。 */
-export function EndingScreen({ endingId, onRestart }: EndingScreenProps) {
-  const copy = ENDING_COPY[endingId];
+export function EndingScreen({ summary, kind, onRestart }: EndingScreenProps) {
+  const badge = KIND_BADGE[kind ?? ""] ?? "故事落幕";
+  const variant = kind === "bad" ? "ending-screen--bad" : "ending-screen--good";
 
   return (
-    <div className="screen-overlay ending-screen ending-screen--good" role="dialog">
+    <div className={`screen-overlay ending-screen ${variant}`} role="dialog">
       <div className="ending-screen__card">
-        <p className="ending-screen__badge">{copy.badge}</p>
-        <h1 className="ending-screen__title">{copy.title}</h1>
-        <p className="ending-screen__desc">{copy.description}</p>
+        <p className="ending-screen__badge">{badge}</p>
+        <h1 className="ending-screen__title">{summary || "故事就此落幕"}</h1>
         {onRestart ? (
           <button type="button" className="btn btn--primary" onClick={onRestart}>
             重新开始

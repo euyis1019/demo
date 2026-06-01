@@ -124,6 +124,8 @@ def scan_routing_if_needed(
         state["pending_game_over"] = {
             "status": "game_over" if kind == "bad" else "completed",
             "ending_id": ending,
+            "ending_summary": (end_node.summary if end_node else "") or "",
+            "ending_kind": kind,
             "stats_update": dict(hbm.stats),
             "current_phase": hbm.phase,
             "at_tick": tick,

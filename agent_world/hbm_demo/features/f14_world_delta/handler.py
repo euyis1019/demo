@@ -83,11 +83,14 @@ def get_world_delta(
     if game_over:
         result["game_over"] = game_over
     elif hbm and hbm.ending_id:
-        # bad_reject is the only "game_over" (bad) screen; the offer-driven
-        # finale endings are normal "completed" outcomes → EndingScreen.
+        # 数据驱动：结局好坏由该故事 ending 的 kind 决定（bad→game_over 屏，其余→completed 结局屏）。
+        end = story_config.active_pack().graph.endings.get(hbm.ending_id)
+        end_kind = end.kind if end else "neutral"
         result["game_over"] = {
-            "status": "game_over" if hbm.ending_id == "bad_reject" else "completed",
+            "status": "game_over" if end_kind == "bad" else "completed",
             "ending_id": hbm.ending_id,
+            "ending_summary": (end.summary if end else "") or "",
+            "ending_kind": end_kind,
             "stats_update": dict(hbm.stats),
             "current_phase": hbm.phase,
         }

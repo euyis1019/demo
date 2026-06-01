@@ -6,7 +6,6 @@
 
 import "./styles/global.css";
 import { useMemo } from "react";
-import { MAX_TURNS } from "./constants/gameLoop";
 import { agentDisplayName } from "./constants/agents";
 import {
   BootScreen,
@@ -82,6 +81,8 @@ function GameApp() {
     recentRdcLinks,
     view,
     endingId,
+    endingSummary,
+    endingKind,
     lastError,
     runnerModalOpen,
   } = state;
@@ -232,7 +233,6 @@ function GameApp() {
                 stats={stats}
                 phase={phase}
                 playerTurn={playerTurn}
-                maxTurns={MAX_TURNS}
                 placeLabel={placeDisplayName(placeId)}
                 presentAgents={presentAgents}
                 worldTick={envTick ?? worldTick}
@@ -283,15 +283,17 @@ function GameApp() {
       {view === "game_over" ? (
         <GameOverScreen
           onRestart={() => void restartGame()}
-          description={
-            badEndLine ??
-            "你的技术阐述未能通过前台筛选，保安礼貌地请你离开 NVIDIA 总部。"
-          }
+          description={endingSummary || badEndLine || undefined}
         />
       ) : null}
 
       {view === "ending" && endingId ? (
-        <EndingScreen endingId={endingId} onRestart={() => void restartGame()} />
+        <EndingScreen
+          endingId={endingId}
+          summary={endingSummary}
+          kind={endingKind}
+          onRestart={() => void restartGame()}
+        />
       ) : null}
     </>
   );
