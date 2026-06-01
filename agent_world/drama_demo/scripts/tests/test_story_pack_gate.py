@@ -13,10 +13,11 @@ from agent_world.drama_demo.scripts.ops.validate_story_pack import main as cli_m
 from agent_world.drama_demo.shared.story_pack import list_story_ids, load_story_pack
 
 
-def test_at_least_one_pack_exists() -> None:
+def test_present_packs_only() -> None:
+    """生成优先：config/stories/ 可以为空（故事由管理 agent 按需生成，不再写死任何默认故事）。
+    若存在 Story Pack，则每个都必须过校验（见 test_all_packs_validate）；这里只做信息性列举，不强求存在。"""
     ids = list_story_ids()
-    assert ids, "config/stories/ 下应至少有一个 Story Pack"
-    assert "canglan_sword" in ids, ids
+    print(f"    （config/stories 现有 {len(ids)} 个包：{ids or '空 → 生成优先，正常'}）")
 
 
 def test_all_packs_validate() -> None:

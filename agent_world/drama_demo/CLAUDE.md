@@ -44,18 +44,22 @@
 
 ## 5. 测试与验收门禁（提交前必过）
 
-- 每次改动后：`python3 scripts/test_m0_acceptance.py`（门禁，自动起停 Runner/Flask）
+- 本 demo **生成优先**：不再绑定任何固定故事，门禁验的是「管理 agent 把一段剧情生成成多好的可玩故事」，
+  而非某个写死故事能否通关（旧 canglan/m0 故事专属门禁已退役删除）。
+- **快门禁（每次改动必过）**：`python3 scripts/tests/test_story_studio.py`（离线管理 agent 流水线单测，零网络/零 key）
   **+** `cd web && npm run build`。两者全绿才提交。
-- 纯新增、未被现存代码引用的模块（如 Story Pack 数据层初版），现存 E2E 门禁不可能因其变红；
-  此类竖切**至少**跑该模块的专项单测 + import 冒烟，并诚实标注 E2E 门禁的运行状态（环境缺 key/网络时如实说明）。
+- **改了管理层生成**（story_studio 的 Designer/Casting/Writer/Critic/orchestrator、生成提示词、Story Pack
+  schema/解释器 f05）：再跑 `python3 scripts/test_create_acceptance.py`（真 LLM 端到端：一段剧情 → 完整可玩
+  **任务包**，验 onboarding/acting_guide/数据驱动属性/结构 validate/beat 详细度）。缺 key/断网时如实标注未跑。
+- 纯新增、未被现存代码引用的模块，快门禁不可能因其变红；此类竖切**至少**跑该模块的专项单测 + import 冒烟。
 - 门禁失败先判**是不是 LLM flake**（重跑一次确认），是真错再修；不要把 flake 当通过。
-- E2E **只用隔离目录 `sim/_m0_e2e/`**，绝不碰用户试玩库 `sim/hbm_memory_war/`。
+- 生成/E2E 测试**只写隔离临时目录或验完即删的 `config/stories/<临时 id>`**，绝不碰用户试玩库 `sim/hbm_memory_war/`。
 - 拆分/重构后用 import 冒烟 + 产物 diff（如 CSS bundle 字节对比）验证 facade 未破。
 
 ## 6. 安全红线（不可逾越）
 
 - **用户试玩库 `sim/hbm_memory_war/` 只读**，开发/测试不得写它。
-- **`sim/_m0_e2e/` 与 `sim/hbm_memory_war/` 严格隔离**，E2E 不外溢。
+- **任何 E2E/生成测试只写隔离临时目录（验完即删）**，与用户试玩库 `sim/hbm_memory_war/` 严格隔离，绝不外溢。
 - **设计期生成工具（story_studio）只写 `config/stories/<id>/`，绝不写 `sim/`**（玩家存档）；
   隔离须机制级保证（import 图红线 + 输出路径断言），不靠自觉。
 - `env_status.json` 等被高频读写的状态文件**必须原子写**（tempfile + `os.replace`），避免读到半截。

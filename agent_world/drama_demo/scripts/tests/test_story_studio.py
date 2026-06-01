@@ -392,16 +392,30 @@ def test_generate_full_critic_revise_loop() -> None:
 
 # ---- G4：人在环 review + 局部重生成 ----
 
+def _fake_pack(tmp: Path, story_id: str = "studio_synth"):
+    """离线用 fake 客户端生成一个完整合法 Story Pack 到 tmp 并加载——替代对具体故事(canglan)的依赖。
+    生成优先：测试不绑定任何已落盘故事，纯靠管理 agent 流水线现造一个包来验。"""
+    from agent_world.drama_demo.tools.story_studio import generate_full
+    from agent_world.drama_demo.tools.story_studio.orchestrator import _load_pack_from_dir
+
+    generate_full(_GOOD_BRIEF, story_id=story_id, client=_routing_fake(), target_dir=tmp,
+                  max_rounds=2, critic_rounds=0)
+    return _load_pack_from_dir(story_id, tmp)
+
+
 def test_review_renders_pack() -> None:
-    from agent_world.drama_demo.shared.story_pack import load_story_pack
     from agent_world.drama_demo.tools.story_studio import render_review
 
-    pack = load_story_pack("canglan_sword")
-    text = render_review(pack)
-    assert "Story Pack 审阅：canglan_sword" in text
-    assert pack.graph.initial_node in text  # 初始节点渲染出
-    assert any(eid in text for eid in pack.graph.endings)  # 至少一个结局渲染出
-    assert "✓ 校验通过" in text  # canglan 包应渲染为校验通过
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        pack = _fake_pack(tmp, "studio_review")
+        text = render_review(pack)
+        assert "Story Pack 审阅：studio_review" in text
+        assert pack.graph.initial_node in text  # 初始节点渲染出
+        assert any(eid in text for eid in pack.graph.endings)  # 至少一个结局渲染出
+        assert "✓ 校验通过" in text  # 合法包应渲染为校验通过
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_regenerate_writer_keeps_cast_and_graph() -> None:
@@ -491,40 +505,41 @@ def test_metering_trace_records_calls() -> None:
 # ---- G5：素材清单 txt ----
 
 def test_asset_manifest_lists_all_images() -> None:
-    from agent_world.drama_demo.shared.story_pack import load_story_pack
     from agent_world.drama_demo.tools.story_studio import render_asset_manifest
     from agent_world.drama_demo.tools.story_studio.asset_manifest import asset_specs
 
-    pack = load_story_pack("canglan_sword")
-    text = render_asset_manifest(pack)
-    specs = asset_specs(pack)  # 真相来源：封面 + 每地点背景 + 每 NPC（基础立绘 + 各情绪变体）
-    n_places = len(pack.places.get("places") or [])
-    n_portraits = sum(1 for s in specs if s.kind == "portrait")
-    assert "封面图" in text
-    assert text.count("场景背景：") == n_places
-    # 立绘 = 玩家立绘(玩家立绘：) + 各 NPC 基础+情绪变体(角色立绘：)
-    assert text.count("角色立绘：") + text.count("玩家立绘：") == n_portraits
-    assert f"共需 {len(specs)} 张图片" in text
-    # 提示词含统一画风要求
-    assert "统一画风要求" in text
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        pack = _fake_pack(tmp, "studio_assets")
+        text = render_asset_manifest(pack)
+        specs = asset_specs(pack)  # 真相来源：封面 + 每地点背景 + 每 NPC（基础立绘 + 各情绪变体）
+        n_places = len(pack.places.get("places") or [])
+        n_portraits = sum(1 for s in specs if s.kind == "portrait")
+        assert "封面图" in text
+        assert text.count("场景背景：") == n_places
+        # 立绘 = 玩家立绘(玩家立绘：) + 各 NPC 基础+情绪变体(角色立绘：)
+        assert text.count("角色立绘：") + text.count("玩家立绘：") == n_portraits
+        assert f"共需 {len(specs)} 张图片" in text
+        # 提示词含统一画风要求
+        assert "统一画风要求" in text
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_asset_manifest_write_to_tmp_and_safety() -> None:
-    import shutil
-    import tempfile
-
-    from agent_world.drama_demo.shared.story_pack import load_story_pack
     from agent_world.drama_demo.tools.story_studio import write_asset_manifest
     from agent_world.drama_demo.tools.story_studio.asset_manifest import MANIFEST_FILENAME
 
-    pack = load_story_pack("canglan_sword")
+    gen = Path(tempfile.mkdtemp())
     tmp = Path(tempfile.mkdtemp())
     try:
+        pack = _fake_pack(gen, "studio_assets2")
         path = write_asset_manifest(pack, target_dir=tmp)
         assert path.name == MANIFEST_FILENAME and path.is_file()
         assert "图片素材清单" in path.read_text(encoding="utf-8")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+        shutil.rmtree(gen, ignore_errors=True)
 
 
 def test_import_graph_red_line() -> None:
