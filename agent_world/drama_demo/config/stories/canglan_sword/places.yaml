@@ -1,51 +1,34 @@
 places:
-- place_id: 后庭院
+- place_id: place_gate
   capacity: 10
   attrs:
-    summary: 月黑风高，几株老槐树投下浓重阴影，碎石小径通往掌门寝居和后院偏门。墙角有一口枯井，井边青苔湿滑。
-    behavior_hint: 适合撞破秘密、鬼祟跟踪、或藏身偷听，也适合发生短暂的冲突或对话。
-- place_id: 掌门寝居
+    summary: 苍澜剑派山门，青石台阶上刻着剑痕，两旁松柏森森。夜风穿过门廊，灯笼摇曳。
+    behavior_hint: 适合夜间值守、低声密谈、观察来往之人。
+- place_id: place_backhill
   capacity: 5
   attrs:
-    summary: 室内弥漫着苦涩的药味，烛火摇曳，沈孤鸿躺在屏风后的病榻上，床前小几上放着半碗未喝完的药。窗外偶尔有巡逻弟子经过。
-    behavior_hint: 适合探病、密谈、或下毒/搜查证据，气氛压抑且神圣，大声喧哗会惊动守卫。
-- place_id: 藏书阁密室
-  capacity: 4
+    summary: 后山密林，怪石嶙峋，月光斑驳。有一处废弃凉亭，是弟子们私下会面的地点。
+    behavior_hint: 适合密谋、偷听、跟踪、设置陷阱。
+- place_id: place_hall
+  capacity: 20
   attrs:
-    summary: 藏书阁深处一堵暗墙之后，不到三丈见方的斗室，堆满积灰的卷宗。一张破木桌，两把椅子，桌上烛台蜡油堆积。隔音极差，能清晰听见阁楼外的脚步声。
-    behavior_hint: 适合进行见不得光的密谋、偷听、或藏匿赃物，也是制造‘撞破’戏码的理想场所。
-- place_id: 膳房
-  capacity: 8
+    summary: 苍澜正厅，正中悬挂『剑魂』匾额，两侧陈列历代掌门画像。掌门卧榻置于屏风后。
+    behavior_hint: 适合议事、对峙、揭发、举行仪式。
+- place_id: place_study
+  capacity: 3
   attrs:
-    summary: 灶台余温尚存，大铁锅里煮着明日早粥，案板上放着半坛黄酒和几只碗。墙角米缸旁有个暗格，是周平藏私房钱的地方。窗户临街，可以翻窗逃走。
-    behavior_hint: 适合私下交易、传递物品、或躲避追捕。烟火气重，能让紧张的剧情稍作喘息。
-- place_id: 练功房
-  capacity: 15
-  attrs:
-    summary: 宽阔的青砖地面，两侧兵器架上刀枪剑戟俱全，正中挂着一个大大的‘剑’字。苏绾的专属角落放着一张矮几，上面堆着书籍和药瓶。窗外月光照进来，在地面投下冷白的光。
-    behavior_hint: 适合密谋大计、展示信任、交接重要物品（如解药和令符），也适合爆发对峙或决斗。
+    summary: 凌轩的书房，书架凌乱，案上散落着信件与剑谱抄本。窗台有一盆枯兰。
+    behavior_hint: 适合潜入、搜索、盗取信件、触发陷阱。
 coverage:
-- src: 后庭院
-  dst: 掌门寝居
+- src: place_gate
+  dst: place_backhill
+  latency_ticks: 2
+- src: place_gate
+  dst: place_hall
   latency_ticks: 1
-- src: 后庭院
-  dst: 藏书阁密室
-  latency_ticks: 2
-- src: 后庭院
-  dst: 膳房
+- src: place_backhill
+  dst: place_study
   latency_ticks: 3
-- src: 后庭院
-  dst: 练功房
-  latency_ticks: 2
-- src: 藏书阁密室
-  dst: 膳房
-  latency_ticks: 2
-- src: 藏书阁密室
-  dst: 练功房
-  latency_ticks: 3
-- src: 膳房
-  dst: 练功房
-  latency_ticks: 2
-- src: 掌门寝居
-  dst: 练功房
+- src: place_hall
+  dst: place_study
   latency_ticks: 2

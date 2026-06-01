@@ -1,8 +1,0 @@
-groups:
-- group_id: 1
-  name: 林家
-  members:
-  - 1
-  - 2
-  - 3
-  creator_id: 1

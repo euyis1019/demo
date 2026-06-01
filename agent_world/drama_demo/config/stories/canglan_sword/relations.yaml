@@ -1,45 +1,29 @@
 relations:
+- src: 0
+  dst: 4
+  type: trust
+  symmetric: false
 - src: 1
   dst: 2
-  type: 师徒
+  type: alliance
   symmetric: true
 - src: 1
   dst: 3
-  type: 师徒
+  type: rivalry
   symmetric: true
 - src: 1
   dst: 4
-  type: 师徒
-  symmetric: true
+  type: distrust
+  symmetric: false
 - src: 2
-  dst: 5
-  type: 暗中勾结
+  dst: 3
+  type: antagonistic
   symmetric: true
 - src: 3
-  dst: 5
-  type: 敌对怀疑
-  symmetric: true
-- src: 2
-  dst: 3
-  type: 师门竞争
+  dst: 4
+  type: trust
   symmetric: true
 - src: 4
-  dst: 2
-  type: 表面恭敬
-  symmetric: false
-- src: 4
   dst: 3
-  type: 表面友好
-  symmetric: false
-- src: 4
-  dst: 5
-  type: 畏惧防备
-  symmetric: false
-- src: 1
-  dst: 3
-  type: 暗中托付
-  symmetric: true
-- src: 4
-  dst: 0
-  type: 临时交易
+  type: secret_love
   symmetric: false
