@@ -13,7 +13,6 @@ import {
   GameOverScreen,
   LoadingOverlay,
   OnboardingModal,
-  PlayerActionBar,
   PlayerInput,
   RunnerNotReadyModal,
   StatusPanel,
@@ -109,18 +108,13 @@ function GameApp() {
     />
   );
 
+  // 剧情模式：只留台词输入框；移动→左侧地点列表、私信/群聊→收件箱下方发送栏、看信息→📱手机面板（见 StoryModeStage）。
   const storyModeInput = (
-    <>
-      <StoryPlayerInput
-        onSend={(text) => void sendTurn(text)}
-        disabled={loading || view !== "playing"}
-        placeholder="输入你的台词…"
-      />
-      <PlayerActionBar
-        nameMap={nameMap}
-        disabled={loading || view !== "playing"}
-      />
-    </>
+    <StoryPlayerInput
+      onSend={(text) => void sendTurn(text)}
+      disabled={loading || view !== "playing"}
+      placeholder="输入你的台词…"
+    />
   );
 
   const worldControls = {
@@ -220,8 +214,13 @@ function GameApp() {
           nameMap={nameMap}
           agentMood={state.agentMood}
           playerInbox={state.agentInbox["0"]}
+          agentLocations={agentLocations}
           places={worldPlaces}
           placesDisabled={loading || view !== "playing"}
+          phase={phase}
+          presentAgents={presentAgents}
+          worldTick={envTick ?? worldTick}
+          playerTurn={playerTurn}
           stats={state.stats}
           statsDimensions={state.statsDimensions}
           tension={state.tension}
