@@ -5,13 +5,8 @@ import {
   type PlayerActionRequest,
 } from "../../api/drama";
 import { PLAYER_AGENT_ID, VIRTUAL_PLAYER_AGENT_ID } from "../../constants/agents";
-import { placeDisplayName } from "../../utils/places";
 
 export interface PlayerActionBarProps {
-  /** 当前地点（移动默认排除）。 */
-  placeId: string;
-  /** 世界全部地点（由后端世界状态派生，移动可去之处从中选）。 */
-  places: string[];
   /** agent id → 名称（用于私信目标下拉）。 */
   nameMap: Record<string, string>;
   disabled?: boolean;
@@ -22,7 +17,7 @@ export interface PlayerActionBarProps {
  * 让沉浸画面只留台词输入框；点开菜单才展开这些动作（避免画面被动作条堆乱）。
  * 加群受后端门控（须先 F2F 见过群里某成员并得其同意），失败时显示原因。
  */
-export function PlayerActionBar({ placeId, places, nameMap, disabled }: PlayerActionBarProps) {
+export function PlayerActionBar({ nameMap, disabled }: PlayerActionBarProps) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -36,7 +31,6 @@ export function PlayerActionBar({ placeId, places, nameMap, disabled }: PlayerAc
       return a.localeCompare(b);
     });
 
-  const [movePlace, setMovePlace] = useState<string>("");
   const [rdcTarget, setRdcTarget] = useState<string>(agentOptions[0] ?? "");
   const [rdcText, setRdcText] = useState<string>("");
   const [groupId, setGroupId] = useState<string>("");
@@ -94,25 +88,6 @@ export function PlayerActionBar({ placeId, places, nameMap, disabled }: PlayerAc
 
       {open ? (
         <div className="player-action-menu__panel">
-      <div className="player-action-bar__row">
-        <label>移动</label>
-        <select value={movePlace} onChange={(e) => setMovePlace(e.target.value)} disabled={off}>
-          <option value="">选择地点…</option>
-          {places.filter((p) => p !== placeId).map((p) => (
-            <option key={p} value={p}>
-              {placeDisplayName(p)}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          disabled={off || !movePlace}
-          onClick={() => void run({ action: "move", place_id: movePlace }, "移动")}
-        >
-          去
-        </button>
-      </div>
-
       <div className="player-action-bar__row">
         <label>私信</label>
         <select value={rdcTarget} onChange={(e) => setRdcTarget(e.target.value)} disabled={off}>

@@ -6,6 +6,7 @@ import { placeDisplayName } from "../../utils/places";
 import { WorldEventModal } from "../world-stage";
 import { storyPlaceBackground } from "./storyAssets";
 import { StoryPlayerInbox } from "./StoryPlayerInbox";
+import { StoryPlaceList } from "./StoryPlaceList";
 import { StoryStatsHud } from "./StoryStatsHud";
 import { StorySubtitle } from "./StorySubtitle";
 import { StoryDialogueHistory } from "./StoryDialogueHistory";
@@ -22,6 +23,10 @@ export interface StoryModeStageProps {
   agentMood?: Record<string, string>;
   /** 玩家(agent 0)收件箱：收到的私信/群聊。 */
   playerInbox?: AgentInbox;
+  /** 世界全部地点（左侧地点列表点击移动）。 */
+  places?: string[];
+  /** 移动禁用（非游玩中/加载时）。 */
+  placesDisabled?: boolean;
   /** 玩家数值，剧情模式 HUD 显示。 */
   stats?: Stats;
   /** 属性维度定义（数据驱动：来自活跃 Story Pack 的 meta.stats）。 */
@@ -48,6 +53,8 @@ export function StoryModeStage({
   nameMap,
   agentMood,
   playerInbox,
+  places,
+  placesDisabled,
   stats,
   statsDimensions,
   tension,
@@ -91,6 +98,10 @@ export function StoryModeStage({
 
       {stats ? (
         <StoryStatsHud stats={stats} dimensions={statsDimensions} tension={tension} />
+      ) : null}
+
+      {places && places.length ? (
+        <StoryPlaceList placeId={placeId} places={places} disabled={placesDisabled} />
       ) : null}
 
       {lastError ? (

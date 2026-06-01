@@ -117,8 +117,6 @@ function GameApp() {
         placeholder="输入你的台词…"
       />
       <PlayerActionBar
-        placeId={placeId}
-        places={worldPlaces}
         nameMap={nameMap}
         disabled={loading || view !== "playing"}
       />
@@ -222,6 +220,8 @@ function GameApp() {
           nameMap={nameMap}
           agentMood={state.agentMood}
           playerInbox={state.agentInbox["0"]}
+          places={worldPlaces}
+          placesDisabled={loading || view !== "playing"}
           stats={state.stats}
           statsDimensions={state.statsDimensions}
           tension={state.tension}
