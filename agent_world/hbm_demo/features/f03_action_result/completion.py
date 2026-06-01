@@ -1,15 +1,11 @@
-"""F03 action completion rules and message formatting.
+"""F03 action completion rules（数据驱动，无写死故事 phase/agent/place/group）。
 
-v2 Phase 0 (dev_logs/31): continuous delta read model — polling uses ``since_tick``
-for incremental UI; completion uses F07 phase rules + timeout fallback.
+continuous delta read model：完成判定 = 玩家所在地点出现对白（NPC 已响应）或超时兜底，
+据此让前端停止本回合轮询。旧版按写死的 HBM 幕名/角色编号/地点/群 id 判定的逻辑已退役。
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
-
-from agent_world.hbm_demo.features.f01_session.constants import DEFAULT_PHASE
-from agent_world.hbm_demo.features.f07_agent_control.config import is_f07_enabled
 from agent_world.hbm_demo.features.f02_player_turn.task import (
     INJECT_STATUS_DONE,
     INJECT_STATUS_FAILED,
@@ -18,24 +14,8 @@ from agent_world.hbm_demo.features.f02_player_turn.task import (
 )
 from agent_world.hbm_demo.features.f06_read_model.world_db import ReadOnlyWorldDB
 
-PHASE_RDC_PAIRS: Dict[str, List[Tuple[int, int]]] = {
-    "Phase 1": [(1, 2)],
-    "Phase 2": [(2, 3), (3, 2)],
-    "Phase 3": [
-        (2, 3), (3, 2),
-        (4, 2), (5, 2), (6, 2),
-        (4, 5), (4, 6), (5, 6),
-        (7, 2),
-    ],
-    "Phase 4": [(2, 3), (3, 2)],
-}
-
 MIN_ACTIVITY_TICKS = 3
 DEFAULT_TIMEOUT_TICKS = 8
-
-
-def _rdc_pairs_for_phase(phase: str) -> List[Tuple[int, int]]:
-    return list(PHASE_RDC_PAIRS.get(phase, PHASE_RDC_PAIRS[DEFAULT_PHASE]))
 
 
 def _inject_finished(task: PendingTask) -> bool:
@@ -46,40 +26,8 @@ def _inject_finished(task: PendingTask) -> bool:
     return False
 
 
-RECEPTION_PLACE = "nvidia_reception"
-JENSEN_PRIVATE_PLACE = "jensen_private_room"
-NEGOTIATION_PLACE = "negotiation_room"
-
-
 def _timeout_complete(task: PendingTask, current_tick: int) -> bool:
     return current_tick >= task.start_tick + DEFAULT_TIMEOUT_TICKS
-
-
-def _f07_phase1_complete(
-    task: PendingTask,
-    start: int,
-    current_tick: int,
-    db: ReadOnlyWorldDB,
-) -> bool:
-    """§13.2 — Phase 1 completes on reception NPC F2F or timeout; not RDC-only."""
-    if db.has_npc_f2f_after(
-        RECEPTION_PLACE, start, current_tick, npc_sender_ids={1}
-    ):
-        return True
-    return _timeout_complete(task, current_tick)
-
-
-def _f07_phase4_complete(
-    task: PendingTask,
-    start: int,
-    current_tick: int,
-    db: ReadOnlyWorldDB,
-) -> bool:
-    """§13.5 — Phase 4 completes on Jensen negotiation F2F or timeout."""
-    place = task.place_id or NEGOTIATION_PLACE
-    if db.has_npc_f2f_after(place, start, current_tick, npc_sender_ids={2}):
-        return True
-    return _timeout_complete(task, current_tick)
 
 
 def check_action_complete(
@@ -87,7 +35,7 @@ def check_action_complete(
     current_tick: int,
     db: ReadOnlyWorldDB,
 ) -> bool:
-    """Return True when the client may stop polling for this turn."""
+    """Return True when the client may stop polling for this turn（通用：有对白 或 超时）。"""
     start = task.start_tick
     if current_tick < start + MIN_ACTIVITY_TICKS:
         return False
@@ -95,23 +43,9 @@ def check_action_complete(
     if task.inject_status == INJECT_STATUS_FAILED:
         return True
 
-    if is_f07_enabled() and task.phase == "Phase 1":
-        return _f07_phase1_complete(task, start, current_tick, db)
-
-    if is_f07_enabled() and task.phase == "Phase 4":
-        return _f07_phase4_complete(task, start, current_tick, db)
-
+    # 玩家所在地点出现任何当面对白 → 本回合已有响应，可停止轮询（不再按写死幕名/角色判定）。
     if db.has_f2f_after(task.place_id, start, current_tick):
         return True
-    if db.has_rdc_pair_after(
-        _rdc_pairs_for_phase(task.phase), start, current_tick
-    ):
-        return True
-    if db.has_grp_after({100, 200}, start, current_tick):
-        return True
-
-    if not _inject_finished(task):
-        return _timeout_complete(task, current_tick)
 
     return _timeout_complete(task, current_tick)
 
@@ -122,7 +56,7 @@ def effective_tick_for_task(task: PendingTask, env_tick: int) -> int:
     return env_tick
 
 
-from agent_world.hbm_demo.shared.messages import (
+from agent_world.hbm_demo.shared.messages import (  # noqa: E402
     format_f2f_public_messages,
     format_messages,
 )

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 import yaml
 
@@ -34,32 +34,6 @@ def routing_mode() -> str:
 
 def is_agent_driven() -> bool:
     return routing_mode() == "agent_driven"
-
-
-def _signal_list(key: str, default: Tuple[str, ...]) -> Tuple[str, ...]:
-    signals = load_routing_config().get("signals") or {}
-    raw = signals.get(key)
-    if isinstance(raw, list):
-        out = tuple(str(x).strip() for x in raw if str(x).strip())
-        if out:
-            return out
-    return default
-
-
-def group_consent_keywords() -> Tuple[str, ...]:
-    """NPC 通过 F2F 同意玩家加入其群聊的措辞（群聊门控用，需求三）。"""
-    return _signal_list(
-        "group_consent_keywords",
-        ("同意", "欢迎", "加入", "进群", "拉你进", "带你进", "一起聊", "没问题", "可以进", "算你一个"),
-    )
-
-
-def group_reject_keywords() -> Tuple[str, ...]:
-    """NPC 拒绝玩家入群的措辞（优先级高于 consent，避免「不同意」误判为「同意」）。"""
-    return _signal_list(
-        "group_reject_keywords",
-        ("不同意", "不行", "别进", "不欢迎", "拒绝", "不可以", "免谈", "没你的份"),
-    )
 
 
 def is_story_pack_routing_enabled() -> bool:

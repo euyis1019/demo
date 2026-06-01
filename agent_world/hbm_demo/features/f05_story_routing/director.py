@@ -150,3 +150,39 @@ def judge_transition(graph: Any, node_id: str, transcript: str, name_map: Dict[i
         log.info("director: %s → %s（张力%s｜%s）", node_id, target, tension, data.get("reason"))
     return {"advance": advance, "target": target,
             "reason": str(data.get("reason") or ""), "tension": tension}
+
+
+_CONSENT_SYSTEM = (
+    "你在判断一个 NPC 是否同意/欢迎玩家加入他所在的群聊。读这个 NPC 最近当面对玩家说过的话，"
+    "判断他的真实态度：是否明确表示接纳、欢迎、答应让玩家加入（或语义等义的友好接纳）。"
+    "只要没有明确接纳就算不同意——不要凭单个词，要读懂整句的真实意思。"
+    '严格只输出一行 JSON：{"consent": true或false, "reason": "一句中文理由"}'
+)
+
+
+def judge_group_consent(npc_name: str, npc_lines: List[str]) -> bool:
+    """LLM 语义判定该 NPC 是否同意玩家入群（无关键词硬规则）。无对话/出错 → False（保守）。"""
+    lines = [str(s).strip() for s in (npc_lines or []) if str(s).strip()]
+    if not lines:
+        return False
+    user = (
+        f"NPC：{npc_name}\n他最近当面对玩家说的话：\n"
+        + "\n".join(f"- {ln}" for ln in lines[-8:])
+        + "\n\n他是否同意/欢迎玩家加入他所在的群聊？"
+    )
+    try:
+        from agent_world.hbm_demo.core.runner.kernel import llm_request_extras
+
+        client, llm_cfg = _client_and_cfg()
+        resp = client.chat.completions.create(
+            model=llm_cfg.get("model", "deepseek-chat"),
+            messages=[{"role": "system", "content": _CONSENT_SYSTEM},
+                      {"role": "user", "content": user}],
+            temperature=0,
+            **llm_request_extras(llm_cfg),
+        )
+        data = _parse_json(resp.choices[0].message.content or "")
+    except Exception as exc:  # noqa: BLE001
+        log.warning("group consent judge LLM failed: %s", exc)
+        return False
+    return bool(data and data.get("consent") is True)

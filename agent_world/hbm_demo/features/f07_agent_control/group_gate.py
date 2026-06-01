@@ -1,24 +1,27 @@
 """群聊门控判定（需求三）：玩家须先 F2F 见过某群成员、且该成员 F2F 同意，才能加入该群。
 
-纯**只读**判定，无副作用、不写库——依赖 f06 只读库的 F2F 历史 + f05 routing_config 的同意/拒绝
-关键词（跨 feature 经对方公共出口，遵 D2）。执行入群在别处（f17 + L1 桥），本模块只回答"能不能"。
+纯**只读**判定，不写库——F2F 历史读 f06 只读库；「是否同意」交 f05 LLM 导演按对话语义判定
+（无关键词硬规则，跨 feature 经对方公共出口，遵 D2）。执行入群在别处（f17 + L1 桥），本模块只回答"能不能"。
 """
 
 from __future__ import annotations
 
 from typing import Any, List
 
-from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
-    group_consent_keywords,
-    group_reject_keywords,
-)
 
 PLAYER_AGENT_ID = 0
 
 
-def _content_has_any(content: Any, keywords) -> bool:
-    text = str(content or "")
-    return any(kw in text for kw in keywords)
+def _agent_name(agent_id: int) -> str:
+    try:
+        from agent_world.hbm_demo.shared import story_config
+
+        for a in story_config.active_pack().agents.get("agents") or []:
+            if int(a.get("agent_id", -1)) == int(agent_id):
+                return str(a.get("name") or f"Agent{agent_id}")
+    except Exception:  # noqa: BLE001
+        pass
+    return f"Agent{agent_id}"
 
 
 def _player_met_agent(db: Any, agent_id: int, place_id: str, *, since_t: int, t_now: int, player_id: int) -> bool:
@@ -31,17 +34,14 @@ def _player_met_agent(db: Any, agent_id: int, place_id: str, *, since_t: int, t_
 
 
 def _agent_consented(db: Any, agent_id: int, place_id: str, *, since_t: int, t_now: int) -> bool:
-    """该 agent 的 F2F 台词表示同意入群（拒绝优先：任一拒绝词命中即否）。"""
+    """该 agent 是否同意玩家入群——由 LLM 导演读他对玩家说过的话语义判定（无关键词硬规则）。"""
+    from agent_world.hbm_demo.features.f05_story_routing.director import judge_group_consent
+
     rows = db.fetch_f2f_from_sender_at(place_id, int(agent_id), int(t_now), int(since_t))
-    reject = group_reject_keywords()
-    consent = group_consent_keywords()
-    saw_consent = False
-    for _at_t, _sender, _mid, content in rows:
-        if _content_has_any(content, reject):
-            return False  # 明确拒绝 → 一票否决
-        if _content_has_any(content, consent):
-            saw_consent = True
-    return saw_consent
+    lines = [str(content) for _at_t, _sender, _mid, content in rows if str(content or "").strip()]
+    if not lines:
+        return False
+    return judge_group_consent(_agent_name(agent_id), lines)
 
 
 def can_player_join_group(

@@ -36,7 +36,6 @@ from agent_world.hbm_demo.features.f02_player_turn.inject import BAD_END_PUBLIC_
 from agent_world.hbm_demo.features.f02_player_turn.inject import build_inject_events
 from agent_world.hbm_demo.features.f02_player_turn.task import PendingTask, load_task, save_task
 from agent_world.hbm_demo.features.f03_action_result.completion import (
-    PHASE_RDC_PAIRS,
     check_action_complete,
     effective_tick_for_task,
     format_f2f_public_messages,
@@ -60,7 +59,6 @@ __all__ = [
     "SESSION_KEY",
     "TASKS_KEY",
     "SYSTEM_SENDER_NAME",
-    "PHASE_RDC_PAIRS",
     "BAD_END_PUBLIC_MESSAGES",
     "HbmSession",
     "PendingTask",
