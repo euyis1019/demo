@@ -7,7 +7,6 @@ export interface WorldEventModalProps {
 
 const KIND_LABELS: Record<WorldEvent["kind"], string> = {
   broadcast: "世界广播",
-  phase_route: "新任务",
   place_mutation: "场景变化",
   bad_end: "Bad End",
   system: "系统事件",

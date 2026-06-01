@@ -50,7 +50,7 @@ export interface LocationChange {
 export interface WorldEvent {
   id: string;
   at_tick: number;
-  kind: "broadcast" | "phase_route" | "place_mutation" | "bad_end" | "system";
+  kind: "broadcast" | "place_mutation" | "bad_end" | "system";
   title?: string;
   content: string;
   place_id?: string;

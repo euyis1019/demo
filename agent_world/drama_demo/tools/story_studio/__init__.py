@@ -1,13 +1,14 @@
-"""story_studio — 设计期 Story Pack 生成工具（离线，dev_logs/45）。
+"""story_studio — 设计期 Story Pack 生成工具（离线，dev_logs/48）。
 
 定位：把一份 story brief 编译成整包 Story Pack（config/stories/<id>/）的离线 CLI。
 是「编译器」，运行期解释器是「虚拟机」。**绝不进 Flask/Runner、绝不写 sim/**（safety 红线）。
 
-公共出口（G1 契约 + 骨架）：
+公共出口：
   - validate_brief / BRIEF_SCHEMA —— 用户输入契约
-  - DESIGNER_OUTPUT_SCHEMA / validate_against —— 生成期中间产物契约
+  - BERT_OUTPUT_SCHEMA / validate_against —— 生成期中间产物契约（bert 反应链）
   - call_json_with_schema / LLMClient / StoryStudioError —— 管理 agent 基类（LLM 注入）
-  - compile_pack / designer_output_to_story_graph —— 编排器骨架（落盘 + validate）
+  - Casting / BertDesigner / Critic —— 管理 agent
+  - generate_full / compile_pack / assemble_sections —— 编排器（Casting+Bert设计师→assemble→validate）
   - write_story_pack / assert_safe_target —— 落盘 + 安全红线
 """
 

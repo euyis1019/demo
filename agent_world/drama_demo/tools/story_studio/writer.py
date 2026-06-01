@@ -14,21 +14,16 @@ import yaml
 from agent_world.drama_demo.tools.story_studio.safety import assert_safe_target
 
 # section 名 → 文件名。仅写出 sections 里存在的键。
+# bert 流水线（assemble_sections）只产出这 7 个 section；旧节点时代的
+# story_graph/signals/endings/judges/timed_events/language_style/ui_text 永不产出，已移除。
 _SECTION_FILES = {
     "meta": "meta.yaml",
     "berts": "berts.yaml",
-    "story_graph": "story_graph.yaml",  # 旧包兼容；新包不再产出（剧情由 berts 驱动）
     "places": "places.yaml",
     "agents": "agents.yaml",
     "relations": "relations.yaml",
     "relation_types": "relation_types.yaml",
     "groups": "groups.yaml",
-    "signals": "signals.yaml",
-    "endings": "endings.yaml",
-    "judges": "judges.yaml",
-    "timed_events": "timed_events.yaml",
-    "language_style": "language_style.yaml",
-    "ui_text": "ui_text.yaml",
 }
 
 

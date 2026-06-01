@@ -81,14 +81,10 @@ def get_world_delta(
     if game_over:
         result["game_over"] = game_over
     elif hbm and hbm.ending_id:
-        # 结局由命中的「结局 bert」决定：收场文案/基调已在触发时写入 hbm（good/neutral/bad）。
-        # 兼容旧任务包：hbm 上无 bert 结局信息时回退查 story_graph.endings。
-        end_kind = hbm.ending_kind or ""
+        # 结局由命中的「结局 bert」决定：收场文案/基调已在触发时写入 hbm（good/neutral/bad）；
+        # story_graph 退役，无 graph.endings 回退，kind 缺省兜底 neutral。
+        end_kind = hbm.ending_kind or "neutral"
         end_summary = hbm.ending_summary or ""
-        if not end_kind:
-            end = story_config.active_pack().graph.endings.get(hbm.ending_id)
-            end_kind = end.kind if end else "neutral"
-            end_summary = (end.summary if end else "") or ""
         result["game_over"] = {
             "status": "game_over" if end_kind == "bad" else "completed",
             "ending_id": hbm.ending_id,

@@ -10,9 +10,6 @@ from agent_world.drama_demo.shared.messages import (
     format_messages,
 )
 from agent_world.drama_demo.features.f06_read_model.world_db import sender_display_name
-from agent_world.drama_demo.shared.routing_events import (
-    format_routing_world_events,
-)
 
 _GROUP_EVENT_KIND = {
     "join": "group_join",
@@ -197,7 +194,6 @@ __all__ = [
     "format_state_changes",
     "format_group_social_events",
     "format_broadcast_world_events",
-    "format_routing_world_events",
     "format_agent_locations",
     "legacy_public_messages_from_room_f2f",
     "legacy_observer_from_agent_messages",

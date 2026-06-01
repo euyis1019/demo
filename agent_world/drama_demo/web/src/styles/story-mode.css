@@ -564,10 +564,18 @@
 }
 
 /* 剧情模式数值 HUD（左侧竖向浮层）：数值竖排在左边，不挡中央/右侧画面。 */
-.story-stats-hud {
+/* 左列容器：数值 HUD + 地点列表纵向流式排布，整列定位一次（取代两块各自 absolute 写死 top 造成的重叠/空洞）。 */
+.story-left-col {
   position: absolute;
   top: 56px;
   left: 12px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(100vh - 72px);
+}
+.story-stats-hud {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -589,10 +597,6 @@
   gap: 6px;
   color: #e8eef7;
 }
-.story-stats-hud__item.is-warn .story-stats-hud__value {
-  color: #f87171;
-  font-weight: 700;
-}
 .story-stats-hud__label {
   color: #94a3b8;
 }
@@ -611,10 +615,6 @@
 
 /* 左侧地点列表（#4）：在数值 HUD 下方，列全部地点，点击移动 */
 .story-place-list {
-  position: absolute;
-  left: 12px;
-  top: 210px;
-  z-index: 6;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -854,20 +854,6 @@
   color: #e8eef7;
   font-weight: 600;
   text-align: right;
-}
-.story-phone__stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(148, 163, 184, 0.25);
-}
-.story-phone__stat {
-  padding: 2px 7px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 5px;
-  color: #cfe0ff;
-  font-size: 0.74rem;
 }
 
 /* 剧情模式玩家收件箱（输入区上方折叠条） */

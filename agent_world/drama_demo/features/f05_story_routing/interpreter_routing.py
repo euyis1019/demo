@@ -91,6 +91,10 @@ def route_story(
     if lp is None or lp <= int(getattr(hbm, "last_judged_player_tick", -1) or -1):
         return applied
     hbm.last_judged_player_tick = lp
+    # 消费即清：上一轮写进的 reaction，到「玩家又开了新口」这一刻，已经由两次发言之间的 inject 注入并被 target 演过。
+    # 此处清掉旧 reaction，避免它常驻 NPC 的 prompt 让其反复复读同一反应（reaction 是一次性剧情节拍，不是常态设定）。
+    if getattr(hbm, "bert_reactions", None):
+        hbm.bert_reactions = {}
 
     transcript = director.scene_transcript(db, place, since_t, int(current_tick), name_map)
     decision = director.judge_bert_triggers(armed, transcript, name_map)

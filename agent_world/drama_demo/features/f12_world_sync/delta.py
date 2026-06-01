@@ -23,7 +23,6 @@ from agent_world.drama_demo.features.f12_world_sync.formatter import (
     legacy_observer_from_agent_messages,
     legacy_public_messages_from_room_f2f,
 )
-from agent_world.drama_demo.shared.routing_events import format_routing_world_events
 from agent_world.drama_demo.features.f15_prompt_trace.refs import (
     build_link_map,
     enrich_world_delta,
@@ -66,7 +65,6 @@ def build_world_delta(
     since_t = max(int(since_tick), int(task.start_tick))
     t_now = max(int(effective_tick), since_t)
     player_place = _player_place_id(task)
-    routing = routing_info if routing_info is not None else task.routing_info
 
     room_f2f: Dict[str, List[Dict[str, Any]]] = {}
     f2f_by_place = db.fetch_f2f_by_places(
@@ -108,16 +106,6 @@ def build_world_delta(
             db.fetch_broadcasts_since(since_t, t_now), name_map
         )
     )
-    if routing and task.ipc_end_tick is not None:
-        ipc_end = int(task.ipc_end_tick)
-        if since_t < ipc_end <= t_now:
-            world_events.extend(
-                format_routing_world_events(
-                    routing,
-                    at_tick=ipc_end,
-                    task_id=str(task.task_id),
-                )
-            )
 
     agent_locations = format_agent_locations(db.fetch_all_agent_locations())
 

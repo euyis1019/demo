@@ -44,7 +44,7 @@ NPC 能不能凭自己的决策在不同地点间走动（自主移动）。
 def _build_user(brief: Dict[str, Any], casting: Dict[str, Any]) -> str:
     places = [p.get("place_id") for p in (casting.get("places") or [])]
     n_agents = len([a for a in (casting.get("agents") or []) if int(a.get("agent_id", -1)) > 0])
-    head = {k: brief.get(k) for k in ("title", "premise", "genre", "tone", "logline", "target_tasks") if brief.get(k)}
+    head = {k: brief.get(k) for k in ("premise", "tone") if brief.get(k)}  # schema 只有 premise/tone
     return (
         "故事 brief：\n" + json.dumps(head, ensure_ascii=False, indent=2)
         + f"\n\n登场角色数：{n_agents}；地点数：{len(places)}；地点：" + json.dumps(places, ensure_ascii=False)

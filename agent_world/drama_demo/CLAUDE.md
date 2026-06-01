@@ -72,17 +72,18 @@
 - 重大设计决策落 `dev_logs/`；与代码不一致的旧文档要么改对要么删。
 - 报告给用户**一律用中文**。
 
-## 8. 当前进行中的 feature
+## 8. 当前剧情机制：bert（条件→反应）反应链
 
-- 分支 `story-framework-revamp`：**剧情数据驱动化**——把写死在代码里的 HBM 剧情（`features/f05_story_routing`
-  的 if 链/常量、`config/stories/<id>/`）抽成可外置的 **Story Pack**（`config/stories/<id>/`），
-  使「只改 config 就能换一个完全不同的故事」，并补一套**设计期生成工具**（管理 agent 工作室 + validate 闸门），
-  让用户只写一份剧情 brief 即可由 agent 生成整包 Story Pack。
-  - 设计与规划见 dev_logs/40–46：40 解耦地图、41 参考 AI4VisualNovel、42 完整修改规划（§3 Story Pack schema、
-    §4 解释器、§9 补全、§9.3 涌现社交存活性）、43 管理 vs 演员、44 端到端流程、45 设计期生成工具分阶段、
-    46 完备性补充（42 条缺口）。
-  - 落地铁律（dev_logs/45 §6）：**先有干净的 Story Pack 格式 + 解释器，再做生成工具**；
-    G0 先把现有 HBM 抽成第一个手写参考包 `config/stories/hbm_memory_war/` 作回归锚点。
-  - 分层落点：Story Pack 数据模型 + `StoryGraph.validate`（纯数据/算法，无业务）→ `shared/story_pack/`；
-    故事解释器（信号→转移的表驱动调度）→ `features/f05_story_routing/`；运行期加载/播种经 L1 入口。
-  - 本分支**不做** AIGC 实时出图（那是 `aigc-realtime-render` 分支）；静态剧情资源走设计期 Artist 步骤（tapnow）。
+- 剧情结构是 **bert**（`shared/story_pack/bert.py`）：一条 bert = 「玩家做某事(trigger) → 某 NPC(target) 产生某反应(reaction)」，
+  经 `requires`/`arms` 串成反应链，`ending` 非空的 bert 即结局。已**彻底取代**旧的「分幕/任务链/story_graph 节点 DAG/phase/张力」
+  （见根 `dev_logs/48`；旧的 dev_logs/40–46 描述的 story_graph 方案已退役）。
+- **生成期**（`tools/story_studio/`）：brief → `Casting`(世界原语) → `BertDesigner`(brief+cast→berts) → assemble →
+  `validate`(X 跨文件引用闭合 + B bert 规则集) → `Critic`(按 bert rubric 评分回灌) → 附加产物
+  (onboarding/acting_guide/stats/world_rules)。无 Designer/Writer/story_graph.yaml。
+- **运行期**（`features/f05_story_routing/`）：每玩家回合 `watcher.scan_routing_if_needed` → `interpreter_routing.route_story`
+  → `director.judge_bert_triggers`(LLM 读对话判哪条上膛 bert 命中) → 命中则把 reaction 注入 target 下一拍 prompt
+  (`f07 knowledge.py` 读 `hbm.bert_reactions`) + 上膛后续(反应链) + 结局收场。无任何剧情硬规则。
+- 演员(actor)由管理 agent 经 Story Pack 调教：`meta.acting_guide`(表演手册) + 命中的 bert reaction(意图) 注入，
+  引擎不内嵌「每拍必回应」等硬规则。
+- 分层落点：bert 数据模型/校验（纯数据/算法）→ `shared/story_pack/bert.py`；bert 导演/路由 → `features/f05_story_routing/`；
+  生成工具 → `tools/story_studio/`；运行期加载/播种经 L1 入口。AIGC 实时出图是另一分支，本处只走设计期静态资源。

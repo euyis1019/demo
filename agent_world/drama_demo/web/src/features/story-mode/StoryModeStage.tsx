@@ -32,8 +32,6 @@ export interface StoryModeStageProps {
   places?: string[];
   /** 移动/发送禁用（非游玩中/加载时）。 */
   placesDisabled?: boolean;
-  /** 在场 NPC 名字（手机面板显示）。 */
-  presentAgents?: string[];
   /** 世界 tick / 玩家回合（手机面板显示）。 */
   worldTick?: number;
   playerTurn?: number;
@@ -64,7 +62,6 @@ export function StoryModeStage({
   playerInbox,
   places,
   placesDisabled,
-  presentAgents,
   worldTick,
   playerTurn,
   stats,
@@ -109,22 +106,21 @@ export function StoryModeStage({
         aria-label={placeDisplayName(placeId)}
       />
 
-      {stats ? (
-        <StoryStatsHud stats={stats} dimensions={statsDimensions} />
+      {/* 左列：数值 HUD + 地点列表自然纵向堆叠（不再各自魔法像素定位，避免维度多时相互重叠/留洞） */}
+      {(stats || (places && places.length)) ? (
+        <div className="story-left-col">
+          {stats ? <StoryStatsHud stats={stats} dimensions={statsDimensions} /> : null}
+          {places && places.length ? (
+            <StoryPlaceList placeId={placeId} places={places} disabled={placesDisabled} />
+          ) : null}
+        </div>
       ) : null}
 
-      {places && places.length ? (
-        <StoryPlaceList placeId={placeId} places={places} disabled={placesDisabled} />
-      ) : null}
-
-      {/* #4：上帝模式手机——集中看任务/在场/进度/数值 */}
+      {/* #4：上帝模式手机——所在地 + 进度（在场看名册立绘、数值看左侧 HUD，不在此重复） */}
       <StoryPhonePanel
         placeLabel={placeDisplayName(placeId)}
-        presentAgents={presentAgents}
         worldTick={worldTick}
         playerTurn={playerTurn}
-        stats={stats}
-        dimensions={statsDimensions}
       />
 
       {/* #5：当前地点在场 NPC 立绘名册——点头像可快速私信 */}

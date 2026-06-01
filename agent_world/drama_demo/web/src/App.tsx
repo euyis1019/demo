@@ -190,8 +190,8 @@ function GameApp() {
 
   return (
     <>
-      {/* 进入新任务的提示只由「世界事件」横幅(WorldEventModal, kind=phase_route)统一呈现——
-          剧情模式与上帝模式都已渲染它。原 PhaseToast 是第二个独立提示源，会让同一次推进「弹两遍」，故移除。 */}
+      {/* 世界事件横幅(WorldEventModal)统一呈现广播/场景变化/结局等事件；剧情模式与上帝模式都已渲染它。
+          剧情改 bert 反应链后已无「分幕/新任务」横幅——剧情推进由 NPC 当面反应直接呈现，不再弹任务提示。 */}
       <RunnerNotReadyModal
         open={runnerModalOpen}
         onClose={() => dispatch({ type: "SET_RUNNER_MODAL", open: false })}
@@ -216,7 +216,6 @@ function GameApp() {
           agentLocations={agentLocations}
           places={worldPlaces}
           placesDisabled={loading || view !== "playing"}
-          presentAgents={presentAgents}
           worldTick={envTick ?? worldTick}
           playerTurn={playerTurn}
           stats={state.stats}

@@ -55,6 +55,18 @@ def brief_to_meta(brief: Dict[str, Any], story_id: str) -> Dict[str, Any]:
     }
 
 
+def _sanitize_player_agent(agents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """机制级保证：玩家(agent 0)不带人设字段——否则 knowledge.py 会把玩家当 NPC 注入 soul/inner，污染表演。
+    不靠 Casting 提示词自觉留空。"""
+    out: List[Dict[str, Any]] = []
+    for a in agents or []:
+        if int(a.get("agent_id", -1)) == 0:
+            a = {**a, "soul": "", "inner": "", "speech_style": "", "speech_samples": [],
+                 "long_term_goal": "", "current_state": "", "opening_line": "", "capabilities": []}
+        out.append(a)
+    return out
+
+
 def assemble_sections(
     meta: Dict[str, Any], casting: Dict[str, Any], bert_design: Dict[str, Any],
 ) -> Dict[str, Any]:
@@ -62,7 +74,7 @@ def assemble_sections(
     return {
         "meta": meta,
         "places": {"places": casting.get("places", []), "coverage": casting.get("coverage", [])},
-        "agents": {"agents": casting.get("agents", [])},
+        "agents": {"agents": _sanitize_player_agent(casting.get("agents", []))},
         "relations": {"relations": casting.get("relations", [])},
         "relation_types": {"relation_types": casting.get("relation_types", [])},
         "groups": {"groups": casting.get("groups", [])},
@@ -154,17 +166,27 @@ def generate_full(
                 review = critic.review(brief, c, b)
             except Exception:  # noqa: BLE001 — 评审失败不阻断：保留已结构合法的包
                 break
+            import json as _json
             scores = review.get("scores") or {}
             low = [k for k, v in scores.items() if isinstance(v, int) and v < critic_threshold]
             cfb = (review.get("casting_feedback") or "").strip()
             bfb = (review.get("bert_feedback") or "").strip()
             if not low or (not cfb and not bfb):
                 break  # 质量达标 / 评审无可执行意见 → 收工
-            if cfb:
-                c = casting.run(brief, feedback="【质量评审，请据此改进角色卡，仍输出完整 JSON】\n" + cfb)
-            b = bert_designer.run(brief, c,
-                                  feedback="【质量评审，请据此改进 bert 反应链，仍输出完整 JSON】\n"
-                                  + (bfb or "结合最新角色设定复核，让触发条件更清晰、反应更贴人设、反应链更连贯。"))
+            # 只在「角色维度」低时重写 casting、「bert 维度」低时重写 bert——避免无谓连带重写（省 LLM、防把高分项改坏）。
+            cast_low = any(k in ("character_depth", "voice_distinct") for k in low)
+            if cfb and cast_low:
+                # 增量修订：带上一版角色卡，保 agent_id/name/数量不变只改被点字段——否则从头重生成会让 id 漂移、
+                # bert 里 target/requires/arms 的引用整体错位（一致性只靠 validate 回滚=丢弃整轮改进，等于白评）。
+                c = casting.run(brief, feedback=(
+                    "【在下面这版角色卡基础上按评审意见修订：保持每个 agent_id、name 和角色数量不变，"
+                    "只改被点到的字段，仍输出完整 JSON】\n上一版角色卡：\n"
+                    + _json.dumps(c.get("agents", []), ensure_ascii=False) + "\n\n评审意见：\n" + cfb))
+            if bfb or cast_low:  # bert 维度低、或角色卡刚被改 → bert 都要随之复核以保持一致
+                b = bert_designer.run(brief, c, feedback=(
+                    "【角色卡可能已按评审修订（agent_id/名字未变）。据此复核改进 bert：保持 bert id 与 requires/arms 引用自洽，"
+                    "让 trigger 更清晰、reaction 更贴人设口吻、反应链更连贯，仍输出完整 JSON】\n评审意见：\n"
+                    + (bfb or "（无 bert 专项意见，按最新角色设定微调 reaction 口吻即可）")))
             revised = assemble_full_sections(brief, story_id, c, b)
             r2 = compile_pack(revised, story_id=story_id, target_dir=target_dir)
             if r2.ok:

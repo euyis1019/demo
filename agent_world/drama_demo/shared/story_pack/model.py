@@ -1,5 +1,9 @@
 """Story Pack 故事图的纯数据结构（dev_logs/42 §3 / dev_logs/45）。
 
+【兼容空壳，运行期不用】story_graph 已退役（剧情改由 berts.yaml 承载），全仓已无
+story_graph.yaml，运行期这三类对象不会被实例化。仅作兼容空壳保留：StoryGraph.empty() 的
+空属性 + review.py 渲染/loader 降级在喂入历史数据时才会构造它们。
+
 节点 / 结局 / 边三类 dataclass。trigger 与 actions 在本层**保持不透明**
 （原样存 dict）——解释器（L2 features/f05）才消费它们；数据层只负责承载与结构校验。
 每个 dataclass 保留 ``raw`` 原始 mapping，做前向兼容（schema 演进新增字段不丢）。

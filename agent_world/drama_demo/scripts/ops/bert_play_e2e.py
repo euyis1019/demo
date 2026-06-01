@@ -21,11 +21,12 @@ if str(ROOT) not in sys.path:
 
 STORY_ID = "bert_e2e_demo"
 PORT = "5057"
-# 用「活人有秘密」的设定（不放尸体，避免 Casting 给死者塞空 inner 触发 minLength），
-# 财务总监是真凶——正适合「玩家施压→坦白」这条 bert 反应链。
+# 单房间设定：三个人全程同处一间便利店——保证玩家与 target NPC 同处一室，f2f 落库、导演读到、bert 可触发。
+# 「活人有秘密」（不放尸体，免 Casting 给死者塞空 inner 触发 minLength）；店长是真凶，正合「施压→坦白」反应链。
 PREMISE = (
-    "一家公司年底审计，账上一笔巨款不翼而飞。财务总监其实就是挪用公款的人，却一脸清白配合调查；"
-    "你是空降的审计员，要在众人互相遮掩中查出到底是谁动了钱。"
+    "深夜的便利店里，店长监守自盗、趁交接班调换了保险柜的现金，却装作若无其事；"
+    "胆小的兼职店员撞见过店长动手脚却不敢声张。你是连夜来查账的巡店员，要查出是谁动了钱。"
+    "★全程就在这一间便利店店内（只设这一个地点），三个人都在店里，不要分成多个房间。"
 )
 
 
@@ -64,11 +65,16 @@ def _wait(cond, *, tries: int, interval: float) -> bool:
     return False
 
 
+_COOKIE_JAR = "/tmp/bert_e2e_cookies.txt"
+
+
 def _req(method: str, path: str, body: dict | None = None) -> tuple[int, dict]:
-    """用 curl 发请求，避免脚本里 `import http.client` 与本地 agent_world.drama_demo.http 包冲突。
-    返回 (http_status, json_body)；连接被拒/未就绪 → (0, {})，让轮询继续等。"""
+    """用 curl 发请求（带 cookie jar 维持 Flask 会话——否则每个请求都是新 session，玩家状态/位置/last_judged 全丢）。
+    避免脚本里 `import http.client` 与本地 agent_world.drama_demo.http 包冲突。
+    返回 (http_status, json_body)；连接被拒/未就绪 → (0, {})。"""
     url = f"http://127.0.0.1:{PORT}{path}"
-    cmd = ["curl", "-s", "-m", "90", "-w", "\n%{http_code}", "-X", method, url]
+    cmd = ["curl", "-s", "-m", "90", "-c", _COOKIE_JAR, "-b", _COOKIE_JAR,
+           "-w", "\n%{http_code}", "-X", method, url]
     if body is not None:
         cmd += ["-H", "Content-Type: application/json", "-d", json.dumps(body)]
     out = subprocess.run(cmd, capture_output=True, text=True)
@@ -86,6 +92,7 @@ def _req(method: str, path: str, body: dict | None = None) -> tuple[int, dict]:
 
 def main(argv=None) -> int:
     _load_env()
+    Path(_COOKIE_JAR).unlink(missing_ok=True)  # 每次跑用全新 cookie jar
     reuse = "--reuse" in (argv or sys.argv[1:])
     sim = HBM / "sim" / STORY_ID
     story_dir = HBM / "config" / "stories" / STORY_ID

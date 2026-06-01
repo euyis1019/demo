@@ -57,12 +57,11 @@ def _build_user(brief: Dict[str, Any], casting: Dict[str, Any]) -> str:
         for a in (casting.get("agents") or [])
         if int(a.get("agent_id", -1)) > 0
     ]
+    # brief 本身已含 premise/tone（schema 只有这两项）；额外再点一句基调，帮 LLM 抓重点，不取 schema 里没有的幽灵字段。
     return (
-        "故事 brief：\n" + json.dumps(brief, ensure_ascii=False, indent=2)
+        "故事 brief（前提 + 基调）：\n" + json.dumps(brief, ensure_ascii=False, indent=2)
         + "\n\n登场角色与说话风格：\n" + json.dumps(agents, ensure_ascii=False, indent=2)
-        + "\n\n故事基调/类型：" + json.dumps(
-            {k: brief.get(k) for k in ("title", "genre", "tone", "logline") if brief.get(k)},
-            ensure_ascii=False)
+        + "\n\n基调 tone：" + str(brief.get("tone") or "（未指定，按 premise 自行判断）")
     )
 
 

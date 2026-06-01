@@ -16,7 +16,7 @@ from agent_world.drama_demo.tools.story_studio.base_agent import LLMClient, call
 _SYSTEM = """你是一位严格的叙事总监 + 角色扮演评审。下面是一个互动剧情「Story Pack 草稿」
 （结构已合法）。这些角色会被 LLM「演员」实时扮演、由 LLM「导演」按玩家对话推进剧情。
 你的任务：按下面 5 个维度各打 1-5 分（5 最好），并给出**具体、可执行**的修改意见。
-不要泛泛而谈（不要说「可以更生动」），要指名道姓：哪个角色的哪个字段、哪一幕的哪条 directions/condition、
+不要泛泛而谈（不要说「可以更生动」），要指名道姓：哪个角色的哪个字段、哪条 bert 的 trigger/reaction、
 具体问题是什么、应该改成什么方向。
 
 评分维度（rubric）：

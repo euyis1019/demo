@@ -209,12 +209,14 @@ def build_pack_agent_knowledge(
     if a.get("inner"):
         sections.append(_section("你的内心（不可明说，但支配你的言行）", str(a["inner"])))
 
-    # 3) 你现在的反应——若某条 bert 被触发并指定你来反应，这里注入该反应（剧情反应链的落点）。
-    #    这是「条件→反应」机制的运行期出口：玩家做到某 trigger，导演就把对应 reaction 注入到 target。
+    # 3) 你这一拍的剧情走向——若某条 bert 被触发并指定你来反应，这里注入「反应意图」（反应链的落点）。
+    #    注意措辞：给的是你这一拍内心/态度的转变**方向**，不是要你照念的台词——用你自己的口吻演出来，
+    #    能用神态动作暗示就别直说情绪；不要明说这是被安排的。
     reaction = (getattr(session, "bert_reactions", None) or {}).get(str(aid))
     if reaction:
         sections.append(_section(
-            "你现在的反应（剧情已触发，贴着这个演出来，不要明说这是被安排的）", str(reaction)))
+            "你这一拍的剧情走向（已触发；这是你态度/内心的转变方向，用你自己的说话风格演出来，别照念、别明说被安排）",
+            str(reaction)))
 
     # 5) 所在场景 + 关系
     scene = _pack_place_scene(pack, place_id)
@@ -227,8 +229,10 @@ def build_pack_agent_knowledge(
     # 6) 玩家互动 / 此刻处境——只摆**事实**，不在此写表演规则（怎么演由下面的「表演须知」统一指导）。
     if channel == "inject":
         sections.append(_section(
-            "玩家刚对你说",
-            f"「{player_text}」\n用 speak_to_local 当面回应玩家。"))
+            "玩家当众说",
+            f"「{player_text}」\n"
+            "判断这话是不是冲你来的：点了你的名、问的是你知道/经手的事、或在场只有你能接——是，就用 speak_to_local 当面回应他；"
+            "如果更该由别人接话，你就在旁听着、用 do_nothing 把舞台让给那个人，别和人抢答、别每句都搭腔。"))
     elif channel == "opening":
         opening = a.get("opening_line")
         if opening:

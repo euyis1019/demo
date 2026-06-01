@@ -47,15 +47,17 @@
 | `deltas.py` | `apply_stat_deltas`、`initial_stats` |
 
 ## F05 — 剧情路由 `f05_story_routing/`
-Phase 节点 A/B/C/D、结局裁定、RoutingWatcher。
+**bert（条件→反应）驱动**：玩家有新发言 → 导演判哪条「上膛」bert 命中 → 注入反应 / 上膛后续(反应链) / 结局收场。无任何硬规则。
 
 | 文件 | 作用 |
 |------|------|
-| `routing.py` | `inject_agent_ids_for_phase`、`build_inject_payload`、`apply_routing`（节点副作用：移动/换 Phase）、`classify_turn25_intent`、`resolve_turn25_ending`、`classify_phase4_conclusion`（LLM 判 Phase4 谈成） |
-| `agent_signals.py` | 节点检测：`detect_node_a/b/c`、`detect_bad_end`、`detect_phase4_offer_ending`（offer_* 信号）、`phase4_deal_transcript`（新成交话术→转录给 LLM） |
-| `story_signals.py` | `has_story_signal`/`normalize_story_signal`：读 `story_advance_log` 结构化信号 |
-| `routing_config.py` | 加载 `routing.yaml`：`is_agent_driven`、各类关键词（approve/expel/escort/phase4_deal…）、`is_story_advance_enabled` |
-| `watcher.py` | **RoutingWatcher**：F14 轮询时按 tick 推进扫库 → 驱动节点 / bad_end / Phase4 早结局 → 产出 `pending_game_over`、路由 world_events |
+| `interpreter.py` | `StoryInterpreter`：薄封装 Story Pack，暴露 `berts`(BertSet) |
+| `interpreter_routing.py` | `route_story`：玩家新发言 → `judge_bert_triggers` → 命中则注入 reaction 到 `hbm.bert_reactions`、上膛后续、结局写 hbm；`setup_scene_for_node` 开局把首个上膛 bert 的 target 聚到玩家处 |
+| `director.py` | `judge_bert_triggers`（Bert 导演：读对话判命中哪条 bert）、`judge_group_consent`（判 NPC 是否同意入群）、`scene_transcript`/`latest_player_tick`（读本场对话） |
+| `emotion_judge.py` | `judge_emotions`：LLM 批量判台词情绪（驱动前端立绘表情切换） |
+| `routing.py` | `node_inject_ids`（玩家台词注入给同处 NPC）、`build_inject_payload`/`format_inject_dialogue`（装配 DialogueInjection） |
+| `routing_config.py` | `is_story_pack_routing_enabled`（env 开关 DRAMA_STORY_PACK_ROUTING） |
+| `watcher.py` | F14 轮询时按 tick 扫库 → 调 `route_story` → 持久化 hbm + 产出 `pending_game_over` / 路由 world_events |
 
 ## F06 — 只读世界模型 `f06_read_model/`
 Flask 侧只读 SQLite 访问（`mode=ro` + 锁重试）。
@@ -79,12 +81,13 @@ Runner 经 `core/runner/integration/abcs.py` 调用本 Feature。
 | `pick_active.py` | L3 选角：每 tick 哪些 Agent 可发言（primary/passive/frozen + inject 窗口） |
 | `turn_context.py` | `build_turn_context`、`extract_inject_agent_ids`、`format_inject_dialogue` |
 | `knowledge.py` | `build_agent_knowledge`（L4 故事知识注入）、`build_thread_recap`、`build_notification_snippet` |
-| `llm_params.py` | 按 Phase/turn 解析 LLM 温度/max_tokens（passive 变体） |
-| `conversation/` | 对话节奏(soft pacing)：`control.py`(主入口 build_conversation_hints) · `f2f_rules.py`(RDC 必回/anti-spam/位置提示) · `batch_rules.py`(节点 A 推进/批准) · `queries.py`(只读查询/关键词工具) |
+| `llm_params.py` | 解析 LLM 温度/max_tokens（来自 Story Pack meta.llm，数据驱动；不再按 phase 分流） |
+| `conversation/` | 对话节奏(soft pacing)：`control.py`(主入口 `build_conversation_hints` + RDC 必回/anti-spam) · `queries.py`(只读查询工具) |
 | `conversation_control.py` | 兼容 shim → re-export `conversation/` |
-| `player_response.py` | L6 玩家优先指令、`format_opening_directive`、inject 渠道 |
+| `group_gate.py` | 群聊准入门控：`can_player_join_group`（需同处 + 经 LLM 判 NPC 同意） |
+| `session_mirror.py` | Flask 会话 → Runner turn_context 镜像（IPC 推送） |
 | `player_facing_f2f.py` | 玩家朝向 F2F 落库（前台/1v1 等无共处 Agent 时） |
-| `inject_batch.py` | `notify_non_inject_active_agents`（通知本回合非 inject 的活跃 Agent） |
+| `inject_batch.py` | 通知本回合非 inject 的活跃 Agent（offscreen notification） |
 | `session_mirror.py` | session 知识镜像（bootstrap/merge），供 Runner 侧 Agent 读取 |
 
 ## F11 — 回合内增量同步 `f11_live_turn_sync/`

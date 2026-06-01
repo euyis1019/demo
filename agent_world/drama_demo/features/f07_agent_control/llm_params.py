@@ -32,17 +32,3 @@ def resolve_llm_params(player_turn: int) -> Dict[str, Any]:  # noqa: ARG001
         "temperature": float(cfg.get("temperature", _DEFAULT_TEMPERATURE)),
         "max_tokens": int(cfg.get("max_tokens", _DEFAULT_MAX_TOKENS)),
     }
-
-
-def resolve_passive_llm_params() -> Optional[Dict[str, Any]]:
-    """被动拍是否单独降温——默认不区分（返回 None，沿用 resolve_llm_params）。
-
-    如某故事要给「背景/被动」拍单独的采样取向，应由 Story Pack meta.llm.passive 提供，而非引擎写死幕名。
-    """
-    cfg = _story_llm_cfg().get("passive")
-    if not isinstance(cfg, dict) or not cfg:
-        return None
-    return {
-        "temperature": float(cfg.get("temperature", 0.35)),
-        "max_tokens": int(cfg.get("max_tokens", 120)),
-    }

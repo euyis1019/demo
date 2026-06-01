@@ -23,9 +23,5 @@ def turn_control_path() -> Path:
     return PROMPTS_ROOT / "abcs" / "turn_control.yaml"
 
 
-def routing_config_path() -> Path:
-    return PROMPTS_ROOT / "routing" / "routing.yaml"
-
-
 def virtual_player_config_path() -> Path:
     return PROMPTS_ROOT / "virtual_player" / "config.yaml"

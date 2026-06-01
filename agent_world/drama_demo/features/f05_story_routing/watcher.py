@@ -113,13 +113,10 @@ def scan_routing_if_needed(
     )
     if result.get("ending"):
         ending = str(result["ending"])
-        # 结局 bert：kind/summary 已由 route_story 写到 hbm；兼容旧任务包则回退查 graph.endings。
-        kind = hbm.ending_kind or ""
+        # 结局 bert：kind/summary 由命中的「结局 bert」经 route_story 写到 hbm（story_graph 退役，
+        # 无 graph.endings 回退）；kind 缺省兜底 neutral。
+        kind = hbm.ending_kind or "neutral"
         summary = hbm.ending_summary or ""
-        if not kind:
-            end_node = interp.graph.endings.get(ending)
-            kind = end_node.kind if end_node else "neutral"
-            summary = (end_node.summary if end_node else "") or ""
         hbm.ending_id = ending
         save_session(flask_session, hbm, sim_id)
         try:
@@ -152,6 +149,10 @@ def scan_routing_if_needed(
             if eid:
                 known_ids.add(eid)
         log.info("bert 触发 %s at tick=%s", result.get("nodes"), tick)
+    else:
+        # 没触发也要落盘：route_story 可能已更新 hbm.last_judged_player_tick（「只判新发言」去重锚点）。
+        # 不落盘的话每次 /world-delta 轮询都 load 出旧值，同一句玩家发言会每拍重复送 LLM 判，既烧 token 又抖触发时机。
+        save_session(flask_session, hbm, sim_id)
     state["last_scan_tick"] = tick
     state["last_routing_info"] = {"nodes": result.get("nodes") or []}
     _mark_session_modified(flask_session)

@@ -1,9 +1,10 @@
 """活跃故事的运行期配置门面(运行期数据驱动化)。
 
-把"当前在玩哪个故事 + 该故事的节点/地点/注入对象"从写死的 HBM phase 表，统一改成读
-活跃 Story Pack。活跃故事默认 canglan_sword，运行期可由 active_game / WorldManager（大厅选/建
-故事后）切换——active_story_id() 委托 active_game.get_active_story()，不再只读 env。纯读
-shared/story_pack(D3：不依赖 features)，L1/L2 都可用。
+把"当前在玩哪个故事 + 该故事的地点/NPC/属性"从写死的 HBM phase 表，统一改成读活跃
+Story Pack。剧情结构已改由 berts.yaml（条件→反应链）承载，story_graph 退役、节点门面函数
+已删（图恒空），本门面只剩玩家起点/属性/地点/NPC 等世界原语读取。活跃故事默认 canglan_sword，
+运行期可由 active_game / WorldManager（大厅选/建故事后）切换——active_story_id() 委托
+active_game.get_active_story()，不再只读 env。纯读 shared/story_pack(D3：不依赖 features)，L1/L2 都可用。
 """
 
 from __future__ import annotations
@@ -36,37 +37,9 @@ def active_pack(story_id: Optional[str] = None) -> StoryPack:
     return _pack(story_id or active_story_id())
 
 
-def initial_node_id(story_id: Optional[str] = None) -> str:
-    return active_pack(story_id).graph.initial_node
-
-
-def node_place(node_id: str, story_id: Optional[str] = None) -> str:
-    node = active_pack(story_id).graph.nodes.get(node_id)
-    return node.place_focus if node and node.place_focus else ""
-
-
-def node_exists(node_id: str, story_id: Optional[str] = None) -> bool:
-    """该 node_id 是否为活跃包里的已知节点（区分『查无此节点』与『节点存在但 inject 为空』）。"""
-    return node_id in active_pack(story_id).graph.nodes
-
-
-def node_inject_agents(node_id: str, story_id: Optional[str] = None) -> List[int]:
-    node = active_pack(story_id).graph.nodes.get(node_id)
-    return list(node.inject_agents) if node else []
-
-
-def node_beats_label(node_id: str, story_id: Optional[str] = None) -> str:
-    node = active_pack(story_id).graph.nodes.get(node_id)
-    return node.beats_label if node else ""
-
-
 def player_start_place(story_id: Optional[str] = None) -> str:
-    """玩家起始地点：优先初始节点的 place_focus，回退 meta.player.start_place。"""
+    """玩家起始地点：读 meta.player.start_place（story_graph 退役后图恒空，无节点 place_focus 可取）。"""
     pack = active_pack(story_id)
-    init = pack.graph.initial_node
-    node = pack.graph.nodes.get(init)
-    if node and node.place_focus:
-        return node.place_focus
     return str((pack.meta.get("player") or {}).get("start_place") or "")
 
 

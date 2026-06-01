@@ -52,7 +52,9 @@ _SYSTEM = """你是互动剧的「反应设计师」。整部剧不靠分幕/任
 ★规则：
 - trigger 要写**玩家的具体行为/话语**（"玩家逼问X""玩家拿出证据""玩家答应保护他"），
   不要写成 NPC 视角或抽象状态。
-- target 必须是下方 cast 里真实存在的 agent_id；reaction 要贴合该角色的人设与处境。
+- target 必须是下方 cast 里真实存在的 agent_id。reaction 写成**该角色这一拍的「反应意图/态度转变」**
+  （如"顶不住压力，决定向玩家坦白"、"嘴硬反咬一口、想把玩家唬住"），贴他的口吻与内心——
+  **但不要写成让演员逐字照念的成品台词**：留给演员用自己的说话风格演出来，能用神态动作暗示就别直接写"他很紧张"。
 - 用 requires/arms 把 bert 串成有因果的反应链（坦白→求情→交代…），别让它们各自孤立。
 - **结局**：至少 1 条 ending 非空的 bert；故事抉择空间大就多给几个（good/neutral/bad 自由搭，不必凑齐）。
   结局 bert 不需要 target/reaction，只要 trigger + ending。
@@ -62,14 +64,23 @@ _SYSTEM = """你是互动剧的「反应设计师」。整部剧不靠分幕/任
 
 
 def _cast_digest(cast: Dict[str, Any]) -> str:
-    """从 Casting 产物里摘出 bert 设计师需要的最小信息：agent_id + 名字 + 处境 + 地点清单。"""
-    lines: List[str] = ["可用角色（target 只能填这些 agent_id）："]
+    """从 Casting 产物摘出 bert 设计师需要的角色信息：人设/口吻/内心/处境——
+    reaction 要贴该角色的口吻与处境来写，信息不全就只能写成通用 AI 腔，与演员学到的口吻打架。"""
+    lines: List[str] = [
+        "可用角色（target 只能填这些 agent_id；写 reaction 时务必用该角色「口吻」栏的语气、贴他的内心与处境）："
+    ]
     for a in cast.get("agents") or []:
-        bits = [f"  agent_id={a.get('agent_id')}：{a.get('name','?')}"]
-        if a.get("role"):
-            bits.append(f"（{a['role']}）")
+        if int(a.get("agent_id", -1)) == 0:
+            continue  # 玩家(agent 0)不作为 reaction 的 target
+        bits = [f"  agent_id={a.get('agent_id')}：{a.get('name','?')}（{a.get('role','')}）"]
+        if a.get("soul"):
+            bits.append(f"\n    人设：{a['soul']}")
+        if a.get("speech_style"):
+            bits.append(f"\n    口吻：{a['speech_style']}")
         if a.get("inner"):
-            bits.append(f" 内心：{a['inner']}")
+            bits.append(f"\n    内心图谋/秘密：{a['inner']}")
+        if a.get("current_state"):
+            bits.append(f"\n    开局处境：{a['current_state']}")
         lines.append("".join(bits))
     places = [p.get("id") or p.get("place_id") for p in (cast.get("places") or [])]
     places = [p for p in places if p]

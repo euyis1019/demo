@@ -1,39 +1,13 @@
-"""F05 路由开关 + 群聊门控关键词。
+"""F05 路由开关。
 
-剧情推进已由 LLM 导演(director.py)负责，旧的相位/谈判关键词集合(approve/reject/escort/expel/
-phase4_deal/return_to_negotiation 等)与超时兜底已删；这里只剩：路由模式开关、节点(导演)驱动开关、
-以及群聊门控(需求三)用的"同意/拒绝入群"关键词。
+剧情推进已由 LLM 导演(director.py)负责，旧的相位/谈判关键词集合与超时兜底、以及读
+routing.yaml 的 load_routing_config/routing_mode/is_agent_driven 自循环死链均已删；这里只剩
+导演驱动路由的总开关（env 驱动）。
 """
 
 from __future__ import annotations
 
 import os
-from functools import lru_cache
-from typing import Any, Dict
-
-import yaml
-
-from agent_world.drama_demo.shared.prompt_paths import routing_config_path
-
-_ROUTING_PATH = routing_config_path()
-
-
-@lru_cache(maxsize=1)
-def load_routing_config() -> Dict[str, Any]:
-    if not _ROUTING_PATH.is_file():
-        return {"mode": "agent_driven", "signals": {}}
-    with _ROUTING_PATH.open(encoding="utf-8") as fh:
-        data = yaml.safe_load(fh) or {}
-    block = data.get("routing") if isinstance(data, dict) else {}
-    return dict(block) if isinstance(block, dict) else {}
-
-
-def routing_mode() -> str:
-    return str(load_routing_config().get("mode", "agent_driven")).strip()
-
-
-def is_agent_driven() -> bool:
-    return routing_mode() == "agent_driven"
 
 
 def is_story_pack_routing_enabled() -> bool:

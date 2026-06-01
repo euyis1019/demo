@@ -1,5 +1,11 @@
 """StoryGraph：故事 DAG 容器 + 图算法 + validate 闸门（dev_logs/45 §4）。
 
+【兼容空壳，运行期不用】story_graph 已退役、剧情结构改由 berts.yaml（条件→反应链）承载。
+全仓已无 story_graph.yaml，loader 永远走 `StoryGraph.empty()`，运行期 nodes/edges/endings 恒空。
+本类仅作兼容空壳保留：`empty()` + 空属性供 review.py 渲染、f14/loader 安全降级用；其图算法
+（topological_sort / get_reachable_endings / enumerate_all_paths / get_children / reachable_from_initial）
+与 validate 仅在喂入非空数据时才有效力，运行期不会被触发。`is_node`（0 调用方）已删。
+
 借鉴 AI4VisualNovel `agents/story_graph.py` 的硬校验，但产出我们自己的 schema。
 节点（StoryNode）之间靠 StoryEdge 连接，边的终点可以是另一个节点或一个结局
 （StoryEnding，终结、无出边）。validate() 把全部结构不变量违例聚合返回。
@@ -84,9 +90,6 @@ class StoryGraph:
         )
 
     # ---------- 查询 ----------
-    def is_node(self, ident: str) -> bool:
-        return ident in self.nodes
-
     def is_ending(self, ident: str) -> bool:
         return ident in self.endings
 
