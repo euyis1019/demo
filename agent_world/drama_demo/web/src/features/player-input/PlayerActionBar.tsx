@@ -18,10 +18,12 @@ export interface PlayerActionBarProps {
 }
 
 /**
- * 玩家主动动作条：移动 / 私信 / 加群。在 F2F 台词之外给玩家更多动作（需求二）。
+ * 玩家主动动作菜单：移动 / 私信 / 加群。F2F 台词之外的动作收进一个默认收起的菜单，
+ * 让沉浸画面只留台词输入框；点开菜单才展开这些动作（避免画面被动作条堆乱）。
  * 加群受后端门控（须先 F2F 见过群里某成员并得其同意），失败时显示原因。
  */
 export function PlayerActionBar({ placeId, places, nameMap, disabled }: PlayerActionBarProps) {
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -78,7 +80,20 @@ export function PlayerActionBar({ placeId, places, nameMap, disabled }: PlayerAc
   const off = disabled || busy;
 
   return (
-    <div className="player-action-bar">
+    <div className={`player-action-menu ${open ? "is-open" : ""}`}>
+      <button
+        type="button"
+        className="player-action-menu__toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="player-action-menu__toggle-icon">{open ? "✕" : "☰"}</span>
+        <span>行动菜单</span>
+        {!open && status ? <span className="player-action-menu__dot" /> : null}
+      </button>
+
+      {open ? (
+        <div className="player-action-menu__panel">
       <div className="player-action-bar__row">
         <label>移动</label>
         <select value={movePlace} onChange={(e) => setMovePlace(e.target.value)} disabled={off}>
@@ -163,6 +178,8 @@ export function PlayerActionBar({ placeId, places, nameMap, disabled }: PlayerAc
       </div>
 
       {status ? <p className="player-action-bar__status">{status}</p> : null}
+        </div>
+      ) : null}
     </div>
   );
 }

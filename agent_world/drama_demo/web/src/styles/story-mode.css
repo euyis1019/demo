@@ -459,16 +459,72 @@
   }
 }
 
-/* 玩家主动动作条：移动 / 私信 / 加群 */
-.player-action-bar {
+/* 玩家主动动作菜单：默认只露一个收起的「行动菜单」按钮，点开才展开移动/私信/加群面板，
+   让沉浸画面平时只留台词输入框。 */
+.player-action-menu {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-top: 8px;
+}
+.player-action-menu__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.32rem 0.8rem;
+  font-size: 0.82rem;
+  color: #e2e8f0;
+  background: rgba(8, 12, 18, 0.62);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+.player-action-menu__toggle:hover {
+  background: rgba(20, 28, 40, 0.72);
+  border-color: rgba(96, 165, 250, 0.45);
+}
+.player-action-menu__toggle-icon {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.player-action-menu__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.8);
+}
+/* 展开的动作面板：从「行动菜单」按钮下方落下的玻璃卡片 */
+.player-action-menu__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-top: 8px;
-  padding: 8px 10px;
-  background: rgba(0, 0, 0, 0.35);
-  border-radius: 8px;
+  width: min(86vw, 420px);
+  padding: 10px 12px;
+  background: rgba(8, 12, 18, 0.82);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
   font-size: 0.85rem;
+  animation: player-action-menu-in 0.18s ease;
+}
+@keyframes player-action-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .player-action-bar__row {
   display: flex;
@@ -507,15 +563,21 @@
   color: #fbbf24;
 }
 
-/* 剧情模式数值 HUD（右上角浮层） */
+/* 剧情模式数值 HUD（左侧竖向浮层）：数值竖排在左边，不挡中央/右侧画面。 */
 .story-stats-hud {
   position: absolute;
   top: 56px;
-  right: 12px;
+  left: 12px;
   display: flex;
-  gap: 8px;
-  padding: 6px 10px;
-  background: rgba(0, 0, 0, 0.4);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  min-width: 138px;
+  max-width: 180px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   font-size: 0.8rem;
   z-index: 5;
@@ -523,7 +585,8 @@
 .story-stats-hud__item {
   display: flex;
   align-items: center;
-  gap: 3px;
+  justify-content: space-between;
+  gap: 6px;
   color: #e8eef7;
 }
 .story-stats-hud__item.is-warn .story-stats-hud__value {
@@ -545,18 +608,20 @@
 .story-stats-hud__delta.down {
   color: #f87171;
 }
-/* 故事张力条（drama-manager 导演驱动的张力弧） */
+/* 故事张力条（drama-manager 导演驱动的张力弧）——竖排 HUD 顶部一行 */
 .story-stats-hud__tension {
   display: flex;
   align-items: center;
   gap: 5px;
   color: #e8eef7;
-  padding-right: 8px;
-  border-right: 1px solid rgba(148, 163, 184, 0.3);
+  padding-bottom: 6px;
+  margin-bottom: 1px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.3);
 }
 .story-tension-bar {
   display: inline-block;
-  width: 54px;
+  flex: 1 1 auto;
+  width: auto;
   height: 7px;
   border-radius: 4px;
   background: rgba(148, 163, 184, 0.28);
