@@ -12,6 +12,7 @@ import {
   EndingScreen,
   GameOverScreen,
   LoadingOverlay,
+  OnboardingModal,
   PhaseToast,
   PlayerActionBar,
   PlayerInput,
@@ -83,6 +84,8 @@ function GameApp() {
     endingId,
     endingSummary,
     endingKind,
+    onboarding,
+    onboardingSeen,
     lastError,
     runnerModalOpen,
   } = state;
@@ -208,6 +211,13 @@ function GameApp() {
         onClose={() => dispatch({ type: "SET_RUNNER_MODAL", open: false })}
         onRetryHealth={() => void retryHealth()}
       />
+
+      {onboarding && !onboardingSeen && view === "playing" ? (
+        <OnboardingModal
+          onboarding={onboarding}
+          onDismiss={() => dispatch({ type: "DISMISS_ONBOARDING" })}
+        />
+      ) : null}
 
       {isStoryMode ? (
         <StoryModeStage

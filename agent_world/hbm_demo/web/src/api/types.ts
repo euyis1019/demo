@@ -129,6 +129,13 @@ export interface HealthData {
   db_error?: string | null;
 }
 
+/** 新手引导（设计期管理 agent 生成，写在 meta.onboarding，经 session 快照下发）。 */
+export interface Onboarding {
+  title?: string;
+  background?: string;
+  tips?: string[];
+}
+
 export interface SessionSnapshot {
   initialized: boolean;
   sim_id?: string;
@@ -141,6 +148,7 @@ export interface SessionSnapshot {
   player_turn?: number;
   stats?: Stats;
   stats_update?: Stats;
+  onboarding?: Onboarding | null;
   phase2_start_tick?: number | null;
   phase3_start_tick?: number | null;
   env_status?: Record<string, unknown>;
@@ -153,6 +161,7 @@ export interface SessionStartData {
   phase: string;
   player_turn: number;
   stats: Stats;
+  onboarding?: Onboarding | null;
   env_status?: Record<string, unknown>;
 }
 

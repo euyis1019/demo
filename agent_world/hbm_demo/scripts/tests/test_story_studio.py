@@ -495,7 +495,8 @@ def test_asset_manifest_lists_all_images() -> None:
     n_portraits = sum(1 for s in specs if s.kind == "portrait")
     assert "封面图" in text
     assert text.count("场景背景：") == n_places
-    assert text.count("角色立绘：") == n_portraits  # 含情绪变体立绘
+    # 立绘 = 玩家立绘(玩家立绘：) + 各 NPC 基础+情绪变体(角色立绘：)
+    assert text.count("角色立绘：") + text.count("玩家立绘：") == n_portraits
     assert f"共需 {len(specs)} 张图片" in text
     # 提示词含统一画风要求
     assert "统一画风要求" in text

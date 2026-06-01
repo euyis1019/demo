@@ -103,7 +103,24 @@ def asset_specs(pack: StoryPack) -> List[AssetSpec]:
             negative=_SCENE_NEGATIVE,
         ))
 
-    # 3) 角色立绘（每个非玩家 agent：1 张基础 neutral + 各情绪变体；同 seed 锚定同一形象）
+    # 3a) 玩家立绘（玩家扮演的主角，一张基础立绘；人设取身份/角色——玩家 soul 通常为空）。
+    player_meta = meta.get("player") or {}
+    p0 = next((a for a in (pack.agents.get("agents") or []) if int(a.get("agent_id", -1)) == 0), None)
+    if p0 is not None:
+        p_name = p0.get("name") or player_meta.get("name") or "你"
+        p_role = p0.get("role") or player_meta.get("role") or ""
+        p_persona = _first_sentence(
+            p0.get("soul") or player_meta.get("identity") or p_role or "故事的主角", 50)
+        role_txt = f"（{p_role}）" if p_role and p_role != "player" else ""
+        specs.append(AssetSpec(
+            kind="portrait", key="player", label=f"玩家立绘：{p_name}",
+            rel_path="assets/avatars/player.png", size="1024×1536",
+            prompt=f"人物半身立绘，{p_name}{role_txt}——这是玩家扮演的主角。气质：{p_persona}。"
+                   f"正面或四分之三侧面，干净纯色（绿幕）背景便于抠图，{_STYLE}",
+            seed=_seed_for("player"),
+        ))
+
+    # 3b) 角色立绘（每个非玩家 agent：1 张基础 neutral + 各情绪变体；同 seed 锚定同一形象）
     for a in pack.agents.get("agents", []) or []:
         aid = int(a.get("agent_id", -1))
         if aid == 0:

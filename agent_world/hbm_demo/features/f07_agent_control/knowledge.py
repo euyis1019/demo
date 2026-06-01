@@ -242,7 +242,12 @@ def build_pack_agent_knowledge(
             sections.append(_section(
                 "开场", f"用 1–2 句符合{name}身份、说话风格与此刻处境的话开场，自然引出当前这一幕。"))
     else:
-        sections.append(_section("提示", f"留意场上动向，以{name}的身份、贴合「你这一幕要做的」自然回应，始终留在角色里。"))
+        sections.append(_section(
+            "此刻",
+            f"现在没有人正对你说话。先想一想：你{name}此刻是否真有话要说、或有事要做"
+            f"（回应刚发生的事、找某人、推进你的目的/内心图谋）？"
+            f"——确有必要才以{name}的身份开口或行动；否则就静观其变、do_nothing，别硬找话说、别没事刷存在感。"
+            f"始终留在角色里。"))
 
     # 始终钉一条硬性反 OOC 规则在末尾（防长对话漂移/破戏）
     sections.append(_section(

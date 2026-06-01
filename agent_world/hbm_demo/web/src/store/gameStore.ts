@@ -1,6 +1,7 @@
 import type {
   ActionResultCompleted,
   GameMessage,
+  Onboarding,
   PlayerTurnCompleted,
   PlayerTurnGameOver,
   SessionSnapshot,
@@ -65,6 +66,9 @@ export interface GameState {
   /** 当前结局的一句话描述与好坏（后端数据驱动下发，结局屏据此显示）。 */
   endingSummary?: string;
   endingKind?: string;
+  /** 新手引导（管理 agent 生成）；onboardingSeen 控制开局弹窗只显示一次。 */
+  onboarding?: Onboarding | null;
+  onboardingSeen: boolean;
   lastError?: string;
   runnerModalOpen: boolean;
 }
@@ -104,12 +108,14 @@ export function createInitialState(): GameState {
     activeAgentModal: null,
     recentMoveKeys: [],
     recentRdcLinks: [],
+    onboardingSeen: false,
     runnerModalOpen: false,
   };
 }
 
 export type GameAction =
   | { type: "ENTER_BOOT" }
+  | { type: "DISMISS_ONBOARDING" }
   | { type: "HEALTH_CHECK_START" }
   | { type: "HEALTH_CHECK_DONE"; ready: boolean; error?: string }
   | { type: "START_SESSION"; data: SessionStartData }
@@ -228,6 +234,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case "ENTER_BOOT":
       // 大厅选/建并激活某故事后，进入开局健康检查流程。
       return { ...state, view: "boot", healthChecking: true, healthError: undefined };
+    case "DISMISS_ONBOARDING":
+      return { ...state, onboardingSeen: true };
     case "HEALTH_CHECK_START":
       return { ...state, healthChecking: true, healthError: undefined };
     case "HEALTH_CHECK_DONE":
@@ -253,6 +261,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...resetWorldState(),
         phaseToast: null,
         endingId: undefined,
+        onboarding: action.data.onboarding ?? state.onboarding ?? null,
+        onboardingSeen: false,
         lastError: undefined,
       };
     case "APPLY_SESSION": {
@@ -272,6 +282,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...applyPhaseChange(state, newPhase),
         playerTurn: action.data.player_turn ?? state.playerTurn,
         placeId: action.data.place_id ?? state.placeId,
+        onboarding: action.data.onboarding ?? state.onboarding ?? null,
       };
     }
     case "SET_LOADING":

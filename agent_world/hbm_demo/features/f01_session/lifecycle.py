@@ -94,6 +94,14 @@ def get_session_snapshot(
             "runner_ready": runner_ready,
             "env_status": env,
         }
+    # 新手引导（管理 agent 设计期生成，写在活跃故事的 meta.onboarding；缺失则 None）。
+    onboarding = None
+    try:
+        from agent_world.hbm_demo.shared import story_config
+
+        onboarding = (story_config.active_pack().meta or {}).get("onboarding")
+    except Exception:  # noqa: BLE001
+        onboarding = None
     return {
         "initialized": True,
         "sim_id": sim_id,
@@ -103,6 +111,7 @@ def get_session_snapshot(
         "phase": hbm.phase,
         "current_phase": hbm.phase,
         "tension": hbm.tension,
+        "onboarding": onboarding,
         "player_turn": hbm.player_turn,
         "stats": dict(hbm.stats),
         "stats_update": dict(hbm.stats),

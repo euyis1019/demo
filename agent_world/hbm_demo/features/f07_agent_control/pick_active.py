@@ -149,6 +149,60 @@ def _reception_opening_pending(
     return int(t) >= start_tick
 
 
+def _pick_active_datadriven(
+    turn_context: Dict[str, Any],
+    world: Any,
+    t: int,
+    *,
+    batch_tick_index: int,
+    passive_ticks_so_far: int,
+) -> List[int]:
+    """数据驱动故事（turn_control 无该幕配置）：不靠写死的 phase 名单，按「谁该回应 / 谁该活动」选 agent。
+
+    对应用户诉求：玩家说话后只让在场/被点到的 NPC 在最初一两拍回应（不刷屏）；有未读私信(RDC/群)的都该回；
+    其余时间低频随机让一个 NPC 自主活动，让世界各处（不只玩家身边）也活着；是否真开口由 actor 自己反思决定。
+    """
+    agents = getattr(world, "agents", None) or {}
+    all_ids = _all_active_agent_ids(agents)
+    active: List[int] = []
+    seen: Set[int] = set()
+
+    def add(aid: int) -> None:
+        if is_virtual_player_agent(int(aid)) or int(aid) in seen:
+            return
+        active.append(int(aid))
+        seen.add(int(aid))
+
+    inject_ids = [int(x) for x in (turn_context.get("inject_agent_ids") or [])]
+    inject_live = _inject_live(turn_context)
+    respond_ticks = 2  # 玩家说话后只回应 ~2 拍，避免一句话被反复回好几拍
+
+    if inject_live and batch_tick_index < respond_ticks:
+        for aid in inject_ids:
+            add(aid)
+    for aid in inject_ids:  # 还有玩家这句没回完的 inject agent
+        agent = _resolve_agent(agents, aid)
+        if agent is not None and getattr(agent, "player_memory", None):
+            add(aid)
+    for aid in all_ids:  # 有未读私信(RDC/群)就回——任何 agent
+        if aid in seen:
+            continue
+        agent = _resolve_agent(agents, aid)
+        if agent is not None and has_unread_inbound(aid, agent, world, t):
+            add(aid)
+    # 环境活性：低频随机挑 1 个 NPC 自主活动；玩家刚说话的回应窗口内不加，避免叠加刷屏。
+    in_respond_window = inject_live and batch_tick_index < respond_ticks
+    if passive_ticks_so_far < 1 and not in_respond_window and int(t) % 3 == 0:
+        rng = random.Random(int(t) * 131 + 7)
+        candidates = [aid for aid in all_ids if aid not in seen]
+        if candidates:
+            add(rng.choice(candidates))
+
+    log.debug("F07 pick_active(data-driven) t=%s batch=%s inject_live=%s active=%s",
+              t, batch_tick_index, inject_live, active)
+    return active
+
+
 def pick_active_ids(
     turn_context: Dict[str, Any],
     world: Any,
@@ -164,6 +218,16 @@ def pick_active_ids(
 
     phase = str(turn_context.get("phase", "Phase 1"))
     player_turn = int(turn_context.get("player_turn", 1))
+
+    # 数据驱动故事：phase 是中文幕名(beats_label)，turn_control 里没有它的写死配置——走数据驱动选择，
+    # 不再退化成「只有 inject_agents 反复刷屏、其余角色全程不动」。
+    if not _phase_cfg(phase):
+        return _pick_active_datadriven(
+            turn_context, world, t,
+            batch_tick_index=batch_tick_index,
+            passive_ticks_so_far=passive_ticks_so_far,
+        )
+
     frozen = _frozen_ids(phase)
     inject_ids = [int(x) for x in (turn_context.get("inject_agent_ids") or [])]
     inject_set = set(inject_ids)

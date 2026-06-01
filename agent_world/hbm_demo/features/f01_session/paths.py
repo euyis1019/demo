@@ -13,8 +13,12 @@ _scenario_cache: Dict[str, Any] | None = None
 _name_map_cache: Dict[int, str] | None = None
 
 
-def get_sim_dir() -> Path:
-    # 当前在玩哪个故事 → 哪个 sim 目录（前端选/建故事后可运行期切换）。
+def get_sim_dir(sim_id: str | None = None) -> Path:  # noqa: ARG001
+    """当前在玩哪个故事 → 哪个 sim 目录（前端选/建故事后可运行期切换）。
+
+    sim_id 参数仅为兼容旧调用方（如 f02 player_action 仍传 sim_id）保留并忽略——真正的 sim
+    目录由活跃故事(active_game)决定。修复「请求移动报错 get_sim_dir() takes 0 positional arguments」。
+    """
     from agent_world.hbm_demo.shared.active_game import active_sim_dir
 
     return active_sim_dir()

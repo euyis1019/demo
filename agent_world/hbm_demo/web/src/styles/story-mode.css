@@ -349,8 +349,8 @@
   left: 50%;
   transform: translateX(-50%);
   width: auto;
-  height: clamp(260px, 46vh, 560px);
-  max-width: clamp(220px, 26vw, 380px);
+  height: clamp(340px, 62vh, 760px);
+  max-width: clamp(280px, 32vw, 480px);
   object-fit: contain;
   object-position: bottom center;
   filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.6));
@@ -446,8 +446,8 @@
 
   .story-subtitle__avatar {
     width: auto;
-    height: clamp(180px, 34vh, 320px);
-    max-width: clamp(120px, 40vw, 220px);
+    height: clamp(220px, 42vh, 400px);
+    max-width: clamp(140px, 46vw, 260px);
   }
 
   .story-subtitle__name {
