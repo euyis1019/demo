@@ -150,10 +150,27 @@ def main() -> int:
             raise GateFailure("Flask /health 超时")
         print("  ✓ Flask /health 200")
 
-        st, _ = api("POST", "/session/start", {})
+        st, ss = api("POST", "/session/start", {})
         if st != 200:
             raise GateFailure(f"/session/start HTTP {st}")
-        print("  ✓ /session/start 200")
+        sdata = ss.get("data") or {}
+        # 核心流程门禁：开局即下发 管理 agent 生成的 onboarding + 数据驱动属性维度（防 session/start 漏字段回归）。
+        if not sdata.get("onboarding"):
+            raise GateFailure("session/start 未下发 onboarding（新手引导）")
+        dims = sdata.get("stats_dimensions") or []
+        if len(dims) < 2:
+            raise GateFailure(f"session/start 未下发数据驱动属性维度 stats_dimensions: {dims}")
+        print(f"  ✓ /session/start 200（下发 onboarding + 属性维度 {[d.get('label') for d in dims]}）")
+
+        # 玩家主动动作：私信(rdc) 在场 NPC —— 核验 player-action 路径通（扁平 target_id 载荷，与前端一致）。
+        init_node = g.nodes[g.initial_node]
+        tgt = int(init_node.inject_agents[0]) if getattr(init_node, "inject_agents", None) else 1
+        st, pa = api("POST", "/player-action",
+                     {"action": "rdc", "target_id": tgt, "content": "（私信）你到底想做什么？"})
+        pad = pa.get("data") or {}
+        if st != 200 or pad.get("accepted") is False:
+            raise GateFailure(f"/player-action rdc 失败 HTTP {st}: {pad.get('reason', pad)}")
+        print(f"  ✓ player-action 私信(rdc)→agent {tgt} 受理")
 
         since, ended, npc_lines = 0, None, 0
         for turn in range(1, 10):

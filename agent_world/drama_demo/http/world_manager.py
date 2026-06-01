@@ -27,16 +27,25 @@ _ROOT = Path(__file__).resolve().parents[3]
 
 
 def _deepseek_client():
-    """设计期 LLM 客户端——复用统一的 make_llm_client（带 response_format=json_object，JSON 更稳），
-    保留大厅原本的 0.8 创意温度，避免与 CLI 路径分叉。"""
-    if not (os.environ.get("DMXAPI_KEY") or "").strip():
-        raise RuntimeError("未配置 DMXAPI_KEY（设计剧情需要）。请在 agent_world/drama_demo/.env 设置。")
-    from agent_world.drama_demo.tools.story_studio.llm_client import make_llm_client
+    """设计期 LLM 客户端——加 response_format=json_object 提升 JSON 健壮性（审计 K），
+    其余保留经验证可用的参数（0.8 创意温度 + max_tokens=8000 + 600s 超时）。"""
+    from openai import OpenAI
 
-    return make_llm_client(
-        {"api_key_env": "DMXAPI_KEY", "base_url": "https://api.deepseek.com", "model": "deepseek-chat"},
-        temperature=0.8,
-    )
+    key = (os.environ.get("DMXAPI_KEY") or "").strip()
+    if not key:
+        raise RuntimeError("未配置 DMXAPI_KEY（设计剧情需要）。请在 agent_world/drama_demo/.env 设置。")
+    oai = OpenAI(api_key=key, base_url="https://api.deepseek.com", timeout=600.0)
+
+    def llm(system: str, user: str) -> str:
+        r = oai.chat.completions.create(
+            model="deepseek-chat",
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+            temperature=0.8, max_tokens=8000,
+            response_format={"type": "json_object"},
+        )
+        return r.choices[0].message.content or ""
+
+    return llm
 
 
 class WorldManager:
