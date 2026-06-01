@@ -1,4 +1,4 @@
-"""HTTP error helpers for HBM demo routes (Phase 5)."""
+"""HTTP error helpers for drama demo routes (Phase 5)."""
 
 from __future__ import annotations
 

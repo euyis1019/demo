@@ -1,4 +1,4 @@
-"""Stack health checks for HBM demo (Phase 6)."""
+"""Stack health checks for drama demo (Phase 6)."""
 
 from __future__ import annotations
 

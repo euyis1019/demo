@@ -1,4 +1,4 @@
-"""HTTP-mapped service errors for HBM demo (Phase 5)."""
+"""HTTP-mapped service errors for drama demo (Phase 5)."""
 
 from __future__ import annotations
 

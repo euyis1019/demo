@@ -288,7 +288,7 @@ def _local_ipv4s() -> list[str]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="HBM demo 连通性探针（单端点版）")
+    ap = argparse.ArgumentParser(description="drama demo 连通性探针（单端点版）")
     ap.add_argument("--host", default="0.0.0.0", help="绑定地址（默认 0.0.0.0，对外可达）")
     ap.add_argument("--port", type=int, default=8088, help="端口（默认 8088）")
     ap.add_argument("--token", default=None, help="可选：要求请求带 X-Probe-Token 此值")
@@ -298,7 +298,7 @@ def main() -> int:
     httpd = ThreadingHTTPServer((args.host, args.port), ProbeHandler)
 
     print("=" * 64)
-    print("HBM demo 连通性探针（单端点版）已启动")
+    print("drama demo 连通性探针（单端点版）已启动")
     print(f"  绑定:     {args.host}:{args.port}")
     print(f"  唯一端点: POST http://<IP>:{args.port}/api   体: {{\"action\": \"...\"}}")
     print(f"  鉴权:     {'需要 X-Probe-Token=' + args.token if args.token else '无（任意请求均回 200）'}")

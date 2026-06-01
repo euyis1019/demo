@@ -1,6 +1,6 @@
 # L1 — Runner (`core/runner/`)
 
-HBM Demo 的 **Runner 层**：包装通用引擎 `agent_world/runner/`，seed 世界、跑 LLM 多
+Drama Demo 的 **Runner 层**：包装通用引擎 `agent_world/runner/`，seed 世界、跑 LLM 多
 Agent 常驻 world loop、写 `sim/hbm_memory_war/world.db`、监听 IPC。
 
 入口：`python -m agent_world.drama_demo.run_drama`（根 `run_drama.py` 是转发 shim）。

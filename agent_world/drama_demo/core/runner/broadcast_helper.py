@@ -1,4 +1,4 @@
-"""Place-wide system broadcast for HBM demo (Runner-side only)."""
+"""Place-wide system broadcast for drama demo (Runner-side only)."""
 
 from __future__ import annotations
 

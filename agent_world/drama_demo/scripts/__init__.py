@@ -1,1 +1,1 @@
-"""HBM Demo scripts package."""
+"""Drama Demo scripts package."""

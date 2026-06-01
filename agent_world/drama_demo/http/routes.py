@@ -1,4 +1,4 @@
-"""Flask Blueprint for HBM demo HTTP API."""
+"""Flask Blueprint for drama demo HTTP API."""
 
 from __future__ import annotations
 

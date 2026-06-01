@@ -1,4 +1,4 @@
-"""HBM Demo business features (L2 orchestration layer).
+"""Drama Demo business features (L2 orchestration layer).
 
 Each subdirectory is one mergeable Feature; see dev_logs/26 for specs.
 Public entrypoints: run_drama.py, routes.py, game_service.py (see dev_logs/26 §5.1).

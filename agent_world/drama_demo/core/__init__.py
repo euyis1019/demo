@@ -1,1 +1,1 @@
-"""HBM demo platform core package."""
+"""drama demo platform core package."""

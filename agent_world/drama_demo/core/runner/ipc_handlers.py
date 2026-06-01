@@ -1,4 +1,4 @@
-"""IPC handler registration for HBM demo Runner (Phase 1+)."""
+"""IPC handler registration for drama demo Runner (Phase 1+)."""
 
 from __future__ import annotations
 

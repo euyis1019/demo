@@ -9,12 +9,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-# IPCServer (MiroFish legacy) writes ``alive``; HBM demo standardizes on ``running``.
+# IPCServer (MiroFish legacy) writes ``alive``; drama demo standardizes on ``running``.
 _STATUS_NORMALIZE = {"alive": "running"}
 
 
 def normalize_env_status(status: str) -> str:
-    """Map engine IPC status strings to HBM demo convention."""
+    """Map engine IPC status strings to drama demo convention."""
     return _STATUS_NORMALIZE.get(status, status)
 
 

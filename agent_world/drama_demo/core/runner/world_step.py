@@ -1,4 +1,4 @@
-"""HBM demo WorldStep — parallel LLM decisions within each place."""
+"""drama demo WorldStep — parallel LLM decisions within each place."""
 
 from __future__ import annotations
 

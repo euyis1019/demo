@@ -1,4 +1,4 @@
-"""Reset in-memory + SQLite world state to scenario initial (HBM demo restart)."""
+"""Reset in-memory + SQLite world state to scenario initial (drama demo restart)."""
 
 from __future__ import annotations
 

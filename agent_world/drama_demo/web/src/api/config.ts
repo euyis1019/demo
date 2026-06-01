@@ -1,4 +1,4 @@
-/** HBM demo API constants。SIM_ID 运行期可变：大厅里选/建故事并激活后 setSimId 切换。 */
+/** drama demo API constants。SIM_ID 运行期可变：大厅里选/建故事并激活后 setSimId 切换。 */
 
 let _simId = "canglan_sword";
 

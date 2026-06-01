@@ -1,4 +1,4 @@
-"""World DB seeding for HBM demo (copied from ``demo/run_demo._seed_world``)."""
+"""World DB seeding for drama demo (copied from ``demo/run_demo._seed_world``)."""
 
 from __future__ import annotations
 

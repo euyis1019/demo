@@ -1,4 +1,4 @@
-# HBM Demo 架构
+# Drama Demo 架构
 
 四层架构、依赖硬规则、运行时数据流。总览见 [`README.md`](README.md)。
 

@@ -1,4 +1,4 @@
-"""HBM demo Runner — seed world + LLM agents + resident world loop + IPC.
+"""drama demo Runner — seed world + LLM agents + resident world loop + IPC.
 
 Usage:
     python -m agent_world.drama_demo.run_drama \\

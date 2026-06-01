@@ -1,4 +1,4 @@
-# HBM Demo 开发规范（务必遵守）
+# Drama Demo 开发规范（务必遵守）
 
 本文件是 `agent_world/drama_demo/` 子树的开发铁律。改动本目录代码前先读这里。
 总览见 [README.md](README.md)，架构见 [ARCHITECTURE.md](ARCHITECTURE.md)。

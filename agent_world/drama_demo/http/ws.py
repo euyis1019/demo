@@ -1,4 +1,4 @@
-"""F16 WebSocket registration for HBM demo (dev_logs/38 Phase R2)."""
+"""F16 WebSocket registration for drama demo (dev_logs/38 Phase R2)."""
 
 from __future__ import annotations
 

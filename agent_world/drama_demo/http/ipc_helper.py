@@ -1,4 +1,4 @@
-"""Flask-side IPC helpers for HBM demo (world loop + legacy batch)."""
+"""Flask-side IPC helpers for drama demo (world loop + legacy batch)."""
 
 from __future__ import annotations
 

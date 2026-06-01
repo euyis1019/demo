@@ -1,4 +1,4 @@
-"""HBM demo ActionDispatcher — agent-initiated MOVE is IPC-only (Flask routing)."""
+"""drama demo ActionDispatcher — agent-initiated MOVE is IPC-only (Flask routing)."""
 
 from __future__ import annotations
 

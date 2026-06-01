@@ -1,4 +1,4 @@
-"""Environment-driven settings for HBM demo (Phase 5)."""
+"""Environment-driven settings for drama demo (Phase 5)."""
 
 from __future__ import annotations
 

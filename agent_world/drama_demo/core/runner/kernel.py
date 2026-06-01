@@ -1,4 +1,4 @@
-"""Simulation kernel for HBM demo — Phase 0 minimal + Phase 1 full pipeline."""
+"""Simulation kernel for drama demo — Phase 0 minimal + Phase 1 full pipeline."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ _DRAMA_DEMO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class NullPoolManager:
-    """No-op stand-in for MultiPoolPlatformManager (no FEED actions in HBM demo)."""
+    """No-op stand-in for MultiPoolPlatformManager (no FEED actions in drama demo)."""
 
     pools: Dict[str, Any] = {}
 
@@ -46,7 +46,7 @@ class NullPoolManager:
         return None
 
     async def dispatch(self, *args: Any, **kwargs: Any):  # noqa: ARG002
-        raise RuntimeError("FEED actions disabled in HBM demo")
+        raise RuntimeError("FEED actions disabled in drama demo")
 
 
 @dataclass
@@ -97,7 +97,7 @@ def resolve_api_key(llm_cfg: Dict[str, Any]) -> str:
         return val
 
     raise RuntimeError(
-        "HBM demo: no API key found. Set llm.api_key in scenario YAML, "
+        "drama demo: no API key found. Set llm.api_key in scenario YAML, "
         f"export {env_name}=sk-..., or add {env_name}=... to drama_demo/.env"
     )
 
