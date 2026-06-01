@@ -8,7 +8,6 @@ import type {
 import { PLAYER_AGENT_ID, VIRTUAL_PLAYER_AGENT_ID } from "../constants/agents";
 import { PLAYER_SENDER } from "../constants/gameLoop";
 import type { PlaceId } from "../utils/places";
-import { ROOM_GRID } from "../utils/places";
 import { mergeMessages, stampPlayerBubble } from "../utils/messages";
 import {
   applySocialEvents,
@@ -65,24 +64,25 @@ function mergeRoomF2f(
   legacyPublic: GameMessage[] | undefined,
   playerPlaceId: string,
 ): Record<PlaceId, GameMessage[]> {
-  const next = { ...roomF2f };
+  const next: Record<string, GameMessage[]> = { ...roomF2f };
   if (incoming) {
-    for (const placeId of ROOM_GRID) {
-      const messages = incoming[placeId];
+    // 按后端实际下发的地点 key 合并（支持任意故事的地点 id，含中文）——不再只认写死的 4 个旧 HBM
+    // 地点，否则数据驱动故事（如沧澜剑「后庭院」）的对话会被整段丢弃、剧情模式什么都显示不出来。
+    for (const [placeId, messages] of Object.entries(incoming)) {
       if (messages?.length) {
-        next[placeId] = mergeMessages(next[placeId], messages);
+        next[placeId] = mergeMessages(next[placeId] ?? [], messages);
       }
     }
   }
   if (legacyPublic?.length) {
-    const place = (playerPlaceId as PlaceId) in next ? (playerPlaceId as PlaceId) : "nvidia_reception";
+    const place = playerPlaceId;  // 直接用玩家当前地点，不再回退到 nvidia_reception
     // F12: public_messages mirrors room_f2f[player_place] — skip when already in this delta.
     const alreadyInRoomF2f = Boolean(incoming?.[place]?.length);
     if (!alreadyInRoomF2f) {
-      next[place] = mergeMessages(next[place], legacyPublic);
+      next[place] = mergeMessages(next[place] ?? [], legacyPublic);
     }
   }
-  return next;
+  return next as Record<PlaceId, GameMessage[]>;
 }
 
 export interface WorldDeltaPatch {
@@ -238,20 +238,21 @@ export function pushPlayerBubbleToRoom(
   placeId: string,
   message: GameMessage,
 ): Record<PlaceId, GameMessage[]> {
-  const place = (ROOM_GRID.includes(placeId as PlaceId)
-    ? placeId
-    : "nvidia_reception") as PlaceId;
+  // 直接用玩家当前地点（任意故事地点 id，含中文）——不再回退到 nvidia_reception，
+  // 否则玩家台词被推到错误房间、剧情字幕上看不到自己说的话。
+  const place = placeId;
+  const existing = (roomF2f as Record<string, GameMessage[]>)[place] ?? [];
   return {
     ...roomF2f,
-    [place]: mergeMessages(roomF2f[place], [
-      stampPlayerBubble(roomF2f[place], {
+    [place]: mergeMessages(existing, [
+      stampPlayerBubble(existing, {
         ...message,
         sender: PLAYER_SENDER,
         type: "F2F",
         place_id: place,
       }),
     ]),
-  };
+  } as Record<PlaceId, GameMessage[]>;
 }
 
 export function agentsInPlace(
