@@ -26,12 +26,18 @@ def get_interpreter(story_id: str) -> StoryInterpreter:
 
 
 def _gather_scene(ipc_client: Any, place: str, agent_ids: List[int], ipc_timeout: float) -> None:
-    """把这一拍该在场的角色(玩家+本节点 inject_agents)聚到该地点，让对话同场可见。"""
+    """把这一拍该在场的 **NPC**（本任务 inject_agents）聚到该地点，让对话同场可见。
+
+    ★绝不移动玩家(agent 0)：玩家位置完全由玩家自己（session.place_id）主导——引擎不再把玩家强行拽到
+    剧情需要的地点（那会让玩家无法自由移动、感觉被 railroad）。调用方应只传 NPC id，这里再兜底剔除 0。
+    """
     from agent_world.drama_demo.http.ipc_helper import send_move_agent
 
     if not place:
         return
     for aid in agent_ids:
+        if int(aid) == 0:  # 兜底：永不搬玩家
+            continue
         try:
             send_move_agent(ipc_client, agent_id=int(aid), place_id=str(place), timeout=ipc_timeout)
         except Exception as exc:  # noqa: BLE001
@@ -39,12 +45,12 @@ def _gather_scene(ipc_client: Any, place: str, agent_ids: List[int], ipc_timeout
 
 
 def setup_scene_for_node(interp: StoryInterpreter, hbm: Any, *, ipc_client: Any, ipc_timeout: float) -> None:
-    """把当前节点的场景布好：玩家 + 该节点 inject_agents 聚到该节点地点。会话开局/换节点各调一次。"""
+    """把当前任务的 **NPC** 聚到该任务地点（玩家不动——开局玩家已在 session.place_id）。会话开局/换任务各调一次。"""
     node = interp.graph.nodes.get(getattr(hbm, "current_node_id", None) or interp.graph.initial_node)
     if node is None:
         return
     place = node.place_focus or getattr(hbm, "place_id", "")
-    _gather_scene(ipc_client, place, [0, *node.inject_agents], ipc_timeout)
+    _gather_scene(ipc_client, place, [*node.inject_agents], ipc_timeout)
 
 
 def route_story(
@@ -101,12 +107,13 @@ def route_story(
         log.warning("route_story: dst=%s 既非结局也非已知节点，停止推进", dst)
         return applied
 
-    # 推进到下一幕：布好新场景（玩家 + 该节点 inject_agents 聚到新地点），重置导演窗口
+    # 推进到下一任务：把该任务的 **NPC** 聚到任务地点（玩家不动——玩家自由移动，位置由 session.place_id 主导）。
+    # ★不再 _gather 玩家、也不再覆写 hbm.place_id——否则每次推进都会把玩家强行拽到剧情地点，玩家无法自由移动。
+    # 玩家想参与这一任务就自己走过去；管理 agent(导演/演员) 据玩家真实所在地适应，而非把玩家拽来。
     new_place = nxt.place_focus or getattr(hbm, "place_id", "")
-    _gather_scene(ipc_client, new_place, [0, *nxt.inject_agents], ipc_timeout)
+    _gather_scene(ipc_client, new_place, [*nxt.inject_agents], ipc_timeout)
     hbm.current_node_id = dst
     hbm.phase = nxt.beats_label or hbm.phase
-    hbm.place_id = new_place
     hbm.node_entered_tick = int(current_tick)
     hbm.last_judged_player_tick = None
     applied["nodes"].append(dst)
