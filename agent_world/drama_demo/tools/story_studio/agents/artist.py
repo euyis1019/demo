@@ -17,7 +17,7 @@ import ssl
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from agent_world.drama_demo.tools.story_studio.asset_manifest import AssetSpec, asset_specs
 from agent_world.drama_demo.tools.story_studio.image_client import (
@@ -173,15 +173,20 @@ class Artist:
         return ArtItem(spec, verdict, note, url)
 
     def _run_batch(self, specs: List[AssetSpec], asset_dir: Path, only_missing: bool,
-                   ref_urls: Optional[Dict[str, str]] = None) -> List[ArtItem]:
-        """并发出一批图。ref_urls：rel_path→参考图 URL（情绪变体用各自基础立绘的 URL 做图生图）。"""
+                   ref_urls: Optional[Dict[str, str]] = None,
+                   on_tick: Optional[Callable[["ArtItem"], None]] = None) -> List[ArtItem]:
+        """并发出一批图。ref_urls：rel_path→参考图 URL（情绪变体用各自基础立绘的 URL 做图生图）。
+        on_tick(item)：每出完一张回调一次（计数与节流在调用方做），用于上报「出图 X/N」进度。"""
         if not specs:
             return []
         ref_urls = ref_urls or {}
 
         def one(s: AssetSpec) -> ArtItem:
-            return self._produce_one(s, asset_dir, only_missing,
+            item = self._produce_one(s, asset_dir, only_missing,
                                      ref_image_url=ref_urls.get(s.ref_rel_path, ""))
+            if on_tick:
+                on_tick(item)
+            return item
 
         workers = max(1, int(os.environ.get("ARK_T2I_CONCURRENCY", "5")))
         if workers <= 1 or len(specs) <= 1:
@@ -192,12 +197,16 @@ class Artist:
             return list(ex.map(one, specs))
 
     def run(self, pack: Any, asset_dir: Path, *, only_missing: bool = True,
-            limit: Optional[int] = None) -> ArtReport:
+            limit: Optional[int] = None,
+            on_progress: Optional[Callable[[str], None]] = None) -> ArtReport:
         """出齐 Story Pack 需要的全部图片（默认只补缺的）。limit 仅出前 N 张（调试用）。
 
         两阶段并发：先出基础图（封面/场景/基础立绘），再以各基础立绘的 URL 为参考做图生图出情绪变体，
         锁住同一角色相貌一致。并发（ARK_T2I_CONCURRENCY，默认 5）把情绪变体带来的数量膨胀压回可接受墙钟。
+        on_progress(msg)：每出完一张回调一句「出图 X/N」进度（终端日志 + 前端进度共用），不传则静默。
         """
+        import threading
+
         require_api_key()  # 缺 key 早抛，提示配置
         specs = asset_specs(pack)
         report = ArtReport(required=len(specs))
@@ -205,12 +214,27 @@ class Artist:
         base_specs = [s for s in todo if not s.ref_rel_path]
         variant_specs = [s for s in todo if s.ref_rel_path]
 
-        base_items = self._run_batch(base_specs, asset_dir, only_missing)
+        # 并发出图，逐张完成时线程安全地累加并回调「出图 X/N」。
+        total = len(todo)
+        _emit = on_progress or (lambda *_a: None)
+        _lock = threading.Lock()
+        _done = {"n": 0}
+        _verb = {"present": "已存在", "ok": "✓", "reject": "重画后存疑", "failed": "✗ 失败"}
+
+        def _tick(item: "ArtItem") -> None:
+            with _lock:
+                _done["n"] += 1
+                n = _done["n"]
+            _emit(f"出图 {n}/{total}：{item.spec.label} {_verb.get(item.status, item.status)}")
+
+        _emit(f"开始出图（封面/场景/立绘+情绪，共 {total} 张）…")
+        base_items = self._run_batch(base_specs, asset_dir, only_missing, on_tick=_tick)
         # 收集基础立绘的新鲜 URL，供情绪变体图生图参考（基础图被跳过/失败则该角色变体回退纯文生图）
         ref_urls = {it.spec.rel_path: it.url for it in base_items if it.url}
-        variant_items = self._run_batch(variant_specs, asset_dir, only_missing, ref_urls=ref_urls)
+        variant_items = self._run_batch(variant_specs, asset_dir, only_missing, ref_urls=ref_urls, on_tick=_tick)
         report.items = base_items + variant_items
         # 查数量是否足够（所有需求是否就位）
         report.missing = [s.label for s in specs if not _valid_image(asset_dir / s.rel_path)[0]]
         report.present = report.required - len(report.missing)
+        _emit(f"出图完成：{report.present}/{report.required} 张就位")
         return report

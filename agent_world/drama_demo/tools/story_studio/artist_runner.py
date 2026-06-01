@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Callable, Optional
 
 from agent_world.drama_demo.shared.prompt_paths import story_dir
 from agent_world.drama_demo.shared.story_pack import load_and_validate_story_pack
@@ -15,8 +15,11 @@ from agent_world.drama_demo.tools.story_studio.safety import assert_safe_target
 
 def generate_story_assets(
     story_id: str, *, only_missing: bool = True, limit: Optional[int] = None, review: bool = True,
+    on_progress: Optional[Callable[[str], None]] = None,
 ) -> ArtReport:
-    """给 story_id 出齐 Story Pack 需要的图片资源。需求/数量来自 Story Pack（设计 agent 的产出）。"""
+    """给 story_id 出齐 Story Pack 需要的图片资源。需求/数量来自 Story Pack（设计 agent 的产出）。
+    on_progress(msg)：逐张出图进度回调（终端日志 + 前端进度共用）。"""
     pack = load_and_validate_story_pack(story_id)  # 带病包不出图
     asset_dir = assert_safe_target(story_dir(story_id))  # 红线：只落 config/stories/<id>/
-    return Artist(review=review).run(pack, asset_dir, only_missing=only_missing, limit=limit)
+    return Artist(review=review).run(pack, asset_dir, only_missing=only_missing, limit=limit,
+                                     on_progress=on_progress)

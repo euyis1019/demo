@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from agent_world.drama_demo.shared.prompt_paths import story_dir
 from agent_world.drama_demo.shared.story_pack import load_story_pack
@@ -224,12 +224,14 @@ def generate_full(
     target_dir: Optional[Path] = None, max_rounds: int = 3,
     max_llm_calls: Optional[int] = None, trace: Any = None,
     critic_rounds: int = 2, critic_threshold: int = 3,
+    on_progress: Optional[Callable[[str], None]] = None,
 ) -> CompileResult:
     """完整流水线 Designer→Casting→Writer→assemble→validate(V+X)→失败回灌重生成，
     结构合法后再过 **Critic 质量门**（按叙事 rubric 评分，低分则把意见回灌定向重写 Casting/Writer）。
 
     产出**完整可运行**且经质量评审的 Story Pack。client 注入，离线可测。
     可选 max_llm_calls 成本护栏 + trace 生成决策链记录。critic_rounds=0 可关闭质量门（如离线 fake client）。
+    on_progress(msg)：每完成一个阶段回调一句中文进度（终端日志 + 前端进度共用），不传则静默。
     """
     from agent_world.drama_demo.tools.story_studio.agents.casting import Casting
     from agent_world.drama_demo.tools.story_studio.agents.critic import Critic
@@ -238,6 +240,7 @@ def generate_full(
     from agent_world.drama_demo.tools.story_studio.base_agent import StoryStudioError
     from agent_world.drama_demo.tools.story_studio.metering import metering_client
 
+    _p = on_progress or (lambda *_a: None)
     client = metering_client(client, max_calls=max_llm_calls, trace=trace)
     designer, casting, writer = Designer(client), Casting(client), Writer(client)
     feedback = ""
@@ -251,9 +254,14 @@ def generate_full(
     #    不达标连同结构违例一起回灌重生成；离线 fake-client(critic_rounds=0) 只看结构，跳过详细度门。
     structural_ok = False
     for _round in range(max_rounds):
+        _rd = f"（第 {_round + 1} 轮）" if _round else ""
+        _p(f"① 设计任务链 Designer{_rd}…")
         d = designer.run(brief, feedback=feedback)
+        _p(f"② 选角与世界 Casting{_rd}…（{len(d.get('nodes') or [])} 个任务 / {len(d.get('endings') or [])} 个结局）")
         c = casting.run(brief, d, feedback=feedback)
+        _p(f"③ 写戏：任务情境与对白 Writer{_rd}…（{len(c.get('agents') or [])} 个角色）")
         w = writer.run(d, c, brief=brief, feedback=feedback)
+        _p("④ 组装并校验整包…")
         sections = assemble_full_sections(brief, story_id, d, c, w)
         result = compile_pack(sections, story_id=story_id, target_dir=target_dir)
         detail_issues: List[str] = []
@@ -280,6 +288,7 @@ def generate_full(
         critic = Critic(client)
         last_good = sections
         for _q in range(critic_rounds):
+            _p(f"⑤ 质量评审第 {_q + 1} 轮 Critic…")
             try:
                 review = critic.review(brief, d, c, w)
             except Exception:  # noqa: BLE001 — 评审失败不阻断：保留已结构合法的包
@@ -310,6 +319,7 @@ def generate_full(
         try:
             from agent_world.drama_demo.tools.story_studio.onboarding import generate_onboarding
 
+            _p("⑥ 生成新手引导…")
             onb = generate_onboarding(brief, d, c, client)
             _patch_meta(story_id, target_dir, "onboarding", onb)
         except Exception:  # noqa: BLE001
@@ -320,6 +330,7 @@ def generate_full(
         try:
             from agent_world.drama_demo.tools.story_studio.acting_guide import generate_acting_guide
 
+            _p("⑦ 生成表演须知…")
             guide = generate_acting_guide(brief, c, client)
             if guide:
                 _patch_meta(story_id, target_dir, "acting_guide", guide)
@@ -331,6 +342,7 @@ def generate_full(
         try:
             from agent_world.drama_demo.tools.story_studio.stats_design import generate_stats_design
 
+            _p("⑧ 生成属性面板…")
             stats = generate_stats_design(brief, c, client)
             if stats.get("dimensions"):
                 _patch_meta(story_id, target_dir, "stats", stats)

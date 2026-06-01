@@ -100,7 +100,15 @@ class WorldManager:
             from agent_world.drama_demo.tools.story_studio.naming import slug_story_id
 
             story_id = slug_story_id(premise)
-            job.update(story_id=story_id, step="设计剧情（Designer→Casting→Writer）…")
+            job.update(story_id=story_id, step="排队中…")
+
+            def _progress(msg: str) -> None:
+                """一处上报，双向可见：print 直达后端终端（不依赖 logging 配置）+ 写 job.step 供前端轮询展示。"""
+                print(f"[建故事 {story_id}] {msg}", flush=True)
+                log.info("[建故事 %s] %s", story_id, msg)
+                job["step"] = msg
+
+            _progress("开始生成剧情…")
             brief = {
                 "premise": premise,
                 "title": title or premise[:24],
@@ -113,24 +121,29 @@ class WorldManager:
             from agent_world.drama_demo.tools.story_studio.orchestrator import generate_full
 
             # generate_full 成功才返回（校验通不过会 raise StoryStudioError，落到外层 except）。
-            generate_full(brief, story_id=story_id, client=_deepseek_client(), max_rounds=3)
+            generate_full(brief, story_id=story_id, client=_deepseek_client(), max_rounds=3,
+                          on_progress=_progress)
+            _progress("✓ 剧情包生成完成")
             if with_assets:
-                job["step"] = "准备图片资源（Seedream）…"
                 try:
                     from agent_world.drama_demo.tools.story_studio.artist_runner import generate_story_assets
                     from agent_world.drama_demo.tools.story_studio.image_client import ImageKeyMissing
 
                     try:
-                        rep = generate_story_assets(story_id)
+                        rep = generate_story_assets(story_id, on_progress=_progress)
                         job["assets"] = f"{rep.present}/{rep.required}"
                     except ImageKeyMissing:
                         job["assets"] = "跳过（未配置文生图 key）"
+                        _progress("未配置文生图 key，跳过出图")
                 except Exception as exc:  # noqa: BLE001
                     job["assets"] = f"出图出错：{exc}"
-            job.update(status="done", step="准备完成，可以开玩")
+                    _progress(f"出图出错（不影响开玩）：{exc}")
+            job.update(status="done", step="✅ 准备完成，可以开玩")
+            print(f"[建故事 {story_id}] ✅ 全部完成，可以开玩", flush=True)
         except Exception as exc:  # noqa: BLE001
             log.exception("generate story failed")
             job.update(status="error", step="生成失败", error=str(exc))
+            print(f"[建故事] ✗ 生成失败：{exc}", flush=True)
 
     # ---------- 激活（起世界）----------
     def is_active(self, story_id: str) -> bool:

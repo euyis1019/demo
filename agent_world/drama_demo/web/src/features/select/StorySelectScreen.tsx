@@ -38,6 +38,7 @@ export function StorySelectScreen({ onReady }: Props) {
   const [phase, setPhase] = useState<Phase>("list");
   const [premise, setPremise] = useState("");
   const [status, setStatus] = useState("");
+  const [steps, setSteps] = useState<string[]>([]); // 生成进度「日志」：每个新阶段追加一条，给玩家看到进展
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -74,6 +75,7 @@ export function StorySelectScreen({ onReady }: Props) {
     setPhase("creating");
     setError("");
     setStatus("提交剧情中…");
+    setSteps([]);
     try {
       const r = await createStory({ premise: p });
       const jobId = r.data?.job_id;
@@ -89,11 +91,13 @@ export function StorySelectScreen({ onReady }: Props) {
           setPhase("list");
           return;
         }
-        await new Promise((res) => setTimeout(res, 3000));
+        await new Promise((res) => setTimeout(res, 1500));
         const j = await getJob(jobId);
         const d = j.data;
         if (!d) continue;
         setStatus(d.step);
+        // 阶段变化就往「进度日志」追一条（同一句不重复），让玩家看到一步步推进
+        setSteps((prev) => (prev[prev.length - 1] === d.step ? prev : [...prev, d.step]));
         if (d.status === "done" && d.story_id) {
           await activate(d.story_id);
           return;
@@ -117,9 +121,37 @@ export function StorySelectScreen({ onReady }: Props) {
           {phase === "creating" ? "正在为你准备这个故事…" : "正在启动世界…"}
         </div>
         <div style={{ width: 64, height: 64, border: "4px solid #2a3656", borderTopColor: "#6ea8ff", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
-        <div style={{ color: "#9fb0d0", maxWidth: 520, textAlign: "center" }}>{status || "请稍候…"}</div>
+        <div style={{ color: "#cfe0ff", fontSize: 16, fontWeight: 600, maxWidth: 560, textAlign: "center", minHeight: 22 }}>
+          {status || "请稍候…"}
+        </div>
+        {phase === "creating" && steps.length > 0 && (
+          <div
+            style={{
+              width: "min(560px, 92vw)",
+              maxHeight: 200,
+              overflowY: "auto",
+              background: "#0c1322",
+              border: "1px solid #1e2740",
+              borderRadius: 10,
+              padding: "10px 14px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+            }}
+          >
+            {steps.map((s, i) => {
+              const isLast = i === steps.length - 1;
+              return (
+                <div key={i} style={{ color: isLast ? "#9fdcff" : "#6b7aa0", fontSize: 13, display: "flex", gap: 8 }}>
+                  <span>{isLast ? "▸" : "✓"}</span>
+                  <span>{s}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
         <div style={{ color: "#5f6f8f", fontSize: 13 }}>
-          设计剧情 + 准备图片资源需要约 1–2 分钟，请勿关闭页面。
+          设计剧情 + 出图约需 1–3 分钟，请勿关闭页面。
         </div>
         <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
       </div>
