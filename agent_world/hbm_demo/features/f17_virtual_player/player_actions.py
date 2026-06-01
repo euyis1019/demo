@@ -29,7 +29,7 @@ def build_player_rdc_payload(session: Any, recipient_id: int, text: str) -> Opti
     return {
         "sender_id": int(player_agent_id()),
         "recipient_id": int(recipient_id),
-        "place_id": str(getattr(session, "place_id", "nvidia_reception")),
+        "place_id": str(getattr(session, "place_id", "")),
         "content": content,
     }
 
@@ -48,7 +48,7 @@ async def apply_player_rdc_payload(world_db: Any, payload: Optional[Dict[str, An
         group_id=None,
         channel_type="RDC",
         content=content,
-        place_id=str(payload.get("place_id") or "nvidia_reception"),
+        place_id=str(payload.get("place_id") or ""),
         attempted_at=at_t,
         arrive_at=at_t,
         delivered=1,

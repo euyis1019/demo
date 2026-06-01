@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { GameMessage, Stats, WorldEvent } from "../../api/types";
+import type { GameMessage, StatDimension, Stats, WorldEvent } from "../../api/types";
 import type { AgentInbox } from "../../store/agentInbox";
 import type { PlaceId } from "../../utils/places";
 import { placeDisplayName } from "../../utils/places";
@@ -24,6 +24,8 @@ export interface StoryModeStageProps {
   playerInbox?: AgentInbox;
   /** 玩家数值，剧情模式 HUD 显示。 */
   stats?: Stats;
+  /** 属性维度定义（数据驱动：来自活跃 Story Pack 的 meta.stats）。 */
+  statsDimensions?: StatDimension[];
   /** 故事张力 0–100（drama-manager 导演驱动，HUD 显示张力弧）。 */
   tension?: number;
   pendingWorldEvent: WorldEvent | null;
@@ -47,6 +49,7 @@ export function StoryModeStage({
   agentMood,
   playerInbox,
   stats,
+  statsDimensions,
   tension,
   pendingWorldEvent,
   lastError,
@@ -86,7 +89,9 @@ export function StoryModeStage({
         aria-label={placeDisplayName(placeId)}
       />
 
-      {stats ? <StoryStatsHud stats={stats} tension={tension} /> : null}
+      {stats ? (
+        <StoryStatsHud stats={stats} dimensions={statsDimensions} tension={tension} />
+      ) : null}
 
       {lastError ? (
         <p className="story-mode-stage__error game-error" role="alert">

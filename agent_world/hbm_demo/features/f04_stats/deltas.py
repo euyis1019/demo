@@ -1,27 +1,24 @@
-"""F04 stat deltas and initial values."""
+"""F04 stat deltas and initial values（数据驱动：维度来自活跃 Story Pack 的 meta.stats）。"""
 
 from __future__ import annotations
 
 from typing import Dict
 
-from agent_world.hbm_demo.features.f01_session.constants import INITIAL_STATS
 from agent_world.hbm_demo.features.f01_session.models import HbmSession
 
 
 def initial_stats() -> Dict[str, int]:
-    return dict(INITIAL_STATS)
+    """各维度初始值（来自活跃 Story Pack 的 meta.stats；无则空 dict）。"""
+    from agent_world.hbm_demo.shared import story_config
+
+    return story_config.initial_stats()
 
 
 def apply_stat_deltas(session: HbmSession, deltas: Dict[str, int]) -> None:
-    session.stats["vision"] = max(
-        0, min(999, session.stats["vision"] + int(deltas.get("vision_delta", 0)))
-    )
-    session.stats["execution"] = max(
-        0, min(999, session.stats["execution"] + int(deltas.get("execution_delta", 0)))
-    )
-    session.stats["trust"] = max(
-        0, min(999, session.stats["trust"] + int(deltas.get("trust_delta", 0)))
-    )
-    session.stats["burnout"] = max(
-        0, min(100, session.stats["burnout"] + int(deltas.get("burnout_delta", 0)))
-    )
+    """把 {维度key: 增量} 叠加到 session.stats（泛化、无写死维度；夹取 0–100）。"""
+    for key, delta in (deltas or {}).items():
+        try:
+            cur = int(session.stats.get(str(key), 0))
+            session.stats[str(key)] = max(0, min(100, cur + int(delta)))
+        except (TypeError, ValueError):
+            continue

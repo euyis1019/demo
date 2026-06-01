@@ -22,17 +22,8 @@ def check_turn4_bad_end(
     db: Any = None,
     current_tick: Optional[int] = None,
 ) -> bool:
-    """Legacy Stats Turn4 gate; agent_driven defers to RoutingWatcher."""
-    from agent_world.hbm_demo.features.f05_story_routing.routing_config import (
-        is_agent_driven,
-    )
-
-    if is_agent_driven():
-        return False
-    return (
-        session.player_turn == 4
-        and session.stats["vision"] + session.stats["execution"] < 15
-    )
+    """Legacy 数值结局门——当前一律交给 RoutingWatcher 的 LLM 导演按对话判结局，此门不触发。"""
+    return False
 
 
 BAD_END_PUBLIC_MESSAGES = [

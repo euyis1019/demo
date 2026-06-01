@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-HBM_ROOM_PLACES: tuple[str, ...] = (
-    "nvidia_reception",
-    "jensen_private_room",
-    "negotiation_room",
-    "openai_hq",
-)
+# 中性空兜底——地点/NPC 名册数据驱动：room_places()/agent_roster() 主路径取活跃 Story Pack；
+# 无 pack 时返回空，由上层处理（不再写死任何故事的地点/角色编号）。
+HBM_ROOM_PLACES: tuple[str, ...] = ()
 
-HBM_AGENT_IDS: tuple[int, ...] = (1, 2, 3, 4, 5, 6, 7)
+HBM_AGENT_IDS: tuple[int, ...] = ()
 
 
 def room_places() -> tuple[str, ...]:

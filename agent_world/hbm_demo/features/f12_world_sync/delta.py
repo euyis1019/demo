@@ -45,7 +45,7 @@ def _default_player_place() -> str:
         from agent_world.hbm_demo.shared import story_config
         return story_config.player_start_place()
     except Exception:  # noqa: BLE001
-        return "nvidia_reception"
+        return ""
 
 
 def _player_place_id(task: PendingTask) -> str:

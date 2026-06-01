@@ -72,7 +72,7 @@ def get_world_delta(
         "current_tick": t_now,
         "loop_state": env.get("loop_state"),
         "stats_update": dict(hbm.stats) if hbm else initial_stats(),
-        "current_phase": hbm.phase if hbm else "Phase 1",
+        "current_phase": hbm.phase if hbm else "",
         "tension": hbm.tension if hbm else 0,
         "player_turn": hbm.player_turn if hbm else 1,
         # 让 delta 自洽：带上 name_map(agent_id→名)，前端轮询不必依赖 snapshot 缓存、也无需写死角色名。

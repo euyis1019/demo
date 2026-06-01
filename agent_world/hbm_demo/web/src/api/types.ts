@@ -6,11 +6,15 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
-export interface Stats {
-  vision: number;
-  execution: number;
-  trust: number;
-  burnout: number;
+/** 属性值：维度 key → 数值。维度集由活跃 Story Pack 的 meta.stats 决定（数据驱动，无写死维度）。 */
+export type Stats = Record<string, number>;
+
+/** 一个属性维度的定义（后端从 meta.stats 下发，前端据此渲染 HUD）。 */
+export interface StatDimension {
+  key: string;
+  label: string;
+  initial?: number;
+  description?: string;
 }
 
 export interface GameMessage {
@@ -148,6 +152,7 @@ export interface SessionSnapshot {
   player_turn?: number;
   stats?: Stats;
   stats_update?: Stats;
+  stats_dimensions?: StatDimension[];
   onboarding?: Onboarding | null;
   env_status?: Record<string, unknown>;
 }
@@ -159,6 +164,7 @@ export interface SessionStartData {
   phase: string;
   player_turn: number;
   stats: Stats;
+  stats_dimensions?: StatDimension[];
   onboarding?: Onboarding | null;
   env_status?: Record<string, unknown>;
 }

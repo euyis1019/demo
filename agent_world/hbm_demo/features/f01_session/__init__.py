@@ -1,7 +1,6 @@
 """F01 — Session lifecycle and world reset."""
 
 from agent_world.hbm_demo.features.f01_session.constants import (
-    DEFAULT_CONFIG,
     DEFAULT_PHASE,
     DEFAULT_PLACE_ID,
     DEFAULT_SIM_ID,
@@ -28,7 +27,6 @@ from agent_world.hbm_demo.features.f01_session.reset import reset_demo
 from agent_world.hbm_demo.features.f01_session.world_reset import reset_world_runtime
 
 __all__ = [
-    "DEFAULT_CONFIG",
     "DEFAULT_PHASE",
     "DEFAULT_PLACE_ID",
     "DEFAULT_SIM_ID",

@@ -22,7 +22,7 @@ def build_world_snapshot(
     sim_dir: Optional[Any] = None,
     since_tick: int = 0,
     t_now: int,
-    player_place_id: str = "nvidia_reception",
+    player_place_id: str = "",
 ) -> Dict[str, Any]:
     """Read-model snapshot; optionally merge Runner IPC locations."""
     agent_locations = format_agent_locations(db.fetch_all_agent_locations())

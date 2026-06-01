@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from agent_world.hbm_demo.shared.story_pack import StoryPack, load_story_pack
 
@@ -67,7 +67,27 @@ def player_start_place(story_id: Optional[str] = None) -> str:
     node = pack.graph.nodes.get(init)
     if node and node.place_focus:
         return node.place_focus
-    return str((pack.meta.get("player") or {}).get("start_place") or "nvidia_reception")
+    return str((pack.meta.get("player") or {}).get("start_place") or "")
+
+
+def stats_design(story_id: Optional[str] = None) -> Dict[str, Any]:
+    """活跃故事的属性面板设计：{judge_persona, dimensions:[{key,label,initial,description}]}（管理 agent 生成）。无则空。"""
+    s = (active_pack(story_id).meta or {}).get("stats")
+    return dict(s) if isinstance(s, dict) else {}
+
+
+def stats_dimensions(story_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    """属性维度列表（数据驱动；无则空——前端据此渲染 HUD、引擎据此泛化打分）。"""
+    dims = stats_design(story_id).get("dimensions")
+    return [dict(d) for d in dims] if isinstance(dims, list) else []
+
+
+def initial_stats(story_id: Optional[str] = None) -> Dict[str, int]:
+    """各维度初始值 {key: initial}（数据驱动；无 meta.stats 时空 dict）。"""
+    return {
+        str(d["key"]): int(d.get("initial", 0) or 0)
+        for d in stats_dimensions(story_id) if d.get("key")
+    }
 
 
 def active_place_ids(story_id: Optional[str] = None) -> List[str]:

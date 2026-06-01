@@ -38,3 +38,22 @@ acting_guide: '各位演员，这是沧澜剑派，夜色如墨，暗流汹涌�
   5. 沉默纪律：没话说就闭嘴，别硬找话刷存在。该沉默时，do_nothing。
 
   6. 留在角色：你就是这个角色本人，只说此刻会说的话。不提AI、不替别人发言、不替玩家做决定。'
+stats:
+  judge_persona: 你是沧澜剑派夺嫡之局的裁判，依据玩家发言评估其在各维度的变化，贴古意江湖、暗流涌动的基调。
+  dimensions:
+  - key: master_trust
+    label: 掌门信任
+    initial: 30
+    description: 掌门沈孤鸿对玩家的信任程度，影响是否获得关键信息或遗命。
+  - key: faction_standing
+    label: 派系声望
+    initial: 20
+    description: 在各大弟子派系中的声望，决定能否获得盟友或遭敌视。
+  - key: hidden_knowledge
+    label: 隐秘线索
+    initial: 10
+    description: 玩家掌握的剑派秘辛与阴谋线索，揭露真相的关键。
+  - key: personal_danger
+    label: 自身危险
+    initial: 40
+    description: 玩家当前面临的杀身之祸与暴露风险，过高可能被灭口。

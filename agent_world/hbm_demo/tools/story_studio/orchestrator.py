@@ -303,6 +303,17 @@ def generate_full(
         except Exception:  # noqa: BLE001
             pass
 
+        # 属性面板：管理 agent 按故事生成可量化维度集 + 打分裁判，写进 meta.stats。
+        # 运行期 f04 scoring 据此泛化打分、前端据此渲染 HUD，引擎不写死任何故事专属维度。
+        try:
+            from agent_world.hbm_demo.tools.story_studio.stats_design import generate_stats_design
+
+            stats = generate_stats_design(brief, c, client)
+            if stats.get("dimensions"):
+                _patch_meta(story_id, target_dir, "stats", stats)
+        except Exception:  # noqa: BLE001
+            pass
+
     return result
 
 

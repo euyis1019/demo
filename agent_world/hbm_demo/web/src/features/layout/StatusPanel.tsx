@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import type { Stats, WorldLoopState } from "../../api/types";
-import { INITIAL_STATS } from "../../store/gameStore";
+import type { StatDimension, Stats, WorldLoopState } from "../../api/types";
 
 export interface StatusPanelProps {
   stats: Stats;
+  /** 属性维度定义（数据驱动：来自活跃 Story Pack 的 meta.stats）。 */
+  dimensions?: StatDimension[];
   phase: string;
   playerTurn: number;
   placeLabel: string;
@@ -18,16 +19,10 @@ export interface StatusPanelProps {
   onSwitchToStoryMode?: () => void;
 }
 
-const STAT_ROWS: { key: keyof Stats; label: string }[] = [
-  { key: "vision", label: "Vision" },
-  { key: "execution", label: "Execution" },
-  { key: "trust", label: "Trust" },
-  { key: "burnout", label: "Burnout" },
-];
-
-/** F2-2 + F4-5 — Stats 变化高亮动画；Turn x / 25。F13 — pause/resume world loop。 */
+/** F2-2 + F4-5 — Stats 变化高亮动画。F13 — pause/resume world loop。维度集数据驱动。 */
 export function StatusPanel({
   stats,
+  dimensions = [],
   phase,
   playerTurn,
   placeLabel,
@@ -42,16 +37,15 @@ export function StatusPanel({
   onSwitchToStoryMode,
 }: StatusPanelProps) {
   const prevStatsRef = useRef(stats);
-  const [pulseKeys, setPulseKeys] = useState<Set<keyof Stats>>(new Set());
-  // 数值是旧 HBM 故事专属概念；当前故事若从未驱动它们（全为初始值）就不显示，避免给数据驱动故事
-  // 套一组无意义的数值。
-  const statsUsed = STAT_ROWS.some(({ key }) => stats[key] !== INITIAL_STATS[key]);
+  const [pulseKeys, setPulseKeys] = useState<Set<string>>(new Set());
+  // 维度由活跃 Story Pack 的 meta.stats 决定；故事未定义属性面板就不显示。
+  const statsUsed = dimensions.length > 0;
   const isPaused = worldLoopState === "paused";
   const showPauseControl = Boolean(onPauseWorld && onResumeWorld);
 
   useEffect(() => {
-    const changed = new Set<keyof Stats>();
-    for (const { key } of STAT_ROWS) {
+    const changed = new Set<string>();
+    for (const key of Object.keys(stats)) {
       if (prevStatsRef.current[key] !== stats[key]) {
         changed.add(key);
       }
@@ -75,7 +69,7 @@ export function StatusPanel({
             <section className="status-panel__section">
               <h2 className="status-panel__title">核心数值</h2>
               <ul className="stat-list">
-                {STAT_ROWS.map(({ key, label }) => (
+                {dimensions.map(({ key, label }) => (
                   <li key={key} className="stat-list__item">
                     <span className="stat-list__label">{label}</span>
                     <span
@@ -86,7 +80,7 @@ export function StatusPanel({
                         .filter(Boolean)
                         .join(" ")}
                     >
-                      {stats[key]}
+                      {stats[key] ?? 0}
                     </span>
                   </li>
                 ))}

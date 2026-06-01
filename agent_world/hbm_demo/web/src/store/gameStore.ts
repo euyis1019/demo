@@ -6,6 +6,7 @@ import type {
   PlayerTurnGameOver,
   SessionSnapshot,
   SessionStartData,
+  StatDimension,
   Stats,
   TurnDelta,
   WorldLoopState,
@@ -36,6 +37,8 @@ export interface GameState {
   loading: boolean;
   phaseToast?: string | null;
   stats: Stats;
+  /** 属性维度定义（后端从 meta.stats 下发，HUD 据此渲染；空=该故事不启用属性面板）。 */
+  statsDimensions: StatDimension[];
   phase: string;
   /** 故事张力 0–100（drama-manager 导演驱动，剧情模式 HUD 显示张力弧）。 */
   tension: number;
@@ -72,12 +75,8 @@ export interface GameState {
   runnerModalOpen: boolean;
 }
 
-export const INITIAL_STATS: Stats = {
-  vision: 0,
-  execution: 0,
-  trust: 10,
-  burnout: 0,
-};
+/** 属性初值数据驱动：开局由后端 meta.stats 下发，故默认空。 */
+export const INITIAL_STATS: Stats = {};
 
 export function createInitialState(): GameState {
   return {
@@ -88,7 +87,8 @@ export function createInitialState(): GameState {
     loading: false,
     phaseToast: null,
     stats: { ...INITIAL_STATS },
-    phase: "Phase 1",
+    statsDimensions: [],
+    phase: "",
     tension: 0,
     playerTurn: 1,
     placeId: "",
@@ -147,7 +147,7 @@ export type GameAction =
   | { type: "CLEAR_RECENT_RDC_LINKS" };
 
 function statsFromSnapshot(data: SessionSnapshot | SessionStartData): Stats {
-  return { ...(data.stats ?? INITIAL_STATS) };
+  return { ...(data.stats ?? {}) };
 }
 
 function applyPhaseChange(
@@ -251,6 +251,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         view: "playing",
         sessionInitialized: true,
         stats: statsFromSnapshot(action.data),
+        statsDimensions: action.data.stats_dimensions ?? state.statsDimensions,
         phase: action.data.phase,
         playerTurn: action.data.player_turn,
         placeId: action.data.place_id,
@@ -278,6 +279,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             : "playing",
         sessionInitialized: true,
         stats: statsFromSnapshot(action.data),
+        statsDimensions: action.data.stats_dimensions ?? state.statsDimensions,
         ...applyPhaseChange(state, newPhase),
         playerTurn: action.data.player_turn ?? state.playerTurn,
         placeId: action.data.place_id ?? state.placeId,

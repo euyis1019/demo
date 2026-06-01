@@ -14,7 +14,6 @@ from agent_world.hbm_demo.features.f01_session.constants import (
 )
 from agent_world.hbm_demo.features.f01_session.models import HbmSession
 from agent_world.hbm_demo.features.f01_session.paths import get_sim_dir
-from agent_world.hbm_demo.features.f04_stats.deltas import initial_stats
 from agent_world.hbm_demo.shared.env_status import is_runner_ready, read_env_status
 
 
@@ -31,6 +30,10 @@ def create_session(sim_dir: Path | None = None) -> HbmSession:
         phase = story_config.node_beats_label(init_node) or DEFAULT_PHASE
     except Exception:  # noqa: BLE001 — 无 Story Pack 时回退默认
         init_node, place_id, phase = None, DEFAULT_PLACE_ID, DEFAULT_PHASE
+    try:
+        stats = story_config.initial_stats()
+    except Exception:  # noqa: BLE001 — 无 Story Pack 时空属性
+        stats = {}
     return HbmSession(
         task_id=f"task_{uuid.uuid4().hex[:12]}",
         start_tick=start_tick,
@@ -39,7 +42,7 @@ def create_session(sim_dir: Path | None = None) -> HbmSession:
         current_node_id=init_node,
         node_entered_tick=start_tick,
         player_turn=1,
-        stats=initial_stats(),
+        stats=stats,
     )
 
 
@@ -94,14 +97,16 @@ def get_session_snapshot(
             "runner_ready": runner_ready,
             "env_status": env,
         }
-    # 新手引导（管理 agent 设计期生成，写在活跃故事的 meta.onboarding；缺失则 None）。
+    # 新手引导 + 属性维度（管理 agent 设计期生成，写在活跃故事的 meta；缺失则空）。
     onboarding = None
+    stats_dimensions: list = []
     try:
         from agent_world.hbm_demo.shared import story_config
 
         onboarding = (story_config.active_pack().meta or {}).get("onboarding")
+        stats_dimensions = story_config.stats_dimensions()
     except Exception:  # noqa: BLE001
-        onboarding = None
+        onboarding, stats_dimensions = None, []
     return {
         "initialized": True,
         "sim_id": sim_id,
@@ -112,6 +117,7 @@ def get_session_snapshot(
         "current_phase": hbm.phase,
         "tension": hbm.tension,
         "onboarding": onboarding,
+        "stats_dimensions": stats_dimensions,
         "player_turn": hbm.player_turn,
         "stats": dict(hbm.stats),
         "stats_update": dict(hbm.stats),

@@ -228,6 +228,7 @@ function GameApp() {
           agentMood={state.agentMood}
           playerInbox={state.agentInbox["0"]}
           stats={state.stats}
+          statsDimensions={state.statsDimensions}
           tension={state.tension}
           pendingWorldEvent={pendingWorldEvent}
           lastError={lastError}
@@ -241,6 +242,7 @@ function GameApp() {
             status={
               <StatusPanel
                 stats={stats}
+                dimensions={state.statsDimensions}
                 phase={phase}
                 playerTurn={playerTurn}
                 placeLabel={placeDisplayName(placeId)}

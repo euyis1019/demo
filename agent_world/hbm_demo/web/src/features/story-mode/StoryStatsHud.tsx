@@ -1,31 +1,25 @@
 import { useEffect, useRef, useState } from "react";
-import type { Stats } from "../../api/types";
-import { INITIAL_STATS } from "../../store/gameStore";
+import type { StatDimension, Stats } from "../../api/types";
 
 export interface StoryStatsHudProps {
   stats: Stats;
+  /** 属性维度定义（数据驱动：来自活跃 Story Pack 的 meta.stats）。 */
+  dimensions?: StatDimension[];
   /** 故事张力 0–100（drama-manager 导演驱动）。 */
   tension?: number;
 }
 
-const ROWS: { key: keyof Stats; label: string }[] = [
-  { key: "vision", label: "远见" },
-  { key: "execution", label: "执行" },
-  { key: "trust", label: "信任" },
-  { key: "burnout", label: "倦怠" },
-];
-
 /**
- * 剧情模式数值 HUD（体检 G6）：把后端已下发的 stats 接到剧情模式（原先只有上帝模式显示）。
- * 数值变化时短暂高亮 + 显示增减；burnout 高位变红预警。
+ * 剧情模式数值 HUD（体检 G6）：把后端已下发的 stats 接到剧情模式。
+ * 维度集数据驱动（meta.stats）；数值变化时短暂高亮 + 显示增减。
  */
-export function StoryStatsHud({ stats, tension }: StoryStatsHudProps) {
+export function StoryStatsHud({ stats, dimensions = [], tension }: StoryStatsHudProps) {
   const prev = useRef<Stats>(stats);
-  const [pulse, setPulse] = useState<Partial<Record<keyof Stats, number>>>({});
+  const [pulse, setPulse] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    const deltas: Partial<Record<keyof Stats, number>> = {};
-    for (const { key } of ROWS) {
+    const deltas: Record<string, number> = {};
+    for (const key of Object.keys(stats)) {
       const d = (stats[key] ?? 0) - (prev.current[key] ?? 0);
       if (d !== 0) deltas[key] = d;
     }
@@ -38,7 +32,6 @@ export function StoryStatsHud({ stats, tension }: StoryStatsHudProps) {
   }, [stats]);
 
   const tensionPct = Math.max(0, Math.min(100, Math.round(tension ?? 0)));
-  const statsUsed = ROWS.some(({ key }) => (stats[key] ?? 0) !== INITIAL_STATS[key]);
   return (
     <div className="story-stats-hud">
       {tension != null ? (
@@ -53,25 +46,22 @@ export function StoryStatsHud({ stats, tension }: StoryStatsHudProps) {
           <span className="story-stats-hud__value">{tensionPct}</span>
         </div>
       ) : null}
-      {/* 数值是旧 HBM 故事专属；当前故事从未驱动它们(全初始值)就不显示。 */}
-      {statsUsed
-        ? ROWS.map(({ key, label }) => {
-            const val = stats[key] ?? 0;
-            const delta = pulse[key];
-            const warn = key === "burnout" && val >= 70;
-            return (
-              <div key={key} className={`story-stats-hud__item ${warn ? "is-warn" : ""}`}>
-                <span className="story-stats-hud__label">{label}</span>
-                <span className="story-stats-hud__value">{val}</span>
-                {delta != null ? (
-                  <span className={`story-stats-hud__delta ${delta > 0 ? "up" : "down"}`}>
-                    {delta > 0 ? `+${delta}` : delta}
-                  </span>
-                ) : null}
-              </div>
-            );
-          })
-        : null}
+      {/* 维度由活跃 Story Pack 的 meta.stats 决定；故事未定义属性面板就不显示。 */}
+      {dimensions.map(({ key, label }) => {
+        const val = stats[key] ?? 0;
+        const delta = pulse[key];
+        return (
+          <div key={key} className="story-stats-hud__item">
+            <span className="story-stats-hud__label">{label}</span>
+            <span className="story-stats-hud__value">{val}</span>
+            {delta != null ? (
+              <span className={`story-stats-hud__delta ${delta > 0 ? "up" : "down"}`}>
+                {delta > 0 ? `+${delta}` : delta}
+              </span>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }

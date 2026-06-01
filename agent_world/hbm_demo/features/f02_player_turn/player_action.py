@@ -86,7 +86,7 @@ def handle_player_action(session: Any, *, sim_id: str, action: str, body: Dict[s
             ok = can_player_join_group(
                 db,
                 int(group_id),
-                player_place=str(getattr(session, "place_id", "nvidia_reception")),
+                player_place=str(getattr(session, "place_id", "")),
                 since_t=int(getattr(session, "start_tick", 0) or 0),
                 t_now=_current_tick(sim) or 10**9,
             )
@@ -111,7 +111,7 @@ def get_joinable_groups(session: Any, *, sim_id: str) -> Dict[str, Any]:
     db = make_readonly_db(sim)
     gids = joinable_groups_for_player(
         db,
-        player_place=str(getattr(session, "place_id", "nvidia_reception")),
+        player_place=str(getattr(session, "place_id", "")),
         since_t=int(getattr(session, "start_tick", 0) or 0),
         t_now=_current_tick(sim) or 10**9,
     )

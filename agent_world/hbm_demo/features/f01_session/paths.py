@@ -6,8 +6,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
-from agent_world.hbm_demo.features.f01_session.constants import DEFAULT_CONFIG, DEFAULT_SIM_ID
-from agent_world.hbm_demo.shared.config_loader import load_scenario
+from agent_world.hbm_demo.features.f01_session.constants import DEFAULT_SIM_ID
 
 _scenario_cache: Dict[str, Any] | None = None
 _name_map_cache: Dict[int, str] | None = None
@@ -38,19 +37,13 @@ def get_world_db_path(sim_dir: Path | None = None) -> Path:
 def get_scenario() -> Dict[str, Any]:
     global _scenario_cache
     if _scenario_cache is None:
-        # 数据驱动：默认从活跃 Story Pack 投影出 scenario（与 Runner 播种同源），
-        # 仅当显式关闭播种时才回退外部 hbm_scenario.yaml。
+        # 数据驱动：从活跃 Story Pack 投影出 scenario（与 Runner 播种同源）。
+        from agent_world.hbm_demo.shared import story_config
         from agent_world.hbm_demo.shared.story_pack.scenario_adapter import (
-            is_story_pack_seed_enabled,
             story_pack_to_scenario,
         )
 
-        if is_story_pack_seed_enabled():
-            from agent_world.hbm_demo.shared import story_config
-
-            _scenario_cache = story_pack_to_scenario(story_config.active_pack())
-        else:
-            _scenario_cache = load_scenario(DEFAULT_CONFIG)
+        _scenario_cache = story_pack_to_scenario(story_config.active_pack())
     return _scenario_cache
 
 
