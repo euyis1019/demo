@@ -110,8 +110,12 @@ def route_story(
     hbm.node_entered_tick = int(current_tick)
     hbm.last_judged_player_tick = None
     applied["nodes"].append(dst)
+    # ★事件 id 必须与 shared/routing_events.format_routing_world_events 完全一致（route_node_<节点>）：
+    # 同一次推进会经两条路径下发——本处(watcher pending→f14 轮询) 与 f12 player-turn delta(format_...)。
+    # 二者用同一 id 才能被前端 processedWorldEventIds 去重；id 不一致正是「新任务提示弹两次」的根因。
+    # 故按节点（而非 task_id）唯一，使「同一节点的任务提示」全局只弹一次。
     applied["events"].append({
-        "id": f"node_{dst}_{task_id}",
+        "id": f"route_node_{dst}",
         "at_tick": int(current_tick),
         "kind": "phase_route",
         "title": nxt.beats_label or dst,
