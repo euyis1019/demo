@@ -1,7 +1,6 @@
-"""生成期中间产物 schema（dev_logs/45 §3.2）。区别于运行期 Story Pack schema。
+"""生成期中间产物 schema（dev_logs/45 §3.2 / dev_logs/48）。区别于运行期 Story Pack schema。
 
-各管理 agent 的输出契约——用于 base_agent 的「生成→schema 校验→重试」。本文件先落
-Designer/Producer 的契约（G1/G2 用），Casting/Writer 的在后续切片补。
+各管理 agent（Casting / Bert 设计师 / Critic）的输出契约——用于 base_agent 的「生成→schema 校验→重试」。
 """
 
 from __future__ import annotations
@@ -10,49 +9,46 @@ from typing import Any, Dict, List
 
 import jsonschema
 
-# Designer：把 brief 编译成故事图骨架（节点/边/结局，不含触发条件细节）。
-DESIGNER_OUTPUT_SCHEMA: Dict[str, Any] = {
+# Bert 设计师：brief + 选角（cast）→ 「条件→反应」规则集（含结局 bert）。剧情结构主载体（取代旧故事图）：
+# 玩家做某事(trigger) → 某 NPC(target) 产生某反应(reaction)，经 arms/requires 串成反应链；
+# ending 非空的 bert 即结局（触发即收场）。结构不变量（引用闭合/可达/至少一个结局）由 BertSet.validate 兜。
+BERT_OUTPUT_SCHEMA: Dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
-    "required": ["initial_node", "nodes", "endings", "edges"],
+    "required": ["berts"],
     "properties": {
-        "initial_node": {"type": "string", "minLength": 1},
-        "nodes": {
+        "berts": {
             "type": "array",
             "minItems": 1,
             "items": {
                 "type": "object",
-                "required": ["id"],
+                "required": ["id", "trigger"],
                 "properties": {
-                    "id": {"type": "string", "minLength": 1},
-                    "beats_label": {"type": "string"},
-                    "summary": {"type": "string"},
-                },
-            },
-        },
-        "endings": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-                "type": "object",
-                "required": ["id"],
-                "properties": {
-                    "id": {"type": "string", "minLength": 1},
-                    "kind": {"type": "string", "enum": ["good", "neutral", "bad"]},
-                    "summary": {"type": "string"},
-                },
-            },
-        },
-        "edges": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-                "type": "object",
-                "required": ["id", "from", "to"],
-                "properties": {
-                    "id": {"type": "string", "minLength": 1},
-                    "from": {"type": "string", "minLength": 1},
-                    "to": {"type": "string", "minLength": 1},
+                    # id 接受字符串或整数：LLM 常把 bert 编号成 1/2/3（整数），Bert.from_mapping 统一 str() 归一化。
+                    "id": {"type": ["string", "integer"]},
+                    # 触发条件：玩家做/说了什么（自然语言，运行期由 Bert 导演读对话判命中）
+                    "trigger": {"type": "string", "minLength": 1},
+                    # 反应：target 这个 NPC 触发后要演什么（非结局 bert 必填）；容错 null（Bert.from_mapping 兜成 ""）
+                    "reaction": {"type": ["string", "null"]},
+                    # 反应的 NPC（agent_id）；结局 bert 可省略。容错：LLM 偶尔给字符串数字。
+                    "target": {"type": ["integer", "string", "null"]},
+                    # 可选：仅此地点生效。容错 null（LLM 常对可选字段显式给 null）。
+                    "place": {"type": ["string", "null"]},
+                    # 触发一次后失效（默认 true）
+                    "once": {"type": "boolean"},
+                    # 触发后「上膛」的后续 bert id（反应链）——同 id，接受字符串或整数
+                    "arms": {"type": "array", "items": {"type": ["string", "integer"]}},
+                    # 需先触发过的前置 bert id（空=开局即上膛）——同 id，接受字符串或整数
+                    "requires": {"type": "array", "items": {"type": ["string", "integer"]}},
+                    # 非空=结局 bert：{kind: good|neutral|bad, summary}
+                    "ending": {
+                        "type": "object",
+                        "required": ["kind"],
+                        "properties": {
+                            "kind": {"type": "string", "enum": ["good", "neutral", "bad"]},
+                            "summary": {"type": "string"},
+                        },
+                    },
                 },
             },
         },
@@ -125,49 +121,11 @@ CASTING_OUTPUT_SCHEMA: Dict[str, Any] = {
     },
 }
 
-# Writer：DesignerOutput + Casting → 给节点绑注入/地点、给边补触发/动作、产 signals。
-WRITER_OUTPUT_SCHEMA: Dict[str, Any] = {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "required": ["nodes", "edges"],
-    "properties": {
-        "nodes": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "required": ["id"],
-                "properties": {
-                    "id": {"type": "string"},
-                    "inject_agents": {"type": "array", "items": {"type": "integer"}},
-                    "place_focus": {"type": "string"},
-                    "scene_brief": {"type": "string"},  # 这一幕的戏剧情境：此刻在发生什么/张力在哪/玩家处境
-                    "directions": {"type": "object"},  # {agent_id: 这一幕该角色的具体表演指引}
-                },
-            },
-        },
-        "edges": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "required": ["id"],
-                "properties": {
-                    "id": {"type": "string"},
-                    "condition": {"type": "string"},  # 自然语言：导演据此判断玩家是否推进到该边
-                    "actions": {"type": "array"},
-                    "legacy_label": {"type": "string"},
-                },
-            },
-        },
-        "signals": {"type": "object"},  # 已废弃；导演驱动不再需要关键词/信号
-    },
-}
-
-
 # Critic：对整包草稿按叙事 rubric 评分 + 给针对性可执行修改意见（结构已合法后的「质量门」）。
 CRITIC_OUTPUT_SCHEMA: Dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
-    "required": ["scores", "casting_feedback", "writer_feedback"],
+    "required": ["scores", "casting_feedback", "bert_feedback"],
     "properties": {
         "scores": {
             "type": "object",
@@ -188,8 +146,8 @@ CRITIC_OUTPUT_SCHEMA: Dict[str, Any] = {
         },
         # 针对 Casting（人设/inner/speech_style/speech_samples/声音区分/反派算计）的可执行修改意见；满意则空串
         "casting_feedback": {"type": "string"},
-        # 针对 Writer（scene_brief/directions 潜台词/condition 互斥与玩家纳入/分支张力）的可执行修改意见；满意则空串
-        "writer_feedback": {"type": "string"},
+        # 针对 Bert 反应链（trigger 是否玩家可做到/互不含糊、reaction 是否贴人设、反应链是否连贯、结局是否够分量）的可执行修改意见；满意则空串
+        "bert_feedback": {"type": "string"},
         "summary": {"type": "string"},
     },
 }

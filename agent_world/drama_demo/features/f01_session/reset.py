@@ -43,7 +43,6 @@ def reset_demo(
     log_turn_event(
         event="demo_reset",
         task_id=hbm.task_id,
-        phase=hbm.phase,
         player_turn=hbm.player_turn,
         start_tick=hbm.start_tick,
         end_tick=int(env.get("current_tick", 0)),
@@ -53,7 +52,6 @@ def reset_demo(
         "task_id": hbm.task_id,
         "start_tick": hbm.start_tick,
         "place_id": hbm.place_id,
-        "phase": hbm.phase,
         "player_turn": hbm.player_turn,
         "stats": dict(hbm.stats),
         "env_status": env,

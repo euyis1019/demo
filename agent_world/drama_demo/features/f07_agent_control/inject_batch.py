@@ -17,7 +17,6 @@ from agent_world.drama_demo.features.f07_agent_control.pick_active import (
 def session_view_from_turn_context(turn_context: Dict[str, Any]) -> Any:
     stats = turn_context.get("stats") or {}
     return SimpleNamespace(
-        phase=str(turn_context.get("phase", "")),
         player_turn=int(turn_context.get("player_turn", 1)),
         place_id=str(turn_context.get("place_id", "")),
         stats=dict(stats),

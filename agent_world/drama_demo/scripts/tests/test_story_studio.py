@@ -1,48 +1,147 @@
 #!/usr/bin/env python3
-"""story_studio G1 单测（dev_logs/45 §6 G1 验收）。
+"""story_studio 离线门禁单测——覆盖 **bert（条件→反应）生成流水线**。
 
-覆盖：brief/designer schema 校验、安全红线(拒 sim/)、import 图红线(不引 kernel/seed/world_db/http)、
-落盘+validate 骨架(由 DesignerOutput 落出 story_graph 骨架)、base_agent 生成→校验→重试。
-纯离线：LLM 客户端用 fake，不连网络/key；写盘只用临时目录。
+新流水线（generate_full）：
+  ① Casting(client).run(brief) —— brief → 世界原语（agents/places/relations/...）
+  ② BertDesigner(client).run(brief, casting) —— brief + cast → {"berts":[...]}（条件→反应规则集，含结局 bert）
+  ③ assemble_full_sections → sections（meta/places/agents/relations/relation_types/groups/**berts**；无 story_graph、无 signals）
+  ④ compile_pack 落盘 + pack.validate()（含 bert 的 B 系列校验 + 跨文件引用闭合）
+  ⑤ critic_rounds>0 时再过 Critic(client).review(brief, casting, bert_design)
+
+退役了 Designer / Writer / story_graph，剧情结构改由 bert 承载。本测试不再 import 任何已删符号。
+纯离线：LLM 客户端用 fake（按 system prompt 关键词路由），不连网络/key；写盘只用临时目录。
 """
 
 from __future__ import annotations
 
+import json
 import shutil
 import sys
 import tempfile
 from pathlib import Path
 
+from agent_world.drama_demo.shared.story_pack.bert import BertSet
 from agent_world.drama_demo.tools.story_studio import (
-    DESIGNER_OUTPUT_SCHEMA,
+    BERT_OUTPUT_SCHEMA,
+    BertDesigner,
+    BudgetExceededError,
+    Casting,
+    Critic,
+    GenerationTrace,
     StoryStudioError,
     StoryStudioSafetyError,
+    assemble_full_sections,
+    assemble_sections,
     assert_safe_target,
+    brief_to_meta,
     call_json_with_schema,
     compile_pack,
-    designer_output_to_story_graph,
+    generate_full,
+    render_review,
     validate_against,
     validate_brief,
 )
+from agent_world.drama_demo.tools.story_studio.orchestrator import _load_pack_from_dir
 
-# 一个最小可用 brief
+# ---- 共享 fixtures（schema 都过，可直接用作 _CASTING / _BERT 基线）----
+
 _GOOD_BRIEF = {
     "premise": "测试世界",
     "player": {"identity": "外来者", "role": "player", "is_outsider": True},
     "characters": [{"name": "甲", "faction": "f1"}],
 }
 
-# 一个最小可用 DesignerOutput（两节点一结局，DAG 合法）
-_GOOD_DESIGNER = {
-    "initial_node": "n1",
-    "nodes": [{"id": "n1", "beats_label": "第一幕"}, {"id": "n2", "beats_label": "第二幕"}],
-    "endings": [{"id": "win", "kind": "good"}],
-    "edges": [
-        {"id": "e1", "from": "n1", "to": "n2"},
-        {"id": "e2", "from": "n2", "to": "win"},
+_CASTING = {
+    "agents": [
+        {"agent_id": 0, "name": "调查员", "location": "hall", "capabilities": [],
+         "soul": "", "speech_style": "", "inner": "", "long_term_goal": "", "current_state": ""},
+        {"agent_id": 1, "name": "守门人", "location": "hall", "capabilities": ["signal_uplink"],
+         "soul": "严谨刻板的老门房，把守门看得比命重，认死理不通融",
+         "speech_style": "话少、爱用命令句、对生人板着脸",
+         "speech_samples": ["站住，这个点儿不许进。", "规矩就是规矩，别跟我废话。"],
+         "inner": "你收过一笔贿赂答应今夜放某人进来，正提心吊胆怕被撞破",
+         "long_term_goal": "守好门别出事，别让收贿的事败露",
+         "current_state": "在大厅值夜班，心神不宁"},
     ],
+    "places": [{"place_id": "hall", "capacity": 5, "attrs": {"summary": "昏暗的大厅，只有一盏值夜灯"}}],
+    "coverage": [{"src": "hall", "dst": "hall", "latency_ticks": 0}],
+    "relations": [], "relation_types": [], "groups": [],
 }
 
+_BERT = {
+    "berts": [
+        {"id": "crack", "trigger": "玩家逼问守门人是否收了贿赂并施压", "target": 1,
+         "reaction": "心虚动摇，支吾着承认收过钱", "place": "hall", "arms": ["good_end"]},
+        {"id": "good_end", "trigger": "玩家答应替他保守秘密换他配合", "requires": ["crack"],
+         "ending": {"kind": "good", "summary": "守门人放你进去并供出买通他的人"}},
+        {"id": "bad_end", "trigger": "玩家当众揭发守门人受贿",
+         "ending": {"kind": "bad", "summary": "事情闹大，你被乱棍赶出"}},
+    ]
+}
+
+_CRITIC_DIMS = ("character_depth", "voice_distinct", "subtext_drama", "player_agency", "plot_tension")
+_CRITIC_PASS = {
+    "scores": {k: 4 for k in _CRITIC_DIMS},
+    "casting_feedback": "", "bert_feedback": "", "summary": "不错",
+}
+
+
+def _routing_fake(casting=None, bert=None, critic=None):
+    """按 system prompt 关键词把 LLM 调用路由到对应 agent 的固定输出。
+
+    关键：必须**先判 Critic**（唯一标记『叙事总监』），因为 Critic 的 system 也含子串 'bert'
+    （『某条 bert 反应』），若先判 bert 会把评审误路由成 bert。其余各 agent 标记互斥：
+    『反应设计师』唯 BertDesigner 有，『选角/世界搭建』唯 Casting 有。附加产物生成器（onboarding 等）
+    不含任何标记 → 落到 fallback 返回 '{}'（orchestrator 对其 try/except 容错，不影响主流程）。
+    """
+    c = casting if casting is not None else _CASTING
+    b = bert if bert is not None else _BERT
+    cr = critic if critic is not None else _CRITIC_PASS
+
+    def fake(system: str, user: str) -> str:
+        if "叙事总监" in system:  # Critic 的唯一专属标记（其它 agent 的 system 都没有）
+            if cr is None:
+                raise AssertionError("本测试不应调用 Critic")
+            return json.dumps(cr)
+        if "反应设计师" in system or "bert" in system.lower():
+            return json.dumps(b)
+        if "选角" in system or "世界搭建" in system:
+            return json.dumps(c)
+        return "{}"  # 附加产物生成器：返回空 dict，orchestrator 容错跳过
+
+    return fake
+
+
+# ---- 保留：base_agent 生成→校验→重试 ----
+
+def test_base_agent_generate_validate_retry() -> None:
+    # fake client：第一次返回非法(空 berts)，第二次返回合法 → 重试后成功
+    calls = {"n": 0}
+
+    def flaky_client(system: str, user: str) -> str:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return json.dumps({"berts": []})  # minItems=1，schema 不过
+        return json.dumps(_BERT)
+
+    out = call_json_with_schema(
+        flaky_client, system="sys", user="设计 bert", schema=BERT_OUTPUT_SCHEMA, label="bert_designer"
+    )
+    assert {b["id"] for b in out["berts"]} == {"crack", "good_end", "bad_end"} and calls["n"] == 2
+
+    # 始终非法 → 重试耗尽抛错
+    def bad_client(system: str, user: str) -> str:
+        return "not json at all"
+
+    try:
+        call_json_with_schema(bad_client, system="s", user="u", schema=BERT_OUTPUT_SCHEMA)
+    except StoryStudioError:
+        pass
+    else:
+        raise AssertionError("始终非法应抛 StoryStudioError")
+
+
+# ---- 保留：brief schema ----
 
 def test_brief_schema_accepts_and_rejects() -> None:
     assert validate_brief(_GOOD_BRIEF) == []
@@ -53,11 +152,7 @@ def test_brief_schema_accepts_and_rejects() -> None:
     assert validate_brief(bad2), "缺 role 应报错"
 
 
-def test_designer_schema_accepts_and_rejects() -> None:
-    assert validate_against(_GOOD_DESIGNER, DESIGNER_OUTPUT_SCHEMA) == []
-    bad = {"initial_node": "n1", "nodes": [], "endings": [], "edges": []}
-    assert validate_against(bad, DESIGNER_OUTPUT_SCHEMA), "空 nodes/edges 应报错"
-
+# ---- 保留：安全红线（拒 sim/ + 源码目录）----
 
 def test_safety_rejects_sim_and_source() -> None:
     drama_root = Path(__file__).resolve().parents[2]  # .../drama_demo
@@ -76,308 +171,152 @@ def test_safety_rejects_sim_and_source() -> None:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def test_compile_writes_valid_skeleton() -> None:
+# ---- 改写：用 bert sections 编 pack（compile_pack + 新 assemble_sections）----
+
+def test_compile_writes_valid_bert_pack() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
-        sections = {
-            "meta": {"schema_version": 1, "simulation_id": "studio_selftest", "player": {"agent_id": 0}},
-            "story_graph": designer_output_to_story_graph(_GOOD_DESIGNER),
-        }
+        meta = brief_to_meta(_GOOD_BRIEF, "studio_selftest")
+        sections = assemble_sections(meta, _CASTING, _BERT)
         result = compile_pack(sections, story_id="studio_selftest", target_dir=tmp)
-        assert result.ok, f"骨架应过 validate，却报：{result.issues}"
-        assert (tmp / "story_graph.yaml").is_file()
+        assert result.ok, f"bert 包应过 validate，却报：{result.issues}"
+        # berts.yaml 落了盘；不产 story_graph.yaml / signals.yaml（剧情由 bert 驱动）
+        assert (tmp / "berts.yaml").is_file()
         assert (tmp / "meta.yaml").is_file()
+        assert (tmp / "agents.yaml").is_file()
+        assert not (tmp / "story_graph.yaml").exists(), "新流水线不应产 story_graph.yaml"
+        assert not (tmp / "signals.yaml").exists(), "新流水线不应产 signals.yaml"
+        # 就地加载复核：validate 干净，berts 有内容
+        pack = _load_pack_from_dir("studio_selftest", tmp)
+        assert pack.validate() == []
+        assert set(pack.berts.berts) == {"crack", "good_end", "bad_end"}
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def test_compile_rejects_bad_graph() -> None:
+def test_compile_rejects_bert_target_missing_agent() -> None:
+    """bert target 指向不存在的 agent → validate 应报 [B2]。"""
     tmp = Path(tempfile.mkdtemp())
     try:
-        # 不可达结局 → validate 应报 [V6]
-        bad_designer = {
-            "initial_node": "n1",
-            "nodes": [{"id": "n1"}],
-            "endings": [{"id": "win", "kind": "good"}, {"id": "lost", "kind": "bad"}],
-            "edges": [{"id": "e1", "from": "n1", "to": "win"}],
+        bad_bert = {
+            "berts": [
+                {"id": "x", "trigger": "玩家逼问他", "target": 99, "reaction": "他承认"},  # 99 不在 cast
+                {"id": "e", "trigger": "收场", "ending": {"kind": "good", "summary": "结束"}},
+            ]
         }
-        sections = {"story_graph": designer_output_to_story_graph(bad_designer)}
-        result = compile_pack(sections, story_id="studio_bad", target_dir=tmp)
-        assert not result.ok and any(it.startswith("[V6]") for it in result.issues), result.issues
+        meta = brief_to_meta(_GOOD_BRIEF, "studio_bad_target")
+        sections = assemble_sections(meta, _CASTING, bad_bert)
+        result = compile_pack(sections, story_id="studio_bad_target", target_dir=tmp)
+        assert not result.ok and any(it.startswith("[B2]") for it in result.issues), result.issues
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def test_base_agent_generate_validate_retry() -> None:
-    import json
-
-    # fake client：第一次返回非法(空 nodes)，第二次返回合法 → 重试后成功
-    calls = {"n": 0}
-
-    def flaky_client(system: str, user: str) -> str:
-        calls["n"] += 1
-        if calls["n"] == 1:
-            return json.dumps({"initial_node": "n1", "nodes": [], "endings": [], "edges": []})
-        return json.dumps(_GOOD_DESIGNER)
-
-    out = call_json_with_schema(
-        flaky_client, system="sys", user="生成故事图", schema=DESIGNER_OUTPUT_SCHEMA, label="designer"
-    )
-    assert out["initial_node"] == "n1" and calls["n"] == 2
-
-    # 始终非法 → 重试耗尽抛错
-    def bad_client(system: str, user: str) -> str:
-        return "not json at all"
-
-    try:
-        call_json_with_schema(bad_client, system="s", user="u", schema=DESIGNER_OUTPUT_SCHEMA)
-    except StoryStudioError:
-        pass
-    else:
-        raise AssertionError("始终非法应抛 StoryStudioError")
-
-
-def test_designer_agent_with_fake_client() -> None:
-    import json
-
-    from agent_world.drama_demo.tools.story_studio import Designer
-
-    def fake(system: str, user: str) -> str:
-        return json.dumps(_GOOD_DESIGNER)
-
-    out = Designer(fake).run(_GOOD_BRIEF)
-    assert out["initial_node"] == "n1"
-    assert {n["id"] for n in out["nodes"]} == {"n1", "n2"}
-
-
-def test_generate_pipeline_happy_path() -> None:
-    import json
-    import tempfile
-
-    from agent_world.drama_demo.tools.story_studio import generate
-
-    def fake(system: str, user: str) -> str:
-        return json.dumps(_GOOD_DESIGNER)
-
+def test_compile_rejects_bert_without_ending() -> None:
+    """缺结局 bert → validate 应报 [B7]。"""
     tmp = Path(tempfile.mkdtemp())
     try:
-        result = generate(_GOOD_BRIEF, story_id="studio_gen", client=fake, target_dir=tmp)
-        assert result.ok, result.issues
-        assert (tmp / "story_graph.yaml").is_file() and (tmp / "meta.yaml").is_file()
+        no_ending = {"berts": [{"id": "x", "trigger": "玩家逼问他", "target": 1, "reaction": "他承认"}]}
+        meta = brief_to_meta(_GOOD_BRIEF, "studio_no_ending")
+        sections = assemble_sections(meta, _CASTING, no_ending)
+        result = compile_pack(sections, story_id="studio_no_ending", target_dir=tmp)
+        assert not result.ok and any(it.startswith("[B7]") for it in result.issues), result.issues
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def test_generate_regenerate_loop_converges() -> None:
-    """Designer 第一版产环图(validate V4 失败)→回灌反馈→第二版合法 → 回路收敛。"""
-    import json
-    import tempfile
+# ---- 新增：bert 数据模型 / 设计师直测 ----
 
-    from agent_world.drama_demo.tools.story_studio import generate
+def test_bertset_validate_catches_bad_examples() -> None:
+    # target 指向不存在 agent → [B2]
+    bad_target = BertSet.from_mapping({"berts": [
+        {"id": "x", "trigger": "t", "target": 99, "reaction": "r"},
+        {"id": "e", "trigger": "t", "ending": {"kind": "good", "summary": "s"}},
+    ]})
+    assert any(it.startswith("[B2]") for it in bad_target.validate(agent_ids={0, 1}, place_ids={"hall"}))
 
-    cyclic = {
-        "initial_node": "n1",
-        "nodes": [{"id": "n1"}, {"id": "n2"}],
-        "endings": [{"id": "win", "kind": "good"}],
-        "edges": [
-            {"id": "e1", "from": "n1", "to": "n2"},
-            {"id": "e2", "from": "n2", "to": "n1"},  # 环
-            {"id": "e3", "from": "n1", "to": "win"},
-        ],
-    }
-    calls = {"n": 0}
+    # 缺结局 bert → [B7]
+    no_ending = BertSet.from_mapping({"berts": [{"id": "x", "trigger": "t", "target": 1, "reaction": "r"}]})
+    assert any(it.startswith("[B7]") for it in no_ending.validate(agent_ids={0, 1}))
 
+    # 非结局 bert 缺 reaction/target → [B4]/[B5]；引用不存在 bert → [B1]
+    missing = BertSet.from_mapping({"berts": [
+        {"id": "x", "trigger": "t", "requires": ["ghost"]},  # ghost 不存在 + 缺 reaction/target
+        {"id": "e", "trigger": "t", "ending": {"kind": "bad", "summary": "s"}},
+    ]})
+    issues = missing.validate(agent_ids={0, 1})
+    assert any(it.startswith("[B1]") for it in issues), issues
+    assert any(it.startswith("[B4]") for it in issues), issues
+    assert any(it.startswith("[B5]") for it in issues), issues
+
+    # 干净 bert 集 → 无违例
+    good = BertSet.from_mapping(_BERT)
+    assert good.validate(agent_ids={0, 1}, place_ids={"hall"}) == []
+
+
+def test_bert_designer_output_passes_schema() -> None:
+    """BertDesigner(fake).run(brief, casting) 的产物过 BERT_OUTPUT_SCHEMA。"""
     def fake(system: str, user: str) -> str:
-        calls["n"] += 1
-        # 第一次产环图(过 schema 但 validate V4 失败)，之后产合法图
-        return json.dumps(cyclic if calls["n"] == 1 else _GOOD_DESIGNER)
+        assert "反应设计师" in system or "bert" in system.lower(), "BertDesigner 的 system 应含 bert 标记"
+        return json.dumps(_BERT)
 
-    tmp = Path(tempfile.mkdtemp())
-    try:
-        result = generate(_GOOD_BRIEF, story_id="studio_loop", client=fake, target_dir=tmp, max_rounds=3)
-        assert result.ok, result.issues
-        assert calls["n"] == 2, f"应在第 2 轮收敛，实际 {calls['n']} 轮"
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+    out = BertDesigner(fake).run(_GOOD_BRIEF, _CASTING)
+    assert validate_against(out, BERT_OUTPUT_SCHEMA, label="bert_designer") == []
+    assert {b["id"] for b in out["berts"]} == {"crack", "good_end", "bad_end"}
 
 
-def test_generate_raises_after_max_rounds() -> None:
-    import json
-    import tempfile
-
-    from agent_world.drama_demo.tools.story_studio import generate
-
-    bad = {
-        "initial_node": "n1",
-        "nodes": [{"id": "n1"}],
-        "endings": [{"id": "win", "kind": "good"}, {"id": "lost", "kind": "bad"}],
-        "edges": [{"id": "e1", "from": "n1", "to": "win"}],  # lost 永不可达 → V6
-    }
-
-    def always_bad(system: str, user: str) -> str:
-        return json.dumps(bad)
-
-    tmp = Path(tempfile.mkdtemp())
-    try:
-        generate(_GOOD_BRIEF, story_id="studio_fail", client=always_bad, target_dir=tmp, max_rounds=2)
-    except StoryStudioError:
-        pass
-    else:
-        raise AssertionError("始终不可达结局应在轮次耗尽后抛 StoryStudioError")
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-# ---- G3：完整流水线（Designer+Casting+Writer）----
-
-_G3_DESIGNER = {
-    "initial_node": "n1",
-    "nodes": [{"id": "n1", "beats_label": "序", "summary": "开场"},
-              {"id": "n2", "beats_label": "终", "summary": "结尾"}],
-    "endings": [{"id": "win", "kind": "good", "summary": "赢"},
-                {"id": "lose", "kind": "bad", "summary": "输"}],
-    "edges": [{"id": "adv", "from": "n1", "to": "n2"},
-              {"id": "fin", "from": "n2", "to": "win"},
-              {"id": "fail", "from": "n1", "to": "lose"}],
-}
-_G3_CASTING = {
-    "agents": [
-        {"agent_id": 0, "name": "玩家", "location": "hall", "capabilities": [],
-         "soul": "", "long_term_goal": "", "current_state": ""},
-        {"agent_id": 1, "name": "守门人", "location": "hall", "capabilities": ["signal_uplink"],
-         "soul": "严谨刻板的老门房，把守门看得比命重，认死理不通融",
-         "speech_style": "话少、爱用命令句、对生人板着脸",
-         "inner": "你收过一笔贿赂答应今夜放某人进来，正提心吊胆怕被撞破",
-         "long_term_goal": "守好门别出事", "current_state": "在大厅值夜班"},
-    ],
-    "places": [{"place_id": "hall", "capacity": 5, "attrs": {"summary": "大厅"}}],
-    "coverage": [{"src": "hall", "dst": "hall", "latency_ticks": 0}],
-    "relations": [], "relation_types": [], "groups": [],
-}
-_G3_WRITER = {
-    "nodes": [{"id": "n1", "inject_agents": [1], "place_focus": "hall", "window_since": "start_tick",
-               "scene_brief": "深夜大厅，守门人独自值夜，你走近询问入内之事，他神色紧张地拦住你。",
-               "directions": {"1": "你是守门人，板着脸拦住玩家盘问来意；心里揣着收过的贿赂提心吊胆，嘴上越发严厉以掩饰心虚。"}},
-              {"id": "n2", "inject_agents": [1], "place_focus": "hall", "window_since": "start_tick",
-               "scene_brief": "事情有了转机，守门人态度松动，你能感到他在权衡是否放行。",
-               "directions": {"1": "你是守门人，态度动摇，旁敲侧击试探玩家是不是知道内情；既想脱身又怕事发。"}}],
-    "edges": [{"id": "adv", "legacy_label": "A", "trigger": {"type": "story_advance", "signal": "go_on"}, "actions": [],
-               "condition": "玩家说服或施压守门人，让他松口愿意继续谈。"},
-              {"id": "fin", "trigger": {"type": "story_advance", "signal": "finish"}, "actions": [],
-               "condition": "玩家抓住守门人的破绽，逼他彻底放行。"},
-              {"id": "fail", "trigger": {"type": "story_advance", "signal": "reject"}, "actions": [],
-               "condition": "玩家激怒守门人或暴露意图，被他赶走。"}],
-    "signals": {"story_advance": {"enabled": True, "valid_signals": ["go_on", "finish", "reject"]},
-                "keyword_sets": {}, "params": {}},
-}
-
-
-def _routing_fake(designer=None, casting=None, writer=None):
-    """按 system prompt 路由到对应 agent 的固定输出。"""
-    import json
-
-    d = designer if designer is not None else _G3_DESIGNER
-    c = casting if casting is not None else _G3_CASTING
-    w = writer if writer is not None else _G3_WRITER
-
+def test_casting_run_takes_only_brief() -> None:
+    """Casting.run 现在只收 brief（不再有 designer 参数）。"""
     def fake(system: str, user: str) -> str:
-        if "设计师" in system:
-            return json.dumps(d)
-        if "选角" in system:
-            return json.dumps(c)
-        if "编剧" in system:
-            return json.dumps(w)
-        raise AssertionError("未知 agent system prompt")
+        assert "选角" in system or "世界搭建" in system
+        return json.dumps(_CASTING)
 
-    return fake
+    out = Casting(fake).run(_GOOD_BRIEF)
+    assert {a["agent_id"] for a in out["agents"]} == {0, 1}
 
 
-def test_generate_full_produces_valid_complete_pack() -> None:
-    import tempfile
+# ---- 改写：完整流水线 generate_full ----
 
-    from agent_world.drama_demo.shared.story_pack import load_story_pack
-    from agent_world.drama_demo.tools.story_studio import generate_full
-
+def test_generate_full_produces_valid_bert_pack() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
         result = generate_full(_GOOD_BRIEF, story_id="studio_full", client=_routing_fake(),
                                target_dir=tmp, max_rounds=2, critic_rounds=0)
-        assert result.ok, f"完整包应过 V+X 校验：{result.issues}"
-        # 全部世界原语文件都落了盘
-        for f in ("meta", "story_graph", "places", "agents", "relations", "relation_types", "groups", "signals"):
+        assert result.ok, f"完整包应过 V+X+B 校验：{result.issues}"
+        # 世界原语 + berts 都落了盘；**不含** story_graph.yaml / signals.yaml
+        for f in ("meta", "places", "agents", "relations", "relation_types", "groups", "berts"):
             assert (tmp / f"{f}.yaml").is_file(), f"缺 {f}.yaml"
-        # 从该目录就地加载并复核 V+X 干净，且枚举路径命中两个结局
-        from agent_world.drama_demo.tools.story_studio.orchestrator import _load_pack_from_dir
+        assert not (tmp / "story_graph.yaml").exists(), "新流水线不应产 story_graph.yaml"
+        assert not (tmp / "signals.yaml").exists(), "新流水线不应产 signals.yaml"
+        # 就地加载复核：berts 有内容、validate 干净、含一好一坏两个结局
         pack = _load_pack_from_dir("studio_full", tmp)
+        assert pack.berts.berts, "pack.berts.berts 应有内容"
         assert pack.validate() == []
-        reached = {p[-1] for p in pack.graph.enumerate_all_paths() if p[-1] in pack.graph.endings}
-        assert reached == {"win", "lose"}, reached
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-def test_generate_full_regenerates_on_xref_break() -> None:
-    """Writer 第一版 inject 一个不存在的 agent(X1 失败)→回灌→第二版修好 → 回路收敛。"""
-    import tempfile
-
-    from agent_world.drama_demo.tools.story_studio import generate_full
-
-    broken_writer = {
-        "nodes": [{"id": "n1", "inject_agents": [99], "place_focus": "hall", "window_since": "start_tick"},
-                  {"id": "n2", "inject_agents": [1], "place_focus": "hall", "window_since": "start_tick"}],
-        "edges": _G3_WRITER["edges"],
-        "signals": _G3_WRITER["signals"],
-    }
-    calls = {"writer": 0}
-    import json
-
-    def fake(system: str, user: str) -> str:
-        if "设计师" in system:
-            return json.dumps(_G3_DESIGNER)
-        if "选角" in system:
-            return json.dumps(_G3_CASTING)
-        if "编剧" in system:
-            calls["writer"] += 1
-            return json.dumps(broken_writer if calls["writer"] == 1 else _G3_WRITER)
-        raise AssertionError("未知 agent")
-
-    tmp = Path(tempfile.mkdtemp())
-    try:
-        result = generate_full(_GOOD_BRIEF, story_id="studio_xref", client=fake, target_dir=tmp,
-                               max_rounds=3, critic_rounds=0)
-        assert result.ok, result.issues
-        assert calls["writer"] == 2, f"应在第 2 轮收敛，实际 {calls['writer']}"
+        endings = {bid: b.ending["kind"] for bid, b in pack.berts.berts.items() if b.is_ending}
+        assert set(endings.values()) == {"good", "bad"}, endings
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_generate_full_critic_revise_loop() -> None:
-    """Critic 第一次低分 + casting_feedback → 触发 Casting/Writer 定向重写；第二次达标 → 停。"""
-    import json
-    import tempfile
-
-    from agent_world.drama_demo.tools.story_studio import generate_full
-
-    calls = {"casting": 0, "writer": 0, "critic": 0}
-    dims = ("character_depth", "voice_distinct", "subtext_drama", "player_agency", "plot_tension")
+    """Critic 第一次低分 + casting_feedback → 触发 Casting/BertDesigner 定向重写；第二次达标 → 停。"""
+    calls = {"casting": 0, "bert": 0, "critic": 0}
 
     def fake(system: str, user: str) -> str:
-        if "设计师" in system:
-            return json.dumps(_G3_DESIGNER)
-        if "选角" in system:
-            calls["casting"] += 1
-            return json.dumps(_G3_CASTING)
-        if "编剧" in system:
-            calls["writer"] += 1
-            return json.dumps(_G3_WRITER)
-        if "评审" in system or "叙事总监" in system:
+        if "叙事总监" in system:
             calls["critic"] += 1
             if calls["critic"] == 1:  # 低分 → 触发重写
-                return json.dumps({"scores": {**{k: 4 for k in dims}, "character_depth": 2},
-                                   "casting_feedback": "把守门人的 inner 写得更具体", "writer_feedback": ""})
-            return json.dumps({"scores": {k: 4 for k in dims},
-                               "casting_feedback": "", "writer_feedback": ""})  # 达标 → 停
-        raise AssertionError("未知 agent system prompt")
+                return json.dumps({"scores": {**{k: 4 for k in _CRITIC_DIMS}, "character_depth": 2},
+                                   "casting_feedback": "把守门人的 inner 写得更具体",
+                                   "bert_feedback": "", "summary": "需改"})
+            return json.dumps(_CRITIC_PASS)  # 达标 → 停
+        if "反应设计师" in system or "bert" in system.lower():
+            calls["bert"] += 1
+            return json.dumps(_BERT)
+        if "选角" in system or "世界搭建" in system:
+            calls["casting"] += 1
+            return json.dumps(_CASTING)
+        return "{}"  # 附加产物生成器（critic_rounds>0 才跑）—— 返回空 dict，orchestrator 容错
 
     tmp = Path(tempfile.mkdtemp())
     try:
@@ -385,165 +324,91 @@ def test_generate_full_critic_revise_loop() -> None:
                                target_dir=tmp, critic_rounds=2)
         assert result.ok, result.issues
         assert calls["critic"] == 2, f"应评审两次（低分→重写→达标），实际 {calls['critic']}"
+        # 低分回灌应触发 Casting + BertDesigner 各重写一次（结构轮 1 次 + 评审轮 1 次 = 2 次）
         assert calls["casting"] == 2, f"低分应触发 Casting 重写一次（共 2 次），实际 {calls['casting']}"
+        assert calls["bert"] == 2, f"低分应触发 BertDesigner 重写一次（共 2 次），实际 {calls['bert']}"
+        # bert_feedback 回灌也能跑通：最终包仍合法
+        pack = _load_pack_from_dir("studio_critic", tmp)
+        assert pack.validate() == []
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-# ---- G4：人在环 review + 局部重生成 ----
+def test_generate_full_raises_after_max_rounds() -> None:
+    """BertDesigner 始终产「缺结局」的非法集 → 结构回路耗尽后抛 StoryStudioError。"""
+    bad_bert = {"berts": [{"id": "x", "trigger": "玩家逼问", "target": 1, "reaction": "他承认"}]}  # 无结局 → [B7]
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        generate_full(_GOOD_BRIEF, story_id="studio_fail",
+                      client=_routing_fake(bert=bad_bert),
+                      target_dir=tmp, max_rounds=2, critic_rounds=0)
+    except StoryStudioError:
+        pass
+    else:
+        raise AssertionError("始终缺结局应在轮次耗尽后抛 StoryStudioError")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ---- 保留：人在环 review 渲染 ----
 
 def _fake_pack(tmp: Path, story_id: str = "studio_synth"):
-    """离线用 fake 客户端生成一个完整合法 Story Pack 到 tmp 并加载——替代对具体故事(canglan)的依赖。
-    生成优先：测试不绑定任何已落盘故事，纯靠管理 agent 流水线现造一个包来验。"""
-    from agent_world.drama_demo.tools.story_studio import generate_full
-    from agent_world.drama_demo.tools.story_studio.orchestrator import _load_pack_from_dir
-
+    """离线用 fake 客户端生成一个完整合法 bert Story Pack 到 tmp 并加载。
+    不绑定任何已落盘故事，纯靠管理 agent 流水线现造一个包来验。"""
     generate_full(_GOOD_BRIEF, story_id=story_id, client=_routing_fake(), target_dir=tmp,
                   max_rounds=2, critic_rounds=0)
     return _load_pack_from_dir(story_id, tmp)
 
 
 def test_review_renders_pack() -> None:
-    from agent_world.drama_demo.tools.story_studio import render_review
-
     tmp = Path(tempfile.mkdtemp())
     try:
         pack = _fake_pack(tmp, "studio_review")
         text = render_review(pack)
         assert "Story Pack 审阅：studio_review" in text
-        assert pack.graph.initial_node in text  # 初始节点渲染出
-        assert any(eid in text for eid in pack.graph.endings)  # 至少一个结局渲染出
         assert "✓ 校验通过" in text  # 合法包应渲染为校验通过
+        # bert 驱动包无 story_graph，故走空图分支（initial_node='' / 无图结局）—— 这是预期
+        assert pack.graph.initial_node == "" and not pack.graph.endings
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def test_regenerate_writer_keeps_cast_and_graph() -> None:
-    """局部重生成 writer 层：先用完整流水线产一个包，再只重生 writer，cast/图不变且仍过校验。"""
-    import json
-    import tempfile
-
-    from agent_world.drama_demo.tools.story_studio import generate_full, regenerate_writer
-    from agent_world.drama_demo.tools.story_studio.orchestrator import _load_pack_from_dir
-
-    tmp = Path(tempfile.mkdtemp())
-    try:
-        # 先产完整包
-        gen_result = generate_full(_GOOD_BRIEF, story_id="studio_regen", client=_routing_fake(),
-                                   target_dir=tmp, critic_rounds=0)
-        assert gen_result.ok, gen_result.issues
-        before = _load_pack_from_dir("studio_regen", tmp)
-        cast_before = sorted(a["agent_id"] for a in before.agents["agents"])
-
-        # 只重生 writer 层（换一套 signals 名，但仍闭合）—— 用只产 writer 的 fake
-        alt_writer = {
-            "nodes": _G3_WRITER["nodes"],
-            "edges": [
-                {"id": "adv", "trigger": {"type": "story_advance", "signal": "proceed"}, "actions": []},
-                {"id": "fin", "trigger": {"type": "story_advance", "signal": "done"}, "actions": []},
-                {"id": "fail", "trigger": {"type": "story_advance", "signal": "kicked"}, "actions": []},
-            ],
-            "signals": {"story_advance": {"enabled": True, "valid_signals": ["proceed", "done", "kicked"]},
-                        "keyword_sets": {}, "params": {}},
-        }
-
-        def writer_only_fake(system: str, user: str) -> str:
-            assert "编剧" in system, "局部重生成只应调用 Writer"
-            return json.dumps(alt_writer)
-
-        regen = regenerate_writer("studio_regen", client=writer_only_fake, target_dir=tmp)
-        assert regen.ok, regen.issues
-        after = _load_pack_from_dir("studio_regen", tmp)
-        # cast 与图骨架不变
-        assert sorted(a["agent_id"] for a in after.agents["agents"]) == cast_before
-        assert set(after.graph.nodes) == set(before.graph.nodes)
-        # writer 层确实变了（新 signal 名进了 signals）
-        assert "proceed" in after.story_advance_signals()
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-# ---- G6：成本护栏 + 生成 trace ----
+# ---- 改写：成本护栏 + 生成 trace（调用数 = Casting + BertDesigner = 2/轮，无 Designer/Writer）----
 
 def test_metering_cost_guard_stops() -> None:
-    import tempfile
-
-    from agent_world.drama_demo.tools.story_studio import BudgetExceededError, generate_full
-
     tmp = Path(tempfile.mkdtemp())
     try:
-        # 完整流水线一轮需 3 次 LLM 调用；护栏设 2 → 超限即停
+        # 一轮结构回路需 2 次 LLM 调用（Casting + BertDesigner）；护栏设 1 → 超限即停
         try:
             generate_full(_GOOD_BRIEF, story_id="studio_budget", client=_routing_fake(),
-                         target_dir=tmp, max_llm_calls=2, critic_rounds=0)
+                          target_dir=tmp, max_llm_calls=1, critic_rounds=0)
         except BudgetExceededError:
             pass
         else:
-            raise AssertionError("max_llm_calls=2 应触发 BudgetExceededError")
+            raise AssertionError("max_llm_calls=1 应触发 BudgetExceededError")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_metering_trace_records_calls() -> None:
-    import tempfile
-
-    from agent_world.drama_demo.tools.story_studio import GenerationTrace, generate_full
-
     tmp = Path(tempfile.mkdtemp())
     try:
         trace = GenerationTrace()
         result = generate_full(_GOOD_BRIEF, story_id="studio_trace", client=_routing_fake(),
-                              target_dir=tmp, trace=trace, critic_rounds=0)
+                               target_dir=tmp, trace=trace, critic_rounds=0)
         assert result.ok
-        assert trace.calls == 3, f"应记录 Designer/Casting/Writer 三次调用，实际 {trace.calls}"
+        assert trace.calls == 2, f"应记录 Casting/BertDesigner 两次调用，实际 {trace.calls}"
         assert trace.total_output_chars > 0
-        assert "LLM 调用 3 次" in trace.summary()
+        assert "LLM 调用 2 次" in trace.summary()
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-# ---- G5：素材清单 txt ----
-
-def test_asset_manifest_lists_all_images() -> None:
-    from agent_world.drama_demo.tools.story_studio import render_asset_manifest
-    from agent_world.drama_demo.tools.story_studio.asset_manifest import asset_specs
-
-    tmp = Path(tempfile.mkdtemp())
-    try:
-        pack = _fake_pack(tmp, "studio_assets")
-        text = render_asset_manifest(pack)
-        specs = asset_specs(pack)  # 真相来源：封面 + 每地点背景 + 每 NPC（基础立绘 + 各情绪变体）
-        n_places = len(pack.places.get("places") or [])
-        n_portraits = sum(1 for s in specs if s.kind == "portrait")
-        assert "封面图" in text
-        assert text.count("场景背景：") == n_places
-        # 立绘 = 玩家立绘(玩家立绘：) + 各 NPC 基础+情绪变体(角色立绘：)
-        assert text.count("角色立绘：") + text.count("玩家立绘：") == n_portraits
-        assert f"共需 {len(specs)} 张图片" in text
-        # 提示词含统一画风要求
-        assert "统一画风要求" in text
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-def test_asset_manifest_write_to_tmp_and_safety() -> None:
-    from agent_world.drama_demo.tools.story_studio import write_asset_manifest
-    from agent_world.drama_demo.tools.story_studio.asset_manifest import MANIFEST_FILENAME
-
-    gen = Path(tempfile.mkdtemp())
-    tmp = Path(tempfile.mkdtemp())
-    try:
-        pack = _fake_pack(gen, "studio_assets2")
-        path = write_asset_manifest(pack, target_dir=tmp)
-        assert path.name == MANIFEST_FILENAME and path.is_file()
-        assert "图片素材清单" in path.read_text(encoding="utf-8")
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-        shutil.rmtree(gen, ignore_errors=True)
-
+# ---- 保留：import 图红线 ----
 
 def test_import_graph_red_line() -> None:
-    """story_studio 源码不得引用 kernel/seed/world_db/http（dev_logs/45 §1.2 机制级红线）。"""
+    """story_studio 源码不得引用 kernel/seed/world_db/http（机制级红线）。"""
     studio_dir = Path(__file__).resolve().parents[2] / "tools" / "story_studio"
     forbidden = ("core.runner.kernel", "core.runner.seed", "persistence.world_db",
                  "drama_demo.http", "build_kernel", "seed_world", "WorldDB")
@@ -569,7 +434,7 @@ def main() -> int:
         except Exception as exc:  # noqa: BLE001
             failed += 1
             print(f"  FAIL  {fn.__name__}: {exc}")
-    print(f"\nstory_studio G1 单测：{len(tests) - failed}/{len(tests)} 通过")
+    print(f"\nstory_studio bert 流水线单测：{len(tests) - failed}/{len(tests)} 通过")
     return 1 if failed else 0
 
 

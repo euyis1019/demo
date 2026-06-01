@@ -32,8 +32,6 @@ export interface StoryModeStageProps {
   places?: string[];
   /** 移动/发送禁用（非游玩中/加载时）。 */
   placesDisabled?: boolean;
-  /** 当前任务标题（手机面板显示）。 */
-  phase?: string;
   /** 在场 NPC 名字（手机面板显示）。 */
   presentAgents?: string[];
   /** 世界 tick / 玩家回合（手机面板显示）。 */
@@ -43,8 +41,6 @@ export interface StoryModeStageProps {
   stats?: Stats;
   /** 属性维度定义（数据驱动：来自活跃 Story Pack 的 meta.stats）。 */
   statsDimensions?: StatDimension[];
-  /** 故事张力 0–100（drama-manager 导演驱动，HUD 显示张力弧）。 */
-  tension?: number;
   pendingWorldEvent: WorldEvent | null;
   lastError?: string;
   inputSlot: ReactNode;
@@ -68,13 +64,11 @@ export function StoryModeStage({
   playerInbox,
   places,
   placesDisabled,
-  phase,
   presentAgents,
   worldTick,
   playerTurn,
   stats,
   statsDimensions,
-  tension,
   pendingWorldEvent,
   lastError,
   inputSlot,
@@ -116,7 +110,7 @@ export function StoryModeStage({
       />
 
       {stats ? (
-        <StoryStatsHud stats={stats} dimensions={statsDimensions} tension={tension} />
+        <StoryStatsHud stats={stats} dimensions={statsDimensions} />
       ) : null}
 
       {places && places.length ? (
@@ -125,14 +119,12 @@ export function StoryModeStage({
 
       {/* #4：上帝模式手机——集中看任务/在场/进度/数值 */}
       <StoryPhonePanel
-        phase={phase}
         placeLabel={placeDisplayName(placeId)}
         presentAgents={presentAgents}
         worldTick={worldTick}
         playerTurn={playerTurn}
         stats={stats}
         dimensions={statsDimensions}
-        tension={tension}
       />
 
       {/* #5：当前地点在场 NPC 立绘名册——点头像可快速私信 */}

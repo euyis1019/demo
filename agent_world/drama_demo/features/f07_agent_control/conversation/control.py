@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from agent_world.drama_demo.features.f07_agent_control.config import load_turn_control
 from agent_world.drama_demo.features.f07_agent_control.conversation.queries import (
     _has_rdc_reply_from,
     _unread_rdc_sender_ids,
@@ -72,21 +71,6 @@ def has_unread_inbound(
         if int(sender_id) != int(agent_id) and int(at_tick) > last_seen:
             return True
     return False
-
-
-def _phase_cfg(phase: str) -> Dict[str, Any]:
-    phases = load_turn_control().get("phases") or {}
-    return dict(phases.get(phase) or {})
-
-
-def inject_response_ticks(phase: str) -> int:
-    cfg = _phase_cfg(phase)
-    return max(0, int(cfg.get("inject_response_ticks", 4)))
-
-
-def primary_notify_ticks(phase: str) -> int:
-    cfg = _phase_cfg(phase)
-    return max(0, int(cfg.get("primary_notify_ticks", 3)))
 
 
 def _action_name(action_type: Any) -> str:
@@ -186,8 +170,6 @@ def build_conversation_hints(
 __all__ = [
     "build_conversation_hints",
     "has_unread_inbound",
-    "inject_response_ticks",
     "mark_communication_action",
-    "primary_notify_ticks",
     "resolve_world_db",
 ]

@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from agent_world.drama_demo.features.f01_session.constants import (
-    DEFAULT_PHASE,
     DEFAULT_PLACE_ID,
     DEFAULT_SIM_ID,
     SESSION_KEY,
@@ -21,15 +20,13 @@ def create_session(sim_dir: Path | None = None) -> DramaSession:
     sim = sim_dir or get_sim_dir()
     env = read_env_status(sim) or {}
     start_tick = int(env.get("current_tick", 0))
-    # 节点驱动：从活跃 Story Pack 取初始节点/地点（替代写死的 HBM Phase 1 / nvidia_reception）。
+    # 剧情改由 bert（条件→反应）驱动，已无「初始节点/幕」：只从活跃 Story Pack 取玩家起始地点与初始属性。
     from agent_world.drama_demo.shared import story_config
 
     try:
-        init_node = story_config.initial_node_id()
         place_id = story_config.player_start_place()
-        phase = story_config.node_beats_label(init_node) or DEFAULT_PHASE
     except Exception:  # noqa: BLE001 — 无 Story Pack 时回退默认
-        init_node, place_id, phase = None, DEFAULT_PLACE_ID, DEFAULT_PHASE
+        place_id = DEFAULT_PLACE_ID
     try:
         stats = story_config.initial_stats()
     except Exception:  # noqa: BLE001 — 无 Story Pack 时空属性
@@ -38,9 +35,6 @@ def create_session(sim_dir: Path | None = None) -> DramaSession:
         task_id=f"task_{uuid.uuid4().hex[:12]}",
         start_tick=start_tick,
         place_id=place_id,
-        phase=phase,
-        current_node_id=init_node,
-        node_entered_tick=start_tick,
         player_turn=1,
         stats=stats,
     )
@@ -113,9 +107,6 @@ def get_session_snapshot(
         "task_id": hbm.task_id,
         "start_tick": hbm.start_tick,
         "place_id": hbm.place_id,
-        "phase": hbm.phase,
-        "current_phase": hbm.phase,
-        "tension": hbm.tension,
         "onboarding": onboarding,
         "stats_dimensions": stats_dimensions,
         "player_turn": hbm.player_turn,

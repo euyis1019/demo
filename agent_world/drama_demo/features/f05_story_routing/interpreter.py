@@ -7,15 +7,17 @@
 from __future__ import annotations
 
 from agent_world.drama_demo.shared.story_pack import StoryPack, load_story_pack
+from agent_world.drama_demo.shared.story_pack.bert import BertSet
 from agent_world.drama_demo.shared.story_pack.graph import StoryGraph
 
 
 class StoryInterpreter:
-    """以一份 Story Pack 驱动剧情决策（图访问 + 缓存载入）。"""
+    """以一份 Story Pack 驱动剧情决策（bert 规则集 + 图访问 + 缓存载入）。"""
 
     def __init__(self, pack: StoryPack) -> None:
         self.pack = pack
         self.graph: StoryGraph = pack.graph
+        self.berts: BertSet = pack.berts  # 「条件→反应」规则集（新剧情驱动；旧任务包为空集）
 
     @classmethod
     def for_story(cls, story_id: str) -> "StoryInterpreter":

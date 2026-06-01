@@ -3,8 +3,8 @@
 真实 LLM 端到端（较慢、要 DMXAPI_KEY），故不并入快门禁 test_m0_acceptance.py，按需单跑：
     python3 scripts/test_create_acceptance.py
 
-校验生成包：onboarding + acting_guide + 数据驱动属性(meta.stats) 齐；
-结构 validate() 通过；beat 详细度 validate_beat_detail() 通过（scene_brief/directions/condition）。
+校验生成包：onboarding + acting_guide + 数据驱动属性(meta.stats) 齐；结构 validate() 通过；
+bert（条件→反应）规则集非空且含结局 bert（剧情运行期主驱动）。
 生成到隔离 story_id、验完即删，不污染 config/stories。
 """
 
@@ -66,19 +66,23 @@ def main() -> int:
         struct = pack.validate()
         if struct:
             fails.append(f"结构 validate 不过：{struct[:3]}")
-        detail = pack.validate_beat_detail()
-        if detail:
-            fails.append(f"beat 详细度不过：{detail[:3]}")
+        # bert（条件→反应）是剧情运行期主驱动：必须生成、引用闭合、且至少有一个结局 bert。
+        berts = pack.berts.berts
+        if not berts:
+            fails.append("缺 berts（剧情无任何「条件→反应」规则）")
+        elif not pack.berts.ending_berts():
+            fails.append("berts 里没有结局 bert（游戏无法收场）")
         if fails:
             print("  ✗ 生成包有缺口：")
             for f in fails:
                 print("     -", f)
             return 1
+        n_end = len(pack.berts.ending_berts())
         print(f"  ✓ 生成完整可玩包 story_id={sid}")
         print(f"     onboarding={bool(meta.get('onboarding'))} acting_guide={bool(meta.get('acting_guide'))}")
         print(f"     属性维度={[d.get('label') for d in dims]}")
-        print(f"     节点 {len(pack.graph.nodes)} · 边 {len(pack.graph.edges)} · 结局 {len(pack.graph.endings)}")
-        print("\n创建流程验收通过 ✅（用户给一段剧情 → 完整可玩游戏）")
+        print(f"     bert 规则 {len(berts)} 条（含 {n_end} 个结局 bert）· 角色 {len(pack.agents.get('agents', []))} 个")
+        print("\n创建流程验收通过 ✅（用户给一段剧情 → 完整可玩 bert 游戏）")
         return 0
     finally:
         if sid:

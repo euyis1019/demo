@@ -1,7 +1,7 @@
-"""Casting 管理 agent（dev_logs/45 §3.2）：brief + 故事图骨架 → 世界原语。
+"""Casting 管理 agent（dev_logs/45 §3.2 / dev_logs/48）：brief → 世界原语。
 
 单一能力：定角色花名册（含玩家 agent 0）、舞台地点、初始关系网/关系类型、群组。
-不写"第几幕做什么"（那是 Writer 的 agent_behaviors）。LLM 注入，离线可测。
+不写剧情脚本（剧情由 bert「条件→反应」承载，那是 Bert 设计师的事）。LLM 注入，离线可测。
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from typing import Any, Dict
 from agent_world.drama_demo.tools.story_studio.authoring_schemas import CASTING_OUTPUT_SCHEMA
 from agent_world.drama_demo.tools.story_studio.base_agent import LLMClient, call_json_with_schema
 
-_SYSTEM = """你是选角 + 世界搭建师。根据故事 brief 与故事图骨架，产出世界原语。
+_SYSTEM = """你是选角 + 世界搭建师。根据故事 brief，产出世界原语。
 这些角色会被一个个 LLM「演员」实时扮演——**人设写得越厚、越具体、越互相咬合，演员演得越到位、越不跑题**。
 只输出 JSON：
 {
@@ -33,11 +33,13 @@ _SYSTEM = """你是选角 + 世界搭建师。根据故事 brief 与故事图骨
 }
 硬性约束：
 - 必须包含玩家 agent_id=0（name 用 brief.player.identity，soul/speech_style/inner/goal/state 留空，capabilities 留空）。
+- **只列活着、在场、能被实时扮演的角色**；已死的受害者 / 缺席 / 仅被人提起的人物**不要**列为 agent
+  （他们的存在可写进别人的 inner/soul/关系里）。每个列出的非玩家 agent 都是要登台演的活人。
 - 每个非玩家 agent 都要写满 soul + speech_style + speech_samples + inner + long_term_goal + current_state + opening_line。
 - inner 用第二人称（"你其实……"），写出反派的真实图谋、卧底身份、暗中勾结、不可告人的私心等——
   这是让演员"知道自己在演谁、为什么这么做"的关键。
 - 每个 agent 的 location 必须在 places 里；relations 的 src/dst 必须是已列 agent；
-  relations.type 必须在 relation_types 里声明。soul/inner 只写人物本身，不要写"第几幕做什么"（那是 Writer 的事）。
+  relations.type 必须在 relation_types 里声明。soul/inner 只写人物本身，不要写剧情脚本/分幕（剧情走向另有专门设计）。
 
 ★「不可空泛敷衍」的可验证标准（务必逐条满足，否则会被评审打回重写）：
 - inner 必须点名【一个具体对象】+【一个具体图谋/秘密】（如"你想扳倒大师兄好独揽掌门信物"），
@@ -56,19 +58,16 @@ _SYSTEM = """你是选角 + 世界搭建师。根据故事 brief 与故事图骨
   相关 agent 会自发串联反应（引擎的关系/感知/记忆系统会在运行时驱动演化，无需脚本）。"""
 
 
-def _build_user_prompt(brief: Dict[str, Any], designer: Dict[str, Any]) -> str:
-    return (
-        "故事 brief：\n" + json.dumps(brief, ensure_ascii=False, indent=2)
-        + "\n\n故事图骨架：\n" + json.dumps(designer, ensure_ascii=False, indent=2)
-    )
+def _build_user_prompt(brief: Dict[str, Any]) -> str:
+    return "故事 brief：\n" + json.dumps(brief, ensure_ascii=False, indent=2)
 
 
 class Casting:
     def __init__(self, client: LLMClient) -> None:
         self._client = client
 
-    def run(self, brief: Dict[str, Any], designer: Dict[str, Any], *, feedback: str = "") -> Dict[str, Any]:
-        user = _build_user_prompt(brief, designer)
+    def run(self, brief: Dict[str, Any], *, feedback: str = "") -> Dict[str, Any]:
+        user = _build_user_prompt(brief)
         if feedback:
             user += f"\n\n[上一版校验未过，请修正后重新输出完整 JSON]\n{feedback}"
         return call_json_with_schema(

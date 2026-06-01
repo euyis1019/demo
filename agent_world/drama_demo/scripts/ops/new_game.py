@@ -83,14 +83,12 @@ def main(argv=None) -> int:
     if args.reuse and (HBM / "config" / "stories" / story_id).is_dir():
         print(f"① 复用已有 Story Pack：{story_id}（跳过设计）", flush=True)
     else:
-        # ① 设计剧情：Designer→Casting→Writer→validate
-        print(f"① 设计剧情中（Designer→Casting→Writer）…  story_id={story_id}", flush=True)
+        # ① 设计剧情：Casting→Bert 设计师→validate（剧情由 bert 条件→反应 承载）
+        print(f"① 设计剧情中（Casting→Bert 设计师）…  story_id={story_id}", flush=True)
         brief = {
             "premise": args.premise,
             "title": args.title or args.premise[:24],
             "player": {"identity": args.player, "role": args.player, "is_outsider": True},
-            "target_acts": int(args.acts),
-            "target_nodes": str(max(args.acts, 4)),
         }
         from agent_world.drama_demo.tools.story_studio.orchestrator import generate_full
 

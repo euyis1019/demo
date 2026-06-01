@@ -189,9 +189,8 @@ def build_pack_agent_knowledge(
     a = _pack_agent(pack, aid)
     name = str(a.get("name") or f"Agent{aid}")
 
-    node_id = getattr(session, "current_node_id", None) or pack.graph.initial_node
-    node = pack.graph.nodes.get(node_id)
-    place_id = node.place_focus if node else str(getattr(session, "place_id", ""))
+    # 剧情已无「幕/节点」概念：场景取本角色自身所在地（播种位置），降级用玩家所在地。
+    place_id = str(a.get("location") or getattr(session, "place_id", "") or "")
 
     # 1) 你是谁——人设尽量厚：身份/性格/说话风格/目标/此刻状态
     who = f"你是{name}（{a.get('role', '')}{('·' + a.get('faction', '')) if a.get('faction') else ''}）。{a.get('soul', '')}"
@@ -210,17 +209,12 @@ def build_pack_agent_knowledge(
     if a.get("inner"):
         sections.append(_section("你的内心（不可明说，但支配你的言行）", str(a["inner"])))
 
-    # 3) 当前这一幕——情境 + 概要
-    if node:
-        cur = f"{node.beats_label}：{node.summary or ''}"
-        if node.scene_brief:
-            cur += f"\n此刻情境：{node.scene_brief}"
-        sections.append(_section("当前这一幕", cur))
-
-    # 4) 你这一幕要怎么演——针对本幕、本角色的具体表演指引（最关键，决定是否贴剧情）
-    direction = node.directions.get(aid) if node else None
-    if direction:
-        sections.append(_section("你这一幕要做的", direction))
+    # 3) 你现在的反应——若某条 bert 被触发并指定你来反应，这里注入该反应（剧情反应链的落点）。
+    #    这是「条件→反应」机制的运行期出口：玩家做到某 trigger，导演就把对应 reaction 注入到 target。
+    reaction = (getattr(session, "bert_reactions", None) or {}).get(str(aid))
+    if reaction:
+        sections.append(_section(
+            "你现在的反应（剧情已触发，贴着这个演出来，不要明说这是被安排的）", str(reaction)))
 
     # 5) 所在场景 + 关系
     scene = _pack_place_scene(pack, place_id)

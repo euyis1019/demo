@@ -44,10 +44,18 @@ class StoryGraph:
 
     # ---------- 构造 ----------
     @classmethod
+    def empty(cls) -> "StoryGraph":
+        """空图：bert（条件→反应）驱动的包没有 story_graph.yaml，剧情结构改由 berts.yaml 承载。"""
+        return cls(initial_node="")
+
+    @classmethod
     def from_mapping(cls, data: Dict[str, Any]) -> "StoryGraph":
         if not isinstance(data, dict):
             raise StoryPackError("story_graph 顶层必须是 mapping")
         initial = data.get("initial_node")
+        # 空图（bert 驱动包，无 story_graph.yaml / 空文件）合法降级：剧情由 berts.yaml 驱动。
+        if not initial and not (data.get("nodes") or data.get("endings") or data.get("edges")):
+            return cls.empty()
         if not initial:
             raise StoryPackError("story_graph 缺少 initial_node")
 
@@ -157,6 +165,9 @@ class StoryGraph:
     # ---------- validate 闸门 ----------
     def validate(self) -> List[str]:
         """返回违例列表（空 = 通过）。每条以 [V?] 不变量编号开头。"""
+        # 空图（bert 驱动包，无分幕/节点）结构性合法——剧情结构与可达性由 BertSet.validate 兜。
+        if not self.nodes and not self.endings and not self.edges:
+            return []
         issues: List[str] = []
         node_ids = set(self.nodes)
         ending_ids = set(self.endings)

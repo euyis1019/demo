@@ -1,7 +1,6 @@
 """Compatibility shim — re-export F01–F04, F06 (M2). F12–F15: import via http/routes or features."""
 
 from agent_world.drama_demo.features.f01_session.constants import (
-    DEFAULT_PHASE,
     DEFAULT_PLACE_ID,
     DEFAULT_SIM_ID,
     INITIAL_STATS,
@@ -52,7 +51,6 @@ from agent_world.drama_demo.features.f06_read_model.world_db import (
 )
 
 __all__ = [
-    "DEFAULT_PHASE",
     "DEFAULT_PLACE_ID",
     "DEFAULT_SIM_ID",
     "INITIAL_STATS",

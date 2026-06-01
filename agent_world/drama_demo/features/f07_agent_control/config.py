@@ -31,15 +31,6 @@ def is_f07_enabled() -> bool:
 
 
 
-def inject_exclusive_ticks_for(phase: str) -> int:
-    """First N ticks after player inject only run inject targets (L3 staging)."""
-    phases = load_turn_control().get("phases") or {}
-    phase_block = phases.get(str(phase)) or {}
-    if "inject_exclusive_ticks" in phase_block:
-        return max(0, int(phase_block["inject_exclusive_ticks"]))
-    return 0
-
-
 def max_inject_tick_loops() -> int:
     """IPC inject batch tick cap (sync with resolve_inject_tick_count floor)."""
     return 8
@@ -50,11 +41,10 @@ def resolve_inject_tick_loops(tick_count: int) -> int:
     return max(3, min(n, max_inject_tick_loops()))
 
 
-def resolve_inject_tick_count(phase: str, tick_count: int) -> int:  # noqa: ARG001
+def resolve_inject_tick_count(tick_count: int) -> int:
     """Inject batch length for F07 completion semantics（数据驱动，无写死幕名）。
 
     旧版给 HBM「Phase 1」额外抬到 ≥8 拍；现统一用调用方给的 tick_count，不对某故事某幕特判。
-    phase 仅为兼容旧签名保留。
     """
     return int(tick_count)
 

@@ -12,7 +12,6 @@ def log_turn_event(
     *,
     event: str,
     task_id: str,
-    phase: str,
     player_turn: int,
     start_tick: int,
     end_tick: Optional[int] = None,
@@ -21,7 +20,6 @@ def log_turn_event(
     payload: Dict[str, Any] = {
         "event": event,
         "task_id": task_id,
-        "phase": phase,
         "player_turn": player_turn,
         "start_tick": start_tick,
     }

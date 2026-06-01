@@ -18,20 +18,18 @@ from agent_world.drama_demo.features.f07_agent_control.llm_params import (
 
 def build_turn_context(session: Any, player_text: str) -> Dict[str, Any]:
     """Build IPC turn_context payload (Flask-side)."""
-    phase = str(getattr(session, "phase", ""))
     player_turn = int(getattr(session, "player_turn", 1))
     stats = getattr(session, "stats", None) or {}
     inject_ids = node_inject_ids(session)
     return {
         "enabled": True,
-        "phase": phase,
         "player_turn": player_turn,
         "start_tick": int(getattr(session, "start_tick", 0) or 0),
         "place_id": str(getattr(session, "place_id", "")),
         "inject_agent_ids": list(inject_ids),
         "player_text": player_text.strip(),
         "stats": dict(stats) if isinstance(stats, dict) else {},
-        "llm_params": resolve_llm_params(phase, player_turn),
+        "llm_params": resolve_llm_params(player_turn),
     }
 
 

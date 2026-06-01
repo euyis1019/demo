@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, List, Set
 
 from agent_world.drama_demo.shared.prompt_paths import story_dir
+from agent_world.drama_demo.shared.story_pack.bert import BertSet
 from agent_world.drama_demo.shared.story_pack.errors import StoryPackValidationError
 from agent_world.drama_demo.shared.story_pack.graph import StoryGraph
 from agent_world.drama_demo.shared.story_pack.loader import _load_yaml, load_meta
@@ -29,6 +30,7 @@ class StoryPack:
     story_id: str
     meta: Dict[str, Any]
     graph: StoryGraph
+    berts: BertSet = field(default_factory=BertSet)  # 「条件→反应」规则集（取代任务链；旧包为空）
     places: Dict[str, Any] = field(default_factory=dict)
     agents: Dict[str, Any] = field(default_factory=dict)
     relations: Dict[str, Any] = field(default_factory=dict)
@@ -68,9 +70,15 @@ class StoryPack:
 
     # ---------- validate ----------
     def validate(self) -> List[str]:
-        """图结构(V) + 跨文件引用闭合(X) 的全部违例（结构性，供播种/骨架编译共用）。"""
+        """图结构(V) + 跨文件引用闭合(X) + bert 规则集(B) 的全部违例（结构性，供播种/骨架编译共用）。"""
         issues: List[str] = list(self.graph.validate())
         issues.extend(self._validate_cross_refs())
+        if self.berts.berts:  # 仅当本包采用 bert 时才校验（旧任务包 berts 为空，跳过）
+            # agents/places 可选文件缺失时传 None，沿用「降级跳过该闭合」约定。
+            issues.extend(self.berts.validate(
+                agent_ids=(self.agent_ids() or None),
+                place_ids=(self.place_ids() or None),
+            ))
         return issues
 
     def validate_or_raise(self) -> None:
@@ -216,12 +224,12 @@ def _walk_trigger(node: Any) -> Iterator[Dict[str, Any]]:
 
 
 def load_story_pack(story_id: str) -> StoryPack:
-    """加载整包（meta + story_graph + 可选世界原语文件）。不自动 validate。"""
-    from agent_world.drama_demo.shared.story_pack.loader import load_story_graph
+    """加载整包（meta + story_graph + berts + 可选世界原语文件）。不自动 validate。"""
+    from agent_world.drama_demo.shared.story_pack.loader import load_berts, load_story_graph
 
     meta = load_meta(story_id)
     graph = load_story_graph(story_id)
-    pack = StoryPack(story_id=story_id, meta=meta, graph=graph)
+    pack = StoryPack(story_id=story_id, meta=meta, graph=graph, berts=load_berts(story_id))
     base = story_dir(story_id)
     for name in _OPTIONAL:
         path = base / f"{name}.yaml"

@@ -22,10 +22,10 @@ def _story_llm_cfg() -> Dict[str, Any]:
         return {}
 
 
-def resolve_llm_params(phase: str, player_turn: int) -> Dict[str, Any]:  # noqa: ARG001
+def resolve_llm_params(player_turn: int) -> Dict[str, Any]:  # noqa: ARG001
     """Return ``{temperature, max_tokens}``。来自 Story Pack meta.llm，缺省用通用默认。
 
-    phase/player_turn 仅为兼容旧签名保留，不再据其分流（采样取向是故事级、由 Story Pack 决定）。
+    player_turn 仅为兼容旧签名保留，不再据其分流（采样取向是故事级、由 Story Pack 决定）。
     """
     cfg = _story_llm_cfg()
     return {
@@ -34,7 +34,7 @@ def resolve_llm_params(phase: str, player_turn: int) -> Dict[str, Any]:  # noqa:
     }
 
 
-def resolve_passive_llm_params(phase: str) -> Optional[Dict[str, Any]]:  # noqa: ARG001
+def resolve_passive_llm_params() -> Optional[Dict[str, Any]]:
     """被动拍是否单独降温——默认不区分（返回 None，沿用 resolve_llm_params）。
 
     如某故事要给「背景/被动」拍单独的采样取向，应由 Story Pack meta.llm.passive 提供，而非引擎写死幕名。

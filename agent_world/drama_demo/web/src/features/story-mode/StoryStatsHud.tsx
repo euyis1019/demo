@@ -5,15 +5,13 @@ export interface StoryStatsHudProps {
   stats: Stats;
   /** 属性维度定义（数据驱动：来自活跃 Story Pack 的 meta.stats）。 */
   dimensions?: StatDimension[];
-  /** 故事张力 0–100（drama-manager 导演驱动）。 */
-  tension?: number;
 }
 
 /**
  * 剧情模式数值 HUD（体检 G6）：把后端已下发的 stats 接到剧情模式。
  * 维度集数据驱动（meta.stats）；数值变化时短暂高亮 + 显示增减。
  */
-export function StoryStatsHud({ stats, dimensions = [], tension }: StoryStatsHudProps) {
+export function StoryStatsHud({ stats, dimensions = [] }: StoryStatsHudProps) {
   const prev = useRef<Stats>(stats);
   const [pulse, setPulse] = useState<Record<string, number>>({});
 
@@ -31,21 +29,8 @@ export function StoryStatsHud({ stats, dimensions = [], tension }: StoryStatsHud
     }
   }, [stats]);
 
-  const tensionPct = Math.max(0, Math.min(100, Math.round(tension ?? 0)));
   return (
     <div className="story-stats-hud">
-      {tension != null ? (
-        <div className="story-stats-hud__tension" title="故事张力">
-          <span className="story-stats-hud__label">张力</span>
-          <span className="story-tension-bar">
-            <span
-              className={`story-tension-bar__fill ${tensionPct >= 70 ? "is-high" : ""}`}
-              style={{ width: `${tensionPct}%` }}
-            />
-          </span>
-          <span className="story-stats-hud__value">{tensionPct}</span>
-        </div>
-      ) : null}
       {/* 维度由活跃 Story Pack 的 meta.stats 决定；故事未定义属性面板就不显示。 */}
       {dimensions.map(({ key, label }) => {
         const val = stats[key] ?? 0;

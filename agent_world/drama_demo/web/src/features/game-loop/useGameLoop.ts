@@ -69,7 +69,6 @@ export function useStartGame() {
   const beginSession = useCallback(
     async (mode: "start" | "reset") => {
       setLoading(true);
-      dispatch({ type: "DISMISS_PHASE_TOAST" });
       dispatch({ type: "SET_ERROR", message: undefined });
       try {
         if (mode === "reset") {

@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from agent_world.drama_demo.features.f01_session.constants import (
-    DEFAULT_PHASE,
     DEFAULT_PLACE_ID,
     INITIAL_STATS,
 )
@@ -19,18 +18,16 @@ from agent_world.drama_demo.features.f07_agent_control.turn_context import (
 
 def bootstrap_mirror() -> Dict[str, Any]:
     """Startup default when Flask has not pushed a mirror yet."""
-    phase = DEFAULT_PHASE
     player_turn = 1
     return {
         "enabled": True,
-        "phase": phase,
         "player_turn": player_turn,
         "start_tick": 0,
         "place_id": DEFAULT_PLACE_ID,
         "stats": dict(INITIAL_STATS),
         "inject_agent_ids": [],  # 启动占位；首个真实 turn 会按当前节点推回 mirror
         "player_text": "",
-        "llm_params": resolve_llm_params(phase, player_turn),
+        "llm_params": resolve_llm_params(player_turn),
         "player_inject_tick": None,
     }
 
@@ -53,7 +50,6 @@ def merge_mirror_update(current: Dict[str, Any], patch: Dict[str, Any]) -> Dict[
     """Apply partial mirror update from IPC payload."""
     out = dict(current)
     for key in (
-        "phase",
         "player_turn",
         "start_tick",
         "place_id",
@@ -70,10 +66,9 @@ def merge_mirror_update(current: Dict[str, Any], patch: Dict[str, Any]) -> Dict[
         out["stats"] = dict(patch["stats"])
     if "inject_agent_ids" in patch:
         out["inject_agent_ids"] = [int(x) for x in (patch["inject_agent_ids"] or [])]
-    phase = str(out.get("phase", DEFAULT_PHASE))
     player_turn = int(out.get("player_turn", 1))
     if "llm_params" not in patch or not patch.get("llm_params"):
-        out["llm_params"] = resolve_llm_params(phase, player_turn)
+        out["llm_params"] = resolve_llm_params(player_turn)
     return out
 
 

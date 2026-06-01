@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 from agent_world.drama_demo.tools.story_studio.authoring_schemas import (
-    DESIGNER_OUTPUT_SCHEMA,
+    BERT_OUTPUT_SCHEMA,
     validate_against,
 )
 from agent_world.drama_demo.tools.story_studio.base_agent import (
@@ -28,17 +28,14 @@ from agent_world.drama_demo.tools.story_studio.metering import (
     GenerationTrace,
     metering_client,
 )
-from agent_world.drama_demo.tools.story_studio.agents import Casting, Designer, Writer
+from agent_world.drama_demo.tools.story_studio.agents import BertDesigner, Casting, Critic
 from agent_world.drama_demo.tools.story_studio.orchestrator import (
     CompileResult,
     assemble_full_sections,
     assemble_sections,
     brief_to_meta,
     compile_pack,
-    designer_output_to_story_graph,
-    generate,
     generate_full,
-    regenerate_writer,
 )
 from agent_world.drama_demo.tools.story_studio.asset_manifest import (
     render_asset_manifest,
@@ -56,18 +53,15 @@ __all__ = [
     "slug_story_id",
     "BRIEF_SCHEMA",
     "validate_brief",
-    "DESIGNER_OUTPUT_SCHEMA",
+    "BERT_OUTPUT_SCHEMA",
     "validate_against",
     "call_json_with_schema",
     "LLMClient",
     "StoryStudioError",
     "compile_pack",
     "CompileResult",
-    "designer_output_to_story_graph",
     "brief_to_meta",
-    "generate",
     "generate_full",
-    "regenerate_writer",
     "assemble_full_sections",
     "assemble_sections",
     "render_review",
@@ -76,9 +70,9 @@ __all__ = [
     "GenerationTrace",
     "BudgetExceededError",
     "metering_client",
-    "Designer",
     "Casting",
-    "Writer",
+    "BertDesigner",
+    "Critic",
     "write_story_pack",
     "assert_safe_target",
     "StoryStudioSafetyError",

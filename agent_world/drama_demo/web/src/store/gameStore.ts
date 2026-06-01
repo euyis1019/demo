@@ -12,7 +12,6 @@ import type {
   WorldLoopState,
   WorldSnapshot,
 } from "../api/types";
-import { getPhaseTransitionMessage } from "../constants/phaseTransitions";
 import type { PlaceId } from "../utils/places";
 import { emptyRoomF2f } from "../utils/places";
 import {
@@ -35,15 +34,10 @@ export interface GameState {
   healthError?: string;
   sessionInitialized: boolean;
   loading: boolean;
-  phaseToast?: string | null;
-  /** 已弹过「进入某幕」提示的幕名集合——防止 phase 因多数据源滞后来回跳时同一提示反复弹。 */
-  toastedPhases: string[];
   stats: Stats;
   /** 属性维度定义（后端从 meta.stats 下发，HUD 据此渲染；空=该故事不启用属性面板）。 */
   statsDimensions: StatDimension[];
   phase: string;
-  /** 故事张力 0–100（drama-manager 导演驱动，剧情模式 HUD 显示张力弧）。 */
-  tension: number;
   playerTurn: number;
   placeId: string;
   /** Display / env tick — not used as delta poll cursor. */
@@ -87,12 +81,9 @@ export function createInitialState(): GameState {
     runnerReady: false,
     sessionInitialized: false,
     loading: false,
-    phaseToast: null,
-    toastedPhases: [],
     stats: { ...INITIAL_STATS },
     statsDimensions: [],
     phase: "",
-    tension: 0,
     playerTurn: 1,
     placeId: "",
     worldTick: 0,
@@ -123,7 +114,7 @@ export type GameAction =
   | { type: "START_SESSION"; data: SessionStartData }
   | { type: "APPLY_SESSION"; data: SessionSnapshot }
   | { type: "SET_LOADING"; loading: boolean }
-  | { type: "APPLY_PLAYER_TURN_PROCESSING"; stats: Stats; phase: string; playerTurn: number; tension?: number }
+  | { type: "APPLY_PLAYER_TURN_PROCESSING"; stats: Stats; phase: string; playerTurn: number }
   | { type: "PUSH_PLAYER_BUBBLE"; message: GameMessage }
   | { type: "APPEND_TURN_DELTA"; delta: TurnDelta }
   | { type: "APPLY_WORLD_DELTA"; delta: TurnDelta; nextSinceTick: number }
@@ -134,7 +125,6 @@ export type GameAction =
   | { type: "SET_ENDING"; data: PlayerTurnCompleted }
   | { type: "SET_ERROR"; message?: string }
   | { type: "SET_RUNNER_MODAL"; open: boolean }
-  | { type: "DISMISS_PHASE_TOAST" }
   | { type: "RESET_PLAYTHROUGH" }
   | { type: "SET_WORLD_SNAPSHOT"; snapshot: WorldSnapshot }
   | {
@@ -156,29 +146,12 @@ function statsFromSnapshot(data: SessionSnapshot | SessionStartData): Stats {
 function applyPhaseChange(
   state: GameState,
   newPhase: string,
-): Pick<GameState, "phase" | "phaseToast" | "toastedPhases"> {
-  // 忽略空幕名（某些 delta 在无会话时回退空串）——否则 phase 会在「第X幕 ↔ 空」来回跳。
+): Pick<GameState, "phase"> {
+  // 忽略空幕名（某些 delta 在无会话时回退空串）——否则 phase 会在「已知 ↔ 空」来回跳。
   if (!newPhase || newPhase === state.phase) {
-    return {
-      phase: state.phase,
-      phaseToast: state.phaseToast,
-      toastedPhases: state.toastedPhases,
-    };
+    return { phase: state.phase };
   }
-  // 只对「从已知幕真正前进到没去过的新幕」弹一次提示。
-  // 首次得知幕名(此前为空，如刷新恢复)或该幕已记录(数据源滞后又跳回) → 只更新 phase，不弹。
-  const firstKnown = !state.phase;
-  const seen = state.toastedPhases.includes(newPhase);
-  const toastedPhases = seen ? state.toastedPhases : [...state.toastedPhases, newPhase];
-  if (firstKnown || seen) {
-    return { phase: newPhase, phaseToast: state.phaseToast, toastedPhases };
-  }
-  const toast = getPhaseTransitionMessage(state.phase, newPhase);
-  return {
-    phase: newPhase,
-    phaseToast: toast ?? state.phaseToast ?? null,
-    toastedPhases,
-  };
+  return { phase: newPhase };
 }
 
 function withWorldDelta(
@@ -276,9 +249,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         worldLoopPausedAtTick: undefined,
         loading: false,
         ...resetWorldState(),
-        phaseToast: null,
-        // 把开局幕名标记为已知，避免「倒退回开局幕」时误弹「进入第一幕」。
-        toastedPhases: action.data.phase ? [action.data.phase] : [],
         endingId: undefined,
         onboarding: action.data.onboarding ?? state.onboarding ?? null,
         onboardingSeen: false,
@@ -311,9 +281,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         stats: { ...action.stats },
-        // 忽略空幕名，且不因这条（可能滞后的）回包把 phase 倒退（防提示反复弹）。
+        // 忽略空幕名，且不因这条（可能滞后的）回包把 phase 倒退。
         phase: action.phase || state.phase,
-        tension: action.tension ?? state.tension,
         playerTurn: action.playerTurn,
       };
     case "PUSH_PLAYER_BUBBLE":
@@ -382,8 +351,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return { ...state, lastError: action.message, loading: false };
     case "SET_RUNNER_MODAL":
       return { ...state, runnerModalOpen: action.open };
-    case "DISMISS_PHASE_TOAST":
-      return { ...state, phaseToast: null };
     case "SET_WORLD_SNAPSHOT": {
       const snap = applyWorldSnapshot(action.snapshot);
       const snapshotDelta = action.snapshot;

@@ -259,7 +259,6 @@ def build_completed_payload(
     name_map: Dict[int, str],
     *,
     stats_update: Dict[str, Any],
-    current_phase: str,
     routing_info: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Full-turn payload for action-result completed status."""
@@ -276,7 +275,6 @@ def build_completed_payload(
         "task_id": task.task_id,
         "end_tick": int(effective_tick),
         "stats_update": dict(stats_update),
-        "current_phase": current_phase,
         "inject_status": task.inject_status,
         "player_place_id": delta["player_place_id"],
         **delta,

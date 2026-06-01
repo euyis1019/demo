@@ -72,8 +72,6 @@ def get_world_delta(
         "current_tick": t_now,
         "loop_state": env.get("loop_state"),
         "stats_update": dict(hbm.stats) if hbm else initial_stats(),
-        "current_phase": hbm.phase if hbm else "",
-        "tension": hbm.tension if hbm else 0,
         "player_turn": hbm.player_turn if hbm else 1,
         # 让 delta 自洽：带上 name_map(agent_id→名)，前端轮询不必依赖 snapshot 缓存、也无需写死角色名。
         "name_map": {str(k): v for k, v in name_map.items()},
@@ -83,16 +81,20 @@ def get_world_delta(
     if game_over:
         result["game_over"] = game_over
     elif hbm and hbm.ending_id:
-        # 数据驱动：结局好坏由该故事 ending 的 kind 决定（bad→game_over 屏，其余→completed 结局屏）。
-        end = story_config.active_pack().graph.endings.get(hbm.ending_id)
-        end_kind = end.kind if end else "neutral"
+        # 结局由命中的「结局 bert」决定：收场文案/基调已在触发时写入 hbm（good/neutral/bad）。
+        # 兼容旧任务包：hbm 上无 bert 结局信息时回退查 story_graph.endings。
+        end_kind = hbm.ending_kind or ""
+        end_summary = hbm.ending_summary or ""
+        if not end_kind:
+            end = story_config.active_pack().graph.endings.get(hbm.ending_id)
+            end_kind = end.kind if end else "neutral"
+            end_summary = (end.summary if end else "") or ""
         result["game_over"] = {
             "status": "game_over" if end_kind == "bad" else "completed",
             "ending_id": hbm.ending_id,
-            "ending_summary": (end.summary if end else "") or "",
+            "ending_summary": end_summary,
             "ending_kind": end_kind,
             "stats_update": dict(hbm.stats),
-            "current_phase": hbm.phase,
         }
 
     return result

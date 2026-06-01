@@ -1,11 +1,11 @@
-"""导演驱动的剧情路由（LLM 推进世界，无任何硬规则）。
+"""bert 驱动的剧情路由（LLM 判触发 → 注入反应，无任何硬规则）。
 
-按 session.current_node_id 定位当前幕，把本幕的真实对话喂给 LLM 导演（director.judge_transition）
-判断是否推进、推进到哪条出边的 dst；指向结局则交还 watcher 收尾。完全数据驱动 + LLM 判断，
-无关键词 / 信号 / 超时等硬检测。换任意 Story Pack 即换游戏。
+剧情由一组 bert（条件→反应）规则驱动：玩家做到某条 bert 的 trigger，Bert 导演就把该 bert 的
+reaction 注入到 target NPC 的下一拍 prompt（经 knowledge.py 读 hbm.bert_reactions）；触发后按
+once/requires/arms 更新「上膛」集合（反应链）；命中「结局 bert」则交还 watcher 收尾。
+完全数据驱动 + LLM 判断——无关键词 / 信号 / 超时 / 幕 / 节点等任何硬结构。换 berts.yaml 即换剧情。
 
-导演每「幕」只在玩家有**新发言**后判一次（且推进至多一节点/拍），既省 LLM 调用，又保证
-NPC 有时间在场回应、剧情不会被一句话瞬间连环击穿。
+导演只在玩家有**新发言**后判一次，既省 LLM，又保证 NPC 有时间在场回应、剧情不被一句话连环击穿。
 """
 
 from __future__ import annotations
@@ -21,16 +21,12 @@ log = logging.getLogger("agent_world.drama_demo.f05.interp")
 
 @lru_cache(maxsize=8)
 def get_interpreter(story_id: str) -> StoryInterpreter:
-    """按 story_id 缓存解释器（Story Pack 加载一次，提供图访问）。"""
+    """按 story_id 缓存解释器（Story Pack 加载一次，提供 bert 规则集访问）。"""
     return StoryInterpreter.for_story(story_id)
 
 
 def _gather_scene(ipc_client: Any, place: str, agent_ids: List[int], ipc_timeout: float) -> None:
-    """把这一拍该在场的 **NPC**（本任务 inject_agents）聚到该地点，让对话同场可见。
-
-    ★绝不移动玩家(agent 0)：玩家位置完全由玩家自己（session.place_id）主导——引擎不再把玩家强行拽到
-    剧情需要的地点（那会让玩家无法自由移动、感觉被 railroad）。调用方应只传 NPC id，这里再兜底剔除 0。
-    """
+    """把指定 **NPC** 聚到某地点，让反应同场可见。★绝不移动玩家(agent 0)——玩家位置完全由玩家自己主导。"""
     from agent_world.drama_demo.http.ipc_helper import send_move_agent
 
     if not place:
@@ -45,12 +41,23 @@ def _gather_scene(ipc_client: Any, place: str, agent_ids: List[int], ipc_timeout
 
 
 def setup_scene_for_node(interp: StoryInterpreter, hbm: Any, *, ipc_client: Any, ipc_timeout: float) -> None:
-    """把当前任务的 **NPC** 聚到该任务地点（玩家不动——开局玩家已在 session.place_id）。会话开局/换任务各调一次。"""
-    node = interp.graph.nodes.get(getattr(hbm, "current_node_id", None) or interp.graph.initial_node)
-    if node is None:
+    """开局聚场（bert 化）：把「开局就上膛」的 bert 的 target NPC 聚到玩家所在地，
+    让玩家一上来就有相关角色可面对面互动（开场戏），而不是独自空房。其余 NPC 仍各就各位。
+    后续某条 bert 触发时，route_story 再把那条的 target 聚到玩家面前。"""
+    berts = getattr(interp, "berts", None)
+    place = str(getattr(hbm, "place_id", "") or "")
+    if not berts or not berts.berts or not place:
         return
-    place = node.place_focus or getattr(hbm, "place_id", "")
-    _gather_scene(ipc_client, place, [*node.inject_agents], ipc_timeout)
+    fired = set(getattr(hbm, "fired_berts", None) or [])
+    # 只把「第一条开局上膛的非结局 bert」的 target 聚到玩家面前当开场对手戏——只聚 1 人，
+    # 避免把全部 NPC 塞进一个房间触发容量上限被拒；其余 NPC 各就各位，玩家可自行走去找。
+    targets = [
+        int(berts.berts[bid].target)
+        for bid in berts.armed_ids(fired)
+        if not berts.berts[bid].is_ending and berts.berts[bid].target
+    ]
+    if targets:
+        _gather_scene(ipc_client, place, targets[:1], ipc_timeout)
 
 
 def route_story(
@@ -64,71 +71,54 @@ def route_story(
     ipc_timeout: float,
     name_map: Dict[int, str],
 ) -> Dict[str, Any]:
-    """导演驱动路由：玩家有新发言 → LLM 读本幕对话判断是否推进 → 推进一节点或返回结局。"""
+    """bert 驱动路由：玩家有新发言 → LLM 判哪条上膛的 bert 命中 → 注入反应/收场。"""
     from agent_world.drama_demo.features.f05_story_routing import director
 
-    g = interp.graph
     applied: Dict[str, Any] = {"nodes": [], "ending": None, "events": []}
-    node_id = getattr(hbm, "current_node_id", None) or g.initial_node
-    node = g.nodes.get(node_id)
-    if node is None:
-        return applied
+    berts = getattr(interp, "berts", None)
+    if not berts or not berts.berts:
+        return applied  # 旧任务包或空包：无 bert，不路由
 
-    since_t = int(getattr(hbm, "node_entered_tick", None) or getattr(hbm, "start_tick", 0) or 0)
-    place = node.place_focus or getattr(hbm, "place_id", "")
+    fired = set(hbm.fired_berts or [])
+    armed = [berts.berts[bid] for bid in berts.armed_ids(fired)]
+    if not armed:
+        return applied  # 全部触发完/无上膛：剧情已走完可触发部分
 
-    # 只在玩家有「新发言」时才惊动导演（省 LLM；也避免对同一句反复判）。
+    # 只在玩家有「新发言」时才惊动导演（省 LLM；也避免对同一句反复判）。读玩家所在地的近期对话。
+    place = str(getattr(hbm, "place_id", "") or "")
+    since_t = int(getattr(hbm, "start_tick", 0) or 0)
     lp = director.latest_player_tick(db, place, since_t, int(current_tick))
     if lp is None or lp <= int(getattr(hbm, "last_judged_player_tick", -1) or -1):
         return applied
     hbm.last_judged_player_tick = lp
 
     transcript = director.scene_transcript(db, place, since_t, int(current_tick), name_map)
-    decision = director.judge_transition(
-        g, node_id, transcript, name_map,
-        current_tension=int(getattr(hbm, "tension", 0) or 0),
-    )
+    decision = director.judge_bert_triggers(armed, transcript, name_map)
     if decision is None:
+        return applied  # 本拍没有 bert 被触发
+
+    bid = decision["triggered"]
+    b = berts.berts[bid]
+    if bid not in fired:
+        hbm.fired_berts = [*hbm.fired_berts, bid]
+    applied["nodes"].append(bid)  # 复用既有「有推进」信号通道（持久化用；前端无任务横幅）
+
+    if b.is_ending:
+        # 结局 bert：写收场信息（kind/summary 落到 hbm，供 watcher/前端读），交还 watcher 收尾。
+        hbm.ending_id = bid
+        hbm.ending_summary = str((b.ending or {}).get("summary") or "")
+        hbm.ending_kind = str((b.ending or {}).get("kind") or "neutral")
+        applied["ending"] = bid
+        log.info("bert 结局 %s（%s）触发", bid, hbm.ending_kind)
         return applied
 
-    # drama-manager：即便本拍 stay 也更新故事张力（驱动张力弧；张力到顶再导向结局）。
-    hbm.tension = int(decision.get("tension", getattr(hbm, "tension", 0) or 0))
-    applied["tension"] = hbm.tension
-    if not decision.get("advance"):
-        return applied  # 导演判定：留在本幕（张力已更新）
-
-    dst = str(decision["target"])
-    if g.is_ending(dst):
-        applied["ending"] = dst
-        return applied
-
-    nxt = g.nodes.get(dst)
-    if nxt is None:  # 悬空 dst（未经 validate 的脏包）——停止推进而非 KeyError
-        log.warning("route_story: dst=%s 既非结局也非已知节点，停止推进", dst)
-        return applied
-
-    # 推进到下一任务：把该任务的 **NPC** 聚到任务地点（玩家不动——玩家自由移动，位置由 session.place_id 主导）。
-    # ★不再 _gather 玩家、也不再覆写 hbm.place_id——否则每次推进都会把玩家强行拽到剧情地点，玩家无法自由移动。
-    # 玩家想参与这一任务就自己走过去；管理 agent(导演/演员) 据玩家真实所在地适应，而非把玩家拽来。
-    new_place = nxt.place_focus or getattr(hbm, "place_id", "")
-    _gather_scene(ipc_client, new_place, [*nxt.inject_agents], ipc_timeout)
-    hbm.current_node_id = dst
-    hbm.phase = nxt.beats_label or hbm.phase
-    hbm.node_entered_tick = int(current_tick)
-    hbm.last_judged_player_tick = None
-    applied["nodes"].append(dst)
-    # ★事件 id 必须与 shared/routing_events.format_routing_world_events 完全一致（route_node_<节点>）：
-    # 同一次推进会经两条路径下发——本处(watcher pending→f14 轮询) 与 f12 player-turn delta(format_...)。
-    # 二者用同一 id 才能被前端 processedWorldEventIds 去重；id 不一致正是「新任务提示弹两次」的根因。
-    # 故按节点（而非 task_id）唯一，使「同一节点的任务提示」全局只弹一次。
-    applied["events"].append({
-        "id": f"route_node_{dst}",
-        "at_tick": int(current_tick),
-        "kind": "phase_route",
-        "title": nxt.beats_label or dst,
-        "content": nxt.summary or "",
-        "place_id": new_place,
-        "tension": hbm.tension,
-    })
-    log.info("story node → %s (%s｜张力%s): %s", dst, nxt.beats_label, hbm.tension, decision.get("reason"))
+    # 普通 bert：把 reaction 注入 target NPC 的下一拍 prompt（knowledge.py 读 hbm.bert_reactions）。
+    target = int(b.target or 0)
+    if target and b.reaction:
+        reactions = dict(getattr(hbm, "bert_reactions", None) or {})
+        reactions[str(target)] = b.reaction
+        hbm.bert_reactions = reactions
+        # 把 target 聚到反应该发生的地点（bert 指定 place，否则玩家所在地），让反应当面可见。
+        _gather_scene(ipc_client, b.place or place, [target], ipc_timeout)
+        log.info("bert %s 触发：注入反应给 agent %s", bid, target)
     return applied

@@ -62,24 +62,6 @@ def _cmd_review(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_regenerate(args: argparse.Namespace) -> int:
-    from agent_world.drama_demo.tools.story_studio.base_agent import StoryStudioError
-    from agent_world.drama_demo.tools.story_studio.llm_client import make_llm_client
-    from agent_world.drama_demo.tools.story_studio.orchestrator import regenerate_writer
-
-    if args.section != "writer":
-        print(f"暂仅支持局部重生成 section=writer（你给的是 {args.section}）。")
-        return 2
-    try:
-        client = make_llm_client()
-        result = regenerate_writer(args.story_id, client=client)
-    except (StoryStudioError, RuntimeError) as exc:
-        print(f"✗ 局部重生成失败：{exc}")
-        return 1
-    print(f"{'✓' if result.ok else '✗'} 已局部重生成 '{args.story_id}' 的 writer 层（{result.target_dir}）")
-    return 0 if result.ok else 1
-
-
 def _cmd_assets(args: argparse.Namespace) -> int:
     from agent_world.drama_demo.shared.story_pack import list_story_ids, load_story_pack
     from agent_world.drama_demo.tools.story_studio.asset_manifest import (
@@ -142,7 +124,7 @@ def build_parser() -> argparse.ArgumentParser:
     pc.add_argument("sections")
     pc.set_defaults(func=_cmd_compile)
 
-    pg = sub.add_parser("generate", help="由 brief 经 Designer + validate 回路生成 Story Pack 骨架")
+    pg = sub.add_parser("generate", help="由 brief 经 Casting + Bert 设计师 + validate 回路生成完整 Story Pack")
     pg.add_argument("story_id")
     pg.add_argument("brief")
     pg.add_argument("--max-rounds", type=int, default=3, dest="max_rounds")
@@ -151,11 +133,6 @@ def build_parser() -> argparse.ArgumentParser:
     pr = sub.add_parser("review", help="审阅 Story Pack（ASCII 故事图 + 校验报告）")
     pr.add_argument("story_id")
     pr.set_defaults(func=_cmd_review)
-
-    prg = sub.add_parser("regenerate", help="局部重生成（section=writer：只重产触发/注入/signals）")
-    prg.add_argument("story_id")
-    prg.add_argument("section", choices=["writer"])
-    prg.set_defaults(func=_cmd_regenerate)
 
     pa = sub.add_parser("assets", help="生成图片素材清单 txt（列出需要的图 + 详细提示词，用户自备）")
     pa.add_argument("story_id")

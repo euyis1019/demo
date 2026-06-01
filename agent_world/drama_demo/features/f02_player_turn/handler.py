@@ -81,7 +81,10 @@ def run_debug_inject(
     events, _broadcast, turn_context = build_inject_events(
         session, player_text, task_id=task_id
     )
-    if not events:
+    # bert 世界：玩家可对着没有 NPC 的房间说话——台词仍会记进 f2f（下方 player_f2f），供 Bert 导演读判触发；
+    # 命中后导演再把 target NPC 聚到玩家面前。故世界循环模式下「当前没有同处 NPC」不再硬失败。
+    # 非世界循环模式（同步注入批）没有 player_f2f 独立落库通道，无在场 NPC 仍按旧约定报错。
+    if not events and not is_world_loop_enabled():
         raise RuntimeError(f"no agents at place_id={session.place_id!r}")
 
     ipc_client = get_ipc_client(str(sim))
@@ -106,7 +109,7 @@ def run_debug_inject(
         loop_status = wait_for_loop_window(
             ipc_client,
             start_tick=start_tick,
-            min_ticks=resolve_loop_min_ticks(session.phase, tick_count),
+            min_ticks=resolve_loop_min_ticks(tick_count),
             timeout=timeout,
         )
         resp_result = dict(loop_status)
@@ -149,7 +152,6 @@ def _handle_v2_player_turn(
             "ending_id": "bad_reject",
             "public_messages": list(BAD_END_PUBLIC_MESSAGES),
             "stats_update": dict(hbm.stats),
-            "current_phase": hbm.phase,
         }
 
     events, broadcast, turn_context = prep.events, prep.broadcast, prep.turn_context
@@ -176,7 +178,6 @@ def _handle_v2_player_turn(
     log_turn_event(
         event="player_turn_accepted",
         task_id=task_id,
-        phase=hbm.phase,
         player_turn=hbm.player_turn - 1,
         start_tick=int((read_env_status(sim) or {}).get("current_tick", 0)),
         end_tick=int((read_env_status(sim) or {}).get("current_tick", 0)),
@@ -186,7 +187,6 @@ def _handle_v2_player_turn(
     return {
         "accepted": True,
         "stats_update": dict(hbm.stats),
-        "current_phase": hbm.phase,
         "player_turn": hbm.player_turn,
     }
 
@@ -197,7 +197,6 @@ def handle_player_turn(
     sim_id: str,
     player_text: str,
     request_place_id: Optional[str] = None,
-    request_phase: Optional[str] = None,
     request_player_turn: Optional[int] = None,
     sim_dir: Path | None = None,
     tick_count: int = 6,
@@ -216,18 +215,12 @@ def handle_player_turn(
         resolve_inject_tick_count,
     )
 
-    tick_count = resolve_inject_tick_count(hbm.phase, tick_count)
+    tick_count = resolve_inject_tick_count(tick_count)
     if request_place_id and request_place_id != hbm.place_id:
         log.debug(
             "ignoring request place_id=%s; session authority=%s",
             request_place_id,
             hbm.place_id,
-        )
-    if request_phase and request_phase != hbm.phase:
-        log.debug(
-            "ignoring request phase=%s; session authority=%s",
-            request_phase,
-            hbm.phase,
         )
     if request_player_turn is not None and int(request_player_turn) != hbm.player_turn:
         log.debug(
@@ -256,14 +249,12 @@ def handle_player_turn(
     save_session(flask_session, hbm, sim_id)
 
     task_place_id = hbm.place_id
-    task_phase = hbm.phase
     task_player_turn = hbm.player_turn
 
     task = PendingTask(
         task_id=task_id,
         start_tick=start_tick,
         place_id=task_place_id,
-        phase=task_phase,
         player_turn=task_player_turn,
         inject_status=INJECT_STATUS_RUNNING,
     )
@@ -277,7 +268,6 @@ def handle_player_turn(
         player_text=player_text,
         start_tick=start_tick,
         task_place_id=task_place_id,
-        task_phase=task_phase,
         task_player_turn=task_player_turn,
         tick_count=tick_count,
         ipc_timeout=ipc_timeout,
@@ -286,7 +276,6 @@ def handle_player_turn(
     log_turn_event(
         event="player_turn_async_started",
         task_id=task_id,
-        phase=hbm.phase,
         player_turn=task_player_turn,
         start_tick=start_tick,
         end_tick=start_tick,
@@ -296,7 +285,6 @@ def handle_player_turn(
         "task_id": task_id,
         "status": "processing",
         "stats_update": dict(hbm.stats),
-        "current_phase": hbm.phase,
         "start_tick": start_tick,
         "inject_status": INJECT_STATUS_RUNNING,
     }

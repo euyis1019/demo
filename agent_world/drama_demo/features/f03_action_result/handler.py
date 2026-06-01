@@ -70,7 +70,6 @@ def get_action_result(
             "ending_id": outcome.get("ending_id", "bad_reject"),
             "public_messages": outcome.get("public_messages") or [],
             "stats_update": outcome.get("stats_update") or initial_stats(),
-            "current_phase": outcome.get("current_phase") or task.phase,
         }
 
     if task.inject_status == INJECT_STATUS_FAILED:
@@ -119,7 +118,6 @@ def get_action_result(
         }
 
     stats_update = dict(hbm.stats) if hbm else initial_stats()
-    current_phase = hbm.phase if hbm else task.phase
 
     completed = build_completed_payload(
         task,
@@ -127,13 +125,11 @@ def get_action_result(
         db,
         name_map,
         stats_update=stats_update,
-        current_phase=current_phase,
     )
 
     log_turn_event(
         event="action_result_completed",
         task_id=task_id,
-        phase=current_phase,
         player_turn=task.player_turn,
         start_tick=task.start_tick,
         end_tick=effective_tick,

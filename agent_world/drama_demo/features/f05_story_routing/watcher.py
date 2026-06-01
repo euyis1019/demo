@@ -101,9 +101,9 @@ def scan_routing_if_needed(
     db = make_readonly_db(sim_dir)
     task_id = f"route_{tick}"
 
-    # ===== 导演驱动路由（LLM 推进世界，无任何硬规则）=====
+    # ===== bert 驱动路由（LLM 判触发→注入反应，无任何硬规则）=====
     interp = interpreter_routing.get_interpreter(sim_id)
-    if last_scan < 0:  # 开局首扫：把初始节点的场景(玩家+在场NPC)聚到初始地点
+    if last_scan < 0:  # 开局首扫（bert 化后 setup_scene 为空操作：NPC 由播种各就各位，世界自然运行）
         interpreter_routing.setup_scene_for_node(
             interp, hbm, ipc_client=ipc_client, ipc_timeout=ipc_timeout
         )
@@ -113,8 +113,13 @@ def scan_routing_if_needed(
     )
     if result.get("ending"):
         ending = str(result["ending"])
-        end_node = interp.graph.endings.get(ending)
-        kind = end_node.kind if end_node else "neutral"
+        # 结局 bert：kind/summary 已由 route_story 写到 hbm；兼容旧任务包则回退查 graph.endings。
+        kind = hbm.ending_kind or ""
+        summary = hbm.ending_summary or ""
+        if not kind:
+            end_node = interp.graph.endings.get(ending)
+            kind = end_node.kind if end_node else "neutral"
+            summary = (end_node.summary if end_node else "") or ""
         hbm.ending_id = ending
         save_session(flask_session, hbm, sim_id)
         try:
@@ -124,17 +129,17 @@ def scan_routing_if_needed(
         state["pending_game_over"] = {
             "status": "game_over" if kind == "bad" else "completed",
             "ending_id": ending,
-            "ending_summary": (end_node.summary if end_node else "") or "",
+            "ending_summary": summary,
             "ending_kind": kind,
             "stats_update": dict(hbm.stats),
-            "current_phase": hbm.phase,
             "at_tick": tick,
         }
         state["last_scan_tick"] = tick
         state["last_routing_info"] = {"ending": ending}
-        log.info("story ending %s (%s) at tick=%s", ending, kind, tick)
+        log.info("bert 结局 %s (%s) at tick=%s", ending, kind, tick)
         return dict(state["last_routing_info"])
     if result.get("nodes"):
+        # 某条 bert 触发了：持久化 hbm（fired_berts / bert_reactions 等需跨请求存活），并推回 Runner 镜像。
         save_session(flask_session, hbm, sim_id)
         push_session_mirror(ipc_client, hbm, timeout=ipc_timeout)
         pending = state.setdefault("pending_world_events", [])
@@ -146,10 +151,7 @@ def scan_routing_if_needed(
             pending.append(event)
             if eid:
                 known_ids.add(eid)
-        log.info("story watcher advanced nodes=%s at tick=%s", result.get("nodes"), tick)
-    elif "tension" in result:
-        # 导演本拍只更新了张力(stay)——持久化，让张力跨请求/跨拍存活，驱动张力弧。
-        save_session(flask_session, hbm, sim_id)
+        log.info("bert 触发 %s at tick=%s", result.get("nodes"), tick)
     state["last_scan_tick"] = tick
     state["last_routing_info"] = {"nodes": result.get("nodes") or []}
     _mark_session_modified(flask_session)

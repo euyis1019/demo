@@ -38,28 +38,26 @@ _SYSTEM = """你是互动剧情的新手引导设计师。根据给你的故事 
 tips 要贴合这个具体故事（提到本故事的人/地点/悬念），不要写成通用空话；background 不要剧透关键真相。"""
 
 
-def _build_user(brief: Dict[str, Any], designer: Dict[str, Any], casting: Dict[str, Any]) -> str:
+def _build_user(brief: Dict[str, Any], casting: Dict[str, Any]) -> str:
     agents = [
-        {"name": a.get("name"), "role": a.get("role")}
+        {"name": a.get("name"), "role": a.get("role"), "current_state": a.get("current_state")}
         for a in (casting.get("agents") or [])
         if int(a.get("agent_id", -1)) > 0
     ]
     places = [p.get("place_id") for p in (casting.get("places") or [])]
     return (
         "故事 brief：\n" + json.dumps(brief, ensure_ascii=False, indent=2)
-        + "\n\n开局节点（第一幕）：\n" + json.dumps(
-            (designer.get("nodes") or [{}])[0], ensure_ascii=False)
-        + "\n\n登场角色：" + json.dumps(agents, ensure_ascii=False)
+        + "\n\n登场角色（含开局处境）：" + json.dumps(agents, ensure_ascii=False)
         + "\n地点：" + json.dumps(places, ensure_ascii=False)
         + "\n玩家身份：" + json.dumps(brief.get("player") or {}, ensure_ascii=False)
     )
 
 
 def generate_onboarding(
-    brief: Dict[str, Any], designer: Dict[str, Any], casting: Dict[str, Any], client: LLMClient,
+    brief: Dict[str, Any], casting: Dict[str, Any], client: LLMClient,
 ) -> Dict[str, Any]:
     """产出 {title, background, tips}。失败由 call_json_with_schema 抛错，调用方可吞掉不阻断生成。"""
     return call_json_with_schema(
-        client, system=_SYSTEM, user=_build_user(brief, designer, casting),
+        client, system=_SYSTEM, user=_build_user(brief, casting),
         schema=ONBOARDING_SCHEMA, label="onboarding",
     )

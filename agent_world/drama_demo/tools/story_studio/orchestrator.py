@@ -29,19 +29,8 @@ class CompileResult:
         return not self.issues
 
 
-def designer_output_to_story_graph(designer: Dict[str, Any]) -> Dict[str, Any]:
-    """把 DesignerOutput 骨架投影成 story_graph.yaml section（边的 trigger/actions 待 Writer 补）。"""
-    return {
-        "schema_version": 1,
-        "initial_node": designer["initial_node"],
-        "nodes": designer.get("nodes", []),
-        "endings": designer.get("endings", []),
-        "edges": designer.get("edges", []),
-    }
-
-
 def brief_to_meta(brief: Dict[str, Any], story_id: str) -> Dict[str, Any]:
-    """从 brief 投影一份最小 meta（G2 骨架级；完整 clock/llm 由 G3 Casting/Writer 补）。"""
+    """从 brief 投影一份最小 meta（标题/玩家）；完整 clock/llm 由 _full_meta 补。"""
     import re as _re
 
     player = brief.get("player") or {}
@@ -66,81 +55,18 @@ def brief_to_meta(brief: Dict[str, Any], story_id: str) -> Dict[str, Any]:
     }
 
 
-def generate(
-    brief: Dict[str, Any],
-    *,
-    story_id: str,
-    client: Any,
-    target_dir: Optional[Path] = None,
-    max_rounds: int = 3,
-) -> CompileResult:
-    """Plan→Review→Revise：Designer 产骨架 → validate 闸门 → 失败回灌重生成（最多 max_rounds 轮）。
-
-    client 注入（离线测试可用 fake）。仅产出图骨架 + 最小 meta；完整世界原语（agents/places/
-    relations/triggers）由 G3 Casting/Writer 接入。校验不过且轮次耗尽 → raise StoryStudioError。
-    """
-    from agent_world.drama_demo.tools.story_studio.agents.designer import Designer
-    from agent_world.drama_demo.tools.story_studio.base_agent import StoryStudioError
-
-    designer = Designer(client)
-    feedback = ""
-    last_issues: List[str] = []
-    for _round in range(max_rounds):
-        designer_out = designer.run(brief, feedback=feedback)
-        sections = {
-            "meta": brief_to_meta(brief, story_id),
-            "story_graph": designer_output_to_story_graph(designer_out),
-        }
-        result = compile_pack(sections, story_id=story_id, target_dir=target_dir)
-        if result.ok:
-            return result
-        last_issues = result.issues
-        feedback = "上一版故事图校验未过：\n" + "\n".join(result.issues) + "\n请修正后重新输出完整 DesignerOutput JSON。"
-    raise StoryStudioError(
-        f"generate '{story_id}' 失败：{max_rounds} 轮仍未过 validate：{last_issues}"
-    )
-
-
-def _merge_by_id(base: List[Dict[str, Any]], enrich: List[Dict[str, Any]], keys) -> List[Dict[str, Any]]:
-    """按 id 把 enrich 的若干键并进 base（base 顺序为准）。"""
-    em = {e.get("id"): e for e in enrich}
-    out: List[Dict[str, Any]] = []
-    for item in base:
-        merged = dict(item)
-        e = em.get(item.get("id"))
-        if e:
-            for k in keys:
-                if k in e:
-                    merged[k] = e[k]
-        out.append(merged)
-    return out
-
-
 def assemble_sections(
-    meta: Dict[str, Any], designer: Dict[str, Any],
-    casting: Dict[str, Any], writer: Dict[str, Any],
+    meta: Dict[str, Any], casting: Dict[str, Any], bert_design: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """合并 meta + Designer(骨架) + Writer(节点/边血肉) + Casting(世界原语) → 完整 sections。"""
-    nodes = _merge_by_id(designer.get("nodes", []), writer.get("nodes", []),
-                         ("inject_agents", "place_focus", "scene_brief", "directions"))
-    edges = _merge_by_id(designer.get("edges", []), writer.get("edges", []),
-                         ("condition", "actions", "legacy_label"))
-    story_graph = {
-        "schema_version": 1,
-        "initial_node": designer["initial_node"],
-        "nodes": nodes,
-        "endings": designer.get("endings", []),
-        "edges": edges,
-    }
+    """合并 meta + Casting(世界原语) + Bert 设计师(条件→反应规则集) → 完整 sections（无 story_graph）。"""
     return {
         "meta": meta,
-        "story_graph": story_graph,
         "places": {"places": casting.get("places", []), "coverage": casting.get("coverage", [])},
         "agents": {"agents": casting.get("agents", [])},
         "relations": {"relations": casting.get("relations", [])},
         "relation_types": {"relation_types": casting.get("relation_types", [])},
         "groups": {"groups": casting.get("groups", [])},
-        "signals": writer.get("signals", {}),
+        "berts": {"berts": bert_design.get("berts", [])},
     }
 
 
@@ -161,62 +87,10 @@ def _full_meta(brief: Dict[str, Any], story_id: str, casting: Dict[str, Any]) ->
 
 
 def assemble_full_sections(
-    brief: Dict[str, Any], story_id: str, designer: Dict[str, Any],
-    casting: Dict[str, Any], writer: Dict[str, Any],
+    brief: Dict[str, Any], story_id: str, casting: Dict[str, Any], bert_design: Dict[str, Any],
 ) -> Dict[str, Any]:
     """从 brief 出发组装完整 sections（生成路径）。"""
-    return assemble_sections(_full_meta(brief, story_id, casting), designer, casting, writer)
-
-
-def _pack_to_designer(pack: Any) -> Dict[str, Any]:
-    """从已加载的 StoryPack 反推 DesignerOutput 形状（供局部重生成喂下游 agent）。"""
-    g = pack.graph
-    return {
-        "initial_node": g.initial_node,
-        "nodes": [{"id": n.id, "beats_label": n.beats_label, "summary": n.summary} for n in g.nodes.values()],
-        "endings": [{"id": e.id, "kind": e.kind, "summary": e.summary} for e in g.endings.values()],
-        "edges": [{"id": e.id, "from": e.src, "to": e.dst} for e in g.edges],
-    }
-
-
-def _pack_to_casting(pack: Any) -> Dict[str, Any]:
-    return {
-        "agents": pack.agents.get("agents", []),
-        "places": pack.places.get("places", []),
-        "coverage": pack.places.get("coverage", []),
-        "relations": pack.relations.get("relations", []),
-        "relation_types": pack.relation_types.get("relation_types", []),
-        "groups": pack.groups.get("groups", []),
-    }
-
-
-def regenerate_writer(
-    story_id: str, *, client: Any, target_dir: Optional[Path] = None, max_rounds: int = 2,
-) -> CompileResult:
-    """局部重生成：固定 cast + 图骨架，只让 Writer 重产触发/注入/signals（dev_logs/45 §5.3）。
-
-    这是最安全的局部重生（Writer 仅依赖 designer+casting，二者不动）。其余 section 原样保留。
-    """
-    from agent_world.drama_demo.shared.story_pack import load_story_pack
-    from agent_world.drama_demo.tools.story_studio.agents.writer import Writer
-    from agent_world.drama_demo.tools.story_studio.base_agent import StoryStudioError
-
-    target = Path(target_dir) if target_dir is not None else story_dir(story_id)
-    pack = load_story_pack(story_id) if target == story_dir(story_id) else _load_pack_from_dir(story_id, target)
-    designer, casting, meta = _pack_to_designer(pack), _pack_to_casting(pack), pack.meta
-
-    writer = Writer(client)
-    feedback = ""
-    last_issues: List[str] = []
-    for _round in range(max_rounds):
-        w = writer.run(designer, casting, feedback=feedback)
-        sections = assemble_sections(meta, designer, casting, w)
-        result = compile_pack(sections, story_id=story_id, target_dir=target)
-        if result.ok:
-            return result
-        last_issues = result.issues
-        feedback = "重生成校验未过：\n" + "\n".join(result.issues) + "\n请修正后重新输出完整 JSON。"
-    raise StoryStudioError(f"regenerate_writer '{story_id}' 失败：{max_rounds} 轮仍未过：{last_issues}")
+    return assemble_sections(_full_meta(brief, story_id, casting), casting, bert_design)
 
 
 def generate_full(
@@ -226,59 +100,46 @@ def generate_full(
     critic_rounds: int = 2, critic_threshold: int = 3,
     on_progress: Optional[Callable[[str], None]] = None,
 ) -> CompileResult:
-    """完整流水线 Designer→Casting→Writer→assemble→validate(V+X)→失败回灌重生成，
-    结构合法后再过 **Critic 质量门**（按叙事 rubric 评分，低分则把意见回灌定向重写 Casting/Writer）。
+    """完整流水线 Casting→Bert 设计师→assemble→validate(X+B)→失败回灌重生成，
+    结构合法后再过 **Critic 质量门**（按叙事 rubric 评分，低分则把意见回灌定向重写 Casting/Bert）。
+    剧情结构由 bert（条件→反应）承载，已无 Designer/Writer/story_graph（见 dev_logs/48）。
 
     产出**完整可运行**且经质量评审的 Story Pack。client 注入，离线可测。
     可选 max_llm_calls 成本护栏 + trace 生成决策链记录。critic_rounds=0 可关闭质量门（如离线 fake client）。
     on_progress(msg)：每完成一个阶段回调一句中文进度（终端日志 + 前端进度共用），不传则静默。
     """
+    from agent_world.drama_demo.tools.story_studio.agents.bert_designer import BertDesigner
     from agent_world.drama_demo.tools.story_studio.agents.casting import Casting
     from agent_world.drama_demo.tools.story_studio.agents.critic import Critic
-    from agent_world.drama_demo.tools.story_studio.agents.designer import Designer
-    from agent_world.drama_demo.tools.story_studio.agents.writer import Writer
     from agent_world.drama_demo.tools.story_studio.base_agent import StoryStudioError
     from agent_world.drama_demo.tools.story_studio.metering import metering_client
 
     _p = on_progress or (lambda *_a: None)
     client = metering_client(client, max_calls=max_llm_calls, trace=trace)
-    designer, casting, writer = Designer(client), Casting(client), Writer(client)
+    casting, bert_designer = Casting(client), BertDesigner(client)
     feedback = ""
     last_issues: List[str] = []
-    d = c = w = None
+    c = b = None
     sections: Dict[str, Any] = {}
     result: Optional[CompileResult] = None
 
-    # ① 结构回路：产出结构/引用合法 **且 beat 足够详细** 的整包。
-    #    beat 详细度(D：scene_brief/directions 覆盖在场角色/condition 非空)只在质量门开启(critic_rounds>0)时强制，
-    #    不达标连同结构违例一起回灌重生成；离线 fake-client(critic_rounds=0) 只看结构，跳过详细度门。
+    # ① 结构回路：产出结构/引用合法的整包（选角 + bert「条件→反应」反应链）。
+    #    bert 的引用闭合/反应链可达/至少一个结局由 pack.validate（B 系列）兜，不达标连同其它违例回灌重生成。
     structural_ok = False
     for _round in range(max_rounds):
         _rd = f"（第 {_round + 1} 轮）" if _round else ""
-        _p(f"① 设计任务链 Designer{_rd}…")
-        d = designer.run(brief, feedback=feedback)
-        _p(f"② 选角与世界 Casting{_rd}…（{len(d.get('nodes') or [])} 个任务 / {len(d.get('endings') or [])} 个结局）")
-        c = casting.run(brief, d, feedback=feedback)
-        _p(f"③ 写戏：任务情境与对白 Writer{_rd}…（{len(c.get('agents') or [])} 个角色）")
-        w = writer.run(d, c, brief=brief, feedback=feedback)
-        _p("④ 组装并校验整包…")
-        sections = assemble_full_sections(brief, story_id, d, c, w)
+        _p(f"① 选角与世界 Casting{_rd}…")
+        c = casting.run(brief, feedback=feedback)
+        _p(f"② 设计 bert 反应链（条件→反应 + 结局）{_rd}…（{len(c.get('agents') or [])} 个角色）")
+        b = bert_designer.run(brief, c, feedback=feedback)
+        _p("③ 组装并校验整包…")
+        sections = assemble_full_sections(brief, story_id, c, b)
         result = compile_pack(sections, story_id=story_id, target_dir=target_dir)
-        detail_issues: List[str] = []
-        if result.ok and critic_rounds > 0:
-            _target = Path(target_dir) if target_dir is not None else story_dir(story_id)
-            _pack = (load_story_pack(story_id) if _target == story_dir(story_id)
-                     else _load_pack_from_dir(story_id, _target))
-            detail_issues = _pack.validate_beat_detail()
-        if result.ok and not detail_issues:
+        if result.ok:
             structural_ok = True
             break
-        last_issues = list(result.issues) + detail_issues
-        feedback = (
-            "整包未过验收：\n" + "\n".join(last_issues)
-            + "\n请修正后重新输出完整 JSON；尤其每个有在场 NPC 的节点务必写出非空 scene_brief、"
-            "给全部 inject_agents 各写一条 directions、每条边写一句可判定的 condition。"
-        )
+        last_issues = list(result.issues)
+        feedback = "整包未过验收：\n" + "\n".join(last_issues) + "\n请修正后重新输出完整 JSON。"
     if not structural_ok:
         raise StoryStudioError(f"generate_full '{story_id}' 失败：{max_rounds} 轮仍未过验收：{last_issues}")
 
@@ -288,23 +149,23 @@ def generate_full(
         critic = Critic(client)
         last_good = sections
         for _q in range(critic_rounds):
-            _p(f"⑤ 质量评审第 {_q + 1} 轮 Critic…")
+            _p(f"④ 质量评审第 {_q + 1} 轮 Critic…")
             try:
-                review = critic.review(brief, d, c, w)
+                review = critic.review(brief, c, b)
             except Exception:  # noqa: BLE001 — 评审失败不阻断：保留已结构合法的包
                 break
             scores = review.get("scores") or {}
             low = [k for k, v in scores.items() if isinstance(v, int) and v < critic_threshold]
             cfb = (review.get("casting_feedback") or "").strip()
-            wfb = (review.get("writer_feedback") or "").strip()
-            if not low or (not cfb and not wfb):
+            bfb = (review.get("bert_feedback") or "").strip()
+            if not low or (not cfb and not bfb):
                 break  # 质量达标 / 评审无可执行意见 → 收工
             if cfb:
-                c = casting.run(brief, d, feedback="【质量评审，请据此改进角色卡，仍输出完整 JSON】\n" + cfb)
-            w = writer.run(d, c, brief=brief,
-                           feedback="【质量评审，请据此改进分幕，仍输出完整 JSON】\n"
-                           + (wfb or "结合最新角色设定复核并加厚各幕 directions/condition。"))
-            revised = assemble_full_sections(brief, story_id, d, c, w)
+                c = casting.run(brief, feedback="【质量评审，请据此改进角色卡，仍输出完整 JSON】\n" + cfb)
+            b = bert_designer.run(brief, c,
+                                  feedback="【质量评审，请据此改进 bert 反应链，仍输出完整 JSON】\n"
+                                  + (bfb or "结合最新角色设定复核，让触发条件更清晰、反应更贴人设、反应链更连贯。"))
+            revised = assemble_full_sections(brief, story_id, c, b)
             r2 = compile_pack(revised, story_id=story_id, target_dir=target_dir)
             if r2.ok:
                 result, last_good = r2, revised
@@ -319,8 +180,8 @@ def generate_full(
         try:
             from agent_world.drama_demo.tools.story_studio.onboarding import generate_onboarding
 
-            _p("⑥ 生成新手引导…")
-            onb = generate_onboarding(brief, d, c, client)
+            _p("⑤ 生成新手引导…")
+            onb = generate_onboarding(brief, c, client)
             _patch_meta(story_id, target_dir, "onboarding", onb)
         except Exception:  # noqa: BLE001
             pass
@@ -330,7 +191,7 @@ def generate_full(
         try:
             from agent_world.drama_demo.tools.story_studio.acting_guide import generate_acting_guide
 
-            _p("⑦ 生成表演须知…")
+            _p("⑥ 生成表演须知…")
             guide = generate_acting_guide(brief, c, client)
             if guide:
                 _patch_meta(story_id, target_dir, "acting_guide", guide)
@@ -342,7 +203,7 @@ def generate_full(
         try:
             from agent_world.drama_demo.tools.story_studio.stats_design import generate_stats_design
 
-            _p("⑧ 生成属性面板…")
+            _p("⑦ 生成属性面板…")
             stats = generate_stats_design(brief, c, client)
             if stats.get("dimensions"):
                 _patch_meta(story_id, target_dir, "stats", stats)
@@ -354,7 +215,7 @@ def generate_full(
         try:
             from agent_world.drama_demo.tools.story_studio.world_rules import generate_world_rules
 
-            _p("⑨ 设定世界规则（NPC 是否自主走动）…")
+            _p("⑧ 设定世界规则（NPC 是否自主走动）…")
             world = generate_world_rules(brief, c, client)
             _patch_meta(story_id, target_dir, "world", world)
         except Exception:  # noqa: BLE001
@@ -400,6 +261,7 @@ def _load_pack_from_dir(story_id: str, directory: Path):
     """从任意目录加载 StoryPack（测试用；生产走 story_dir）。"""
     import yaml
 
+    from agent_world.drama_demo.shared.story_pack.bert import BertSet
     from agent_world.drama_demo.shared.story_pack.graph import StoryGraph
     from agent_world.drama_demo.shared.story_pack.pack import StoryPack, _OPTIONAL
 
@@ -411,7 +273,8 @@ def _load_pack_from_dir(story_id: str, directory: Path):
 
     meta = _load("meta")
     graph = StoryGraph.from_mapping(_load("story_graph"))
-    pack = StoryPack(story_id=story_id, meta=meta, graph=graph)
+    berts = BertSet.from_mapping(_load("berts")) if (directory / "berts.yaml").is_file() else BertSet()
+    pack = StoryPack(story_id=story_id, meta=meta, graph=graph, berts=berts)
     for name in _OPTIONAL:
         data = _load(name)
         if data:

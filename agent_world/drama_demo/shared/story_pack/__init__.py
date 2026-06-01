@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+from agent_world.drama_demo.shared.story_pack.bert import Bert, BertSet
 from agent_world.drama_demo.shared.story_pack.errors import (
     StoryPackError,
     StoryPackValidationError,
@@ -41,6 +42,8 @@ __all__ = [
     "StoryNode",
     "StoryEnding",
     "StoryEdge",
+    "Bert",
+    "BertSet",
     "StoryPack",
     "list_story_ids",
     "load_story_graph",

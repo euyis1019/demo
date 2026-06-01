@@ -65,7 +65,6 @@ function GameApp() {
     sessionInitialized,
     loading,
     stats,
-    phase,
     playerTurn,
     placeId,
     roomF2f,
@@ -217,13 +216,11 @@ function GameApp() {
           agentLocations={agentLocations}
           places={worldPlaces}
           placesDisabled={loading || view !== "playing"}
-          phase={phase}
           presentAgents={presentAgents}
           worldTick={envTick ?? worldTick}
           playerTurn={playerTurn}
           stats={state.stats}
           statsDimensions={state.statsDimensions}
-          tension={state.tension}
           pendingWorldEvent={pendingWorldEvent}
           lastError={lastError}
           inputSlot={storyModeInput}
@@ -237,7 +234,6 @@ function GameApp() {
               <StatusPanel
                 stats={stats}
                 dimensions={state.statsDimensions}
-                phase={phase}
                 playerTurn={playerTurn}
                 placeLabel={placeDisplayName(placeId)}
                 presentAgents={presentAgents}

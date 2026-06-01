@@ -18,7 +18,6 @@ class PendingTask:
     task_id: str
     start_tick: int
     place_id: str
-    phase: str
     player_turn: int
     ipc_end_tick: Optional[int] = None
     inject_status: str = INJECT_STATUS_PENDING
@@ -30,7 +29,6 @@ class PendingTask:
             "task_id": self.task_id,
             "start_tick": self.start_tick,
             "place_id": self.place_id,
-            "phase": self.phase,
             "player_turn": self.player_turn,
             "inject_status": self.inject_status,
         }
@@ -50,7 +48,6 @@ class PendingTask:
             task_id=str(data["task_id"]),
             start_tick=int(data["start_tick"]),
             place_id=str(data["place_id"]),
-            phase=str(data["phase"]),
             player_turn=int(data["player_turn"]),
             ipc_end_tick=int(ipc_end) if ipc_end is not None else None,
             inject_status=str(data.get("inject_status") or INJECT_STATUS_PENDING),

@@ -241,8 +241,8 @@ def send_inject_batch(
     return _ensure_ipc_completed(resp, operation="INJECT_SCRIPT_EVENT")
 
 
-def resolve_loop_min_ticks(phase: str, tick_count: int) -> int:
-    return resolve_inject_tick_count(phase, tick_count)
+def resolve_loop_min_ticks(tick_count: int) -> int:
+    return resolve_inject_tick_count(tick_count)
 
 
 def send_move_agent(

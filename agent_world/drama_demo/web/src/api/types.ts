@@ -248,8 +248,6 @@ export interface WorldDeltaData extends TurnDelta {
   loop_state?: string;
   stats_update: Stats;
   current_phase: string;
-  /** 故事张力 0–100（drama-manager 导演每拍更新）。 */
-  tension?: number;
   player_turn: number;
   /** F14 RoutingWatcher finale: bad_reject (status "game_over") OR the
    *  offer-driven Phase-4 early end (status "completed" → EndingScreen). */

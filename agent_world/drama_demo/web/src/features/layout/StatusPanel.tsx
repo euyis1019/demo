@@ -5,7 +5,6 @@ export interface StatusPanelProps {
   stats: Stats;
   /** 属性维度定义（数据驱动：来自活跃 Story Pack 的 meta.stats）。 */
   dimensions?: StatDimension[];
-  phase: string;
   playerTurn: number;
   placeLabel: string;
   presentAgents?: string[];
@@ -23,7 +22,6 @@ export interface StatusPanelProps {
 export function StatusPanel({
   stats,
   dimensions = [],
-  phase,
   playerTurn,
   placeLabel,
   presentAgents = [],
@@ -91,10 +89,6 @@ export function StatusPanel({
         <section className="status-panel__section">
           <h2 className="status-panel__title">进度</h2>
           <dl className="meta-list">
-            <div className="meta-list__row">
-              <dt>当前幕</dt>
-              <dd>{phase}</dd>
-            </div>
             <div className="meta-list__row">
               <dt>回合</dt>
               <dd className="meta-list__turn">

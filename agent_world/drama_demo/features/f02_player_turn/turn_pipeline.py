@@ -60,9 +60,12 @@ def prepare_turn(hbm: DramaSession, player_text: str, *, task_id: str) -> TurnPr
     events, broadcast, turn_context = build_inject_events(
         hbm, player_text, task_id=task_id
     )
-    if not events:
+    # bert 世界：玩家可对着没有 NPC 的房间说话——台词仍经 player_f2f 落库（见 execute_inject），
+    # 供 Bert 导演读判触发，命中后导演再把 target NPC 聚到玩家面前。故世界循环模式下「当前无同处 NPC」
+    # 不再硬失败；非世界循环（同步注入批，无 player_f2f 独立通道）才按旧约定报错。
+    if not events and not is_world_loop_enabled():
         raise RuntimeError(
-            f"no inject events for phase={hbm.phase!r} turn={hbm.player_turn}"
+            f"no inject events for turn={hbm.player_turn}"
         )
     return TurnPrep(
         bad_end=False, events=events, broadcast=broadcast, turn_context=turn_context
@@ -78,13 +81,12 @@ def execute_inject(
     broadcast: Optional[Dict[str, Any]],
     turn_context: Optional[Dict[str, Any]],
     start_tick: int,
-    task_phase: str,
     tick_count: int,
     ipc_timeout: float,
 ) -> Tuple[int, Dict[str, Any], int]:
     """Run IPC inject (world loop enqueue or legacy batch). Returns ipc_end_tick, ipc_result, current_tick."""
     ipc_client = get_ipc_client(str(sim_dir))
-    min_ticks = resolve_loop_min_ticks(task_phase, tick_count)
+    min_ticks = resolve_loop_min_ticks(tick_count)
     player_f2f = build_player_f2f_payload(hbm, player_text)
 
     if is_world_loop_enabled():

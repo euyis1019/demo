@@ -16,7 +16,8 @@ from agent_world.drama_demo.tools.story_studio.safety import assert_safe_target
 # section 名 → 文件名。仅写出 sections 里存在的键。
 _SECTION_FILES = {
     "meta": "meta.yaml",
-    "story_graph": "story_graph.yaml",
+    "berts": "berts.yaml",
+    "story_graph": "story_graph.yaml",  # 旧包兼容；新包不再产出（剧情由 berts 驱动）
     "places": "places.yaml",
     "agents": "agents.yaml",
     "relations": "relations.yaml",

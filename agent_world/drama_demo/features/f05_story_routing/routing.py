@@ -14,20 +14,12 @@ log = logging.getLogger("agent_world.drama_demo.routing")
 
 
 def node_inject_ids(session: Any) -> List[int]:
-    """玩家这句话注入给：当前剧情节点的 inject_agents ∪ 与玩家同处一地的所有 NPC。
+    """玩家这句话注入给：与玩家同处一地的所有 NPC。
 
-    解除「只有剧本这一幕安排的人能听见玩家」的硬白名单——玩家可自由找在场的任意角色搭话，
-    自由交互不再被节点忽略（去线性化）。剧情推进仍由导演按对话理解判断，不受此影响。
+    剧情已无「幕/节点」白名单——玩家可自由找在场的任意角色搭话，谁在场谁就听得见。
+    剧情反应由 bert（条件→反应）导演按对话理解触发，不受此影响。
     """
-    ids: set = set()
-    node_id = getattr(session, "current_node_id", None)
-    if node_id:
-        from agent_world.drama_demo.shared import story_config
-
-        if story_config.node_exists(node_id):
-            ids.update(int(a) for a in story_config.node_inject_agents(node_id))
-    ids.update(_present_npc_ids(session))
-    return sorted(ids)
+    return _present_npc_ids(session)
 
 
 def _present_npc_ids(session: Any) -> List[int]:

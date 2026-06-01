@@ -122,7 +122,7 @@ def story_asset(story_id: str, subpath: str):
 
 @drama_bp.route("/simulations/<sim_id>/session/start", methods=["POST"])
 def session_start(sim_id: str):
-    """Initialize Flask session with default stats / phase / place_id."""
+    """Initialize Flask session with default stats / place_id."""
     err = _check_sim_id(sim_id)
     if err:
         return err
@@ -164,7 +164,6 @@ def session_start(sim_id: str):
                 "task_id": hbm.task_id,
                 "start_tick": hbm.start_tick,
                 "place_id": hbm.place_id,
-                "phase": hbm.phase,
                 "player_turn": hbm.player_turn,
                 "stats": hbm.stats,
                 "stats_dimensions": stats_dimensions,
@@ -193,7 +192,7 @@ def session_reset(sim_id: str):
 
 @drama_bp.route("/simulations/<sim_id>/session", methods=["GET"])
 def session_get(sim_id: str):
-    """Return current game session snapshot (stats / phase / turn)."""
+    """Return current game session snapshot (stats / turn)."""
     err = _check_sim_id(sim_id)
     if err:
         return err
@@ -246,7 +245,6 @@ def player_turn(sim_id: str):
             sim_id=sim_id,
             player_text=player_text,
             request_place_id=body.get("place_id"),
-            request_phase=body.get("phase"),
             request_player_turn=body.get("player_turn"),
             tick_count=int(body.get("tick_count", 6)),
         )

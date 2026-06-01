@@ -136,7 +136,7 @@ class DramaAgent(DemoAgent):
             trace_id = trace_store.begin_trace(
                 agent_id=int(self.agent_id),
                 at_tick=int(t),
-                phase=str(turn_ctx.get("phase") or "") or None,
+                phase=None,
                 player_turn=(
                     int(turn_ctx["player_turn"])
                     if turn_ctx.get("player_turn") is not None

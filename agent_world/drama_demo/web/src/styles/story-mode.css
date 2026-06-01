@@ -608,36 +608,6 @@
 .story-stats-hud__delta.down {
   color: #f87171;
 }
-/* 故事张力条（drama-manager 导演驱动的张力弧）——竖排 HUD 顶部一行 */
-.story-stats-hud__tension {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: #e8eef7;
-  padding-bottom: 6px;
-  margin-bottom: 1px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.3);
-}
-.story-tension-bar {
-  display: inline-block;
-  flex: 1 1 auto;
-  width: auto;
-  height: 7px;
-  border-radius: 4px;
-  background: rgba(148, 163, 184, 0.28);
-  overflow: hidden;
-}
-.story-tension-bar__fill {
-  display: block;
-  height: 100%;
-  border-radius: 4px;
-  background: linear-gradient(90deg, #fbbf24, #f97316);
-  transition: width 0.6s ease;
-}
-.story-tension-bar__fill.is-high {
-  background: linear-gradient(90deg, #f97316, #ef4444);
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
-}
 
 /* 左侧地点列表（#4）：在数值 HUD 下方，列全部地点，点击移动 */
 .story-place-list {

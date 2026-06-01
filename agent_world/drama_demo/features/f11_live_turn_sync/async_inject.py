@@ -35,7 +35,6 @@ def run_background_turn(
     player_text: str,
     start_tick: int,
     task_place_id: str,
-    task_phase: str,
     task_player_turn: int,
     tick_count: int,
     ipc_timeout: float,
@@ -45,7 +44,6 @@ def run_background_turn(
         task_id=task_id,
         start_tick=start_tick,
         place_id=task_place_id,
-        phase=task_phase,
         player_turn=task_player_turn,
         inject_status=INJECT_STATUS_RUNNING,
     )
@@ -62,13 +60,11 @@ def run_background_turn(
                     "ending_id": "bad_reject",
                     "public_messages": list(BAD_END_PUBLIC_MESSAGES),
                     "stats_update": dict(hbm.stats),
-                    "current_phase": hbm.phase,
                 },
             )
             log_turn_event(
                 event="player_turn_async_bad_end",
                 task_id=task_id,
-                phase=hbm.phase,
                 player_turn=task_player_turn,
                 start_tick=start_tick,
                 end_tick=start_tick,
@@ -85,7 +81,6 @@ def run_background_turn(
             broadcast=broadcast,
             turn_context=turn_context,
             start_tick=start_tick,
-            task_phase=task_phase,
             tick_count=tick_count,
             ipc_timeout=ipc_timeout,
         )
@@ -104,7 +99,6 @@ def run_background_turn(
             log_turn_event(
                 event="routing_applied",
                 task_id=task_id,
-                phase=hbm.phase,
                 player_turn=hbm.player_turn,
                 start_tick=start_tick,
                 end_tick=current_tick,
@@ -120,7 +114,6 @@ def run_background_turn(
         log_turn_event(
             event="player_turn_async_completed",
             task_id=task_id,
-            phase=hbm.phase,
             player_turn=task_player_turn,
             start_tick=start_tick,
             end_tick=ipc_end_tick,
@@ -134,7 +127,6 @@ def run_background_turn(
         log_turn_event(
             event="player_turn_async_failed",
             task_id=task_id,
-            phase=task_phase,
             player_turn=task_player_turn,
             start_tick=start_tick,
             end_tick=start_tick,

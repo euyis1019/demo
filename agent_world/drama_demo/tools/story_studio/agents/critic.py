@@ -21,33 +21,32 @@ _SYSTEM = """你是一位严格的叙事总监 + 角色扮演评审。下面是�
 
 评分维度（rubric）：
 1. character_depth 角色深度：每个 NPC 的 soul/inner 是否具体有棱角、非套话？inner 里的秘密/图谋是否
-   与某个结局或某条剧情走向真正挂钩（而非悬空的通用设定）？
+   与某条 bert 反应或某个结局真正挂钩（而非悬空的通用设定）？
 2. voice_distinct 声音可区分度：各 NPC 的 speech_style/speech_samples 是否在用词/句式/称谓/口头禅上彼此
    可分辨？有没有都写成同一个「通用 AI 腔」？对立阵营的角色尤其要能一眼听出是谁。
-3. subtext_drama 潜台词与戏剧性：directions 是否给了潜台词（嘴上说 A 心里想 B）、是否 show-don't-tell？
+3. subtext_drama 潜台词与戏剧性：bert 的 reaction 是否有潜台词/层次（受压坦白、伪装动摇…），而不是直白？
    反派/有秘密的角色是否靠算计、伪装、试探推进，而不是直白敌意或一上来就摊牌？
-4. player_agency 玩家纳入：有分支的节点，各出边 condition 是否互斥、清楚区分玩家的不同选择、且都是
-   「玩家在对话里做到/表达了什么」可被判定的具体行动？玩家的选择是否真能导向不同走向/结局？
-5. plot_tension 剧情张力：scene_brief 串起来是否有起承转合、悬念、转折？还是平铺直叙、每幕都在重复？
+4. player_agency 玩家纳入：各 bert 的 trigger 是否是「玩家在对话里做到/表达了什么」可被判定的具体行动、
+   彼此不含糊、覆盖玩家可能的关键选择？玩家的不同做法是否真能导向不同反应/结局？
+5. plot_tension 剧情张力：berts 经 requires/arms 串成的反应链是否有因果递进、悬念、转折（逼问→坦白→交代…）？
+   还是各自孤立、平淡重复？结局是否够分量、与玩家历程相称？
 
 只输出 JSON：
 {
   "scores": {"character_depth": 1-5, "voice_distinct": 1-5, "subtext_drama": 1-5, "player_agency": 1-5, "plot_tension": 1-5},
   "casting_feedback": "针对 Casting 的角色卡（soul/inner/speech_style/speech_samples/声音区分/反派算计）的具体修改清单；若该部分已经很好就留空字符串",
-  "writer_feedback": "针对 Writer 的分幕（scene_brief/directions 潜台词/condition 互斥与玩家纳入/分支张力）的具体修改清单；若已经很好就留空字符串",
+  "bert_feedback": "针对 bert 反应链（trigger 是否玩家可做到且互不含糊、reaction 是否贴人设有潜台词、requires/arms 反应链是否连贯、结局是否够分量）的具体修改清单；若已经很好就留空字符串",
   "summary": "一句话总评"
 }
-feedback 要写成「① 角色X的inner太泛，应点明他对Y的具体图谋…；② 第二幕directions没有潜台词…」这种可直接照做的条目。"""
+feedback 要写成「① 角色X的inner太泛，应点明他对Y的具体图谋…；② bert『confess』的 trigger 太模糊，应写明玩家具体要做到什么…」这种可直接照做的条目。"""
 
 
-def _draft_payload(brief: Dict[str, Any], designer: Dict[str, Any],
-                   casting: Dict[str, Any], writer: Dict[str, Any]) -> str:
+def _draft_payload(brief: Dict[str, Any], casting: Dict[str, Any], bert_design: Dict[str, Any]) -> str:
     return (
         "故事 brief（作者意图）：\n" + json.dumps(brief, ensure_ascii=False, indent=2)
-        + "\n\n故事图骨架（节点/边/结局）：\n" + json.dumps(designer, ensure_ascii=False, indent=2)
         + "\n\n角色花名册（Casting）：\n" + json.dumps(casting.get("agents", []), ensure_ascii=False, indent=2)
-        + "\n\n分幕血肉（Writer：每节点 scene_brief/directions、每边 condition）：\n"
-        + json.dumps(writer, ensure_ascii=False, indent=2)
+        + "\n\nbert 反应链（条件→反应规则集，含结局 bert）：\n"
+        + json.dumps(bert_design.get("berts", []), ensure_ascii=False, indent=2)
     )
 
 
@@ -55,9 +54,9 @@ class Critic:
     def __init__(self, client: LLMClient) -> None:
         self._client = client
 
-    def review(self, brief: Dict[str, Any], designer: Dict[str, Any],
-               casting: Dict[str, Any], writer: Dict[str, Any]) -> Dict[str, Any]:
-        user = _draft_payload(brief, designer, casting, writer)
+    def review(self, brief: Dict[str, Any], casting: Dict[str, Any],
+               bert_design: Dict[str, Any]) -> Dict[str, Any]:
+        user = _draft_payload(brief, casting, bert_design)
         return call_json_with_schema(
             self._client, system=_SYSTEM, user=user, schema=CRITIC_OUTPUT_SCHEMA, label="critic"
         )

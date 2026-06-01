@@ -9,11 +9,12 @@
 | 文件 | 职责 |
 |------|------|
 | `__init__.py` | 公共出口：StoryGraph/StoryNode/StoryEnding/StoryEdge、load_*、错误类型 |
-| `model.py` | 节点/结局/边三类 dataclass + `from_mapping` 解析；trigger/actions 保持不透明 |
+| `model.py` | 节点/结局/边三类 dataclass + `from_mapping` 解析；trigger/actions 保持不透明（旧分幕结构，运行期已退居兼容）|
+| `bert.py` | **bert（条件→反应）** `Bert`/`BertSet`：`trigger→target→reaction` + `requires/arms` 反应链 + `ending` 结局 bert；`armed_ids(fired)` 算上膛集合、`validate()` 闸门（B 系列）。取代分幕/任务链，是剧情运行期主驱动（见 dev_logs/48）|
 | `graph.py` | `StoryGraph` 容器 + 图算法（拓扑排序/可达性/路径枚举）+ `validate()` 闸门（不变量 V1–V6）|
 | `errors.py` | `StoryPackError` / `StoryPackValidationError`（聚合违例列表）|
-| `loader.py` | 从 `config/stories/<id>/` 读 meta.yaml + story_graph.yaml；`load_and_validate_*` 加载即校验 |
-| `pack.py` | `StoryPack` 整包聚合（meta+graph+世界原语文件）+ **跨文件引用闭合校验**（X 系列）+ `load_story_pack` |
+| `loader.py` | 从 `config/stories/<id>/` 读 meta.yaml + story_graph.yaml + **berts.yaml**(`load_berts`)；`load_and_validate_*` 加载即校验 |
+| `pack.py` | `StoryPack` 整包聚合（meta+graph+**berts**+世界原语文件）+ **跨文件引用闭合校验**（X 系列）+ bert 校验（B 系列）+ `load_story_pack` |
 | `scenario_adapter.py` | `StoryPack` → 运行期 scenario dict 投影（`seed_world`/`build_kernel` 消费）+ 播种开关 `is_story_pack_seed_enabled()` |
 
 ## validate 不变量（V1–V6，详见 graph.py docstring）

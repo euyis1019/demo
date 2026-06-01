@@ -43,14 +43,9 @@ def build_player_f2f_payload(session: Any, player_text: str) -> Optional[Dict[st
     if not text:
         return None
     place_id = str(getattr(session, "place_id", ""))
-    # 节点驱动：玩家台词收件人=当前节点首个在场 NPC，地点=当前节点 place_focus（数据驱动，无相位/角色硬规则）。
-    node_id = getattr(session, "current_node_id", None)
+    # 玩家台词收件人=与玩家同处一地的首个在场 NPC（地点=玩家所在地）。无幕/节点硬规则。
     agents = node_inject_ids(session)
     recipient_id = int(agents[0]) if agents else _fallback_recipient(place_id)
-    if node_id:
-        from agent_world.drama_demo.shared import story_config
-
-        place_id = story_config.node_place(node_id) or place_id
     return {
         "sender_id": int(player_agent_id()),
         "recipient_id": recipient_id,
