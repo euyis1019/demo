@@ -62,11 +62,12 @@ def lobby_create_story():
     premise = str(body.get("premise") or "").strip()
     if len(premise) < 8:
         return _bad_request("请输入一段大概的剧情（至少 8 个字）")
+    # acts 不传 → None：不写死任务数，交给管理 agent(Designer) 按剧情自决（前端默认不传）。
     job_id = WORLD_MANAGER.create_story(
         premise=premise,
         player=str(body.get("player") or "一名卷入其中的外来者"),
         title=body.get("title"),
-        acts=int(body.get("acts") or 4),
+        acts=int(body["acts"]) if str(body.get("acts") or "").strip() else None,
         with_assets=bool(body.get("with_assets", True)),
     )
     return jsonify({"success": True, "data": {"job_id": job_id}})

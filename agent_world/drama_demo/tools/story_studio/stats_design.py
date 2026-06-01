@@ -22,11 +22,11 @@ STATS_DESIGN_SCHEMA: Dict[str, Any] = {
     "properties": {
         # 打分裁判的人设/视角（第二人称对裁判说），贴本故事基调。
         "judge_persona": {"type": "string", "minLength": 16},
-        # 3-4 个可量化属性维度。
+        # 可量化属性维度（数量由故事自决，仅留宽松上下限作护栏）。
         "dimensions": {
             "type": "array",
-            "minItems": 2,
-            "maxItems": 5,
+            "minItems": 1,
+            "maxItems": 8,
             "items": {
                 "type": "object",
                 "required": ["key", "label", "initial", "description"],
@@ -46,7 +46,7 @@ STATS_DESIGN_SCHEMA: Dict[str, Any] = {
 }
 
 _SYSTEM = """你是互动剧情的**数值策划**。为这个故事设计「玩家属性面板」：玩家每回合的发言会被裁判评估，
-据此让 3-4 个可量化维度涨跌，给玩家『我的选择在影响什么』的反馈。维度要贴这个故事的核心张力与目标。
+据此让若干可量化维度涨跌，给玩家『我的选择在影响什么』的反馈。维度要贴这个故事的核心张力与目标。
 
 举例（仅示范思路，按本故事重写）：武侠夺嫡→门派威望/盟友信任/危险暴露；太空惊悚→氧气余量/船员信任/理智。
 
@@ -57,7 +57,8 @@ _SYSTEM = """你是互动剧情的**数值策划**。为这个故事设计「玩
     {"key": "英文snake_case程序键", "label": "中文展示名", "initial": 初始值0-100整数, "description": "这个维度衡量什么"}
   ]
 }
-要求：key 用稳定的英文 snake_case（如 reputation/trust/exposure）；label 用中文；3-4 个维度；
+要求：key 用稳定的英文 snake_case（如 reputation/trust/exposure）；label 用中文；
+**维度数由你按这个故事的核心张力与抉择空间自决**（简单线性故事 1-2 个，复杂博弈/多目标故事 4-7 个，不为凑数硬加）；
 贴本故事的人物/目标/悬念，别照搬示例、别写成通用空话。只输出 JSON。"""
 
 

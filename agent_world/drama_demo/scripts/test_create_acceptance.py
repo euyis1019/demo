@@ -39,7 +39,8 @@ def main() -> int:
         "你是新当选、谁都不信任的临时管理员，必须在七天内分配资源、平息哗变、查出谁在囤积。"
     )
     print("→ 模拟用户建故事（只给一段剧情），管理 agent 异步生成整包…", flush=True)
-    job_id = WORLD_MANAGER.create_story(premise=premise, player="临时管理员", acts=4, with_assets=False)
+    # 不传 acts：验证管理 agent(Designer) 按剧情自决任务/结局数（不再写死）。
+    job_id = WORLD_MANAGER.create_story(premise=premise, player="临时管理员", with_assets=False)
     for _ in range(150):
         job = WORLD_MANAGER.jobs.get(job_id) or {}
         if job.get("status") in ("done", "error"):

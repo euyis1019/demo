@@ -78,7 +78,7 @@ class WorldManager:
 
     # ---------- 建故事（异步生成）----------
     def create_story(self, *, premise: str, player: str = "一名卷入其中的外来者",
-                     title: Optional[str] = None, acts: int = 4, with_assets: bool = True) -> str:
+                     title: Optional[str] = None, acts: Optional[int] = None, with_assets: bool = True) -> str:
         job_id = uuid.uuid4().hex[:12]
         # 轻量内存护栏：只保留最近若干条 job（淘汰最早的已完成态），避免长跑 dev server 单调膨胀。
         if len(self.jobs) >= 40:
@@ -94,7 +94,7 @@ class WorldManager:
         t.start()
         return job_id
 
-    def _generate(self, *, job_id: str, premise: str, player: str, title: Optional[str], acts: int, with_assets: bool) -> None:
+    def _generate(self, *, job_id: str, premise: str, player: str, title: Optional[str], acts: Optional[int], with_assets: bool) -> None:
         job = self.jobs[job_id]
         try:
             from agent_world.drama_demo.tools.story_studio.naming import slug_story_id
@@ -113,11 +113,10 @@ class WorldManager:
                 "premise": premise,
                 "title": title or premise[:24],
                 "player": {"identity": player, "role": player, "is_outsider": True},
-                # 任务式生成：acts 即任务链长度（保留 target_acts/target_nodes 兼容旧词）。
-                "target_tasks": int(acts),
-                "target_acts": int(acts),
-                "target_nodes": str(max(int(acts), 4)),
             }
+            # 只有调用方明确给了 acts(任务数)才下发 target_*；否则不写——让管理 agent(Designer) 按剧情自决任务数。
+            if acts is not None:
+                brief.update(target_tasks=int(acts), target_acts=int(acts), target_nodes=str(int(acts)))
             from agent_world.drama_demo.tools.story_studio.orchestrator import generate_full
 
             # generate_full 成功才返回（校验通不过会 raise StoryStudioError，落到外层 except）。
