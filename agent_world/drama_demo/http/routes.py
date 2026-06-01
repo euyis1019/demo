@@ -144,6 +144,18 @@ def session_start(sim_id: str):
         if refreshed_env is not None:
             env = refreshed_env
 
+    # 新手引导 + 属性维度（管理 agent 生成，写在活跃故事 meta）随开局一并下发，
+    # 前端开局即可弹引导、渲染数据驱动 HUD（缺失则空，故事未定义就不显示）。
+    onboarding = None
+    stats_dimensions: list = []
+    try:
+        from agent_world.drama_demo.shared import story_config
+
+        onboarding = (story_config.active_pack().meta or {}).get("onboarding")
+        stats_dimensions = story_config.stats_dimensions()
+    except Exception:  # noqa: BLE001
+        onboarding, stats_dimensions = None, []
+
     return jsonify(
         {
             "success": True,
@@ -154,6 +166,8 @@ def session_start(sim_id: str):
                 "phase": hbm.phase,
                 "player_turn": hbm.player_turn,
                 "stats": hbm.stats,
+                "stats_dimensions": stats_dimensions,
+                "onboarding": onboarding,
                 "env_status": env,
             },
         }
