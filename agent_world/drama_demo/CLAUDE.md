@@ -71,7 +71,7 @@
 ## 8. 当前进行中的 feature
 
 - 分支 `story-framework-revamp`：**剧情数据驱动化**——把写死在代码里的 HBM 剧情（`features/f05_story_routing`
-  的 if 链/常量、`drama_scenario.yaml`）抽成可外置的 **Story Pack**（`config/stories/<id>/`），
+  的 if 链/常量、`config/stories/<id>/`）抽成可外置的 **Story Pack**（`config/stories/<id>/`），
   使「只改 config 就能换一个完全不同的故事」，并补一套**设计期生成工具**（管理 agent 工作室 + validate 闸门），
   让用户只写一份剧情 brief 即可由 agent 生成整包 Story Pack。
   - 设计与规划见 dev_logs/40–46：40 解耦地图、41 参考 AI4VisualNovel、42 完整修改规划（§3 Story Pack schema、

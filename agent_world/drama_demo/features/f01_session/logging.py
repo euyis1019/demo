@@ -29,4 +29,4 @@ def log_turn_event(
         payload["end_tick"] = end_tick
     if extra:
         payload.update(extra)
-    log.info("hbm %s", payload)
+    log.info("drama %s", payload)

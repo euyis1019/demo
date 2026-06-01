@@ -23,7 +23,7 @@ from agent_world.drama_demo.http.health import check_stack_health
 from agent_world.drama_demo.http.http_errors import service_error_payload
 from agent_world.drama_demo.shared.env_status import is_runner_ready, read_env_status
 
-drama_bp = Blueprint("hbm", __name__)
+drama_bp = Blueprint("drama", __name__)
 
 
 def _json_body() -> Dict[str, Any]:

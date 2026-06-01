@@ -1,5 +1,4 @@
-# HBM 显存价格保卫战 — Web Demo
-
+# 数据驱动多 agent 互动剧引擎
 一个**本地可玩的叙事谈判 Demo**：玩家扮演创业者，在 NVIDIA 接待 / 谈判场景中通过约
 25 轮台词推动剧情，目标是走向三种结局之一（加入 NVIDIA / 拿种子轮独立 / 冷场破局）。
 
@@ -45,14 +44,13 @@ python3 agent_world/drama_demo/scripts/test_m0_acceptance.py
 cd agent_world/drama_demo/web && npm run build
 ```
 
-25 轮人工试玩台词：[`scripts/docs/player_playthrough.md`](scripts/docs/player_playthrough.md)
 
 ---
 
 ## 四层架构
 
 ```text
-L0 配置     config/prompts/*, drama_scenario.yaml, .env        ← 场景/Prompt/路由/Key
+L0 配置     config/prompts/*, config/stories/<id>/, .env        ← 场景/Prompt/路由/Key
 L1 Runner   core/runner/  (+ integration/ 白名单桥)          ← 写 world.db、tick、Agent LLM、IPC
 L2 编排     features/f01–f17                                  ← 回合规则、路由、打分、世界同步
 L3 传输/UI  http/ (REST + WS), web/src/                       ← Flask Blueprint + React 双栏 UI
@@ -72,7 +70,7 @@ agent_world/drama_demo/
 ├── run_drama.py                # 入口 shim → core/runner/run_drama.py
 ├── routes.py                 # 入口 shim → http/routes.drama_bp
 ├── game_service.py           # 历史 re-export facade（F01–F04/F06，逐步退役）
-├── drama_scenario.yaml         # L0 场景：地点 / Agent soul / LLM / 群聊
+├── config/stories/<id>/         # L0 场景：地点 / Agent soul / LLM / 群聊
 ├── .env / .env.example       # L0 API Key（.env 不入库）
 │
 ├── config/                   # L0 配置（见 config/prompts/README.md）
@@ -173,7 +171,6 @@ agent_world/drama_demo/
 | [`shared/README.md`](shared/README.md) | 跨层工具各文件 |
 | [`web/README.md`](web/README.md) | 前端结构、features/store/api、运行 |
 | [`scripts/README.md`](scripts/README.md) | 运维脚本与验收测试 |
-| [`scripts/docs/player_playthrough.md`](scripts/docs/player_playthrough.md) | 25 轮人工试玩台词参考 |
 
 ---
 

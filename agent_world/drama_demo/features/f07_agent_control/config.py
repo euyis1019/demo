@@ -29,15 +29,6 @@ def is_f07_enabled() -> bool:
     return bool(load_turn_control().get("enabled", False))
 
 
-_PASSIVE_PROB = {"low": 0.25, "medium": 0.50, "high": 0.75}
-
-
-def passive_tick_probability(phase: str) -> float:
-    """L3 passive agent sampling probability per phase."""
-    phases = load_turn_control().get("phases") or {}
-    block = phases.get(phase) or {}
-    key = str(block.get("passive_tick_probability", "medium"))
-    return _PASSIVE_PROB.get(key, 0.5)
 
 
 def inject_exclusive_ticks_for(phase: str) -> int:

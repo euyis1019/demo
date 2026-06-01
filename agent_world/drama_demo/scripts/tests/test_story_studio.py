@@ -255,11 +255,18 @@ _G3_CASTING = {
     "relations": [], "relation_types": [], "groups": [],
 }
 _G3_WRITER = {
-    "nodes": [{"id": "n1", "inject_agents": [1], "place_focus": "hall", "window_since": "start_tick"},
-              {"id": "n2", "inject_agents": [1], "place_focus": "hall", "window_since": "start_tick"}],
-    "edges": [{"id": "adv", "legacy_label": "A", "trigger": {"type": "story_advance", "signal": "go_on"}, "actions": []},
-              {"id": "fin", "trigger": {"type": "story_advance", "signal": "finish"}, "actions": []},
-              {"id": "fail", "trigger": {"type": "story_advance", "signal": "reject"}, "actions": []}],
+    "nodes": [{"id": "n1", "inject_agents": [1], "place_focus": "hall", "window_since": "start_tick",
+               "scene_brief": "深夜大厅，守门人独自值夜，你走近询问入内之事，他神色紧张地拦住你。",
+               "directions": {"1": "你是守门人，板着脸拦住玩家盘问来意；心里揣着收过的贿赂提心吊胆，嘴上越发严厉以掩饰心虚。"}},
+              {"id": "n2", "inject_agents": [1], "place_focus": "hall", "window_since": "start_tick",
+               "scene_brief": "事情有了转机，守门人态度松动，你能感到他在权衡是否放行。",
+               "directions": {"1": "你是守门人，态度动摇，旁敲侧击试探玩家是不是知道内情；既想脱身又怕事发。"}}],
+    "edges": [{"id": "adv", "legacy_label": "A", "trigger": {"type": "story_advance", "signal": "go_on"}, "actions": [],
+               "condition": "玩家说服或施压守门人，让他松口愿意继续谈。"},
+              {"id": "fin", "trigger": {"type": "story_advance", "signal": "finish"}, "actions": [],
+               "condition": "玩家抓住守门人的破绽，逼他彻底放行。"},
+              {"id": "fail", "trigger": {"type": "story_advance", "signal": "reject"}, "actions": [],
+               "condition": "玩家激怒守门人或暴露意图，被他赶走。"}],
     "signals": {"story_advance": {"enabled": True, "valid_signals": ["go_on", "finish", "reject"]},
                 "keyword_sets": {}, "params": {}},
 }

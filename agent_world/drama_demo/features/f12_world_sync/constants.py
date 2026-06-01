@@ -11,7 +11,7 @@ DRAMA_AGENT_IDS: tuple[int, ...] = ()
 
 def room_places() -> tuple[str, ...]:
     """玩家可见场景的地点清单——数据驱动：取活跃 Story Pack 的全部地点；
-    无 pack/异常时回退旧 HBM 四室（保证默认 HBM 路径不变）。"""
+    无 pack/异常时无 pack 时回退空（由上层处理）（保证默认 HBM 路径不变）。"""
     try:
         from agent_world.drama_demo.shared import story_config
 
@@ -22,7 +22,7 @@ def room_places() -> tuple[str, ...]:
 
 
 def agent_roster() -> tuple[int, ...]:
-    """玩家可见的 NPC 名册——数据驱动：取活跃 Story Pack 的全部 NPC id；回退旧 HBM 7 人。"""
+    """玩家可见的 NPC 名册——数据驱动：取活跃 Story Pack 的全部 NPC id；无 pack 时回退空。"""
     try:
         from agent_world.drama_demo.shared import story_config
 

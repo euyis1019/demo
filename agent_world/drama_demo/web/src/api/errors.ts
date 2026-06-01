@@ -8,7 +8,7 @@ export type DramaErrorCode =
   | "API_ERROR"
   | "NETWORK_ERROR";
 
-/** Thrown when an API call fails (except `getHealth` 503 — see `hbm.ts`). */
+/** Thrown when an API call fails (except `getHealth` 503 — see `drama.ts`). */
 export class DramaApiError extends Error {
   readonly status: number;
   readonly code: DramaErrorCode;

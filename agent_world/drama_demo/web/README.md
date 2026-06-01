@@ -23,7 +23,7 @@ src/
 ├── main.tsx                 # 挂载入口
 ├── api/                     # HTTP 客户端与类型
 │   ├── client.ts            #   apiGet/apiPost 封装
-│   ├── hbm.ts               #   各端点调用（player-turn/world-delta/...）
+│   ├── drama.ts               #   各端点调用（player-turn/world-delta/...）
 │   ├── types.ts             #   API 请求/响应类型
 │   ├── config.ts / errors.ts
 ├── store/                   # 全局状态

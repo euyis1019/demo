@@ -1,4 +1,4 @@
-"""HBM v2 WorldLoopOrchestrator — resident tick loop (dev_logs/31 §四, §8.3)."""
+"""drama v2 WorldLoopOrchestrator — resident tick loop (dev_logs/31 §四, §8.3)."""
 
 from __future__ import annotations
 
@@ -94,7 +94,7 @@ class WorldLoopOrchestrator:
         self._loop_state = "running"
         self._paused_at_tick = None
         self._pause_event.set()
-        self._loop_task = asyncio.create_task(self._loop(), name="hbm-world-loop")
+        self._loop_task = asyncio.create_task(self._loop(), name="drama-world-loop")
         log.info("WorldLoopOrchestrator started interval=%ss", abcs.world_loop_tick_interval())
 
     async def stop(self) -> None:

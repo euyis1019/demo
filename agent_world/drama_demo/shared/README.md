@@ -5,7 +5,7 @@
 
 | 文件 | 作用 |
 |------|------|
-| `config_loader.py` | `load_scenario()`：解析 `drama_scenario.yaml`（地点/Agent/LLM/群聊） |
+| `config_loader.py` | `load_scenario()`：解析 `config/stories/<id>/`（地点/Agent/LLM/群聊） |
 | `prompt_paths.py` | L0 prompt 路径解析：`turn_control_path`、`routing_config_path`、`virtual_player_config_path`、`story_knowledge_dir`、`scenario_path` 等（统一指向 `config/prompts/`） |
 | `env_status.py` | `env_status.json` 读写：`write_env_status`（**原子写**：临时文件 + `os.replace`）、`read_env_status`、`is_runner_ready`、`patch_ipc_server_env_status`、`normalize_env_status` |
 | `settings.py` | 环境驱动常量：`DEFAULT_IPC_TIMEOUT`、`DEFAULT_MOVE_TIMEOUT`、`DEFAULT_RESET_TIMEOUT`、`DB_CONNECT_TIMEOUT`、`DB_READ_RETRIES` |

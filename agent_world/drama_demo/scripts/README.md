@@ -16,7 +16,6 @@ scripts/
 │   └── acceptance/            #   分项 acceptance：f12_phase1 / f12_world_delta /
 │                              #   f12_visibility / phase4_smoke（Phase4 IPC 烟测）
 ├── docs/
-│   └── player_playthrough.md  #   25 轮人工试玩台词参考（SAN 方案 · agent_driven）
 ├── start_demo.sh              # 兼容 wrapper → ops/start_demo.sh
 ├── stop_demo.sh              # 兼容 wrapper → ops/stop_demo.sh
 └── test_m0_acceptance.py      # 门禁入口 shim → tests/test_m0.main()（CI 兼容）

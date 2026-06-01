@@ -18,7 +18,7 @@ from agent_world.drama_demo.features.f07_agent_control.llm_params import (
 
 def build_turn_context(session: Any, player_text: str) -> Dict[str, Any]:
     """Build IPC turn_context payload (Flask-side)."""
-    phase = str(getattr(session, "phase", "Phase 1"))
+    phase = str(getattr(session, "phase", ""))
     player_turn = int(getattr(session, "player_turn", 1))
     stats = getattr(session, "stats", None) or {}
     inject_ids = node_inject_ids(session)

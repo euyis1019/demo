@@ -68,7 +68,7 @@ class StoryPack:
 
     # ---------- validate ----------
     def validate(self) -> List[str]:
-        """图结构(V) + 跨文件引用闭合(X) 的全部违例。"""
+        """图结构(V) + 跨文件引用闭合(X) 的全部违例（结构性，供播种/骨架编译共用）。"""
         issues: List[str] = list(self.graph.validate())
         issues.extend(self._validate_cross_refs())
         return issues
@@ -77,6 +77,28 @@ class StoryPack:
         issues = self.validate()
         if issues:
             raise StoryPackValidationError(issues)
+
+    def validate_beat_detail(self) -> List[str]:
+        """D 层：beat 详细度可机检门禁——让「足够详细」成为生成期验收点，而非纯靠 LLM 提示 + best-effort Critic。
+
+        有在场 NPC 的节点须有非空 scene_brief；directions 须覆盖该节点全部 inject_agents 且每条非空；
+        每条边须有非空 condition（导演据此判推进）。仅在 generate_full 生成期强制（结构性 validate 不含此项）。
+        """
+        out: List[str] = []
+        for nid, node in self.graph.nodes.items():
+            inject = [int(a) for a in (getattr(node, "inject_agents", None) or [])]
+            if not inject:
+                continue  # 无在场 NPC 的节点不强求表演细节
+            if len(str(getattr(node, "scene_brief", "") or "").strip()) < 12:
+                out.append(f"D1 节点 '{nid}' 缺 scene_brief（这一幕的戏剧情境）")
+            directions = {int(k): str(v or "") for k, v in (getattr(node, "directions", None) or {}).items()}
+            for aid in inject:
+                if not directions.get(aid, "").strip():
+                    out.append(f"D2 节点 '{nid}' 缺 agent {aid} 的 directions（在场角色须有表演指引）")
+        for edge in self.graph.edges:
+            if not str(getattr(edge, "condition", "") or "").strip():
+                out.append(f"D3 边 '{getattr(edge, 'id', '?')}'（{edge.src}→{edge.dst}）缺 condition")
+        return out
 
     def _validate_cross_refs(self) -> List[str]:
         out: List[str] = []

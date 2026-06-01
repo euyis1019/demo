@@ -27,22 +27,16 @@ _ROOT = Path(__file__).resolve().parents[3]
 
 
 def _deepseek_client():
-    from openai import OpenAI
-
-    key = (os.environ.get("DMXAPI_KEY") or "").strip()
-    if not key:
+    """设计期 LLM 客户端——复用统一的 make_llm_client（带 response_format=json_object，JSON 更稳），
+    保留大厅原本的 0.8 创意温度，避免与 CLI 路径分叉。"""
+    if not (os.environ.get("DMXAPI_KEY") or "").strip():
         raise RuntimeError("未配置 DMXAPI_KEY（设计剧情需要）。请在 agent_world/drama_demo/.env 设置。")
-    oai = OpenAI(api_key=key, base_url="https://api.deepseek.com")
+    from agent_world.drama_demo.tools.story_studio.llm_client import make_llm_client
 
-    def llm(system: str, user: str) -> str:
-        r = oai.chat.completions.create(
-            model="deepseek-chat",
-            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-            temperature=0.8, max_tokens=8000,
-        )
-        return r.choices[0].message.content or ""
-
-    return llm
+    return make_llm_client(
+        {"api_key_env": "DMXAPI_KEY", "base_url": "https://api.deepseek.com", "model": "deepseek-chat"},
+        temperature=0.8,
+    )
 
 
 class WorldManager:
@@ -77,6 +71,11 @@ class WorldManager:
     def create_story(self, *, premise: str, player: str = "一名卷入其中的外来者",
                      title: Optional[str] = None, acts: int = 4, with_assets: bool = True) -> str:
         job_id = uuid.uuid4().hex[:12]
+        # 轻量内存护栏：只保留最近若干条 job（淘汰最早的已完成态），避免长跑 dev server 单调膨胀。
+        if len(self.jobs) >= 40:
+            done = [k for k, v in list(self.jobs.items()) if v.get("status") in ("done", "error")]
+            for k in done[: max(0, len(self.jobs) - 30)]:
+                self.jobs.pop(k, None)
         self.jobs[job_id] = {"status": "running", "step": "排队中", "story_id": None, "error": None}
         t = threading.Thread(
             target=self._generate,

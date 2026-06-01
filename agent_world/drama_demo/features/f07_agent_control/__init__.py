@@ -3,7 +3,6 @@
 from agent_world.drama_demo.features.f07_agent_control.config import (
     is_f07_enabled,
     load_turn_control,
-    passive_tick_probability,
 )
 from agent_world.drama_demo.features.f07_agent_control.knowledge import (
     build_agent_knowledge,
@@ -32,7 +31,6 @@ __all__ = [
     "format_inject_dialogue",
     "is_f07_enabled",
     "load_turn_control",
-    "passive_tick_probability",
     "pick_active_ids",
     "primary_active_ids",
     "resolve_llm_params",

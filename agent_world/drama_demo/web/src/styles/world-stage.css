@@ -14,7 +14,7 @@
 .world-stage__input {
   flex-shrink: 0;
   padding: 0.75rem 1rem 1rem;
-  border-top: 1px solid var(--hbm-panel-border);
+  border-top: 1px solid var(--drama-panel-border);
 }
 
 .room-grid {
@@ -26,7 +26,7 @@
   grid-template-columns: repeat(var(--room-cols, 2), 1fr);
   grid-template-rows: repeat(var(--room-rows, 2), 1fr);
   gap: 1px;
-  background: var(--hbm-panel-border);
+  background: var(--drama-panel-border);
 }
 
 .rdc-connection-layer {
@@ -68,7 +68,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--hbm-panel);
+  background: var(--drama-panel);
 }
 
 .room-cell__header {
@@ -79,16 +79,16 @@
   padding: 0.45rem 0.65rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--hbm-muted);
-  border-bottom: 1px solid var(--hbm-panel-border);
+  color: var(--drama-muted);
+  border-bottom: 1px solid var(--drama-panel-border);
 }
 
 .room-cell__history-btn {
   flex-shrink: 0;
-  border: 1px solid var(--hbm-panel-border);
+  border: 1px solid var(--drama-panel-border);
   border-radius: 6px;
-  background: var(--hbm-bg);
-  color: var(--hbm-text);
+  background: var(--drama-bg);
+  color: var(--drama-text);
   font-size: 0.625rem;
   font-weight: 600;
   padding: 0.2rem 0.45rem;
@@ -127,7 +127,7 @@
   transform: translate(-50%, -50%);
   margin: 0;
   font-size: 0.75rem;
-  color: var(--hbm-muted);
+  color: var(--drama-muted);
 }
 
 .agent-circle {
@@ -181,7 +181,7 @@
   height: 1.25rem;
   border-radius: 999px;
   border: 2px solid rgba(255, 255, 255, 0.85);
-  background: var(--hbm-accent);
+  background: var(--drama-accent);
   box-shadow: 0 0 12px rgba(61, 139, 253, 0.35);
 }
 
@@ -193,7 +193,7 @@
 .agent-circle__label {
   max-width: 6.25rem;
   font-size: 0.625rem;
-  color: var(--hbm-muted);
+  color: var(--drama-muted);
   text-align: center;
   white-space: normal;
   line-height: 1.2;
@@ -214,7 +214,7 @@
   border-radius: 10px;
   border: 1px solid rgba(61, 139, 253, 0.35);
   background: rgba(18, 24, 32, 0.96);
-  color: var(--hbm-text);
+  color: var(--drama-text);
   font-size: 0.6875rem;
   line-height: 1.4;
   text-align: left;
@@ -270,8 +270,8 @@
   display: flex;
   flex-direction: column;
   border-radius: 12px;
-  border: 1px solid var(--hbm-panel-border);
-  background: var(--hbm-panel);
+  border: 1px solid var(--drama-panel-border);
+  background: var(--drama-panel);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
 }
 
@@ -281,8 +281,8 @@
   display: flex;
   flex-direction: column;
   border-radius: 12px;
-  border: 1px solid var(--hbm-panel-border);
-  background: var(--hbm-panel);
+  border: 1px solid var(--drama-panel-border);
+  background: var(--drama-panel);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
 }
 
@@ -297,7 +297,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  border-bottom: 1px solid var(--hbm-panel-border);
+  border-bottom: 1px solid var(--drama-panel-border);
 }
 
 .agent-phone-modal__header h2,
@@ -309,15 +309,15 @@
 .agent-phone-modal__subtitle {
   margin: 0.25rem 0 0;
   font-size: 0.75rem;
-  color: var(--hbm-muted);
+  color: var(--drama-muted);
 }
 
 .modal-close,
 .world-event-modal__btn {
-  border: 1px solid var(--hbm-panel-border);
+  border: 1px solid var(--drama-panel-border);
   border-radius: 8px;
-  background: var(--hbm-bg);
-  color: var(--hbm-text);
+  background: var(--drama-bg);
+  color: var(--drama-text);
   padding: 0.4rem 0.75rem;
   cursor: pointer;
 }
@@ -326,7 +326,7 @@
   display: flex;
   gap: 0.35rem;
   padding: 0.5rem 1rem;
-  border-bottom: 1px solid var(--hbm-panel-border);
+  border-bottom: 1px solid var(--drama-panel-border);
 }
 
 .agent-phone-tabs__btn {
@@ -334,13 +334,13 @@
   border-radius: 999px;
   padding: 0.35rem 0.75rem;
   background: transparent;
-  color: var(--hbm-muted);
+  color: var(--drama-muted);
   cursor: pointer;
 }
 
 .agent-phone-tabs__btn--active {
   background: rgba(61, 139, 253, 0.15);
-  color: var(--hbm-text);
+  color: var(--drama-text);
 }
 
 .agent-phone-modal__body {
@@ -373,7 +373,7 @@
   gap: 0.75rem;
   padding: 0.85rem 1rem;
   border: none;
-  border-bottom: 1px solid var(--hbm-panel-border);
+  border-bottom: 1px solid var(--drama-panel-border);
   background: transparent;
   color: inherit;
   text-align: left;
@@ -398,7 +398,7 @@
   justify-content: center;
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--hbm-text);
+  color: var(--drama-text);
   background: rgba(61, 139, 253, 0.15);
 }
 
@@ -428,12 +428,12 @@
 .agent-contact-list__title {
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--hbm-text);
+  color: var(--drama-text);
 }
 
 .agent-contact-list__preview {
   font-size: 0.75rem;
-  color: var(--hbm-muted);
+  color: var(--drama-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -442,7 +442,7 @@
 .agent-contact-list__badge {
   flex-shrink: 0;
   font-size: 0.625rem;
-  color: var(--hbm-muted);
+  color: var(--drama-muted);
 }
 
 .agent-thread-detail {
@@ -459,13 +459,13 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--hbm-panel-border);
+  border-bottom: 1px solid var(--drama-panel-border);
 }
 
 .agent-thread-detail__back {
   border: none;
   background: transparent;
-  color: var(--hbm-accent);
+  color: var(--drama-accent);
   cursor: pointer;
   font-size: 0.8125rem;
   padding: 0;
@@ -513,8 +513,8 @@
   display: flex;
   flex-direction: column;
   border-radius: 12px;
-  border: 1px solid var(--hbm-panel-border);
-  background: var(--hbm-panel);
+  border: 1px solid var(--drama-panel-border);
+  background: var(--drama-panel);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
 }
 
@@ -524,7 +524,7 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--hbm-panel-border);
+  border-bottom: 1px solid var(--drama-panel-border);
 }
 
 .room-history-modal__header h2 {
@@ -535,7 +535,7 @@
 .room-history-modal__subtitle {
   margin: 0.25rem 0 0;
   font-size: 0.75rem;
-  color: var(--hbm-muted);
+  color: var(--drama-muted);
 }
 
 .room-history-modal__body {
@@ -548,7 +548,7 @@
 .agent-phone__empty {
   margin: 0;
   padding: 1.25rem 1rem;
-  color: var(--hbm-muted);
+  color: var(--drama-muted);
   font-size: 0.875rem;
 }
 
@@ -575,7 +575,7 @@
 
 .message-thread__badge {
   font-size: 0.6875rem;
-  color: var(--hbm-muted);
+  color: var(--drama-muted);
 }
 
 .inner-os-timeline {
@@ -589,12 +589,12 @@
   grid-template-columns: 4rem 1fr;
   gap: 0.75rem;
   padding: 0.5rem 0;
-  border-bottom: 1px solid var(--hbm-panel-border);
+  border-bottom: 1px solid var(--drama-panel-border);
 }
 
 .inner-os-timeline__tick {
   font-size: 0.75rem;
-  color: var(--hbm-muted);
+  color: var(--drama-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -603,7 +603,7 @@
   font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--hbm-accent);
+  color: var(--drama-accent);
 }
 
 .world-event-modal__content {
@@ -620,7 +620,7 @@
 
 .world-event-modal__tick {
   font-size: 0.75rem;
-  color: var(--hbm-muted);
+  color: var(--drama-muted);
 }
 
 .prompt-trace-btn {

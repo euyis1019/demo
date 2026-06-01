@@ -2,8 +2,8 @@
 
 Usage:
     python -m agent_world.drama_demo.run_drama \\
-        --config agent_world/drama_demo/drama_scenario.yaml \\
         --sim-dir agent_world/drama_demo/sim/canglan_sword/
+（世界数据驱动播种：故事由 env DRAMA_STORY_ID / 大厅激活决定，默认 canglan_sword。）
 """
 
 from __future__ import annotations
@@ -19,25 +19,17 @@ from typing import Optional
 from agent_world.drama_demo.core.runner.ipc_handlers import wire_handlers
 from agent_world.drama_demo.core.runner.kernel import build_kernel
 from agent_world.drama_demo.core.runner.world_loop import WorldLoopOrchestrator
-from agent_world.drama_demo.shared.config_loader import load_scenario
 from agent_world.drama_demo.shared.env_status import patch_ipc_server_env_status, write_env_status
 from agent_world.ipc.server import IPCServer
 
 log = logging.getLogger("agent_world.drama_demo")
 
 _DRAMA_DEMO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CONFIG = _DRAMA_DEMO_ROOT / "drama_scenario.yaml"
 DEFAULT_SIM_DIR = _DRAMA_DEMO_ROOT / "sim" / "canglan_sword"
 
 
 def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="drama demo simulation runner")
-    parser.add_argument(
-        "--config",
-        type=Path,
-        default=DEFAULT_CONFIG,
-        help="Path to drama_scenario.yaml",
-    )
     parser.add_argument(
         "--sim-dir",
         type=Path,
@@ -114,7 +106,7 @@ async def _run(sim_dir: Path, scenario: dict) -> int:
         queue_depth=0,
     )
     log.info(
-        "HBM runner ready sim_dir=%s simulation_id=%s agents=%d places=%d world_loop=%s",
+        "drama runner ready sim_dir=%s simulation_id=%s agents=%d places=%d world_loop=%s",
         sim_dir_str,
         scenario.get("simulation_id"),
         len(kernel.agents),
@@ -140,7 +132,7 @@ async def _run(sim_dir: Path, scenario: dict) -> int:
         await orchestrator.stop()
         write_env_status(sim_dir_str, kernel.clock.t, status="stopped", loop_running=False)
         kernel.world_db.close()
-        log.info("HBM runner exit")
+        log.info("drama runner exit")
     return 0
 
 
@@ -150,36 +142,26 @@ def main(argv: Optional[list[str]] = None) -> int:
         level=getattr(logging, args.log_level),
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
-    config_path = args.config.resolve()
     sim_dir = args.sim_dir.resolve()
 
-    # 数据驱动：默认从活跃 Story Pack 播种世界（env DRAMA_STORY_ID，默认 canglan_sword）。
+    # 数据驱动：从活跃 Story Pack 播种世界（env DRAMA_STORY_ID，默认 canglan_sword）。
     # L1 只读 shared/ 的助手（不违反 D4）。校验不过即抛，拒绝带病启动。
+    from agent_world.drama_demo.shared.story_config import active_story_id
     from agent_world.drama_demo.shared.story_pack import (
         list_story_ids,
         load_and_validate_story_pack,
     )
     from agent_world.drama_demo.shared.story_pack.scenario_adapter import (
-        is_story_pack_seed_enabled,
         story_pack_to_scenario,
     )
 
-    if is_story_pack_seed_enabled():
-        from agent_world.drama_demo.shared.story_config import active_story_id
-
-        sid = active_story_id()  # 决定播哪个故事
-        if sid not in list_story_ids():
-            log.error("活跃故事 '%s' 无对应 Story Pack（config/stories/%s/）", sid, sid)
-            return 1
-        pack = load_and_validate_story_pack(sid)  # 校验不过即抛
-        scenario = story_pack_to_scenario(pack)
-        log.info("从 Story Pack '%s' 播种世界", sid)
-    else:
-        # 仅当显式关闭播种时才需要外部 scenario 文件。
-        if not config_path.is_file():
-            log.error("config not found: %s", config_path)
-            return 1
-        scenario = load_scenario(config_path)
+    sid = active_story_id()  # 决定播哪个故事
+    if sid not in list_story_ids():
+        log.error("活跃故事 '%s' 无对应 Story Pack（config/stories/%s/）", sid, sid)
+        return 1
+    pack = load_and_validate_story_pack(sid)  # 校验不过即抛
+    scenario = story_pack_to_scenario(pack)
+    log.info("从 Story Pack '%s' 播种世界", sid)
 
     try:
         return asyncio.run(_run(sim_dir, scenario))

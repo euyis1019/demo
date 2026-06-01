@@ -1,13 +1,30 @@
-/** drama demo API constants。SIM_ID 运行期可变：大厅里选/建故事并激活后 setSimId 切换。 */
+/** drama demo API constants。SIM_ID 运行期可变：大厅里选/建故事并激活后 setSimId 切换。
+ *  持久化到 sessionStorage——「重开」会硬刷新页面，否则 _simId 会丢回默认 canglan，与后端激活的故事错配。 */
 
-let _simId = "canglan_sword";
+const _SIM_KEY = "drama_active_sim";
+
+function _readPersistedSim(): string {
+  try {
+    return (typeof sessionStorage !== "undefined" && sessionStorage.getItem(_SIM_KEY)) || "canglan_sword";
+  } catch {
+    return "canglan_sword";
+  }
+}
+
+let _simId = _readPersistedSim();
 
 export function getSimId(): string {
   return _simId;
 }
 
 export function setSimId(simId: string): void {
-  if (simId) _simId = simId;
+  if (!simId) return;
+  _simId = simId;
+  try {
+    if (typeof sessionStorage !== "undefined") sessionStorage.setItem(_SIM_KEY, simId);
+  } catch {
+    /* sessionStorage 不可用时退化为仅内存态 */
+  }
 }
 
 /** Vite dev proxy serves `/api` on same origin; Node tests set `VITE_API_BASE`. */

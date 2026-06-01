@@ -42,11 +42,17 @@ def designer_output_to_story_graph(designer: Dict[str, Any]) -> Dict[str, Any]:
 
 def brief_to_meta(brief: Dict[str, Any], story_id: str) -> Dict[str, Any]:
     """从 brief 投影一份最小 meta（G2 骨架级；完整 clock/llm 由 G3 Casting/Writer 补）。"""
+    import re as _re
+
     player = brief.get("player") or {}
+    # 标题：优先用户给的 title；否则取 premise 的第一句（按句读/逗号断，不在词中硬截到 40 字病句）。
+    premise = str(brief.get("premise") or "").strip()
+    first_clause = _re.split(r"[。．.！!？?，,；;\n]", premise, 1)[0].strip() if premise else ""
+    title = str(brief.get("title") or "").strip() or first_clause[:60] or story_id
     return {
         "schema_version": 1,
         "simulation_id": story_id,
-        "title": brief.get("premise", story_id)[:40] if brief.get("premise") else story_id,
+        "title": title,
         "player": {
             "agent_id": 0,
             "name": player.get("identity", "玩家"),
@@ -235,7 +241,9 @@ def generate_full(
     sections: Dict[str, Any] = {}
     result: Optional[CompileResult] = None
 
-    # ① 结构回路：产出结构/引用合法的整包
+    # ① 结构回路：产出结构/引用合法 **且 beat 足够详细** 的整包。
+    #    beat 详细度(D：scene_brief/directions 覆盖在场角色/condition 非空)只在质量门开启(critic_rounds>0)时强制，
+    #    不达标连同结构违例一起回灌重生成；离线 fake-client(critic_rounds=0) 只看结构，跳过详细度门。
     structural_ok = False
     for _round in range(max_rounds):
         d = designer.run(brief, feedback=feedback)
@@ -243,13 +251,23 @@ def generate_full(
         w = writer.run(d, c, brief=brief, feedback=feedback)
         sections = assemble_full_sections(brief, story_id, d, c, w)
         result = compile_pack(sections, story_id=story_id, target_dir=target_dir)
-        if result.ok:
+        detail_issues: List[str] = []
+        if result.ok and critic_rounds > 0:
+            _target = Path(target_dir) if target_dir is not None else story_dir(story_id)
+            _pack = (load_story_pack(story_id) if _target == story_dir(story_id)
+                     else _load_pack_from_dir(story_id, _target))
+            detail_issues = _pack.validate_beat_detail()
+        if result.ok and not detail_issues:
             structural_ok = True
             break
-        last_issues = result.issues
-        feedback = "整包校验未过：\n" + "\n".join(result.issues) + "\n请各自修正引用/结构后重新输出完整 JSON。"
+        last_issues = list(result.issues) + detail_issues
+        feedback = (
+            "整包未过验收：\n" + "\n".join(last_issues)
+            + "\n请修正后重新输出完整 JSON；尤其每个有在场 NPC 的节点务必写出非空 scene_brief、"
+            "给全部 inject_agents 各写一条 directions、每条边写一句可判定的 condition。"
+        )
     if not structural_ok:
-        raise StoryStudioError(f"generate_full '{story_id}' 失败：{max_rounds} 轮仍未过 validate：{last_issues}")
+        raise StoryStudioError(f"generate_full '{story_id}' 失败：{max_rounds} 轮仍未过验收：{last_issues}")
 
     # ② 质量回路：Critic 按 rubric 评分，低分项把意见回灌定向重写 Casting/Writer（骨架 d 固定不动）。
     #    任一重写若破坏结构 → 回滚到上一版已合法的包并停止；评审本身报错也不阻断（保留已合法包）。

@@ -7,7 +7,7 @@
 ```text
 ┌────────────────────────────────────────────────────────────────────┐
 │ L0 配置   config/prompts/*（Agent prompt/路由/虚拟玩家）、            │
-│           drama_scenario.yaml、config/manifest.yaml、.env              │
+│           config/stories/<id>/、config/manifest.yaml、.env              │
 ├────────────────────────────────────────────────────────────────────┤
 │ L1 Runner core/runner/*  +  core/runner/integration/*（白名单桥）    │
 │           写 world.db、推进 tick、Agent LLM、IPC、常驻 world loop      │

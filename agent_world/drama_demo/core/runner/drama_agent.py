@@ -272,22 +272,21 @@ class DramaAgent(DemoAgent):
         if hints:
             prefix.append(hints)
 
-        if self.player_memory:
-            # A8: skip stale-state force update_state while responding to player.
-            saved_set_at = int(getattr(self, "current_state_set_at", 0) or 0)
-            self.current_state_set_at = int(t)
-            try:
-                base = super()._observation_to_text(obs, t)
-            finally:
-                self.current_state_set_at = saved_set_at
-            base = self._replace_demo_tail(base)
-        else:
+        # 始终压制基类「≥5 拍未动就强制本拍只能 update_state」这条引擎硬规则——
+        # 何时改写内心状态由 actor 自决（acting_guide 指导），引擎不强夺本拍。
+        # （A8 起 inject 路径已压制；此处对空闲路径一并压制，去掉残留的强制 update_state 硬规则。）
+        saved_set_at = int(getattr(self, "current_state_set_at", 0) or 0)
+        self.current_state_set_at = int(t)
+        try:
             base = super()._observation_to_text(obs, t)
-            if (
-                getattr(obs, "scripted_notification", None)
-                or getattr(self, "_batch_turn_context", None)
-            ):
-                base = self._replace_demo_tail(base)
+        finally:
+            self.current_state_set_at = saved_set_at
+        if (
+            self.player_memory
+            or getattr(obs, "scripted_notification", None)
+            or getattr(self, "_batch_turn_context", None)
+        ):
+            base = self._replace_demo_tail(base)
 
         if prefix:
             return "\n".join(prefix) + "\n\n" + base
