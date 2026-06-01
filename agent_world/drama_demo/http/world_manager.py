@@ -99,7 +99,7 @@ class WorldManager:
         try:
             from agent_world.drama_demo.tools.story_studio.naming import slug_story_id
 
-            story_id = slug_story_id(premise)
+            story_id = slug_story_id(premise, title=title or "")
             job.update(story_id=story_id, step="排队中…")
 
             def _progress(msg: str) -> None:

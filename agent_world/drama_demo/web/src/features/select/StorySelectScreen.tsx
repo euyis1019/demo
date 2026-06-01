@@ -33,10 +33,24 @@ const wrap: React.CSSProperties = {
   padding: 32,
 };
 
+const fieldStyle: React.CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: 12,
+  borderRadius: 10,
+  border: "1px solid #2a3656",
+  background: "#0c1322",
+  color: "#e8ecf5",
+  fontFamily: "inherit",
+  fontSize: 14,
+};
+
 export function StorySelectScreen({ onReady }: Props) {
   const [stories, setStories] = useState<StoryInfo[]>([]);
   const [phase, setPhase] = useState<Phase>("list");
   const [premise, setPremise] = useState("");
+  const [title, setTitle] = useState("");
+  const [playerId, setPlayerId] = useState("");
   const [status, setStatus] = useState("");
   const [steps, setSteps] = useState<string[]>([]); // 生成进度「日志」：每个新阶段追加一条，给玩家看到进展
   const [error, setError] = useState("");
@@ -77,7 +91,11 @@ export function StorySelectScreen({ onReady }: Props) {
     setStatus("提交剧情中…");
     setSteps([]);
     try {
-      const r = await createStory({ premise: p });
+      const r = await createStory({
+        premise: p,
+        title: title.trim() || undefined,
+        player: playerId.trim() || undefined,
+      });
       const jobId = r.data?.job_id;
       if (!jobId) {
         setError("创建失败");
@@ -194,23 +212,25 @@ export function StorySelectScreen({ onReady }: Props) {
       </div>
 
       <div style={{ width: "min(680px, 92vw)", borderTop: "1px solid #1e2740", paddingTop: 20 }}>
-        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 10 }}>✦ 新建故事（写一段大概的剧情）</div>
+        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 10 }}>✦ 新建故事（分三栏填，别把「标题：」之类字样写进剧情里）</div>
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="标题（可留空，AI 会自动取）：如 静屿灯塔谋杀案"
+          style={fieldStyle}
+        />
         <textarea
           value={premise}
           onChange={(e) => setPremise(e.target.value)}
-          placeholder="例：民国上海一座孤岛别墅密室凶杀，台风夜电话断线，你是年轻探员要在天亮前找出真凶…"
+          placeholder="剧情（写一段大概的剧情，纯文字即可）：如 暴雨夜孤岛灯塔庄园，主人离奇身亡，五个困在岛上的人各怀心事，你是受托上岛的侦探，要在三天内查清真相…"
           rows={4}
-          style={{
-            width: "100%",
-            boxSizing: "border-box",
-            padding: 12,
-            borderRadius: 10,
-            border: "1px solid #2a3656",
-            background: "#0c1322",
-            color: "#e8ecf5",
-            resize: "vertical",
-            fontFamily: "inherit",
-          }}
+          style={{ ...fieldStyle, resize: "vertical", marginTop: 8 }}
+        />
+        <input
+          value={playerId}
+          onChange={(e) => setPlayerId(e.target.value)}
+          placeholder="你的身份（可留空）：如 受托上岛查案的私家侦探"
+          style={{ ...fieldStyle, marginTop: 8 }}
         />
         <button
           onClick={() => void create()}

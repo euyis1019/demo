@@ -33,6 +33,7 @@ dependencies = [
     "pydantic>=2.0.0",
     "PyYAML>=6.0",
     "httpx>=0.27.0",  # llm/providers/mistral.py 与 browser_use.py 直接依赖
+    "pypinyin>=0.50.0",  # drama_demo: 中文剧情标题→拼音 story_id（有意义的 ASCII slug）
 
     # 类注册 / 配置 schema 生成（替换 OASIS / 计划中的 *Registry 类层）
     "conscribe>=1.1.1",
