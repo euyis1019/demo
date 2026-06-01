@@ -5,10 +5,10 @@
 **应用代码目录（新建，不动 `demo/`）**：
 
 ```text
-agent_world/hbm_demo/
-  hbm_scenario.yaml      # 场景配置（内容见 3_prompt_management.md）
-  hbm_agent.py           # HbmAgent：LLM 决策 + update_memory + 工具参数适配
-  run_hbm.py             # Runner 子进程：WorldStep 循环 + IPC + ScriptEngine
+agent_world/drama_demo/
+  drama_scenario.yaml      # 场景配置（内容见 3_prompt_management.md）
+  drama_agent.py           # DramaAgent：LLM 决策 + update_memory + 工具参数适配
+  run_drama.py             # Runner 子进程：WorldStep 循环 + IPC + ScriptEngine
   game_service.py        # Flask 侧：Stats、路由、WorldDB 只读查询、id→name 映射
   broadcast_helper.py    # Runner 内系统广播（替代 BroadcastEventEffect）
   ipc_helper.py          # Flask 侧 IPC 封装（batch inject / tick_count / broadcast）
@@ -27,10 +27,10 @@ Flask 与 Runner **必须读写同一份** `world.db`：
 | 配置项 | 约定值 |
 |--------|--------|
 | `simulation_id` | `hbm_memory_war` |
-| `sim_dir` | 默认 `agent_world/hbm_demo/sim/hbm_memory_war/`（环境变量 `HBM_SIM_DIR` 可覆盖） |
+| `sim_dir` | 默认 `agent_world/drama_demo/sim/hbm_memory_war/`（环境变量 `DRAMA_SIM_DIR` 可覆盖） |
 | `world.db` | `{sim_dir}/world.db` |
 | IPC 目录 | `{sim_dir}/ipc_commands/`、`{sim_dir}/ipc_responses/` |
-| Tick 同步文件 | `{sim_dir}/env_status.json` — **由 `run_hbm.py` 写入**（见下文） |
+| Tick 同步文件 | `{sim_dir}/env_status.json` — **由 `run_drama.py` 写入**（见下文） |
 
 `env_status.json` 格式（Runner 每 Tick 更新）：
 
@@ -42,20 +42,20 @@ Flask 与 Runner **必须读写同一份** `world.db`：
 }
 ```
 
-**注意**：`IPCServer.start/stop` 也会写 `env_status.json`，但**不含** `current_tick`。`run_hbm.py` 应在每次写 tick 时 **merge 保留** `current_tick`，或 monkey-patch `_update_env_status`，避免 Flask 读到缺失 tick 的 JSON。
+**注意**：`IPCServer.start/stop` 也会写 `env_status.json`，但**不含** `current_tick`。`run_drama.py` 应在每次写 tick 时 **merge 保留** `current_tick`，或 monkey-patch `_update_env_status`，避免 Flask 读到缺失 tick 的 JSON。
 
 **Runner 启动**：
 
 ```bash
-python -m agent_world.hbm_demo.run_hbm \
-  --config agent_world/hbm_demo/hbm_scenario.yaml \
-  --sim-dir agent_world/hbm_demo/sim/hbm_memory_war/
+python -m agent_world.drama_demo.run_drama \
+  --config agent_world/drama_demo/drama_scenario.yaml \
+  --sim-dir agent_world/drama_demo/sim/hbm_memory_war/
 ```
 
 **Flask 启动**（同一 `sim_dir`）：
 
 ```bash
-HBM_SIM_DIR=agent_world/hbm_demo/sim/hbm_memory_war/ \
+DRAMA_SIM_DIR=agent_world/drama_demo/sim/hbm_memory_war/ \
 FLASK_APP=agent_world.app:create_app flask run --host 127.0.0.1 --port 5050
 ```
 
@@ -83,16 +83,16 @@ FLASK_APP=agent_world.app:create_app flask run --host 127.0.0.1 --port 5050
 
 | 缺口 | 应用层做法 |
 |------|------------|
-| `DialogueInjectionEffect` 需要 `agent.update_memory()` | **`HbmAgent.update_memory()`** 把玩家台词写入内存，并在 `_observation_to_text` 中展示 |
+| `DialogueInjectionEffect` 需要 `agent.update_memory()` | **`DramaAgent.update_memory()`** 把玩家台词写入内存，并在 `_observation_to_text` 中展示 |
 | `BroadcastEventEffect` 与 `WorldDB.insert_message` API 不一致 | **不用该 Effect**；`broadcast_helper.py` 在 Runner 内调用 `WorldDB.insert_message(channel_type='RDC', ...)` |
 | `PlaceMutationEffect` 仅改内存 attrs | 接受 MVP：节点 B 的 `behavior_hint` **进程内有效**；或 Turn 12 用 IPC `RELOAD_SCRIPTS` 重载带新 hint 的 YAML |
 | `MoveEffect` 不传 `world.t` | 路由 Move 优先用 IPC **`MOVE_AGENT`**（`place_store.move(..., world=, t=)`） |
-| `relation_change` LLM 用 `target/break`，Dispatcher 用 `dst/remove` | **`HbmAgent` dispatch 前做参数映射** |
-| `DemoAgent` 不渲染 `scripted_notification` | **`HbmAgent` 在 user prompt 中输出 `obs.scripted_notification`** |
-| Runner 无 LLM Agent 循环 | **`run_hbm.py` 参照 `demo/run_demo.py` 注册 7 个 `HbmAgent`** |
-| IPC inject 后不跑 Tick | **`run_hbm.py` 的 inject handler 内循环 `run_one_tick` 3~8 次** |
-| `env_status.json` 无 `current_tick` | **`run_hbm.py` 每 Tick 写入 `{status, current_tick, timestamp}`** |
-| Flask `simulation.py` 为 stub | **`hbm_demo/routes.py` 实现 API 1/2**；底层用 `SimulationIPCClient` + 只读 `WorldDB` |
+| `relation_change` LLM 用 `target/break`，Dispatcher 用 `dst/remove` | **`DramaAgent` dispatch 前做参数映射** |
+| `DemoAgent` 不渲染 `scripted_notification` | **`DramaAgent` 在 user prompt 中输出 `obs.scripted_notification`** |
+| Runner 无 LLM Agent 循环 | **`run_drama.py` 参照 `demo/run_demo.py` 注册 7 个 `DramaAgent`** |
+| IPC inject 后不跑 Tick | **`run_drama.py` 的 inject handler 内循环 `run_one_tick` 3~8 次** |
+| `env_status.json` 无 `current_tick` | **`run_drama.py` 每 Tick 写入 `{status, current_tick, timestamp}`** |
+| Flask `simulation.py` 为 stub | **`drama_demo/routes.py` 实现 API 1/2**；底层用 `SimulationIPCClient` + 只读 `WorldDB` |
 
 ### 1.3 不使用的引擎路径
 
@@ -109,8 +109,8 @@ FLASK_APP=agent_world.app:create_app flask run --host 127.0.0.1 --port 5050
 
 ```text
 [ Web 前端 ]
-       |  POST /api/hbm/.../player-turn          (API 1，hbm_demo/routes.py)
-       |  GET  /api/hbm/.../action-result        (API 2)
+       |  POST /api/drama/.../player-turn          (API 1，drama_demo/routes.py)
+       |  GET  /api/drama/.../action-result        (API 2)
        v
 [ Flask — game_service.py + ipc_helper.py ]
        |  Stats 打分（DeepSeek-V4-Pro，Flask session）
@@ -119,9 +119,9 @@ FLASK_APP=agent_world.app:create_app flask run --host 127.0.0.1 --port 5050
        |  send_move_agent（路由 Move）
        |  只读 WorldDB + env_status.json
        v
-[ run_hbm.py 子进程 ]
+[ run_drama.py 子进程 ]
        IPCServer（扩展 inject handler：broadcast → load_dict×N → run_one_tick×N）
-       ScriptEngine + WorldStep + 7×HbmAgent
+       ScriptEngine + WorldStep + 7×DramaAgent
        写 world.db、env_status.json
 ```
 
@@ -137,7 +137,7 @@ Flask 与 Runner 是**不同进程**，Flask **不能** `import broadcast_helper
 Flask game_service
   → ipc_helper.send_inject_batch(broadcast={place_id, message}, events=[...], tick_count=6)
   → IPC INJECT_SCRIPT_EVENT
-  → run_hbm.handle_inject：
+  → run_drama.handle_inject：
        1) broadcast_helper.broadcast_place(world_db, place_id, message, t=world_state.t)
        2) ScriptLoader.load_dict 加载 events
        3) run_one_tick × tick_count
@@ -149,11 +149,11 @@ Flask game_service
 
 ## 三、 API 详细设计
 
-路由前缀建议 **`/api/hbm/simulations/<sim_id>/`**（与引擎 stub 的 `/api/simulation/...` 并存，避免改引擎路由文件）。
+路由前缀建议 **`/api/drama/simulations/<sim_id>/`**（与引擎 stub 的 `/api/simulation/...` 并存，避免改引擎路由文件）。
 
 ### API 1：发起交互（player-turn）
 
-**Endpoint**: `POST /api/hbm/simulations/<sim_id>/player-turn`
+**Endpoint**: `POST /api/drama/simulations/<sim_id>/player-turn`
 
 **Request**：
 
@@ -242,7 +242,7 @@ Flask game_service
 
 ### API 2：轮询结果（action-result）
 
-**Endpoint**: `GET /api/hbm/simulations/<sim_id>/action-result?task_id=<id>&place_id=<id>`
+**Endpoint**: `GET /api/drama/simulations/<sim_id>/action-result?task_id=<id>&place_id=<id>`
 
 **读取**：
 
@@ -352,7 +352,7 @@ Stats 由 **Flask `game_service`** 维护（Flask session 或 SQLite session 表
 
 **Move 执行**：对 Jensen / CEO 等使用 IPC `send_move_agent`（应用层），不用有缺陷的 `MoveEffect` 落库。
 
-**节点 B PlaceMutation**：inject `PlaceMutationEffect`（内存 attrs）；`HbmAgent` 的 Perception 读 `place.attrs.behavior_hint` 即可在进程内生效。
+**节点 B PlaceMutation**：inject `PlaceMutationEffect`（内存 attrs）；`DramaAgent` 的 Perception 读 `place.attrs.behavior_hint` 即可在进程内生效。
 
 ---
 
@@ -442,34 +442,34 @@ await world_db.insert_message(
 
 ---
 
-## 六、 应用层实现清单（hbm_demo）
+## 六、 应用层实现清单（drama_demo）
 
 | # | 模块 | 任务 |
 |---|------|------|
-| 1 | `hbm_agent.py` | `update_memory`；渲染 `scripted_notification`；`relation_change` 参数 `target→dst`, `break→remove` |
-| 2 | `run_hbm.py` | 见 **6.1 启动清单**；inject handler 支持 `broadcast` + `events[]` + `tick_count` |
+| 1 | `drama_agent.py` | `update_memory`；渲染 `scripted_notification`；`relation_change` 参数 `target→dst`, `break→remove` |
+| 2 | `run_drama.py` | 见 **6.1 启动清单**；inject handler 支持 `broadcast` + `events[]` + `tick_count` |
 | 3 | `broadcast_helper.py` | Runner 内 `broadcast_place(world_db, place_id, message, t)`，按上文落库规范 |
 | 4 | `ipc_helper.py` | Flask 侧 `send_inject_batch` / `send_move_agent` 封装（扩展 payload，不改 `ipc/commands.py`） |
 | 5 | `game_service.py` | Stats、路由、Phase session、id→name、API 2 查询与结束条件 |
 | 6 | `routes.py` | API 1 `player-turn`、API 2 `action-result`；注册 Blueprint |
-| 7 | `hbm_scenario.yaml` | 自 `3_prompt_management.md` 生成 |
-| 8 | `app/__init__.py` | 注册 `hbm_bp`（**仅一行注册**，不改引擎逻辑） |
+| 7 | `drama_scenario.yaml` | 自 `3_prompt_management.md` 生成 |
+| 8 | `app/__init__.py` | 注册 `drama_bp`（**仅一行注册**，不改引擎逻辑） |
 
-### 6.1 `run_hbm.py` 启动清单（必读）
+### 6.1 `run_drama.py` 启动清单（必读）
 
 参照 `demo/run_demo.py` 的 `_build_kernel` + `_seed_world`，并叠加 `run_agent_world_simulation._wire_ipc_handlers` 的 IPC 注册；**以下项缺一不可**：
 
 | 步骤 | 要求 |
 |------|------|
 | 世界 seed | `_seed_world()` 写入 places / agents / relations / groups / coverage |
-| Agent 注册 | 创建 7×`HbmAgent` 后 **`world_state.register_agent(aid, agent)`**（`DialogueInjectionEffect` 读 `world.agents`） |
+| Agent 注册 | 创建 7×`DramaAgent` 后 **`world_state.register_agent(aid, agent)`**（`DialogueInjectionEffect` 读 `world.agents`） |
 | PerceptionBuilder | **`script_engine=script_engine`**（非 `None`；否则 `pending_for` / 剧本通知不可用） |
 | WorldStep | 传入 `script_engine`；`ActionDispatcher` 同样传入 `script_engine` |
 | **Tick 推进** | **见 §6.2 推荐方案**：无后台空转主循环；仅 inject handler（及路由后的补充 inject）推进 tick；Runner 常驻 IPCServer，回合间 world 冻结 |
 | inject handler | **覆盖**参考实现「只 load_dict、不跑 Tick」的行为；支持 batch `events[]` + `broadcast` |
 | IPC MOVE_AGENT | 注册 handler，内部 `place_store.move(..., world=world_state, t=world_state.t)` |
 
-**注意**：`run_agent_world_simulation` 的 inject handler **不跑 Tick**；HBM 必须在 `run_hbm` 中扩展，否则 API 2 永远等不到 Agent 活动。
+**注意**：`run_agent_world_simulation` 的 inject handler **不跑 Tick**；HBM 必须在 `run_drama` 中扩展，否则 API 2 永远等不到 Agent 活动。
 
 ### 6.2 Tick 并发与实现注意事项（开发必读）
 
@@ -520,7 +520,7 @@ API 1 请求体中的 `place_id` / `phase` **不得**直接作为 inject 与路�
 
 ### 7.1 Flask 侧 `ipc_helper.py`
 
-引擎 `SimulationIPCClient.send_inject_script_event` 仅传 `{event}`，无 `tick_count` / batch / broadcast。在 **hbm_demo** 新增 thin wrapper，调用 `SimulationIPCClient.send_command`，**不修改** `ipc/commands.py`：
+引擎 `SimulationIPCClient.send_inject_script_event` 仅传 `{event}`，无 `tick_count` / batch / broadcast。在 **drama_demo** 新增 thin wrapper，调用 `SimulationIPCClient.send_command`，**不修改** `ipc/commands.py`：
 
 ```python
 from agent_world.app.services.simulation_ipc import SimulationIPCClient
@@ -545,7 +545,7 @@ def send_inject_batch(
 
 兼容旧 payload：handler 若收到单个 `event`（无 `events`），视为 `[event]`。
 
-### 7.2 Runner 侧 `handle_inject`（`run_hbm.py`）
+### 7.2 Runner 侧 `handle_inject`（`run_drama.py`）
 
 ```python
 async def handle_inject(payload):

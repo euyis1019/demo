@@ -4,7 +4,7 @@
 
 **配套文档**：API / Stats / 应用层实现见 `2_architecture.md`；Agent YAML 见 `3_prompt_management.md`。
 
-**实现位置**：`agent_world/hbm_demo/`（新建应用包，**不修改** `agent_world/demo/` 与引擎核心）。
+**实现位置**：`agent_world/drama_demo/`（新建应用包，**不修改** `agent_world/demo/` 与引擎核心）。
 
 ---
 
@@ -82,7 +82,7 @@
     *   三大 CEO 轮番 F2F 攻击玩家；**Tech VP** 用硬核术语帮玩家圆场；**Jensen** 压价。
     *   **【系统广播】**（Turn 16）：Flask 经 **`ipc_helper.send_inject_batch`** 把 `broadcast` 字段发给 Runner；Runner 内 **`broadcast_helper.broadcast_place()`** 写库（**不用** `BroadcastEventEffect`，Flask 进程不得直接写 `world.db`）。
     *   **【Sam Altman 搅局】**（Turn 16，紧接广播后）：inject `DialogueInjectionEffect` → Agent 7（JSON 见 `2_architecture.md` 第五节）。
-    *   **【关系破裂】**：**Samsung CEO (Agent 6)** 调用 `relation_change`；**`HbmAgent`** 将 LLM 参数 `target/break` 映射为 Dispatcher 的 `dst/remove`（见 `3_prompt_management.md` 第六节）。
+    *   **【关系破裂】**：**Samsung CEO (Agent 6)** 调用 `relation_change`；**`DramaAgent`** 将 LLM 参数 `target/break` 映射为 Dispatcher 的 `dst/remove`（见 `3_prompt_management.md` 第六节）。
     *   **Jensen** 收到 Sam 私信后危机感上升，转向「必须立刻签独家协议」。
 *   **【路由节点 C】 (Turn 20 结束时触发)**：
     *   *条件判定*：`Burnout < 80` 且 `Vision ≥ 30`。

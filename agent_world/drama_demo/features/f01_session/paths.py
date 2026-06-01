@@ -1,0 +1,57 @@
+"""F01 sim paths and cached scenario/name lookups."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import Any, Dict
+
+from agent_world.drama_demo.features.f01_session.constants import DEFAULT_SIM_ID
+
+_scenario_cache: Dict[str, Any] | None = None
+_name_map_cache: Dict[int, str] | None = None
+
+
+def get_sim_dir(sim_id: str | None = None) -> Path:  # noqa: ARG001
+    """当前在玩哪个故事 → 哪个 sim 目录（前端选/建故事后可运行期切换）。
+
+    sim_id 参数仅为兼容旧调用方（如 f02 player_action 仍传 sim_id）保留并忽略——真正的 sim
+    目录由活跃故事(active_game)决定。修复「请求移动报错 get_sim_dir() takes 0 positional arguments」。
+    """
+    from agent_world.drama_demo.shared.active_game import active_sim_dir
+
+    return active_sim_dir()
+
+
+def clear_scenario_cache() -> None:
+    """切换故事时清掉按故事缓存的 scenario / name_map（否则会沿用上一个故事）。"""
+    global _scenario_cache, _name_map_cache
+    _scenario_cache = None
+    _name_map_cache = None
+
+
+def get_world_db_path(sim_dir: Path | None = None) -> Path:
+    return (sim_dir or get_sim_dir()) / "world.db"
+
+
+def get_scenario() -> Dict[str, Any]:
+    global _scenario_cache
+    if _scenario_cache is None:
+        # 数据驱动：从活跃 Story Pack 投影出 scenario（与 Runner 播种同源）。
+        from agent_world.drama_demo.shared import story_config
+        from agent_world.drama_demo.shared.story_pack.scenario_adapter import (
+            story_pack_to_scenario,
+        )
+
+        _scenario_cache = story_pack_to_scenario(story_config.active_pack())
+    return _scenario_cache
+
+
+def get_name_map() -> Dict[int, str]:
+    global _name_map_cache
+    if _name_map_cache is None:
+        _name_map_cache = {
+            int(a["agent_id"]): str(a.get("name") or f"agent_{a['agent_id']}")
+            for a in get_scenario().get("agents", [])
+        }
+    return _name_map_cache

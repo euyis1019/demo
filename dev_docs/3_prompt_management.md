@@ -1,10 +1,10 @@
 # 3. 角色设定与 Prompt 管理 (Prompt Management)
 
-**文档目标**：为《HBM 显存价格保卫战》提供 **7 个 Agent**、**4 个地点** 的 B5 提示词及 **`hbm_scenario.yaml`** 蓝图。
+**文档目标**：为《HBM 显存价格保卫战》提供 **7 个 Agent**、**4 个地点** 的 B5 提示词及 **`drama_scenario.yaml`** 蓝图。
 
-**配置文件**：`agent_world/hbm_demo/hbm_scenario.yaml`（开发时从本文档合并生成）。  
-**Agent 实现**：`agent_world/hbm_demo/hbm_agent.py`（**新建**；参照 `demo/demo_agent.py` 的 Perception→LLM→dispatch 模式，**不修改** demo 目录）。  
-**Runner**：`python -m agent_world.hbm_demo.run_hbm`（见 `2_architecture.md`）。  
+**配置文件**：`agent_world/drama_demo/drama_scenario.yaml`（开发时从本文档合并生成）。  
+**Agent 实现**：`agent_world/drama_demo/drama_agent.py`（**新建**；参照 `demo/demo_agent.py` 的 Perception→LLM→dispatch 模式，**不修改** demo 目录）。  
+**Runner**：`python -m agent_world.drama_demo.run_drama`（见 `2_architecture.md`）。  
 **格式约定**：扁平顶层结构（同 `demo/scenario.yaml`），**不用** `world_config` 嵌套。
 
 ---
@@ -26,7 +26,7 @@ llm:
   max_tokens: 500
 ```
 
-*注：`num_ticks` 由 `run_hbm.py` 无限循环；Stats / Phase 路由在 Flask `game_service`，不在 YAML。*
+*注：`num_ticks` 由 `run_drama.py` 无限循环；Stats / Phase 路由在 Flask `game_service`，不在 YAML。*
 
 *注：`relations` 中的 `subordinate` / `colleague` / `ally` 等类型若尚未在 `world/relation_types/` 注册，引擎 MVP 会 **fallback 默认 meta**（`is_contact=True`），RDC 仍可用；生产环境建议补注册类。*
 
@@ -79,7 +79,7 @@ places:
 
 ## 三、 角色设定 (Agents)
 
-每个 Agent 块必须包含 **`agent_id`**。Runner 用 `_seed_world()`（与 `run_demo.py` 相同逻辑，复制到 `run_hbm.py`）写入 `world.db`。
+每个 Agent 块必须包含 **`agent_id`**。Runner 用 `_seed_world()`（与 `run_demo.py` 相同逻辑，复制到 `run_drama.py`）写入 `world.db`。
 
 ### 1. 接待前台 (agent_id: 1)
 
@@ -210,7 +210,7 @@ places:
 
 ## 五、 YAML 合并与 Runner 分工
 
-合并为 `agent_world/hbm_demo/hbm_scenario.yaml`：
+合并为 `agent_world/drama_demo/drama_scenario.yaml`：
 
 ```yaml
 simulation_id: hbm_memory_war
@@ -226,17 +226,17 @@ agents: [ ... ]
 
 | 模块 | 位置 | 说明 |
 |------|------|------|
-| 世界 seed | `run_hbm._seed_world()` | 复制 `run_demo._seed_world` 逻辑 |
-| LLM Agent | `run_hbm` + `HbmAgent` | `world_state.register_agent` × 7 |
-| PerceptionBuilder | `run_hbm` | **`script_engine=script_engine`**（必填） |
-| ScriptEngine | `run_hbm` | 传入 `WorldStep` 与 `ActionDispatcher` |
-| IPC | `run_hbm` + `ipc_helper.py` | Runner：batch inject handler；Flask：`send_inject_batch` |
-| Tick 同步 | `run_hbm` | 写 `env_status.json` 的 `current_tick` |
+| 世界 seed | `run_drama._seed_world()` | 复制 `run_demo._seed_world` 逻辑 |
+| LLM Agent | `run_drama` + `DramaAgent` | `world_state.register_agent` × 7 |
+| PerceptionBuilder | `run_drama` | **`script_engine=script_engine`**（必填） |
+| ScriptEngine | `run_drama` | 传入 `WorldStep` 与 `ActionDispatcher` |
+| IPC | `run_drama` + `ipc_helper.py` | Runner：batch inject handler；Flask：`send_inject_batch` |
+| Tick 同步 | `run_drama` | 写 `env_status.json` 的 `current_tick` |
 | 游戏逻辑 | `game_service.py` + `routes.py` | Stats、路由、API 1/2 |
 
 ---
 
-## 六、 HbmAgent 与引擎对齐（应用层，不改引擎）
+## 六、 DramaAgent 与引擎对齐（应用层，不改引擎）
 
 ### 6.1 必须实现的方法
 
@@ -248,7 +248,7 @@ agents: [ ... ]
 
 ### 6.2 工具 schema（OpenAI functions）
 
-在 `demo_agent.TOOLS` 基础上 **于 hbm_demo 增加** `relation_change`：
+在 `demo_agent.TOOLS` 基础上 **于 drama_demo 增加** `relation_change`：
 
 ```python
 {
@@ -261,7 +261,7 @@ agents: [ ... ]
 }
 ```
 
-**Dispatch 适配**（在 `HbmAgent` 调用 `dispatcher.dispatch` 前）：
+**Dispatch 适配**（在 `DramaAgent` 调用 `dispatcher.dispatch` 前）：
 
 ```python
 if tool_name == "relation_change":
@@ -290,7 +290,7 @@ if tool_name == "relation_change":
 
 ## 七、 relations / groups / coverage 完整 YAML
 
-（与修订前第四节内容相同，开发合并时一并写入 `hbm_scenario.yaml`。）
+（与修订前第四节内容相同，开发合并时一并写入 `drama_scenario.yaml`。）
 
 ```yaml
 coverage:

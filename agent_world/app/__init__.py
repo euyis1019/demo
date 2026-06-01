@@ -27,16 +27,16 @@ def create_app(config_class: type = Config) -> Flask:
     # Register blueprints. Imported here (not at module top) to avoid
     # circular imports during partial L0 wiring.
     from .api import simulation_bp
-    from agent_world.hbm_demo.routes import hbm_bp
+    from agent_world.drama_demo.routes import drama_bp
 
     app.register_blueprint(simulation_bp, url_prefix="/api/simulation")
-    app.register_blueprint(hbm_bp, url_prefix="/api/hbm")
+    app.register_blueprint(drama_bp, url_prefix="/api/drama")
 
     # F16 WebSocket — optional; requires flask-sock when world_stream.enabled.
     try:
-        from agent_world.hbm_demo.http.ws import register_hbm_world_stream
+        from agent_world.drama_demo.http.ws import register_drama_world_stream
 
-        register_hbm_world_stream(app)
+        register_drama_world_stream(app)
     except ImportError as exc:
         log.warning("F16 world-stream disabled (missing dependency): %s", exc)
 
