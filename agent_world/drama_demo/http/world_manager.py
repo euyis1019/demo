@@ -105,6 +105,8 @@ class WorldManager:
                 "premise": premise,
                 "title": title or premise[:24],
                 "player": {"identity": player, "role": player, "is_outsider": True},
+                # 任务式生成：acts 即任务链长度（保留 target_acts/target_nodes 兼容旧词）。
+                "target_tasks": int(acts),
                 "target_acts": int(acts),
                 "target_nodes": str(max(int(acts), 4)),
             }

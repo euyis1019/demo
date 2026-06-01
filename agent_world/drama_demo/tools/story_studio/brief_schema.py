@@ -28,6 +28,7 @@ BRIEF_SCHEMA: Dict[str, Any] = {
             },
         },
         "target_acts": {"type": "integer", "minimum": 1, "maximum": 20},
+        "target_tasks": {"type": "integer", "minimum": 1, "maximum": 20},  # 任务链长度（任务式生成）；与 target_acts 同义，新词
         "target_nodes": {"type": ["integer", "string"]},
         "characters": {
             "type": "array",

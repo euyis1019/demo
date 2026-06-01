@@ -49,7 +49,7 @@ def format_routing_world_events(
                 "id": f"route_node_{node}",
                 "at_tick": int(at_tick),
                 "kind": "phase_route",
-                "title": "剧情推进",
+                "title": "新任务",
                 "content": content,
                 "place_id": routing_info.get("place_id"),
             }
