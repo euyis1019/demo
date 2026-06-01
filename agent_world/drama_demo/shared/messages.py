@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 from agent_world.drama_demo.features.f06_read_model.world_db import sender_display_name
-from agent_world.drama_demo.shared.emotion import classify_emotion
 
 
 def format_messages(
@@ -34,8 +33,7 @@ def format_messages(
             item["delivered"] = int(row["delivered"])
         if row["sender_id"] is not None and int(row["sender_id"]) == -1:
             item["is_system"] = True
-        # 按台词内容标注情绪，前端立绘据此随「说的话」切表情（体检 G1）。
-        item["emotion"] = classify_emotion(item["content"])
+        # 情绪不再在此按关键词分类——当面台词的情绪由 f05 情绪判断 agent 统一在 delta 装配时打标（emotion_tag）。
         out.append(item)
     return out
 
@@ -51,7 +49,6 @@ def format_f2f_public_messages(
             "type": "F2F",
             "attempted_at": at_t,
             "sender_id": int(sender_id),
-            "emotion": classify_emotion(content),  # 立绘随台词情绪切换（体检 G1）
         }
         for at_t, sender_id, _mid, content in history
         if at_t > 0

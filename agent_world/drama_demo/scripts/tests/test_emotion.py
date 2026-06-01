@@ -1,43 +1,23 @@
 #!/usr/bin/env python3
-"""情绪离散分类器单测（需求一地基，shared/emotion.py）。纯函数，离线。"""
+"""情绪枚举/归一 + 新情绪链路单测（shared/emotion.py + f12 emotion_tag）。纯离线。
+
+情绪标签现由 f05 情绪判断 agent(LLM) 在台词上打标（emotion_tag）；旧关键词分类(classify_emotion)已删。
+本单测只覆盖**离线**部分：枚举归一、state change 不再分类(neutral)、tagger 对玩家/系统/空内容的兜底。
+真正的 LLM 判定由运行期探针验证。
+"""
 
 from __future__ import annotations
 
 import sys
 
-from agent_world.drama_demo.shared.emotion import (
-    DEFAULT_EMOTION,
-    EMOTIONS,
-    classify_emotion,
-    normalize_emotion,
-)
+from agent_world.drama_demo.shared.emotion import DEFAULT_EMOTION, EMOTIONS, normalize_emotion
 
 
-def test_each_emotion_detected() -> None:
-    cases = {
-        "我被这帮人气炸了，简直愤怒到拍桌子": "angry",
-        "心里很不安，紧张得手心冒汗，担心谈崩": "anxious",
-        "听到这个消息我很难过，满是失望和无奈": "sad",
-        "太好了！我非常高兴，满意得想笑": "happy",
-        "我胸有成竹，稳操胜券，气定神闲地坐着": "confident",
-        "他平静地记录着会议要点": "neutral",
-    }
-    for text, expected in cases.items():
-        got = classify_emotion(text)
-        assert got == expected, f"{text!r} → {got}，应为 {expected}"
-
-
-def test_empty_and_unknown_default_neutral() -> None:
-    assert classify_emotion("") == DEFAULT_EMOTION
-    assert classify_emotion(None) == DEFAULT_EMOTION
-    assert classify_emotion("今天天气不错，路上人很多") == "neutral"
-
-
-def test_priority_negative_over_positive() -> None:
-    # 平局时强/负面优先：1 个 angry 词(愤怒) + 1 个 happy 词(高兴) → angry 胜
-    assert classify_emotion("他听完既愤怒又有点高兴") == "angry"
-    # 多命中按分数取胜：愤怒+拍桌(angry=2) 压过 好笑(happy=1)
-    assert classify_emotion("我愤怒得想拍桌，但又觉得有点好笑") == "angry"
+def test_emotions_enum() -> None:
+    assert DEFAULT_EMOTION == "neutral"
+    for e in ("neutral", "happy", "angry", "sad", "anxious", "confident"):
+        assert e in EMOTIONS, e
+    assert len(EMOTIONS) == 6
 
 
 def test_normalize_emotion() -> None:
@@ -49,21 +29,27 @@ def test_normalize_emotion() -> None:
         assert normalize_emotion(e) == e
 
 
-def test_format_state_changes_attaches_emotion() -> None:
-    """f12 format_state_changes 给每条 state change 附上离散情绪标签（随 world-delta 下发前端）。"""
+def test_state_changes_no_keyword_classify() -> None:
+    """情绪不再在 OS 状态变更上按关键词分类——一律 neutral，原字段保留。"""
     from agent_world.drama_demo.features.f12_world_sync.formatter import format_state_changes
 
-    rows = [
-        {"agent_id": 2, "content": "我被气炸了，简直愤怒", "at_tick": 5},
-        {"agent_id": 3, "content": "平静地推演着技术细节", "at_tick": 6},
-        {"agent_id": 4, "content": "随便写的", "at_tick": 7, "emotion": "happy"},  # 引擎透传优先
-    ]
-    out = format_state_changes(rows)
-    assert out[0]["emotion"] == "angry", out[0]
-    assert out[1]["emotion"] == "neutral", out[1]
-    assert out[2]["emotion"] == "happy", out[2]  # 用透传值而非分类
-    # 原字段保留
+    out = format_state_changes([{"agent_id": 2, "content": "我被气炸了，简直愤怒", "at_tick": 5}])
+    assert out[0]["emotion"] == DEFAULT_EMOTION, out[0]
     assert out[0]["agent_id"] == 2 and out[0]["at_tick"] == 5 and out[0]["content"]
+
+
+def test_tag_message_emotions_non_actor_neutral() -> None:
+    """玩家(0)/系统(-1)/空内容的消息不送情绪 agent，直接 neutral；就地补 emotion 字段。"""
+    from agent_world.drama_demo.features.f12_world_sync.emotion_tag import tag_message_emotions
+
+    msgs = [
+        {"sender_id": 0, "sender": "我", "content": "你好"},
+        {"sender_id": -1, "sender": "系统", "content": "系统提示"},
+        {"sender_id": 3, "sender": "甲", "content": "   "},  # 空内容
+    ]
+    tag_message_emotions(msgs)
+    for m in msgs:
+        assert m["emotion"] == DEFAULT_EMOTION, m
 
 
 def main() -> int:
@@ -76,7 +62,7 @@ def main() -> int:
         except Exception as exc:  # noqa: BLE001
             failed += 1
             print(f"  FAIL  {fn.__name__}: {exc}")
-    print(f"\n情绪分类器：{len(tests) - failed}/{len(tests)} 通过")
+    print(f"\n情绪链路：{len(tests) - failed}/{len(tests)} 通过")
     return 1 if failed else 0
 
 

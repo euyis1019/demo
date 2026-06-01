@@ -57,19 +57,17 @@ def format_location_changes(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def format_state_changes(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    from agent_world.drama_demo.shared.emotion import classify_emotion, normalize_emotion
+    from agent_world.drama_demo.shared.emotion import DEFAULT_EMOTION
 
     out: List[Dict[str, Any]] = []
     for row in rows:
-        content = str(row["content"])
-        # 优先用引擎透传的离散情绪标签（update_state 的 emotion 参数）；缺失则按文本兜底分类。
-        emotion = normalize_emotion(row["emotion"]) if row.get("emotion") else classify_emotion(content)
         out.append(
             {
                 "agent_id": int(row["agent_id"]),
-                "content": content,
+                "content": str(row["content"]),
                 "at_tick": int(row["at_tick"]),
-                "emotion": emotion,
+                # 情绪改由 f05 情绪判断 agent 在「当面台词」上打标(emotion_tag)；OS 状态变更不再单独按关键词分类。
+                "emotion": DEFAULT_EMOTION,
             }
         )
     return out

@@ -11,6 +11,7 @@ from agent_world.drama_demo.features.f12_world_sync.constants import (
     agent_roster,
     room_places,
 )
+from agent_world.drama_demo.features.f12_world_sync.emotion_tag import tag_message_emotions
 from agent_world.drama_demo.features.f12_world_sync.formatter import (
     format_agent_locations,
     format_broadcast_world_events,
@@ -75,6 +76,9 @@ def build_world_delta(
         room_f2f[place_id] = format_f2f_history_with_ids(history, name_map)
         for msg in room_f2f[place_id]:
             msg["place_id"] = place_id
+    # 后端整合：本窗口所有当面台词统一过一遍 f05 情绪判断 agent（LLM，按句缓存），
+    # 把判出的 emotion 写进每条消息——前端立绘据此随台词切表情（替代旧关键词分类）。
+    tag_message_emotions([m for msgs in room_f2f.values() for m in msgs])
 
     agent_messages: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
     # 含玩家(0)：让发往玩家的私信/群消息进 agent_messages["0"]，供前端玩家收件箱展示（体检 P1/B3）。
