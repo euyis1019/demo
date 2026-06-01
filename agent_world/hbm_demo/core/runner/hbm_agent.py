@@ -205,27 +205,26 @@ class HbmAgent(DemoAgent):
 
         if is_free_move_enabled():
             move_rule = (
-                "4) 你可以 request_move 到相邻地点，但**非必要不要移动**——"
-                "仅当剧情确实需要（如被叫去某处、追随某人）才移动；台词须与移动一致。\n"
+                "2) 你可以 request_move 到相邻地点，由你自行判断是否需要（如被叫去某处、追随某人）；"
+                "台词须与移动一致。\n"
             )
         else:
             move_rule = (
-                "4) request_move 被引擎忽略，台词里不要说「我去某处」——位置不会变。\n"
+                "2) request_move 被引擎忽略，台词里不要说「我去某处」——位置不会变。\n"
             )
 
+        # 只保留跨故事的「工具/消息时序」引擎机制；「怎么演」（口吻/句长/风格/沉默纪律）由管理 agent
+        # 经 acting_guide 生成进 meta.acting_guide，运行期由 knowledge.py 注入，引擎不再写死表演规则。
         return (
             "【本回合行动要求】\n"
             "1) 有玩家/他人对你说话时，本拍先回应（当面用 speak_to_local，私信用 send_message）；"
             "已回应且无新消息时可 do_nothing。\n"
-            "2) 说出口的内容：短句大白话（1–4 句），像面对面聊天；禁止论文腔/演讲腔；上下文详 ≠ 长篇大论。\n"
-            "3) 紧扣你的人设、说话风格、内心动机与「你这一幕要做的」自然行动、顺势推动剧情。\n"
             f"{move_rule}"
-            "5) 每一拍只调用一个工具，参数严格符合 schema。\n"
-            "6) 有未读私信(RDC)时本拍须 send_message 回复发件人，不要拖延；"
+            "3) 每一拍只调用一个工具，参数严格符合 schema。\n"
+            "4) 有未读私信(RDC)时本拍须 send_message 回复发件人，不要拖延；"
             "无未读、无新消息、本批已说过话 → 可 do_nothing。\n"
             "\n可选工具：\n"
-            f"{_HBM_TOOLS_LIST}\n"
-            "保持人物性格——输入上下文可长，实际发言必须短、必须让普通玩家听得懂。"
+            f"{_HBM_TOOLS_LIST}"
         )
 
     def _replace_demo_tail(self, text: str) -> str:
@@ -251,30 +250,6 @@ class HbmAgent(DemoAgent):
                 prefix.append(f"  - {scripted}")
 
         world_db = getattr(world, "world_db", None) if world is not None else None
-        ctx = getattr(self, "_batch_turn_context", None) or {}
-        phase = str(ctx.get("phase", ""))
-        if (
-            int(self.agent_id) == 1
-            and phase == "Phase 1"
-            and not self.player_memory
-            and ctx.get("player_inject_tick") is None
-        ):
-            from types import SimpleNamespace
-
-            from agent_world.hbm_demo.core.runner.integration import abcs
-
-            session = SimpleNamespace(
-                phase=phase,
-                player_turn=int(ctx.get("player_turn", 1)),
-            )
-            opening_block = abcs.build_agent_knowledge(
-                session,
-                int(self.agent_id),
-                "",
-                channel="opening",
-            )
-            if opening_block:
-                prefix.append(opening_block)
 
         if world_db is not None:
             from agent_world.hbm_demo.core.runner.integration import abcs

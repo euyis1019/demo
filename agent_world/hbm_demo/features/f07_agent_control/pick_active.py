@@ -1,22 +1,18 @@
-"""F07 L3 — tick active agent whitelist + passive tick rules."""
+"""F07 L3 — 每拍激活哪些 agent（数据驱动，无随机、无单故事写死）。
+
+谁本拍可跑 LLM 全由「有没有理由」决定：玩家刚说话→本幕在场 NPC 回应；有未读私信→回复(有上限)；
+空拍→在本幕在场 NPC(由管理 agent 经 Story Pack 的 node.inject_agents 决定)里确定性轮转一个自主活动。
+引擎不随机挑人、不强制移动、不写死任何故事的角色编号/幕名/地点（换 Story Pack 即换游戏）。
+"""
 
 from __future__ import annotations
 
 import logging
-import random
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Set
 
-from agent_world.hbm_demo.features.f07_agent_control.config import (
-    inject_exclusive_ticks_for,
-    is_f07_enabled,
-    load_turn_control,
-    passive_tick_probability,
-    resolve_inject_tick_count,
-)
+from agent_world.hbm_demo.features.f07_agent_control.config import is_f07_enabled
 from agent_world.hbm_demo.features.f07_agent_control.conversation_control import (
     has_unread_inbound,
-    inject_response_ticks,
-    primary_notify_ticks,
 )
 
 from agent_world.hbm_demo.features.f17_virtual_player.player_entity import (
@@ -25,83 +21,13 @@ from agent_world.hbm_demo.features.f17_virtual_player.player_entity import (
 
 log = logging.getLogger("agent_world.hbm_demo.f07.pick_active")
 
-SAM_ID = 7
-RECEPTION_AGENT_ID = 1
+RESPOND_TICKS = 2  # 玩家说话后只回应 ~2 拍，避免一句话被反复回好几拍
+MAX_REPLIERS = 2   # 每拍最多让 2 个有未读私信的 agent 回复，防止并发 LLM 压垮 Runner→玩家指令 IPC 超时
 
 
 def _inject_live(turn_context: Dict[str, Any]) -> bool:
     """Player turn was enqueued — inject batch / notify windows apply."""
     return turn_context.get("player_inject_tick") is not None
-
-
-def _phase_cfg(phase: str) -> Dict[str, Any]:
-    phases = load_turn_control().get("phases") or {}
-    return dict(phases.get(phase) or {})
-
-
-def _primary_ids(phase: str, player_turn: int) -> List[int]:
-    cfg = _phase_cfg(phase)
-    primary = [int(x) for x in (cfg.get("primary_active") or [])]
-    if phase == "Phase 3":
-        sam_from = int(cfg.get("sam_rdc_from_turn", 16))
-        if player_turn >= sam_from and SAM_ID not in primary:
-            primary = list(primary) + [SAM_ID]
-    return primary
-
-
-def _frozen_ids(phase: str) -> Set[int]:
-    cfg = _phase_cfg(phase)
-    frozen = set(int(x) for x in (cfg.get("frozen") or []))
-    present = set(int(x) for x in (cfg.get("present_silent") or []))
-    return frozen | present
-
-
-def _passive_candidates(
-    phase: str,
-    player_turn: int,
-    world: Any,
-    t: int,
-    agents: Any,
-) -> List[int]:
-    cfg = _phase_cfg(phase)
-    out: List[int] = []
-
-    passive_rdc = [int(x) for x in (cfg.get("passive_rdc_reply") or [])]
-    for aid in passive_rdc:
-        agent = _resolve_agent(agents, aid)
-        if agent is None:
-            continue
-        if has_unread_inbound(aid, agent, world, t, rdc_from=2):
-            out.append(aid)
-
-    passive_low = [int(x) for x in (cfg.get("passive_low_freq") or [])]
-    for aid in passive_low:
-        if aid in out:
-            continue
-        agent = _resolve_agent(agents, aid)
-        if agent is None:
-            continue
-        if has_unread_inbound(aid, agent, world, t):
-            out.append(aid)
-            continue
-        if phase == "Phase 1" and _in_negotiation_room(world, aid):
-            out.append(aid)
-
-    if phase == "Phase 3" and player_turn >= int(cfg.get("sam_rdc_from_turn", 16)):
-        if SAM_ID not in out and SAM_ID not in _primary_ids(phase, player_turn):
-            agent = _resolve_agent(agents, SAM_ID)
-            if agent is not None and getattr(agent, "player_memory", None):
-                if agent.player_memory:
-                    out.append(SAM_ID)
-
-    return out
-
-
-def _in_negotiation_room(world: Any, agent_id: int) -> bool:
-    places = getattr(world, "places", None)
-    if places is None:
-        return False
-    return str(places.L_t(int(agent_id)) or "") == "negotiation_room"
 
 
 def _resolve_agent(agents: Any, agent_id: int) -> Any:
@@ -111,246 +37,6 @@ def _resolve_agent(agents: Any, agent_id: int) -> Any:
         if int(getattr(a, "agent_id", -1)) == int(agent_id):
             return a
     return None
-
-
-def _reception_already_welcomed(world: Any, since_t: int) -> bool:
-    db = getattr(world, "world_db", None)
-    if db is None:
-        return False
-    try:
-        rows = db.fetch_f2f_history_at(
-            "nvidia_reception",
-            t_now=10**9,
-            since_t=max(0, int(since_t)),
-            limit=8,
-        )
-    except Exception:  # noqa: BLE001
-        return False
-    for _attempted_at, sender_id, _mid, _content in rows:
-        if int(sender_id) == RECEPTION_AGENT_ID:
-            return True
-    return False
-
-
-def _reception_opening_pending(
-    turn_context: Dict[str, Any],
-    world: Any,
-    t: int,
-    batch_tick_index: int,
-) -> bool:
-    if batch_tick_index != 0:
-        return False
-    start_tick = int(turn_context.get("start_tick", 0) or 0)
-    if _reception_already_welcomed(world, start_tick):
-        return False
-    db = getattr(world, "world_db", None)
-    if db is None:
-        return int(t) <= start_tick + 1
-    return int(t) >= start_tick
-
-
-def _pick_active_datadriven(
-    turn_context: Dict[str, Any],
-    world: Any,
-    t: int,
-    *,
-    batch_tick_index: int,
-    passive_ticks_so_far: int,
-) -> List[int]:
-    """数据驱动故事（turn_control 无该幕配置）：不靠写死的 phase 名单，按「谁该回应 / 谁该活动」选 agent。
-
-    对应用户诉求：玩家说话后只让在场/被点到的 NPC 在最初一两拍回应（不刷屏）；有未读私信(RDC/群)的都该回；
-    其余时间低频随机让一个 NPC 自主活动，让世界各处（不只玩家身边）也活着；是否真开口由 actor 自己反思决定。
-    """
-    agents = getattr(world, "agents", None) or {}
-    all_ids = _all_active_agent_ids(agents)
-    active: List[int] = []
-    seen: Set[int] = set()
-
-    def add(aid: int) -> None:
-        if is_virtual_player_agent(int(aid)) or int(aid) in seen:
-            return
-        active.append(int(aid))
-        seen.add(int(aid))
-
-    inject_ids = [int(x) for x in (turn_context.get("inject_agent_ids") or [])]
-    inject_live = _inject_live(turn_context)
-    respond_ticks = 2  # 玩家说话后只回应 ~2 拍，避免一句话被反复回好几拍
-
-    if inject_live and batch_tick_index < respond_ticks:
-        for aid in inject_ids:
-            add(aid)
-    for aid in inject_ids:  # 还有玩家这句没回完的 inject agent
-        agent = _resolve_agent(agents, aid)
-        if agent is not None and getattr(agent, "player_memory", None):
-            add(aid)
-    for aid in all_ids:  # 有未读私信(RDC/群)就回——任何 agent
-        if aid in seen:
-            continue
-        agent = _resolve_agent(agents, aid)
-        if agent is not None and has_unread_inbound(aid, agent, world, t):
-            add(aid)
-    # 环境活性：低频随机挑 1 个 NPC 自主活动；玩家刚说话的回应窗口内不加，避免叠加刷屏。
-    in_respond_window = inject_live and batch_tick_index < respond_ticks
-    if passive_ticks_so_far < 1 and not in_respond_window and int(t) % 3 == 0:
-        rng = random.Random(int(t) * 131 + 7)
-        candidates = [aid for aid in all_ids if aid not in seen]
-        if candidates:
-            add(rng.choice(candidates))
-
-    log.debug("F07 pick_active(data-driven) t=%s batch=%s inject_live=%s active=%s",
-              t, batch_tick_index, inject_live, active)
-    return active
-
-
-def pick_active_ids(
-    turn_context: Dict[str, Any],
-    world: Any,
-    t: int,
-    *,
-    passive_ticks_so_far: int = 0,
-    batch_tick_index: int = 0,
-) -> List[int]:
-    """Return agent ids allowed to run LLM this tick."""
-    if not is_f07_enabled():
-        agents = getattr(world, "agents", None) or {}
-        return _all_active_agent_ids(agents)
-
-    phase = str(turn_context.get("phase", "Phase 1"))
-    player_turn = int(turn_context.get("player_turn", 1))
-
-    # 数据驱动故事：phase 是中文幕名(beats_label)，turn_control 里没有它的写死配置——走数据驱动选择，
-    # 不再退化成「只有 inject_agents 反复刷屏、其余角色全程不动」。
-    if not _phase_cfg(phase):
-        return _pick_active_datadriven(
-            turn_context, world, t,
-            batch_tick_index=batch_tick_index,
-            passive_ticks_so_far=passive_ticks_so_far,
-        )
-
-    frozen = _frozen_ids(phase)
-    inject_ids = [int(x) for x in (turn_context.get("inject_agent_ids") or [])]
-    inject_set = set(inject_ids)
-    exclusive = inject_exclusive_ticks_for(phase)
-    agents = getattr(world, "agents", None) or {}
-    inject_live = _inject_live(turn_context)
-
-    # inject_exclusive — first N ticks after player inject: inject targets only.
-    if inject_live and exclusive > batch_tick_index and inject_ids:
-        primary = _primary_ids(phase, player_turn)
-        active = [
-            aid for aid in primary if aid in inject_set and aid not in frozen
-        ]
-        log.debug(
-            "F07 inject_exclusive phase=%s batch_tick=%s active=%s",
-            phase,
-            batch_tick_index,
-            active,
-        )
-        return active
-
-    active: List[int] = []
-    seen: Set[int] = set()
-
-    def _add(aid: int) -> None:
-        if is_virtual_player_agent(aid):
-            return
-        if aid in frozen or aid in seen:
-            return
-        active.append(int(aid))
-        seen.add(int(aid))
-
-    primary = _primary_ids(phase, player_turn)
-
-    # 1) Unread inbound — reply promptly.
-    for aid in primary:
-        agent = _resolve_agent(agents, aid)
-        if agent is None:
-            continue
-        if has_unread_inbound(aid, agent, world, t):
-            _add(aid)
-
-    # 2) Inject agent while player_memory pending.
-    for aid in inject_set:
-        agent = _resolve_agent(agents, aid)
-        if agent is None:
-            continue
-        mem = getattr(agent, "player_memory", None)
-        if mem and len(mem) > 0:
-            _add(aid)
-
-    # 3) Inject batch window — only after real player inject (not bootstrap mirror).
-    inject_batch_len = resolve_inject_tick_count(phase, inject_response_ticks(phase))
-    notify_until = exclusive + primary_notify_ticks(phase)
-    in_player_turn_window = (
-        inject_live and batch_tick_index < max(inject_batch_len, notify_until)
-    )
-    if inject_live and batch_tick_index < inject_batch_len:
-        for aid in inject_set:
-            _add(aid)
-    elif (
-        not inject_live
-        and phase == "Phase 1"
-        and RECEPTION_AGENT_ID in inject_set
-        and _reception_opening_pending(turn_context, world, t, batch_tick_index)
-    ):
-        # One pre-player opening beat after session/start resets the L3 window.
-        _add(RECEPTION_AGENT_ID)
-    if inject_live and batch_tick_index < notify_until:
-        for aid in primary:
-            if aid not in inject_set:
-                _add(aid)
-
-    # 4) Passive agents (unread-driven; Phase 1 negotiation room skips random drop).
-    cfg = _phase_cfg(phase)
-    max_passive = int(cfg.get("passive_max_per_batch", 1))
-    remaining = max(0, max_passive - passive_ticks_so_far)
-    if remaining > 0:
-        prob = passive_tick_probability(phase)
-        rng = random.Random(int(t) * 1000 + player_turn)
-        for aid in _passive_candidates(phase, player_turn, world, t, agents):
-            if aid in seen:
-                continue
-            if phase == "Phase 1" and _in_negotiation_room(world, aid):
-                _add(aid)
-                remaining -= 1
-                if remaining <= 0:
-                    break
-                continue
-            if rng.random() > prob:
-                continue
-            _add(aid)
-            remaining -= 1
-            if remaining <= 0:
-                break
-
-    # 5) Phase 1 negotiation room — background ticks only during inject window.
-    if phase == "Phase 1" and in_player_turn_window:
-        for aid in (2, 3):
-            if _in_negotiation_room(world, aid):
-                _add(aid)
-        ceo_ids = [4, 5, 6]
-        _add(ceo_ids[int(t) % len(ceo_ids)])
-        if int(t) % 2 == 0:
-            _add(ceo_ids[(int(t) + 1) % len(ceo_ids)])
-
-    log.debug(
-        "F07 pick_active phase=%s turn=%s t=%s batch=%s active=%s",
-        phase,
-        player_turn,
-        t,
-        batch_tick_index,
-        active,
-    )
-    return active
-
-
-def primary_active_ids(turn_context: Dict[str, Any]) -> List[int]:
-    """Primary L3 set (for scripted_notification targets)."""
-    phase = str(turn_context.get("phase", "Phase 1"))
-    player_turn = int(turn_context.get("player_turn", 1))
-    frozen = _frozen_ids(phase)
-    return [aid for aid in _primary_ids(phase, player_turn) if aid not in frozen]
 
 
 def _all_active_agent_ids(agents: Any) -> List[int]:
@@ -373,3 +59,75 @@ def _all_active_agent_ids(agents: Any) -> List[int]:
         if aid is not None and not is_virtual_player_agent(int(aid)):
             out.append(int(aid))
     return sorted(out)
+
+
+def pick_active_ids(
+    turn_context: Dict[str, Any],
+    world: Any,
+    t: int,
+    *,
+    passive_ticks_so_far: int = 0,
+    batch_tick_index: int = 0,
+) -> List[int]:
+    """Return agent ids allowed to run LLM this tick.
+
+    全程数据驱动、无随机激活——只在有明确理由时选 agent，是否真开口由 actor 自己反思（可 do_nothing）：
+      1) 玩家刚开口 → 本幕在场 NPC(inject_agents) 在最初 ~2 拍回应（不刷屏）；
+      2) inject agent 还没把玩家这句回完 → 继续给一拍；
+      3) 任何 agent 有未读私信(RDC/群) → 回复，但每拍至多 MAX_REPLIERS 个，防止并发过载；
+      4) 没有玩家输入的空拍 → 按**确定性轮转**让本幕在场 NPC 里轮到的那一个自主活动。
+         谁在场、由谁推进，全由管理 agent 经 Story Pack 的 node.inject_agents 决定，引擎不随机挑人、不强制移动。
+    """
+    if not is_f07_enabled():
+        agents = getattr(world, "agents", None) or {}
+        return _all_active_agent_ids(agents)
+
+    agents = getattr(world, "agents", None) or {}
+    active: List[int] = []
+    seen: Set[int] = set()
+
+    def add(aid: int) -> None:
+        if is_virtual_player_agent(int(aid)) or int(aid) in seen:
+            return
+        active.append(int(aid))
+        seen.add(int(aid))
+
+    inject_ids = [int(x) for x in (turn_context.get("inject_agent_ids") or [])]
+    inject_live = _inject_live(turn_context)
+    in_respond_window = inject_live and batch_tick_index < RESPOND_TICKS
+
+    # 1) 玩家刚开口：本幕在场 NPC 在最初 ~2 拍回应
+    if in_respond_window:
+        for aid in inject_ids:
+            add(aid)
+    # 2) inject agent 还没把玩家这句回完
+    for aid in inject_ids:
+        agent = _resolve_agent(agents, aid)
+        if agent is not None and getattr(agent, "player_memory", None):
+            add(aid)
+    # 3) 有未读私信就回——任何 agent，但每拍至多 MAX_REPLIERS 个（防 Runner 并发过载→玩家指令 IPC 超时）
+    repliers = 0
+    for aid in _all_active_agent_ids(agents):
+        if repliers >= MAX_REPLIERS:
+            break
+        if aid in seen:
+            continue
+        agent = _resolve_agent(agents, aid)
+        if agent is not None and has_unread_inbound(aid, agent, world, t):
+            add(aid)
+            repliers += 1
+    # 4) 空拍场景活性：无玩家输入时，按确定性轮转给本幕在场 NPC 里轮到的那一个一拍，由它自主决定是否行动。
+    #    无随机；每批至多放一个；低频（每 3 拍一次）保持节奏，且不与玩家回应窗口叠加。
+    if not in_respond_window and passive_ticks_so_far < 1 and int(t) % 3 == 0:
+        ambient = [aid for aid in inject_ids if aid not in seen]
+        if ambient:
+            add(ambient[(int(t) // 3) % len(ambient)])
+
+    log.debug("F07 pick_active t=%s batch=%s inject_live=%s active=%s",
+              t, batch_tick_index, inject_live, active)
+    return active
+
+
+def primary_active_ids(turn_context: Dict[str, Any]) -> List[int]:
+    """本幕在场/主激活集 = Story Pack 当前 node 的 inject_agents（数据驱动，供通知目标与被动计数用）。"""
+    return [int(x) for x in (turn_context.get("inject_agent_ids") or [])]

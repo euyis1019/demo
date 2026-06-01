@@ -141,26 +141,23 @@ def build_conversation_hints(
     world: Any,
     t: int,
 ) -> str:
-    """软提示块（数据驱动、与故事无关的通用对话节奏）：有未读就本拍回复；已发未回别重复催；
-    本批 inject 回应过就别复读。无任何 HBM/相位/角色硬编码。"""
+    """中性事实信号块（数据驱动、与故事无关）：只陈述收件箱/已发未回/本批已回应的**事实**，
+    不写「该不该回/要不要催/何时 do_nothing」这类表演判断——那由 actor 自行决定，节奏纪律由 acting_guide 指导。"""
     lines: List[str] = []
     db = resolve_world_db(world)
     aid = int(agent_id)
     tick = int(t)
     mem = getattr(agent, "player_memory", None)
 
-    # 1) 收件箱有未读 → 本拍处理；逐个提示待回的 RDC 发件人
+    # 1) 收件箱有未读（事实）：列出待回的 RDC 发件人
     if has_unread_inbound(aid, agent, world, tick):
-        lines.append(
-            "【收件箱】未读消息须本拍处理：RDC 用 send_message 回复发件人，"
-            "同室 F2F 用 speak_to_local；不要空过。"
-        )
-        for sid in (_unread_rdc_sender_ids(aid, agent, world, tick, db) if db else []):
-            lines.append(
-                f"【私信回复】Agent{sid} 的 RDC 等待回复——本拍 send_message→{sid}。"
-            )
+        senders = [str(sid) for sid in (_unread_rdc_sender_ids(aid, agent, world, tick, db) if db else [])]
+        if senders:
+            lines.append("【收件箱】你有来自 Agent" + "、Agent".join(senders) + " 的未读私信(RDC)。")
+        else:
+            lines.append("【收件箱】你有未读消息。")
 
-    # 2) 已发 RDC 尚未收到回复 → 别用相同内容重复催（防刷屏）
+    # 2) 已发 RDC 尚未收到回复（事实，含发出时刻）
     pending: Dict[int, int] = dict(getattr(agent, "_pending_rdc_out", {}) or {})
     if db is not None:
         still_pending: Dict[int, int] = {}
@@ -172,23 +169,16 @@ def build_conversation_hints(
             still_pending[int(target)] = int(sent_t)
             if tick - int(sent_t) >= 1:
                 lines.append(
-                    f"【待发跟进】你已在 t={sent_t} 向 Agent{target} 发过 RDC，对方尚未回复。"
-                    "本拍勿用相同内容重复催促；可选 do_nothing、update_state，或等对方回信后再行动。"
+                    f"【已发未回】你在 t={sent_t} 发给 Agent{target} 的私信(RDC)，对方尚未回复。"
                 )
         if still_pending != pending:
             agent._pending_rdc_out = still_pending  # noqa: SLF001
 
-    # 3) 玩家 inject 回应状态
+    # 3) 玩家 inject 回应状态（事实）
     if mem:
-        lines.append(
-            "【玩家 inject】本批对话你尚未完成首次回应；回应玩家后不必每拍重复相同简报。"
-        )
+        lines.append("【玩家 inject】本批你尚未首次回应玩家。")
     elif getattr(agent, "_inject_responded", False) and not has_unread_inbound(aid, agent, world, tick):
-        lines.append(
-            "【本批已回应】你已处理过本轮玩家 inject 且无新未读消息。"
-            "不必重复相同 F2F/RDC；若玩家仍在场或场景有变化，可 update_state 或短句跟进；"
-            "确无新信息时再 do_nothing。"
-        )
+        lines.append("【本批已回应】你已处理过本轮玩家 inject，且当前无新未读消息。")
 
     return "\n".join(lines)
 

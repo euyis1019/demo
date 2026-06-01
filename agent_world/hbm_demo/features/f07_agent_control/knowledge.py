@@ -166,6 +166,13 @@ def _pack_place_scene(pack: Any, place_id: str) -> str:
     return ""
 
 
+def _pack_acting_guide(pack: Any) -> str:
+    """整段「表演须知」——由设计期管理 agent 按本故事基调生成，存在 Story Pack 的 meta.acting_guide。
+    运行期这里只注入、不内嵌任何表演规则（换 Story Pack 即换一套须知）。"""
+    meta = getattr(pack, "meta", None) or {}
+    return str(meta.get("acting_guide") or "").strip()
+
+
 def build_pack_agent_knowledge(
     session: Any,
     agent_id: int,
@@ -223,38 +230,28 @@ def build_pack_agent_knowledge(
     if rels:
         sections.append(_section("你与在场/相关之人的关系", rels))
 
-    # 6) 玩家互动 + 留在角色里的硬性要求
+    # 6) 玩家互动 / 此刻处境——只摆**事实**，不在此写表演规则（怎么演由下面的「表演须知」统一指导）。
     if channel == "inject":
         sections.append(_section(
             "玩家刚对你说",
-            f"「{player_text}」\n请以{name}的身份、口语化地当面回应玩家（用 speak_to_local 说 1–4 句短话）。"
-            f"先接住玩家这一句的具体内容/情绪、据此回应，再带出你的目的——不要无视玩家、不要把话题硬拉回预设台词。"
-            f"贴合你的性格、说话风格、内心动机与「你这一幕要做的」。情绪强烈时用神态/动作/语气/反问来表现"
-            f"（show，别直接说「我很生气」这种白话）；藏着秘密就用旁敲侧击、客套、回避去演，别直白说破。",
-        ))
+            f"「{player_text}」\n用 speak_to_local 当面回应玩家。"))
     elif channel == "opening":
         opening = a.get("opening_line")
         if opening:
             sections.append(_section(
-                "开场",
-                f"用接近这句口吻的话开场：「{opening}」——可微调以贴合此刻处境，自然引出当前这一幕。"))
+                "开场", f"用接近这句口吻的话开场：「{opening}」——可微调以贴合此刻处境，自然引出当前这一幕。"))
         else:
             sections.append(_section(
-                "开场", f"用 1–2 句符合{name}身份、说话风格与此刻处境的话开场，自然引出当前这一幕。"))
+                "开场", f"用 1–2 句符合{name}身份与此刻处境的话开场，自然引出当前这一幕。"))
     else:
         sections.append(_section(
             "此刻",
-            f"现在没有人正对你说话。先想一想：你{name}此刻是否真有话要说、或有事要做"
-            f"（回应刚发生的事、找某人、推进你的目的/内心图谋）？"
-            f"——确有必要才以{name}的身份开口或行动；否则就静观其变、do_nothing，别硬找话说、别没事刷存在感。"
-            f"始终留在角色里。"))
+            "现在没有人正对你说话。按你的处境、目的与内心，自行决定此刻是开口、行动、还是 do_nothing。"))
 
-    # 始终钉一条硬性反 OOC 规则在末尾（防长对话漂移/破戏）
-    sections.append(_section(
-        "始终遵守",
-        f"你就是{name}本人，只说/做此刻{name}会说会做的。绝不跳出角色、不复述人设、不提你是 AI 或在演戏、"
-        f"不替玩家做决定、不替别的角色发言。",
-    ))
+    # 7) 表演须知——由设计期管理 agent 按本故事基调生成（meta.acting_guide），运行期只注入、不内嵌规则。
+    guide = _pack_acting_guide(pack)
+    if guide:
+        sections.append(_section("表演须知（贴着演，别跳戏）", guide))
     return "\n\n".join(s for s in sections if s)
 
 

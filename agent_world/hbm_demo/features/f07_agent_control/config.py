@@ -59,14 +59,13 @@ def resolve_inject_tick_loops(tick_count: int) -> int:
     return max(3, min(n, max_inject_tick_loops()))
 
 
-def resolve_inject_tick_count(phase: str, tick_count: int) -> int:
-    """Floor inject batch length for F07 completion semantics."""
-    n = int(tick_count)
-    if not is_f07_enabled():
-        return n
-    if str(phase) == "Phase 1":
-        return max(n, 8)
-    return n
+def resolve_inject_tick_count(phase: str, tick_count: int) -> int:  # noqa: ARG001
+    """Inject batch length for F07 completion semantics（数据驱动，无写死幕名）。
+
+    旧版给 HBM「Phase 1」额外抬到 ≥8 拍；现统一用调用方给的 tick_count，不对某故事某幕特判。
+    phase 仅为兼容旧签名保留。
+    """
+    return int(tick_count)
 
 
 def world_loop_block() -> Dict[str, Any]:

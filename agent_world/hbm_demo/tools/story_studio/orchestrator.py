@@ -280,22 +280,34 @@ def generate_full(
                 compile_pack(last_good, story_id=story_id, target_dir=target_dir)  # 回滚已合法包
                 break
 
-    # 新手引导：管理 agent 生成「故事背景 + 此刻可做的行为」，写进 meta.onboarding（失败不阻断生成）。
-    # 仅在完整生成（critic_rounds>0，真实 client 的生产路径）时跑；离线 fake-client 测试关 critic 也顺带跳过。
+    # 设计期管理 agent 附加产物：仅在完整生成（critic_rounds>0，真实 client 的生产路径）时跑；
+    # 离线 fake-client 测试关 critic 也顺带跳过。任一步失败都不阻断已结构合法的包。
     if critic_rounds > 0:
+        # 新手引导：管理 agent 生成「故事背景 + 此刻可做的行为」，写进 meta.onboarding。
         try:
             from agent_world.hbm_demo.tools.story_studio.onboarding import generate_onboarding
 
             onb = generate_onboarding(brief, d, c, client)
-            _patch_meta_onboarding(story_id, target_dir, onb)
+            _patch_meta(story_id, target_dir, "onboarding", onb)
+        except Exception:  # noqa: BLE001
+            pass
+
+        # 表演须知：管理 agent 按本故事基调生成「该怎么演」的导演手册，写进 meta.acting_guide。
+        # 运行期 knowledge.py 只注入这段、不再内嵌表演规则（dev_logs/43 管理 vs 演员）。
+        try:
+            from agent_world.hbm_demo.tools.story_studio.acting_guide import generate_acting_guide
+
+            guide = generate_acting_guide(brief, c, client)
+            if guide:
+                _patch_meta(story_id, target_dir, "acting_guide", guide)
         except Exception:  # noqa: BLE001
             pass
 
     return result
 
 
-def _patch_meta_onboarding(story_id: str, target_dir: Optional[Path], onboarding: Dict[str, Any]) -> None:
-    """把新手引导写进已落盘的 meta.yaml（过安全红线；onboarding 是 meta 的可选附加字段）。"""
+def _patch_meta(story_id: str, target_dir: Optional[Path], key: str, value: Any) -> None:
+    """把管理 agent 的附加产物写进已落盘的 meta.yaml（过安全红线；均为 meta 的可选附加字段）。"""
     import yaml
 
     from agent_world.hbm_demo.tools.story_studio.safety import assert_safe_target
@@ -305,7 +317,7 @@ def _patch_meta_onboarding(story_id: str, target_dir: Optional[Path], onboarding
     if not meta_path.is_file():
         return
     meta = yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
-    meta["onboarding"] = onboarding
+    meta[key] = value
     meta_path.write_text(
         yaml.safe_dump(meta, allow_unicode=True, sort_keys=False), encoding="utf-8")
 

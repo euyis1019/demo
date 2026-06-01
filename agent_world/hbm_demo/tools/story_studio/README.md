@@ -20,7 +20,9 @@
 | `authoring_schemas.py` | 生成期中间产物契约（`DESIGNER_OUTPUT_SCHEMA` + 通用 `validate_against`）|
 | `base_agent.py` | 管理 agent 基类：`call_json_with_schema`（LLM 注入，生成→校验→重试→raise）|
 | `writer.py` | sections(dict) → `config/stories/<id>/*.yaml` 落盘（过红线，幂等）|
-| `orchestrator.py` | 编排器骨架：assemble → 落盘 → validate（`compile_pack`）；LLM 流水线 G2 接入 |
+| `orchestrator.py` | 编排器：Designer→Casting→Writer→assemble→validate→Critic 质量回路；尾部跑管理 agent 附加产物（onboarding / acting_guide），`_patch_meta` 写回 meta.yaml |
+| `onboarding.py` | 管理 agent：按 brief/角色生成新手引导（背景+可做的行为）→ `meta.onboarding` |
+| `acting_guide.py` | 管理 agent：按本故事基调生成统一「表演须知」（怎么演：口吻/show-don't-tell/潜台词/接玩家/沉默纪律/留在角色）→ `meta.acting_guide`，运行期 knowledge.py 只注入不内嵌规则 |
 | `cli.py` | `validate-brief` / `compile` / `generate`(G2 占位) |
 
 ## 进度
