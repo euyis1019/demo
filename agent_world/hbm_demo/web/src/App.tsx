@@ -211,6 +211,7 @@ function GameApp() {
           agentMood={state.agentMood}
           playerInbox={state.agentInbox["0"]}
           stats={state.stats}
+          tension={state.tension}
           pendingWorldEvent={pendingWorldEvent}
           lastError={lastError}
           inputSlot={storyModeInput}

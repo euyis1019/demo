@@ -24,6 +24,8 @@ export interface StoryModeStageProps {
   playerInbox?: AgentInbox;
   /** 玩家数值，剧情模式 HUD 显示。 */
   stats?: Stats;
+  /** 故事张力 0–100（drama-manager 导演驱动，HUD 显示张力弧）。 */
+  tension?: number;
   pendingWorldEvent: WorldEvent | null;
   lastError?: string;
   inputSlot: ReactNode;
@@ -45,6 +47,7 @@ export function StoryModeStage({
   agentMood,
   playerInbox,
   stats,
+  tension,
   pendingWorldEvent,
   lastError,
   inputSlot,
@@ -83,7 +86,7 @@ export function StoryModeStage({
         aria-label={placeDisplayName(placeId)}
       />
 
-      {stats ? <StoryStatsHud stats={stats} /> : null}
+      {stats ? <StoryStatsHud stats={stats} tension={tension} /> : null}
 
       {lastError ? (
         <p className="story-mode-stage__error game-error" role="alert">

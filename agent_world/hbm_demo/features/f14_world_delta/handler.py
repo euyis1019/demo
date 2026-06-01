@@ -71,6 +71,7 @@ def get_world_delta(
         "loop_state": env.get("loop_state"),
         "stats_update": dict(hbm.stats) if hbm else initial_stats(),
         "current_phase": hbm.phase if hbm else "Phase 1",
+        "tension": hbm.tension if hbm else 0,
         "player_turn": hbm.player_turn if hbm else 1,
     }
 

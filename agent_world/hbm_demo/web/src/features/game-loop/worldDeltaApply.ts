@@ -80,6 +80,7 @@ export function applyWorldDeltaPayload(
       type: "APPLY_PLAYER_TURN_PROCESSING",
       stats: data.stats_update,
       phase: data.current_phase,
+      tension: data.tension,
       playerTurn: data.player_turn,
     });
   }

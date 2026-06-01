@@ -25,6 +25,8 @@ class HbmSession:
     node_entered_tick: Optional[int] = None
     # 导演已判定到的最后一句玩家发言 tick（避免对同一句反复判，且只在玩家有新发言时再判）。
     last_judged_player_tick: Optional[int] = None
+    # 故事张力 0–100：drama-manager 导演每次评估更新，驱动「按张力弧软推进、张力到顶再导向结局」。
+    tension: int = 0
     player_turn: int = 1
     stats: Dict[str, int] = field(default_factory=lambda: dict(INITIAL_STATS))
     phase2_start_tick: Optional[int] = None
@@ -41,6 +43,7 @@ class HbmSession:
             "current_node_id": self.current_node_id,
             "node_entered_tick": self.node_entered_tick,
             "last_judged_player_tick": self.last_judged_player_tick,
+            "tension": self.tension,
             "player_turn": self.player_turn,
             "stats": dict(self.stats),
             "phase2_start_tick": self.phase2_start_tick,
@@ -61,6 +64,7 @@ class HbmSession:
             current_node_id=data.get("current_node_id"),
             node_entered_tick=data.get("node_entered_tick"),
             last_judged_player_tick=data.get("last_judged_player_tick"),
+            tension=int(data.get("tension", 0) or 0),
             player_turn=int(data.get("player_turn", 1)),
             stats=stats,
             phase2_start_tick=data.get("phase2_start_tick"),

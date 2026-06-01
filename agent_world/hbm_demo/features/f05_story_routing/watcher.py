@@ -145,6 +145,9 @@ def scan_routing_if_needed(
             if eid:
                 known_ids.add(eid)
         log.info("story watcher advanced nodes=%s at tick=%s", result.get("nodes"), tick)
+    elif "tension" in result:
+        # 导演本拍只更新了张力(stay)——持久化，让张力跨请求/跨拍存活，驱动张力弧。
+        save_session(flask_session, hbm, sim_id)
     state["last_scan_tick"] = tick
     state["last_routing_info"] = {"nodes": result.get("nodes") or []}
     _mark_session_modified(flask_session)

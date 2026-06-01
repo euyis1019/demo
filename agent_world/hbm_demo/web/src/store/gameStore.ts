@@ -37,6 +37,8 @@ export interface GameState {
   phaseToast?: string | null;
   stats: Stats;
   phase: string;
+  /** 故事张力 0–100（drama-manager 导演驱动，剧情模式 HUD 显示张力弧）。 */
+  tension: number;
   playerTurn: number;
   placeId: string;
   /** Display / env tick — not used as delta poll cursor. */
@@ -81,6 +83,7 @@ export function createInitialState(): GameState {
     phaseToast: null,
     stats: { ...INITIAL_STATS },
     phase: "Phase 1",
+    tension: 0,
     playerTurn: 1,
     placeId: "nvidia_reception",
     worldTick: 0,
@@ -109,7 +112,7 @@ export type GameAction =
   | { type: "START_SESSION"; data: SessionStartData }
   | { type: "APPLY_SESSION"; data: SessionSnapshot }
   | { type: "SET_LOADING"; loading: boolean }
-  | { type: "APPLY_PLAYER_TURN_PROCESSING"; stats: Stats; phase: string; playerTurn: number }
+  | { type: "APPLY_PLAYER_TURN_PROCESSING"; stats: Stats; phase: string; playerTurn: number; tension?: number }
   | { type: "PUSH_PLAYER_BUBBLE"; message: GameMessage }
   | { type: "APPEND_TURN_DELTA"; delta: TurnDelta }
   | { type: "APPLY_WORLD_DELTA"; delta: TurnDelta; nextSinceTick: number }
@@ -275,6 +278,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         stats: { ...action.stats },
         phase: action.phase,
+        tension: action.tension ?? state.tension,
         playerTurn: action.playerTurn,
       };
     case "PUSH_PLAYER_BUBBLE":

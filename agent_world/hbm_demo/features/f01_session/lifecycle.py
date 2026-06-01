@@ -102,6 +102,7 @@ def get_session_snapshot(
         "place_id": hbm.place_id,
         "phase": hbm.phase,
         "current_phase": hbm.phase,
+        "tension": hbm.tension,
         "player_turn": hbm.player_turn,
         "stats": dict(hbm.stats),
         "stats_update": dict(hbm.stats),

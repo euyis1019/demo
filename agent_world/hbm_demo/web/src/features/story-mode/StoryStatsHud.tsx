@@ -3,6 +3,8 @@ import type { Stats } from "../../api/types";
 
 export interface StoryStatsHudProps {
   stats: Stats;
+  /** 故事张力 0–100（drama-manager 导演驱动）。 */
+  tension?: number;
 }
 
 const ROWS: { key: keyof Stats; label: string }[] = [
@@ -16,7 +18,7 @@ const ROWS: { key: keyof Stats; label: string }[] = [
  * 剧情模式数值 HUD（体检 G6）：把后端已下发的 stats 接到剧情模式（原先只有上帝模式显示）。
  * 数值变化时短暂高亮 + 显示增减；burnout 高位变红预警。
  */
-export function StoryStatsHud({ stats }: StoryStatsHudProps) {
+export function StoryStatsHud({ stats, tension }: StoryStatsHudProps) {
   const prev = useRef<Stats>(stats);
   const [pulse, setPulse] = useState<Partial<Record<keyof Stats, number>>>({});
 
@@ -34,8 +36,21 @@ export function StoryStatsHud({ stats }: StoryStatsHudProps) {
     }
   }, [stats]);
 
+  const tensionPct = Math.max(0, Math.min(100, Math.round(tension ?? 0)));
   return (
     <div className="story-stats-hud">
+      {tension != null ? (
+        <div className="story-stats-hud__tension" title="故事张力">
+          <span className="story-stats-hud__label">张力</span>
+          <span className="story-tension-bar">
+            <span
+              className={`story-tension-bar__fill ${tensionPct >= 70 ? "is-high" : ""}`}
+              style={{ width: `${tensionPct}%` }}
+            />
+          </span>
+          <span className="story-stats-hud__value">{tensionPct}</span>
+        </div>
+      ) : null}
       {ROWS.map(({ key, label }) => {
         const val = stats[key] ?? 0;
         const delta = pulse[key];

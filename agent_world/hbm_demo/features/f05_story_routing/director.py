@@ -14,15 +14,18 @@ from typing import Any, Dict, List, Optional
 log = logging.getLogger("agent_world.hbm_demo.f05.director")
 
 _SYSTEM = (
-    "你是一部互动剧情的「导演」。职责：纵观整个故事的走向地图，读这一幕的剧情背景与最近真实发生的"
-    "对话，判断玩家是否已经把剧情推向某个走向。你不靠任何关键词，只靠对剧情与对话的理解来判断。\n"
-    "规则：\n"
-    "1. 当对话显示玩家做出/表达了某个走向『条件』所描述的选择或行动——或玩家用别的方式把局势实质地"
-    "朝那个走向推进了——就推进到那个走向。抓玩家的真实意图与造成的效果，不必逐字命中条件措辞；\n"
-    "2. 玩家只是闲聊、寒暄、提问、还在打探、或明显犹豫未定 → 保持当前幕(stay)；\n"
-    "3. 若多个走向都沾边，选最贴合玩家明确意图的那个；玩家确实还没推动任何走向时才 stay；\n"
-    "4. 严格只输出一行 JSON："
-    '{"decision":"advance或stay","target":"走向id或空串","reason":"一句中文理由"}'
+    "你是一部互动剧情的「导演 / drama manager」。纵观整个故事的走向地图与张力弧，读这一幕的剧情背景、"
+    "最近真实发生的对话、以及当前张力值，做两件事：\n"
+    "(1) 更新故事张力 tension(0–100)：玩家打探/铺垫/试探时缓升；出现冲突/逼问/反转/揭露/背叛时陡升；"
+    "缓和/闲聊/收尾时回落。给出你对此刻整体张力的读数（不必与旧值连续，按剧情实际紧张程度判）。\n"
+    "(2) 判断是否推进剧情走向：\n"
+    "  - 当对话显示玩家做出/表达了某个走向『条件』所描述的选择或行动——或玩家用别的方式把局势实质地朝"
+    "那个走向推进了——就 advance 到那个走向（抓玩家真实意图与造成的效果，不必逐字命中条件措辞）；\n"
+    "  - 玩家只是闲聊、寒暄、提问、还在打探、明显犹豫未定 → stay；\n"
+    "  - 当张力已高(≥70)、且玩家已把核心冲突推到收束/摊牌，而走向里存在合适的『结局』走向时，优先"
+    "advance 到最贴合当前局势的那个结局——结局由故事张力与玩家历程触发，不必死等逐字条件命中。\n"
+    "严格只输出一行 JSON："
+    '{"decision":"advance或stay","target":"走向id或空串","tension":0到100整数,"reason":"一句中文理由"}'
 )
 
 
@@ -84,8 +87,13 @@ def _parse_json(raw: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def judge_transition(graph: Any, node_id: str, transcript: str, name_map: Dict[int, str]) -> Optional[Dict[str, Any]]:
-    """让 LLM 判断从 node_id 出发是否推进、推进到哪条出边的 dst。返回 {"target","reason"} 或 None(=stay)。"""
+def judge_transition(graph: Any, node_id: str, transcript: str, name_map: Dict[int, str],
+                     *, current_tension: int = 0) -> Optional[Dict[str, Any]]:
+    """drama-manager 导演：读全局走向 + 本幕对话 + 当前张力，更新张力并判断是否推进。
+
+    返回 {"advance": bool, "target": str, "reason": str, "tension": int}；
+    无节点/无可走出边时返回 None（调用方据此不动张力也不推进）。
+    """
     node = graph.nodes.get(node_id)
     if node is None:
         return None
@@ -107,10 +115,11 @@ def judge_transition(graph: Any, node_id: str, transcript: str, name_map: Dict[i
     user = (
         f"【整个故事的走向地图】（▶ 标出你现在所在的幕）：\n{_story_outline(graph, node_id)}\n\n"
         f"【当前这一幕】{node.beats_label}：{node.summary}\n\n"
+        f"【当前故事张力】{int(current_tension)}/100\n\n"
         "【从这一幕可能的走向】（玩家把局势推向对应『条件』所描述的方向时走那条）：\n"
         + "\n".join(f"- id={o['id']}｜条件：{o['condition']}｜走向后：{o['outcome']}" for o in options)
         + f"\n\n【这一幕里最近真实发生的对话】：\n{transcript or '（暂无对话）'}\n\n"
-        "结合整个故事走向，判断玩家是否已把剧情推动到某个走向。严格只输出一行 JSON。"
+        "结合整张走向地图与当前张力，更新张力并判断玩家是否已把剧情推动到某个走向。严格只输出一行 JSON。"
     )
     try:
         from agent_world.hbm_demo.core.runner.kernel import llm_request_extras
@@ -127,10 +136,17 @@ def judge_transition(graph: Any, node_id: str, transcript: str, name_map: Dict[i
         log.warning("director judge LLM failed: %s", exc)
         return None
 
-    if not data or str(data.get("decision")) != "advance":
+    if not data:
         return None
+    try:
+        tension = max(0, min(100, int(data.get("tension", current_tension))))
+    except (TypeError, ValueError):
+        tension = int(current_tension)
+    advance = str(data.get("decision")) == "advance"
     target = str(data.get("target") or "")
-    if target not in {o["id"] for o in options}:
-        return None
-    log.info("director: %s → %s（%s）", node_id, target, data.get("reason"))
-    return {"target": target, "reason": str(data.get("reason") or "")}
+    if advance and target not in {o["id"] for o in options}:
+        advance, target = False, ""
+    if advance:
+        log.info("director: %s → %s（张力%s｜%s）", node_id, target, tension, data.get("reason"))
+    return {"advance": advance, "target": target,
+            "reason": str(data.get("reason") or ""), "tension": tension}

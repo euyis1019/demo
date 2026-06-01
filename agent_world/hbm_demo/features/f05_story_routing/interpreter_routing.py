@@ -78,9 +78,18 @@ def route_story(
     hbm.last_judged_player_tick = lp
 
     transcript = director.scene_transcript(db, place, since_t, int(current_tick), name_map)
-    decision = director.judge_transition(g, node_id, transcript, name_map)
+    decision = director.judge_transition(
+        g, node_id, transcript, name_map,
+        current_tension=int(getattr(hbm, "tension", 0) or 0),
+    )
     if decision is None:
-        return applied  # 导演判定：留在本幕
+        return applied
+
+    # drama-manager：即便本拍 stay 也更新故事张力（驱动张力弧；张力到顶再导向结局）。
+    hbm.tension = int(decision.get("tension", getattr(hbm, "tension", 0) or 0))
+    applied["tension"] = hbm.tension
+    if not decision.get("advance"):
+        return applied  # 导演判定：留在本幕（张力已更新）
 
     dst = str(decision["target"])
     if g.is_ending(dst):
@@ -108,6 +117,7 @@ def route_story(
         "title": nxt.beats_label or dst,
         "content": nxt.summary or "",
         "place_id": new_place,
+        "tension": hbm.tension,
     })
-    log.info("story node → %s (%s): %s", dst, nxt.beats_label, decision.get("reason"))
+    log.info("story node → %s (%s｜张力%s): %s", dst, nxt.beats_label, hbm.tension, decision.get("reason"))
     return applied
