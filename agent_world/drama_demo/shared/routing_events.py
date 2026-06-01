@@ -21,10 +21,12 @@ def _node_narration(node_id: str) -> Optional[str]:
         node = story_config.active_pack().graph.nodes.get(str(node_id))
         if node is None:
             return None
-        label = str(getattr(node, "beats_label", "") or "").strip()
-        summary = str(getattr(node, "summary", "") or "").strip()
-        text = "：".join(p for p in (label, summary) if p) if label else summary
-        return text or None
+        label = str(getattr(node, "beats_label", "") or "").strip()   # 任务标题
+        summary = str(getattr(node, "summary", "") or "").strip()      # 任务目标
+        if not (label or summary):
+            return None
+        # 任务卡：标题=任务名(label)，正文=任务目标(summary)；缺其一时彼此兜底。
+        return (label or "新任务", summary or label)
     except Exception:  # noqa: BLE001 — 无活跃包/解析失败时不出横幅
         return None
 
@@ -41,16 +43,17 @@ def format_routing_world_events(
     nodes = list(routing_info.get("nodes") or [])
     out: List[Dict[str, Any]] = []
     for node in nodes:
-        content = _node_narration(str(node))
-        if not content:
+        task = _node_narration(str(node))
+        if not task:
             continue
+        title, content = task
         out.append(
             {
                 "id": f"route_node_{node}",
                 "at_tick": int(at_tick),
                 "kind": "phase_route",
-                "title": "新任务",
-                "content": content,
+                "title": title,      # 任务标题（beats_label）
+                "content": content,  # 任务目标（summary）
                 "place_id": routing_info.get("place_id"),
             }
         )

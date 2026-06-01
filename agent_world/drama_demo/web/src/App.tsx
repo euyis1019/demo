@@ -13,7 +13,6 @@ import {
   GameOverScreen,
   LoadingOverlay,
   OnboardingModal,
-  PhaseToast,
   PlayerActionBar,
   PlayerInput,
   RunnerNotReadyModal,
@@ -66,7 +65,6 @@ function GameApp() {
     healthError,
     sessionInitialized,
     loading,
-    phaseToast,
     stats,
     phase,
     playerTurn,
@@ -201,11 +199,8 @@ function GameApp() {
 
   return (
     <>
-      <PhaseToast
-        message={phaseToast}
-        onDismiss={() => dispatch({ type: "DISMISS_PHASE_TOAST" })}
-      />
-
+      {/* 进入新任务的提示只由「世界事件」横幅(WorldEventModal, kind=phase_route)统一呈现——
+          剧情模式与上帝模式都已渲染它。原 PhaseToast 是第二个独立提示源，会让同一次推进「弹两遍」，故移除。 */}
       <RunnerNotReadyModal
         open={runnerModalOpen}
         onClose={() => dispatch({ type: "SET_RUNNER_MODAL", open: false })}
