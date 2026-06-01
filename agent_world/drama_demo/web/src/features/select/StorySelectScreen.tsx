@@ -102,13 +102,8 @@ export function StorySelectScreen({ onReady }: Props) {
         setPhase("list");
         return;
       }
-      const deadline = Date.now() + 10 * 60_000; // 最多等 10 分钟，避免后台异常卡死时 UI 永久转圈
+      // 不限时生成：素材多的故事生成会久一点，一直轮询到后台返回 done/error 为止（不再 10 分钟超时取消）。
       for (;;) {
-        if (Date.now() > deadline) {
-          setError("生成超时（超过 10 分钟），请重试");
-          setPhase("list");
-          return;
-        }
         await new Promise((res) => setTimeout(res, 1500));
         const j = await getJob(jobId);
         const d = j.data;
