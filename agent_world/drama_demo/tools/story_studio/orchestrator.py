@@ -48,7 +48,12 @@ def brief_to_meta(brief: Dict[str, Any], story_id: str) -> Dict[str, Any]:
     # 标题：优先用户给的 title；否则取 premise 的第一句（按句读/逗号断，不在词中硬截到 40 字病句）。
     premise = str(brief.get("premise") or "").strip()
     first_clause = _re.split(r"[。．.！!？?，,；;\n]", premise, 1)[0].strip() if premise else ""
-    title = str(brief.get("title") or "").strip() or first_clause[:60] or story_id
+    raw_title = str(brief.get("title") or "").strip() or first_clause
+    # 容错：用户常把整段带标签的模板（如「标题：xxx\n一段剧情：…」）贴进来——
+    # 只取第一行、剥掉「标题/剧情标题/title：」之类前缀标签，避免标题被污染成「标题：xxx\n…」。
+    raw_title = raw_title.splitlines()[0] if raw_title else ""
+    raw_title = _re.sub(r"^\s*(剧情标题|故事标题|标题|title)\s*[：:]\s*", "", raw_title, flags=_re.I).strip()
+    title = raw_title[:60] or story_id
     return {
         "schema_version": 1,
         "simulation_id": story_id,
