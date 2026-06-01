@@ -49,8 +49,8 @@
 
 浏览器轮询 GET /world-delta?since_tick=N  (F14；F03 在 world_loop 时整段委托 F14)
   → F05 RoutingWatcher.scan_routing_if_needed():
-      tick 推进时扫库 → 检测节点 A/B/C(agent_signals) → apply_routing(移动/换 Phase)
-                      → Phase 4: 检测「谈成」→ 早结局; Phase 1: bad_end 检测
+      tick 推进时扫库 → route_story → Bert 导演判玩家新发言是否命中某条上膛 bert
+                      → 命中则注入 reaction / 上膛后续(反应链) / 结局 bert→game_over
   → F12 build_session_world_delta(): 读 F06 → 四房间 F2F / agent 消息 / 位置 / 世界事件
   → F15 enrich: 给 delta 事件挂 prompt_trace ref
   → 返回 { room_f2f, agent_messages, location_changes, world_events, game_over?, stats… }
@@ -66,18 +66,16 @@
 - **全局动作**（MOVE/RDC/GRP）：lockstep，本 tick 发出、下一 tick 才可见。
 - **常驻 world loop**（F13/world_loop.py）：~1 tick/s 背景推进，玩家输入入队、下个 tick 边界注入。
 
-## 五、剧情路由与结局（F05）
+## 五、剧情路由与结局（F05）— bert（条件→反应）
 
-- **agent_driven 模式**：节点由 Agent 对话**信号 + 关键词**触发（非写死回合），Stats 仅 UI 展示。
-  - 节点 A（Phase 1→2）：前台简报 + Jensen 批准访客。
-  - 节点 B（Phase 2→3）：Tech VP 正面评估，Jensen 回谈判室。
-  - 节点 C（Phase 3→4）：Jensen 清场三家 CEO。
-  - 节点 D（结局）：**Phase 4 谈成即结束**——`story_advance(offer_*)` 信号，或 Jensen
-    新成交话术触发一次 LLM 裁定（`classify_phase4_conclusion`）；否则 Turn 25 由
-    `classify_turn25_intent` + trust 阈值兜底。
-- **RoutingWatcher**（`f05/watcher.py`）在 F14 轮询时扫库驱动以上节点 + 产出 game_over。
-- 结构化信号 `story_advance(...)` 与关键词检测互为补充（Jensen 常只「说」不「调工具」，
-  故关键词/LLM 兜底）。
+剧情结构是 **bert**（`shared/story_pack/bert.py`）：一条 bert = `trigger`(玩家条件) → `target`(NPC) + `reaction`(反应)，
+经 `requires`/`arms` 串成反应链，`ending` 非空即结局。无任何写死的幕/节点/关键词/回合。
+
+- **Bert 导演**（`f05/director.judge_bert_triggers`）：玩家有新发言时，LLM 读最近对话判哪条「上膛」bert 命中（抓意图，非关键词）。
+- **route_story**（`f05/interpreter_routing.py`）：命中 → 把 reaction 注入 target 下一拍 prompt（`f07 knowledge.py` 读 `hbm.bert_reactions`）、
+  按 arms/requires 上膛后续 bert；命中结局 bert → 写 `hbm.ending_id/ending_kind/ending_summary` 收场。
+- **RoutingWatcher**（`f05/watcher.py`）在 F14 轮询时按 tick 扫库 → 调 route_story → 持久化 hbm（`fired_berts`/`last_judged_player_tick`/`bert_reactions`）+ 产出 game_over。
+- 「只在玩家有新发言时判一次」（`last_judged_player_tick` 去重）保证一句话不连环击穿、节奏自然。
 
 ## 六、关键不变量
 
@@ -89,8 +87,9 @@
 ## 七、验收门禁
 
 ```bash
-python3 agent_world/drama_demo/scripts/test_m0_acceptance.py   # E2E + 静态契约
-cd agent_world/drama_demo/web && npm run build                 # 前端类型 + 打包
+python3 agent_world/drama_demo/scripts/tests/test_story_studio.py   # 离线管理 agent 流水线单测（生成优先）
+cd agent_world/drama_demo/web && npm run build                      # 前端类型 + 打包
+# 改了管理层生成：python3 agent_world/drama_demo/scripts/test_create_acceptance.py（真 LLM 端到端）
 ```
 
-不破坏项：四节点试玩（节点 A/B/C/D）、三结局路径、`sim/` 不入库。
+不破坏项：管理 agent 把一段 brief 生成成结构合法(X+B 校验)的可玩 bert 包、`sim/` 不入库。

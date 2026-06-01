@@ -6,7 +6,7 @@
 scenario。运行时由三部分组成：
 
 - **Runner** — `python -m agent_world.drama_demo.run_drama`：跑 LLM 多 Agent 世界仿真，
-  写 `sim/<story_id>/world.db`（默认 `canglan_sword`），按 tick 推进。
+  写 `sim/<story_id>/world.db`（story_id 由大厅选/建并激活后确定，无写死默认故事），按 tick 推进。
 - **Flask**（`agent_world.app` + `drama_bp`）：会话、玩家回合 API、只读 DB、增量同步。
 - **React + Vite 前端**（`web/`，默认 `:5173`）：双栏世界舞台 + 可选沉浸式剧情模式。
 
@@ -37,11 +37,12 @@ cp agent_world/drama_demo/.env.example agent_world/drama_demo/.env
 
 浏览器打开 **http://localhost:5173**。`Ctrl+C` 或 `./agent_world/drama_demo/scripts/ops/stop_demo.sh` 停止。
 
-**验收门禁**（自动起停 Runner/Flask，跑 E2E + 前端构建）：
+**验收门禁**（生成优先：验管理 agent 把 brief 生成多好的可玩故事，非某固定故事能否通关）：
 
 ```bash
-python3 agent_world/drama_demo/scripts/test_m0_acceptance.py
+python3 agent_world/drama_demo/scripts/tests/test_story_studio.py   # 离线管理 agent 流水线单测（零网络）
 cd agent_world/drama_demo/web && npm run build
+# 改了管理层生成再跑：python3 agent_world/drama_demo/scripts/test_create_acceptance.py（真 LLM 端到端）
 ```
 
 
@@ -99,7 +100,7 @@ agent_world/drama_demo/
 | **F02** | 玩家回合 API1 | `features/f02_player_turn/` | 打分→路由→inject；turn_pipeline |
 | **F03** | 动作结果 API2 | `features/f03_action_result/` | 完成判定；world_loop 时委托 F14 |
 | **F04** | 数值与打分 | `features/f04_stats/` | Stats 四维 LLM 打分 |
-| **F05** | 剧情路由 | `features/f05_story_routing/` | Phase 节点 A/B/C/D、RoutingWatcher、结局裁定 |
+| **F05** | 剧情路由 | `features/f05_story_routing/` | bert（条件→反应）导演：判触发→注入反应→反应链→结局 |
 | **F06** | 只读世界模型 | `features/f06_read_model/` | ReadOnlyWorldDB（queries/ 子模块） |
 | **F07** | ABCS Agent 控制 | `features/f07_agent_control/` | 选角(L3)、story knowledge(L4)、对话节奏 |
 | **F08** | HTTP 传输 | `http/` | Blueprint、IPC 客户端、健康、WS |
@@ -120,8 +121,8 @@ agent_world/drama_demo/
 
 ## HTTP API
 
-前缀：`/api/drama/simulations/<story_id>/`（`story_id` 在大厅选/建并激活后动态确定，默认
-`canglan_sword`；另有不带 `<story_id>` 的大厅端点 `/api/drama/lobby/*`。端点细节见
+前缀：`/api/drama/simulations/<story_id>/`（`story_id` 在大厅选/建并激活后动态确定，无写死默认；
+另有不带 `<story_id>` 的大厅端点 `/api/drama/lobby/*`。端点细节见
 [`http/README.md`](http/README.md)）
 
 | 方法 | 路径 | 说明 |
@@ -141,20 +142,16 @@ agent_world/drama_demo/
 
 ---
 
-## 游戏流程（可玩范围）
+## 游戏流程（bert 反应链驱动，无固定故事）
 
-| 阶段 | Turn | 说明 |
-|------|------|------|
-| Phase 1 | 1–4 | 前台接待破局；前台向 Jensen 简报、批准访客（节点 A → Phase 2） |
-| Phase 2 | 5–12 | Jensen 私密审查；Tech VP 正面评估（节点 B → Phase 3） |
-| Phase 3 | 13–20 | 谈判室；Turn 16 AMD 广播 + Sam；Jensen 清场 CEO（节点 C → Phase 4） |
-| Phase 4 | 21–25 | 终局 1v1 谈 offer；**谈成即结束**（节点 D / 早结局），否则 Turn 25 裁定 |
+剧情由管理 agent 按一段 brief 生成、不写死任何故事，结构是 **bert（条件→反应）**（见 `dev_logs/48` / CLAUDE §8）：
 
-**结局裁定（节点 D）**：Phase 4 中一旦谈成（Jensen 给出 offer 且玩家接受，由 F05
-经 LLM 判定）即触发对应结局；否则到 Turn 25 由 LLM 意图分类 + trust 阈值裁定：
+1. 玩家在活世界里自由说话、移动、私信/群聊；
+2. 每当玩家有新发言，**Bert 导演**（`f05 director.judge_bert_triggers`）读最近对话，判是否命中某条「上膛」bert 的 trigger；
+3. 命中则把该 bert 的 reaction 注入 target NPC 的下一拍 prompt（NPC 当面演出反应），并按 `requires`/`arms` 上膛后续 bert（反应链）；
+4. 命中 `ending` 非空的「结局 bert」即收场，按 kind(good/neutral/bad) 走结局屏。
 
-- `ending_join_nvidia` / `ending_seed_round` / `ending_cold_deal`
-
+举例（生成的「便利店夜账」）：玩家逼问店长 → 店长甩锅嘴硬（b1 反应）→ 上膛后续 → 玩家拿到证据/安抚兼职 → 店长崩溃坦白 → good/neutral/bad 三结局。
 单回合含多次 LLM 调用，墙钟约 **15–90 秒**。
 
 ---
@@ -178,5 +175,5 @@ agent_world/drama_demo/
 
 - **不要**在根目录新增业务 `.py`；新能力放入对应 `features/fXX_*` 或 `core/runner/`。
 - 改 Agent prompt 只动 `config/prompts/` 与各 Feature `config.py`，勿把 YAML 放回 `features/` 根目录。
-- 提交前跑门禁：`python3 scripts/test_m0_acceptance.py` 与 `cd web && npm run build`。
+- 提交前跑门禁：`python3 scripts/tests/test_story_studio.py` 与 `cd web && npm run build`。
 - 依赖边界见 [`ARCHITECTURE.md`](ARCHITECTURE.md)（L3→L2、L1 经 integration、前端 app→features→shared）。
