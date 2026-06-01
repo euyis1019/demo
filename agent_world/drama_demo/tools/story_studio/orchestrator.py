@@ -349,6 +349,17 @@ def generate_full(
         except Exception:  # noqa: BLE001
             pass
 
+        # 世界规则：管理 agent 按故事基调决定运行期开关（目前：NPC 是否自主走动），写进 meta.world。
+        # 运行期 scenario_adapter.is_free_move_enabled 据此放行/抑制 agent 的 request_move，引擎不写死。
+        try:
+            from agent_world.drama_demo.tools.story_studio.world_rules import generate_world_rules
+
+            _p("⑨ 设定世界规则（NPC 是否自主走动）…")
+            world = generate_world_rules(brief, c, client)
+            _patch_meta(story_id, target_dir, "world", world)
+        except Exception:  # noqa: BLE001
+            pass
+
     return result
 
 

@@ -28,12 +28,25 @@ def is_story_pack_seed_enabled() -> bool:
 
 
 def is_free_move_enabled() -> bool:
-    """是否放开 agent 自主移动（request_move 真正生效）。默认开（DRAMA_STORY_PACK_SEED 默认 1，设 0 才回退）——旧版脚本搬人不变。
+    """是否放开 agent 自主移动（request_move 真正生效）——**每故事可配**。
 
-    开关式：`DRAMA_FREE_MOVE=1` 才放开（用户旋钮2）。放开时仍以 prompt 强引导「非必要不移动」，
-    避免 agent 乱跑导致剧情卡死。本助手放 shared/ 以便 L1 Runner/dispatcher 读取（不违反 D4）。
+    优先级：
+    1) 环境变量 `DRAMA_FREE_MOVE`（显式全局旋钮/测试覆盖，设了就以它为准）；
+    2) 否则读当前故事配置 `meta.world.npc_free_move`——由管理 agent(world_rules) 按剧情决定
+       （封闭密室类→关，NPC 守原地便于盘问；开放活世界类→开，NPC 自主走动）；
+    3) 读不到则默认**抑制**（保守，避免 NPC 乱跑卡死剧情）。
+    放开时仍以 prompt 强引导「非必要不移动」。本助手放 shared/ 以便 L1 Runner/dispatcher 读取（不违反 D4）。
     """
-    return os.environ.get("DRAMA_FREE_MOVE", "").strip() in ("1", "true", "True", "yes", "on")
+    env = os.environ.get("DRAMA_FREE_MOVE", "").strip()
+    if env:
+        return env in ("1", "true", "True", "yes", "on")
+    try:  # 数据驱动：按当前故事的 meta.world.npc_free_move
+        from agent_world.drama_demo.shared import story_config
+
+        meta = story_config.active_pack().meta or {}
+        return bool((meta.get("world") or {}).get("npc_free_move", False))
+    except Exception:  # noqa: BLE001 — 无活跃包/读取失败时保守抑制
+        return False
 
 # scenario 里每个 agent 需要的键（其余如 role/faction/capabilities 不进 scenario.agents）。
 _AGENT_KEYS = ("agent_id", "name", "location", "soul", "long_term_goal", "current_state", "short_term_goal")
