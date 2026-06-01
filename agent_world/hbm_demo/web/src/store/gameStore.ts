@@ -12,7 +12,6 @@ import type {
   WorldSnapshot,
 } from "../api/types";
 import { getPhaseTransitionMessage } from "../constants/phaseTransitions";
-import { MAX_TURNS } from "../constants/gameLoop";
 import type { PlaceId } from "../utils/places";
 import { emptyRoomF2f } from "../utils/places";
 import {
@@ -446,5 +445,3 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return state;
   }
 }
-
-export { MAX_TURNS };

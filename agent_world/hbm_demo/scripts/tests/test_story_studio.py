@@ -256,7 +256,7 @@ _G3_CASTING = {
 }
 _G3_WRITER = {
     "nodes": [{"id": "n1", "inject_agents": [1], "place_focus": "hall", "window_since": "start_tick"},
-              {"id": "n2", "inject_agents": [1], "place_focus": "hall", "window_since": "phase2_start_tick"}],
+              {"id": "n2", "inject_agents": [1], "place_focus": "hall", "window_since": "start_tick"}],
     "edges": [{"id": "adv", "legacy_label": "A", "trigger": {"type": "story_advance", "signal": "go_on"}, "actions": []},
               {"id": "fin", "trigger": {"type": "story_advance", "signal": "finish"}, "actions": []},
               {"id": "fail", "trigger": {"type": "story_advance", "signal": "reject"}, "actions": []}],
@@ -317,7 +317,7 @@ def test_generate_full_regenerates_on_xref_break() -> None:
 
     broken_writer = {
         "nodes": [{"id": "n1", "inject_agents": [99], "place_focus": "hall", "window_since": "start_tick"},
-                  {"id": "n2", "inject_agents": [1], "place_focus": "hall", "window_since": "phase2_start_tick"}],
+                  {"id": "n2", "inject_agents": [1], "place_focus": "hall", "window_since": "start_tick"}],
         "edges": _G3_WRITER["edges"],
         "signals": _G3_WRITER["signals"],
     }

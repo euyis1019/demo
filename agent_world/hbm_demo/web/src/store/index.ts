@@ -2,7 +2,6 @@ export {
   createInitialState,
   gameReducer,
   INITIAL_STATS,
-  MAX_TURNS,
   type GameAction,
   type GameState,
   type GameView,

@@ -1,11 +1,6 @@
-"""F12 shared constants — HBM demo room grid and agent roster."""
+"""F12 shared constants — 玩家可见地点/NPC 名册（数据驱动：取活跃 Story Pack）。"""
 
 from __future__ import annotations
-
-from agent_world.hbm_demo.shared.routing_events import (
-    PLACE_MUTATION_HINT,
-    ROUTING_WORLD_EVENT_CONTENT,
-)
 
 HBM_ROOM_PLACES: tuple[str, ...] = (
     "nvidia_reception",
@@ -43,8 +38,6 @@ def agent_roster() -> tuple[int, ...]:
 __all__ = [
     "HBM_AGENT_IDS",
     "HBM_ROOM_PLACES",
-    "PLACE_MUTATION_HINT",
-    "ROUTING_WORLD_EVENT_CONTENT",
     "agent_roster",
     "room_places",
 ]

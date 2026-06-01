@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, List
 
-from agent_world.hbm_demo.shared.story_pack.pack import StoryPack, load_story_pack
+from agent_world.hbm_demo.shared.story_pack.pack import StoryPack
 
 
 def is_story_pack_seed_enabled() -> bool:
@@ -75,8 +75,3 @@ def story_pack_to_scenario(pack: StoryPack) -> Dict[str, Any]:
     scenario["capabilities"] = caps
 
     return scenario
-
-
-def load_scenario_from_story_pack(story_id: str) -> Dict[str, Any]:
-    """加载 Story Pack 并投影成 scenario（运行期入口便捷函数）。"""
-    return story_pack_to_scenario(load_story_pack(story_id))

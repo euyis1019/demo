@@ -26,8 +26,6 @@ from agent_world.hbm_demo.features.f02_player_turn.task import (
 )
 from agent_world.hbm_demo.features.f05_story_routing import routing
 from agent_world.hbm_demo.features.f02_player_turn.turn_pipeline import (
-    apply_routing_side_effects,
-    execute_inject,
     prepare_turn,
 )
 from agent_world.hbm_demo.features.f06_read_model.world_db import make_readonly_db
@@ -128,96 +126,6 @@ def run_debug_inject(
         "ipc": resp_result,
         "events_count": len(events),
         "agent_ids": [ev["effect"]["agent_id"] for ev in events],
-    }
-
-
-def _handle_sync_inject(
-    flask_session: Any,
-    hbm: HbmSession,
-    *,
-    sim: Path,
-    sim_id: str,
-    task_id: str,
-    start_tick: int,
-    events: list,
-    broadcast: Optional[dict],
-    turn_context: Optional[dict],
-    tick_count: int,
-    ipc_timeout: float,
-    is_final_turn: bool,
-    player_text: str,
-) -> Dict[str, Any]:
-    """Synchronous inject path — Turn 25 (and legacy inline flow)."""
-    ipc_end_tick, ipc_result, current_tick = execute_inject(
-        sim_dir=sim,
-        hbm=hbm,
-        player_text=player_text,
-        events=events,
-        broadcast=broadcast,
-        turn_context=turn_context,
-        start_tick=start_tick,
-        task_phase=hbm.phase,
-        tick_count=tick_count,
-        ipc_timeout=ipc_timeout,
-    )
-
-    routing_info = apply_routing_side_effects(
-        hbm=hbm,
-        sim_dir=sim,
-        task_id=task_id,
-        start_tick=start_tick,
-        current_tick=current_tick,
-        tick_count=tick_count,
-        ipc_timeout=ipc_timeout,
-    )
-    if routing_info.get("nodes"):
-        log_turn_event(
-            event="routing_applied",
-            task_id=task_id,
-            phase=hbm.phase,
-            player_turn=hbm.player_turn,
-            start_tick=start_tick,
-            end_tick=current_tick,
-            extra={"nodes": routing_info.get("nodes")},
-        )
-
-    task_place_id = hbm.place_id
-    task_phase = hbm.phase
-
-    save_session(flask_session, hbm, sim_id)
-
-    # 结局判断已交由 watcher 里的 LLM 导演（按对话理解判定到达哪个结局）——这里不再有
-    # 写死的「第 25 回合裁定」硬规则；每一拍都是普通回合，导演异步决定何时收尾。
-
-    task = PendingTask(
-        task_id=task_id,
-        start_tick=start_tick,
-        place_id=task_place_id,
-        phase=task_phase,
-        player_turn=hbm.player_turn - 1,
-        ipc_end_tick=ipc_end_tick,
-        routing_info=dict(routing_info) if routing_info else None,
-    )
-    save_task(flask_session, task, sim_id)
-
-    log_turn_event(
-        event="player_turn_processing",
-        task_id=task_id,
-        phase=hbm.phase,
-        player_turn=task.player_turn,
-        start_tick=start_tick,
-        end_tick=ipc_end_tick,
-    )
-
-    return {
-        "task_id": task_id,
-        "status": "processing",
-        "stats_update": dict(hbm.stats),
-        "current_phase": hbm.phase,
-        "start_tick": start_tick,
-        "ipc_end_tick": ipc_end_tick,
-        "routing": routing_info,
-        "ipc": ipc_result,
     }
 
 
@@ -331,37 +239,7 @@ def handle_player_turn(
     env = read_env_status(sim) or {}
     start_tick = int(env.get("current_tick", 0))
     task_id = f"task_{uuid.uuid4().hex[:12]}"
-    # 去掉「第 25 回合强制结局」硬规则：结局何时到达完全由 LLM 导演按对话判定，回合数不再封顶。
-    is_final_turn = False
-
-    if is_final_turn:
-        prep = prepare_turn(hbm, player_text, task_id=task_id)
-        if prep.bad_end:
-            save_session(flask_session, hbm, sim_id)
-            _pause_loop_after_terminal(sim=sim)
-            return {
-                "status": "game_over",
-                "ending_id": "bad_reject",
-                "public_messages": list(BAD_END_PUBLIC_MESSAGES),
-                "stats_update": dict(hbm.stats),
-                "current_phase": hbm.phase,
-            }
-
-        return _handle_sync_inject(
-            flask_session,
-            hbm,
-            sim=sim,
-            sim_id=sim_id,
-            task_id=task_id,
-            start_tick=start_tick,
-            events=prep.events,
-            broadcast=prep.broadcast,
-            turn_context=prep.turn_context,
-            tick_count=tick_count,
-            ipc_timeout=ipc_timeout,
-            is_final_turn=True,
-            player_text=player_text,
-        )
+    # 结局何时到达完全由 LLM 导演按对话判定，回合数不再封顶（旧「第 25 回合强制结局」硬规则已移除）。
 
     if is_world_loop_enabled():
         return _handle_v2_player_turn(

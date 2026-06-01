@@ -5,7 +5,7 @@
 
 公共出口：
   - StoryGraph / StoryNode / StoryEnding / StoryEdge —— 故事图数据结构
-  - load_story_graph / load_and_validate_story_graph / load_meta —— 加载器
+  - load_story_graph / load_meta —— 加载器
   - StoryPackError / StoryPackValidationError —— 错误类型
 """
 
@@ -18,7 +18,6 @@ from agent_world.hbm_demo.shared.story_pack.errors import (
 from agent_world.hbm_demo.shared.story_pack.graph import StoryGraph
 from agent_world.hbm_demo.shared.story_pack.loader import (
     list_story_ids,
-    load_and_validate_story_graph,
     load_meta,
     load_story_graph,
 )
@@ -34,7 +33,6 @@ from agent_world.hbm_demo.shared.story_pack.pack import (
 )
 from agent_world.hbm_demo.shared.story_pack.scenario_adapter import (
     is_story_pack_seed_enabled,
-    load_scenario_from_story_pack,
     story_pack_to_scenario,
 )
 
@@ -46,11 +44,9 @@ __all__ = [
     "StoryPack",
     "list_story_ids",
     "load_story_graph",
-    "load_and_validate_story_graph",
     "load_story_pack",
     "load_and_validate_story_pack",
     "story_pack_to_scenario",
-    "load_scenario_from_story_pack",
     "is_story_pack_seed_enabled",
     "load_meta",
     "StoryPackError",

@@ -48,10 +48,3 @@ def load_story_graph(story_id: str) -> StoryGraph:
     """读 story_graph.yaml 并构造 StoryGraph（不自动 validate，调用方决定时机）。"""
     data = _load_yaml(story_dir(story_id) / "story_graph.yaml")
     return StoryGraph.from_mapping(data)
-
-
-def load_and_validate_story_graph(story_id: str) -> StoryGraph:
-    """加载 + 立刻校验（加载期 validate 闸门）；违例则抛 StoryPackValidationError。"""
-    graph = load_story_graph(story_id)
-    graph.validate_or_raise()
-    return graph

@@ -22,6 +22,5 @@ function readWorldStreamEnabled(): boolean {
 export const WORLD_STREAM_ENABLED = readWorldStreamEnabled();
 export const WORLD_STREAM_FALLBACK_POLL_MS = 5000;
 export const MAX_POLL_ATTEMPTS = 120;
-export const MAX_TURNS = 25;
 
 export const PLAYER_SENDER = "玩家";

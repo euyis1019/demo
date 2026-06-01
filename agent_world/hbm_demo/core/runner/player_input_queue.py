@@ -14,9 +14,8 @@ class PlayerInputItem:
     turn_context: Dict[str, Any]
     broadcast: Optional[Dict[str, Any]] = None
     player_f2f: Optional[Dict[str, Any]] = None
-    # 玩家主动动作（需求二）：私信/移动/加群，world_loop drain 时各自 apply。
+    # 玩家主动动作（需求二）：私信/加群，world_loop drain 时各自 apply。（移动走 MOVE_AGENT IPC，不经队列）
     player_rdc: Optional[Dict[str, Any]] = None
-    player_move: Optional[Dict[str, Any]] = None
     player_grp: Optional[Dict[str, Any]] = None
 
 

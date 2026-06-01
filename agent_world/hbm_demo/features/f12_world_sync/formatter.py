@@ -11,8 +11,6 @@ from agent_world.hbm_demo.shared.messages import (
 )
 from agent_world.hbm_demo.features.f06_read_model.world_db import sender_display_name
 from agent_world.hbm_demo.shared.routing_events import (
-    PLACE_MUTATION_HINT,
-    ROUTING_WORLD_EVENT_CONTENT,
     format_routing_world_events,
 )
 
