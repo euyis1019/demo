@@ -35,7 +35,7 @@ import {
 import { setSimId } from "./api/hbm";
 import { agentsInPlace } from "./store/worldSync";
 import { GameStoreProvider, useGameStoreContext } from "./store";
-import { placeDisplayName, type PlaceId } from "./utils/places";
+import { deriveWorldPlaces, placeDisplayName, type PlaceId } from "./utils/places";
 import { isPlayerSender } from "./utils/messages";
 
 function GameApp() {
@@ -94,6 +94,11 @@ function GameApp() {
     [agentLocations, placeId, nameMap],
   );
 
+  const worldPlaces = useMemo(
+    () => deriveWorldPlaces(placeId, agentLocations, roomF2f),
+    [placeId, agentLocations, roomF2f],
+  );
+
   const godModeInput = (
     <PlayerInput
       onSend={(text) => void sendTurn(text)}
@@ -111,6 +116,7 @@ function GameApp() {
       />
       <PlayerActionBar
         placeId={placeId}
+        places={worldPlaces}
         nameMap={nameMap}
         disabled={loading || view !== "playing"}
       />

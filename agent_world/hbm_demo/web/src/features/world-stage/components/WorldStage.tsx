@@ -102,6 +102,7 @@ export function WorldStage({
 
       <RoomGrid
         roomF2f={roomF2f}
+        playerPlaceId={playerPlaceId}
         agentLocations={agentLocations}
         nameMap={nameMap}
         recentMoveKeys={recentMoveKeys}

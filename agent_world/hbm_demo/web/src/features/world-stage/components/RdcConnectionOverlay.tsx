@@ -4,14 +4,23 @@ import { agentGridCenter } from "../lib/agentCircleLayout";
 export interface RdcConnectionOverlayProps {
   links: RdcLink[];
   agentLocations: Record<string, { placeId: string; arrivedAt: number }>;
+  places: string[];
+  cols: number;
+  rows: number;
 }
 
 /** Dashed lines between RDC sender and recipient agent circles. */
-export function RdcConnectionOverlay({ links, agentLocations }: RdcConnectionOverlayProps) {
+export function RdcConnectionOverlay({
+  links,
+  agentLocations,
+  places,
+  cols,
+  rows,
+}: RdcConnectionOverlayProps) {
   const segments = links
     .map((link) => {
-      const from = agentGridCenter(link.from, agentLocations);
-      const to = agentGridCenter(link.to, agentLocations);
+      const from = agentGridCenter(link.from, agentLocations, places, cols, rows);
+      const to = agentGridCenter(link.to, agentLocations, places, cols, rows);
       if (!from || !to) {
         return null;
       }

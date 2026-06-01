@@ -1,18 +1,4 @@
-/** HBM demo agent roster — aligned with scenario name_map. */
-
-export const HBM_AGENT_IDS = [1, 2, 3, 4, 5, 6, 7] as const;
-
-export type HbmAgentId = (typeof HBM_AGENT_IDS)[number];
-
-export const AGENT_DISPLAY_NAMES: Record<number, string> = {
-  1: "接待前台",
-  2: "Jensen",
-  3: "Tech VP",
-  4: "AMD CEO",
-  5: "Intel CEO",
-  6: "Samsung CEO",
-  7: "Sam Altman",
-};
+/** Agent 显示名：一律走后端下发的 name_map（覆盖当前故事全部角色，含中文），无写死名单。 */
 
 export const PLAYER_AGENT_ID = "player";
 
@@ -30,9 +16,5 @@ export function agentDisplayName(
   if (nameMap?.[key]) {
     return nameMap[key];
   }
-  const numeric = Number(agentId);
-  if (!Number.isNaN(numeric) && AGENT_DISPLAY_NAMES[numeric]) {
-    return AGENT_DISPLAY_NAMES[numeric];
-  }
-  return `Agent ${agentId}`;
+  return `角色 ${agentId}`;
 }

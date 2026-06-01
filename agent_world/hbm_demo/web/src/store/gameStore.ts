@@ -85,7 +85,7 @@ export function createInitialState(): GameState {
     phase: "Phase 1",
     tension: 0,
     playerTurn: 1,
-    placeId: "nvidia_reception",
+    placeId: "",
     worldTick: 0,
     deltaSinceTick: 0,
     worldSyncReady: false,

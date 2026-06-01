@@ -85,11 +85,13 @@ export function StoryDialogueHistory({
           sorted.map((message, index) => {
             const system =
               message.is_system || message.sender === TERMINAL_SENDER;
-            const speakerId = resolveSpeakerAgentId(message, nameMap) ?? "1";
+            const speakerId = resolveSpeakerAgentId(message, nameMap) ?? "";
             const isPlayer = !system && speakerId === PLAYER_AGENT_ID;
             const speaker = system
               ? "系统"
-              : agentDisplayName(speakerId, nameMap);
+              : speakerId
+                ? agentDisplayName(speakerId, nameMap)
+                : message.sender || "?";
 
             return (
               <div

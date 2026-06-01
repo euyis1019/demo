@@ -23,9 +23,11 @@ def get_world_snapshot(
     hbm = load_session(flask_session, sim_id)
     env = read_env_status(sim) or {}
     t_now = int(env.get("current_tick", 0))
+    from agent_world.hbm_demo.shared import story_config
+
     db = make_readonly_db(sim)
     name_map = get_name_map()
-    player_place = hbm.place_id if hbm else "nvidia_reception"
+    player_place = hbm.place_id if hbm else story_config.player_start_place()
     snapshot = build_world_snapshot(
         db,
         name_map,

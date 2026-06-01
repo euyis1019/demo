@@ -22,8 +22,9 @@
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
+  /* 房间数自适应：列/行由 RoomGrid 按世界实际地点数注入（默认 2×2 兜底）。 */
+  grid-template-columns: repeat(var(--room-cols, 2), 1fr);
+  grid-template-rows: repeat(var(--room-rows, 2), 1fr);
   gap: 1px;
   background: var(--hbm-panel-border);
 }

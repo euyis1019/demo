@@ -5,11 +5,13 @@ import {
   type PlayerActionRequest,
 } from "../../api/hbm";
 import { PLAYER_AGENT_ID, VIRTUAL_PLAYER_AGENT_ID } from "../../constants/agents";
-import { ROOM_GRID } from "../../utils/places";
+import { placeDisplayName } from "../../utils/places";
 
 export interface PlayerActionBarProps {
   /** 当前地点（移动默认排除）。 */
   placeId: string;
+  /** 世界全部地点（由后端世界状态派生，移动可去之处从中选）。 */
+  places: string[];
   /** agent id → 名称（用于私信目标下拉）。 */
   nameMap: Record<string, string>;
   disabled?: boolean;
@@ -19,13 +21,18 @@ export interface PlayerActionBarProps {
  * 玩家主动动作条：移动 / 私信 / 加群。在 F2F 台词之外给玩家更多动作（需求二）。
  * 加群受后端门控（须先 F2F 见过群里某成员并得其同意），失败时显示原因。
  */
-export function PlayerActionBar({ placeId, nameMap, disabled }: PlayerActionBarProps) {
+export function PlayerActionBar({ placeId, places, nameMap, disabled }: PlayerActionBarProps) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
   const agentOptions = Object.keys(nameMap)
     .filter((id) => id !== PLAYER_AGENT_ID && id !== VIRTUAL_PLAYER_AGENT_ID)
-    .sort((a, b) => Number(a) - Number(b));
+    .sort((a, b) => {
+      const na = Number(a);
+      const nb = Number(b);
+      if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+      return a.localeCompare(b);
+    });
 
   const [movePlace, setMovePlace] = useState<string>("");
   const [rdcTarget, setRdcTarget] = useState<string>(agentOptions[0] ?? "");
@@ -76,9 +83,9 @@ export function PlayerActionBar({ placeId, nameMap, disabled }: PlayerActionBarP
         <label>移动</label>
         <select value={movePlace} onChange={(e) => setMovePlace(e.target.value)} disabled={off}>
           <option value="">选择地点…</option>
-          {ROOM_GRID.filter((p) => p !== placeId).map((p) => (
+          {places.filter((p) => p !== placeId).map((p) => (
             <option key={p} value={p}>
-              {p}
+              {placeDisplayName(p)}
             </option>
           ))}
         </select>

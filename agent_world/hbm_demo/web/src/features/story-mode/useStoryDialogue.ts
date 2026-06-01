@@ -23,15 +23,16 @@ function buildLine(
   if (!message) {
     return null;
   }
-  const speakerId = resolveSpeakerAgentId(message, nameMap) ?? "1";
+  // 解析不到说话人就不强行套某个固定编号（避免显示成无关角色的立绘）。
+  const speakerId = resolveSpeakerAgentId(message, nameMap) ?? "";
   // 立绘情绪优先用「这句台词」的情绪(每句都刷新)，无则回退该 agent 最新 OS 情绪(agentMood)。
-  const mood = message.emotion || agentMood[speakerId];
+  const mood = message.emotion || (speakerId ? agentMood[speakerId] : undefined);
   return {
     message,
     speakerId,
-    speakerName: agentDisplayName(speakerId, nameMap),
-    avatarUrl: storyAvatarUrl(speakerId, mood),
-    avatarFallbackUrl: storyAvatarBaseUrl(speakerId),
+    speakerName: speakerId ? agentDisplayName(speakerId, nameMap) : message.sender || "?",
+    avatarUrl: speakerId ? storyAvatarUrl(speakerId, mood) : "",
+    avatarFallbackUrl: speakerId ? storyAvatarBaseUrl(speakerId) : "",
   };
 }
 

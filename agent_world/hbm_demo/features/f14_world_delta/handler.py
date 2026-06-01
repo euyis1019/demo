@@ -47,9 +47,11 @@ def get_world_delta(
             current_tick=t_now,
         )
 
+    from agent_world.hbm_demo.shared import story_config
+
     db = make_readonly_db(sim)
     name_map = get_name_map()
-    player_place = hbm.place_id if hbm else "nvidia_reception"
+    player_place = hbm.place_id if hbm else story_config.player_start_place()
     routing_events = consume_routing_world_events(
         flask_session,
         since_tick=client_since,
@@ -73,6 +75,8 @@ def get_world_delta(
         "current_phase": hbm.phase if hbm else "Phase 1",
         "tension": hbm.tension if hbm else 0,
         "player_turn": hbm.player_turn if hbm else 1,
+        # 让 delta 自洽：带上 name_map(agent_id→名)，前端轮询不必依赖 snapshot 缓存、也无需写死角色名。
+        "name_map": {str(k): v for k, v in name_map.items()},
     }
 
     game_over = consume_game_over_payload(flask_session)

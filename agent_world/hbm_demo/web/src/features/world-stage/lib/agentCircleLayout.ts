@@ -1,14 +1,6 @@
 import type { CSSProperties } from "react";
 import { PLAYER_AGENT_ID } from "../../../constants/agents";
-import { ROOM_GRID, type PlaceId } from "../../../utils/places";
 import { agentsInPlace } from "../../../store/worldSync";
-
-const PLACE_GRID_CELL: Record<PlaceId, { col: number; row: number }> = {
-  nvidia_reception: { col: 0, row: 0 },
-  jensen_private_room: { col: 1, row: 0 },
-  negotiation_room: { col: 0, row: 1 },
-  openai_hq: { col: 1, row: 1 },
-};
 
 /** Agent circle position inside a room cell (percent). Shared by UI + RDC overlay. */
 export function cellLocalPercent(index: number, total: number): { x: number; y: number } {
@@ -38,22 +30,27 @@ export function cellLocalStyle(index: number, total: number): CSSProperties {
   return { left: `${x}%`, top: `${y}%` };
 }
 
-/** Map agent id → center point on the 2×2 room grid (0–100). */
+/** Map agent id → center point on the dynamic room grid (0–100).
+ *  places/cols/rows 来自 RoomGrid 同一份动态地点布局，保证 RDC 连线落点与房间格子对齐。 */
 export function agentGridCenter(
   agentId: string,
   agentLocations: Record<string, { placeId: string; arrivedAt: number }>,
+  places: string[],
+  cols: number,
+  rows: number,
 ): { x: number; y: number } | null {
   const loc = agentLocations[agentId];
   if (!loc) {
     return null;
   }
-  const placeId = loc.placeId as PlaceId;
-  const cell = PLACE_GRID_CELL[placeId];
-  if (!cell) {
+  const cellIdx = places.indexOf(loc.placeId);
+  if (cellIdx < 0 || cols < 1 || rows < 1) {
     return null;
   }
+  const col = cellIdx % cols;
+  const row = Math.floor(cellIdx / cols);
 
-  const inPlace = agentsInPlace(agentLocations, placeId);
+  const inPlace = agentsInPlace(agentLocations, loc.placeId);
   const index = inPlace.indexOf(agentId);
   if (index < 0) {
     return null;
@@ -61,13 +58,11 @@ export function agentGridCenter(
 
   const local = cellLocalPercent(index, inPlace.length);
   return {
-    x: cell.col * 50 + (local.x / 100) * 50,
-    y: cell.row * 50 + (local.y / 100) * 50,
+    x: (col + local.x / 100) * (100 / cols),
+    y: (row + local.y / 100) * (100 / rows),
   };
 }
 
 export function isNpcAgentId(agentId: string): boolean {
   return agentId !== PLAYER_AGENT_ID;
 }
-
-export { ROOM_GRID };
