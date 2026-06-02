@@ -6,7 +6,9 @@ enabled: true
 
 world_loop:
   enabled: true
-  tick_interval_sec: 1.0
+  # 世界循环每拍之间的空转间隔。每拍会阻塞等 NPC 的 LLM 回复，间隔越短玩家说话后越快被处理、
+  # 回复落地越快（0.5s：把「等下一拍 drain + 拍后空睡」的死时间砍半，让 actor 回应更跟手）。
+  tick_interval_sec: 0.5
   max_ticks_per_session: 10000
   idle_pause_after_sec: 0
   merge_player_burst: false

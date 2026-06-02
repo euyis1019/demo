@@ -21,7 +21,9 @@ from agent_world.drama_demo.features.f17_virtual_player.player_entity import (
 
 log = logging.getLogger("agent_world.drama_demo.f07.pick_active")
 
-RESPOND_TICKS = 2  # 玩家说话后只回应 ~2 拍，避免一句话被反复回好几拍
+RESPOND_TICKS = 1  # 玩家说话后给在场 NPC 1 拍回应机会即可——「还没回完」由规则2(player_memory 未清)兜着继续，
+# 回完(mark_communication_action 清 player_memory)就立刻收手。设 2 会在 NPC 已回完后再白跑一拍 do_nothing，
+# 而每拍都阻塞等一次 LLM(数秒)，白白拖慢玩家下一句的处理——故收到 1，让 actor 回应更跟手。
 MAX_REPLIERS = 2   # 每拍最多让 2 个有未读私信的 agent 回复，防止并发 LLM 压垮 Runner→玩家指令 IPC 超时
 
 
