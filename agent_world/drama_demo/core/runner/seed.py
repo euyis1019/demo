@@ -7,7 +7,7 @@ from typing import Any, Dict
 
 from agent_world.persistence.world_db import WorldDB
 from agent_world.world.capability_table import CapabilityTable
-from agent_world.world.connectivity import ConnectivityResolver
+from agent_world.world.connectivity import RDC_CAPABILITY, ConnectivityResolver
 from agent_world.world.relation_graph import RelationGraph
 
 
@@ -51,11 +51,20 @@ async def seed_world(
             t=0,
         )
 
+    granted: set = set()
     for entry in scenario.get("capabilities", []) or []:
-        await capability_table.grant(
-            int(entry["agent_id"]),
-            str(entry["capability"]),
-        )
+        aid_cap = (int(entry["agent_id"]), str(entry["capability"]))
+        await capability_table.grant(*aid_cap)
+        granted.add(aid_cap)
+    # 兜底授予 signal_uplink：它是「能用私信(RDC)/群聊(GRP)通道」的世界能力（基础设施，非剧情行为），
+    # φ_RDC/φ_GRP 要求收发双方都持有。生成期 Casting 常把 agents[].capabilities 留空，会导致私信被
+    # 连通性门(φ)静默拒收 → NPC 回复 delivered=0/不送达、已读水位不前移 → 同一条私信每拍重判重回(刷屏)。
+    # 私信是本 demo 核心玩法，这里对每个在册 agent（含玩家 0）兜底补齐，保证通道可用。
+    for a in scenario.get("agents", []) or []:
+        aid = int(a["agent_id"])
+        if (aid, RDC_CAPABILITY) not in granted:
+            await capability_table.grant(aid, RDC_CAPABILITY)
+            granted.add((aid, RDC_CAPABILITY))
 
     group_members_map: Dict[int, set] = {}
     for g in scenario.get("groups", []) or []:

@@ -98,6 +98,15 @@ class DramaWorldStep(WorldStep):
                 agent._batch_temperature = None  # noqa: SLF001
                 agent._batch_max_tokens = None  # noqa: SLF001
 
+        # 对齐基类 step.py：本拍被调度处理过的 agent，无论决策成败/是否发言，都把已读水位推到 t。
+        # 否则当回复被连通性门拒收、或 agent 选择 do_nothing 时，玩家那条私信会每拍被当成「未读」
+        # 反复触发同一 agent 回复（刷屏）。成功发言时 mark_communication_action 也会设到 t，不冲突。
+        try:
+            if hasattr(agent, "last_message_seen_at"):
+                agent.last_message_seen_at = int(t)  # noqa: SLF001
+        except Exception:  # noqa: BLE001
+            pass
+
         if decision is None or isinstance(decision, Exception):
             if isinstance(decision, Exception):
                 log.warning("agent %s decide failed: %s", agent_id, decision)
