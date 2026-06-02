@@ -97,6 +97,21 @@ def lobby_activate():
     return jsonify({"success": True, "data": {"story_id": story_id, "ready": ready}})
 
 
+@drama_bp.route("/lobby/stories/<story_id>/delete", methods=["POST"])
+def lobby_delete_story(story_id: str):
+    """彻底删除一个故事：停掉它的 Runner（若在跑）+ 删 config/stories/<id>/ 与 sim/<id>/。
+    受保护故事（试玩库 / 默认兜底）返回 404 拒绝。"""
+    from agent_world.drama_demo.http.world_manager import WORLD_MANAGER
+
+    try:
+        WORLD_MANAGER.delete_story(story_id)
+    except ValueError as exc:
+        return _bad_request(str(exc), 404)
+    except Exception as exc:  # noqa: BLE001
+        return _bad_request(f"删除失败：{exc}", 500)
+    return jsonify({"success": True, "data": {"story_id": story_id, "deleted": True}})
+
+
 # ============ 故事图片资源（设计期 Artist 落盘的封面/场景背景/角色立绘）============
 
 @drama_bp.route("/stories/<story_id>/assets/<path:subpath>", methods=["GET"])

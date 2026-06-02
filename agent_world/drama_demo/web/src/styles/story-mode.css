@@ -577,8 +577,9 @@
   left: 50%;
   transform: translateX(-50%);
   width: auto;
-  height: clamp(440px, 78vh, 960px);
-  max-width: clamp(380px, 44vw, 680px);
+  /* 高度收回来：立绘只占下半屏、不再向上长到左侧「地点移动」列那里去（避免挡住地点列表）。 */
+  height: clamp(300px, 54vh, 680px);
+  max-width: clamp(300px, 36vw, 540px);
   object-fit: contain;
   object-position: bottom center;
   filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.6));
@@ -689,8 +690,8 @@
 
   .story-subtitle__avatar {
     width: auto;
-    height: clamp(280px, 52vh, 480px);
-    max-width: clamp(180px, 54vw, 320px);
+    height: clamp(220px, 44vh, 390px);
+    max-width: clamp(150px, 48vw, 270px);
   }
 
   .story-subtitle__name {

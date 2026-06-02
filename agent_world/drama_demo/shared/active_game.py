@@ -28,6 +28,12 @@ def set_active_story(story_id: str) -> None:
         _state["story"] = sid
 
 
+def clear_active_story() -> None:
+    """清空运行期激活故事指针 → 回退到 env 默认。删除「当前激活的故事」时调用，
+    避免读路径仍钉在已删故事上。"""
+    _state["story"] = None
+
+
 def active_sim_dir() -> Path:
     """当前故事的 sim 目录。
 

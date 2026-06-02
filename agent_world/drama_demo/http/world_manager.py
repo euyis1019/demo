@@ -218,5 +218,45 @@ class WorldManager:
         with self._lock:
             self._stop_locked()
 
+    # ---------- 删故事（彻底删除：停 Runner + 删剧情包 + 删本地后台世界）----------
+    def delete_story(self, story_id: str) -> None:
+        """彻底删除一个故事：若它的 Runner 正在跑就先停掉，再删 ``config/stories/<id>/``
+        （剧情包 + 立绘）与 ``sim/<id>/``（本地后台世界 / 存档）。
+
+        红线：拒删受保护 id——用户试玩库 ``hbm_memory_war`` 只读、默认兜底 ``canglan_sword`` 不可删；
+        且只删 ``list_story_ids()`` 里真实存在的故事目录（其名即真实 dirname，杜绝 ``../`` 穿越）。
+        """
+        import shutil
+
+        from agent_world.drama_demo.shared import active_game, story_config
+        from agent_world.drama_demo.shared.prompt_paths import story_dir
+        from agent_world.drama_demo.shared.story_pack import list_story_ids
+
+        sid = str(story_id or "").strip()
+        if not sid:
+            raise ValueError("缺少 story_id")
+        protected = {"hbm_memory_war", "canglan_sword"}
+        if sid in protected:
+            raise ValueError(f"故事「{sid}」受保护，不可删除")
+        if sid not in list_story_ids():
+            raise ValueError(f"未知故事：{sid}")
+
+        with self._lock:
+            # 1) 正在跑/激活这个故事 → 先停 Runner，并清空当前故事指针（回退默认）。
+            if self._story == sid:
+                self._stop_locked()
+                self._story = None
+                active_game.clear_active_story()
+            # 2) 删剧情包目录 config/stories/<id>/。
+            cfg = story_dir(sid)
+            if cfg.is_dir():
+                shutil.rmtree(cfg, ignore_errors=True)
+            # 3) 删本地后台世界 sim/<id>/（存档/世界 DB）——受保护 id 已在上面挡掉。
+            sim = _HBM / "sim" / sid
+            if sim.is_dir():
+                shutil.rmtree(sim, ignore_errors=True)
+            story_config.clear_pack_cache()
+        log.info("deleted story %s (config/stories + sim)", sid)
+
 
 WORLD_MANAGER = WorldManager()

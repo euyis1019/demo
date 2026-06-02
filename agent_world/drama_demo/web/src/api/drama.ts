@@ -266,3 +266,14 @@ export async function activateStory(
     { timeoutMs: 120_000 },
   );
 }
+
+/** POST 彻底删除某故事（停掉它的 Runner + 删 config/stories 与本地后台世界 sim） */
+export async function deleteStory(
+  storyId: string,
+): Promise<ApiResponse<{ story_id: string; deleted: boolean }>> {
+  return apiPost<{ story_id: string; deleted: boolean }>(
+    `${LOBBY_ROOT}/stories/${encodeURIComponent(storyId)}/delete`,
+    {},
+    { timeoutMs: READ_TIMEOUT_MS },
+  );
+}
