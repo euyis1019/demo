@@ -32,6 +32,8 @@ export interface StoryModeStageProps {
   places?: string[];
   /** 移动/发送禁用（非游玩中/加载时）。 */
   placesDisabled?: boolean;
+  /** 玩家移动后回调（乐观把界面切到新地点，不等轮询）。 */
+  onPlayerMoved?: (placeId: string) => void;
   /** 玩家数值，剧情模式 HUD 显示。 */
   stats?: Stats;
   /** 属性维度定义（数据驱动：来自活跃 Story Pack 的 meta.stats）。 */
@@ -63,6 +65,7 @@ export function StoryModeStage({
   playerInbox,
   places,
   placesDisabled,
+  onPlayerMoved,
   stats,
   statsDimensions,
   onboarding,
@@ -100,13 +103,6 @@ export function StoryModeStage({
     presentNames.length > 0
       ? `${placeName} · 此刻和你在一起的：${presentNames.join("、")}`
       : `${placeName} · 此处只有你一人`;
-
-  // 当前线索：随进度更新的 bert hint 优先；没有则回退到开场钩子 onboarding.hook。
-  const activeClues = (clues ?? []).filter(Boolean);
-  const clueText = activeClues.length
-    ? activeClues.join("　／　")
-    : onboarding?.hook ?? "";
-  const clueTitle = activeClues.length ? activeClues.join("\n") : onboarding?.hook ?? "";
 
   return (
     <div className="story-mode-stage">
@@ -146,24 +142,22 @@ export function StoryModeStage({
         <div className="story-left-col">
           {stats ? <StoryStatsHud stats={stats} dimensions={statsDimensions} /> : null}
           {places && places.length ? (
-            <StoryPlaceList placeId={placeId} places={places} disabled={placesDisabled} />
+            <StoryPlaceList
+              placeId={placeId}
+              places={places}
+              disabled={placesDisabled}
+              onMoved={onPlayerMoved}
+            />
           ) : null}
         </div>
       ) : null}
 
-      {/* 顶部中央：情境一行 +（可选）线索一行 + 玩家台词输入框。线索＝管理 agent 生成的开场钩子，
-          删分幕/任务后给玩家随时可见的目标感；详情可点左上「📖 剧情」回看。 */}
+      {/* 顶部中央：情境一行 + 玩家台词输入框。线索不在主屏常驻（按反馈），改只在左上「📖 剧情」面板看。 */}
       <div className="story-topcenter">
         <div className="story-situation" aria-live="polite">
           <span className="story-situation__dot" aria-hidden="true" />
           {situation}
         </div>
-        {clueText ? (
-          <div className="story-hint" title={clueTitle}>
-            <span className="story-hint__mark" aria-hidden="true">🔍 线索</span>
-            <span className="story-hint__text">{clueText}</span>
-          </div>
-        ) : null}
         <div className="story-topcenter__speak">{inputSlot}</div>
       </div>
 

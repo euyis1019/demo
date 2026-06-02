@@ -220,6 +220,7 @@ function GameApp() {
           statsDimensions={state.statsDimensions}
           onboarding={onboarding}
           clues={state.clues}
+          onPlayerMoved={(p) => dispatch({ type: "SET_PLACE", placeId: p })}
           pendingWorldEvent={pendingWorldEvent}
           lastError={lastError}
           inputSlot={storyModeInput}

@@ -8,13 +8,15 @@ export interface StoryPlaceListProps {
   /** 世界全部地点。 */
   places: string[];
   disabled?: boolean;
+  /** 后端受理移动后回调，供上层乐观把界面立刻切到新地点（不必等 world-delta 轮询）。 */
+  onMoved?: (placeId: string) => void;
 }
 
 /**
  * 左侧地点列表（#4）：列出世界全部地点，点击即移动过去——玩家自由走动的主入口。
  * 移动经 /player-action move；后端已改为「玩家位置由玩家自己主导、不再被剧情拽走」，故点哪去哪、稳定停留。
  */
-export function StoryPlaceList({ placeId, places, disabled }: StoryPlaceListProps) {
+export function StoryPlaceList({ placeId, places, disabled, onMoved }: StoryPlaceListProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -24,7 +26,9 @@ export function StoryPlaceList({ placeId, places, disabled }: StoryPlaceListProp
     setErr(null);
     try {
       const res = await postPlayerAction({ action: "move", place_id: target });
-      if (!(res.success && res.data?.accepted)) {
+      if (res.success && res.data?.accepted) {
+        onMoved?.(target); // 受理成功 → 立刻切到新地点（乐观），不等轮询
+      } else {
         setErr(res.data?.reason ?? res.error ?? "去不了");
       }
     } catch {

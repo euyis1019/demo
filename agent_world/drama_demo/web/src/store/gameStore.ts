@@ -119,6 +119,7 @@ export type GameAction =
   | { type: "SET_LOADING"; loading: boolean }
   | { type: "APPLY_PLAYER_TURN_PROCESSING"; stats: Stats; phase: string; playerTurn: number }
   | { type: "PUSH_PLAYER_BUBBLE"; message: GameMessage }
+  | { type: "SET_PLACE"; placeId: string }
   | { type: "APPEND_TURN_DELTA"; delta: TurnDelta }
   | { type: "APPLY_WORLD_DELTA"; delta: TurnDelta; nextSinceTick: number }
   | { type: "SET_DELTA_SINCE"; nextSinceTick: number }
@@ -301,6 +302,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           action.message,
         ),
       };
+    // 玩家移动乐观更新：move IPC 即时生效，但 world-delta 在世界空转时不 apply 地点变化，会让界面卡在旧地点；
+    // 这里点了移动、后端受理后立刻把界面切到新地点，不必等轮询。后端读引擎 DB，后续轮询与此一致、不会回弹。
+    case "SET_PLACE":
+      return { ...state, placeId: action.placeId };
     case "APPEND_TURN_DELTA":
       return withWorldDelta(state, action.delta, action.delta.through_tick);
     case "APPLY_WORLD_DELTA":

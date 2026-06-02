@@ -51,7 +51,16 @@ def get_world_delta(
 
     db = make_readonly_db(sim)
     name_map = get_name_map()
+    # 玩家位置以**引擎世界 DB** 为准：move 经 IPC 即时改的就是它，比 cookie 的 hbm.place_id 更及时，且不会被
+    # routing 那条「旧 hbm 快照」回写弹回（即便本次轮询请求是在移动前发起、cookie 还是旧的，DB 也已是新位置）。
+    # DB 里查不到玩家(agent 0)时回退 cookie / 起始地点。
     player_place = hbm.place_id if hbm else story_config.player_start_place()
+    try:
+        _ploc = (db.fetch_all_agent_locations() or {}).get(0) or {}
+        if _ploc.get("place_id"):
+            player_place = str(_ploc["place_id"])
+    except Exception:  # noqa: BLE001
+        pass
     routing_events = consume_routing_world_events(
         flask_session,
         since_tick=client_since,
