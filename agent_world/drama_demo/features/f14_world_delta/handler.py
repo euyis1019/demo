@@ -80,7 +80,7 @@ def get_world_delta(
     clues: list = []
     if hbm is not None:
         try:
-            clues = story_config.active_pack().berts.current_hints(set(getattr(hbm, "fired_berts", None) or []))
+            clues = story_config.current_clues(getattr(hbm, "fired_berts", None) or [])
         except Exception:  # noqa: BLE001
             clues = []
 

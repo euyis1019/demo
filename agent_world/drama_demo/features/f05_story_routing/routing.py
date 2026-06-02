@@ -14,12 +14,37 @@ log = logging.getLogger("agent_world.drama_demo.routing")
 
 
 def node_inject_ids(session: Any) -> List[int]:
-    """玩家这句话注入给：与玩家同处一地的所有 NPC。
+    """玩家这句话注入给：与玩家同处一地的所有 NPC **＋ 当前有待演反应(bert_reaction)的 target**。
 
     剧情已无「幕/节点」白名单——玩家可自由找在场的任意角色搭话，谁在场谁就听得见。
-    剧情反应由 bert（条件→反应）导演按对话理解触发，不受此影响。
+    剧情反应由 bert（条件→反应）导演按对话理解触发：命中后 reaction 写进 hbm.bert_reactions[target]，
+    经本批 inject 注入 target 的下一拍 prompt（knowledge.py 读 bert_reactions）由其演出。**target 若此刻不
+    与玩家同地**（自己走开了 / 本就在别处），仅靠「在场」过滤会把它漏掉——reaction 注入了却没人演、剧情
+    节拍静默丢失。故这里把「有待演反应的 target」无条件并入注入集，保证管理 agent 设计的反应一定落地。
     """
-    return _present_npc_ids(session)
+    present = _present_npc_ids(session)
+    pending = _pending_reaction_ids(session)
+    if not pending:
+        return present
+    seen = set(present)
+    return present + [aid for aid in pending if aid not in seen]
+
+
+def _pending_reaction_ids(session: Any) -> List[int]:
+    """当前 hbm.bert_reactions 里有待演反应的 target agent id（int，排除玩家 0）；无则空，绝不抛。"""
+    try:
+        reactions = getattr(session, "bert_reactions", None) or {}
+        out: List[int] = []
+        for k in reactions:
+            try:
+                aid = int(k)
+            except (TypeError, ValueError):
+                continue
+            if aid != 0:
+                out.append(aid)
+        return out
+    except Exception:  # noqa: BLE001
+        return []
 
 
 def _present_npc_ids(session: Any) -> List[int]:

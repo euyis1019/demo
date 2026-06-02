@@ -91,6 +91,13 @@ def route_story(
     armed = [berts.berts[bid] for bid in berts.armed_ids(fired)]
     if not armed:
         return applied  # 全部触发完/无上膛：剧情已走完可触发部分
+    # 结局护栏：玩家还没触发过任何 bert（fired 空）时，把结局 bert 排除出候选——避免「开局第一句就被判中某个
+    # 结局、游戏还没玩就收场」。结局应串在反应链末端（生成期 [B11] 已尽量拦 requires 为空的结局，这里运行期
+    # 再兜一层，护住旧故事/边角配置）。[B9] 保证开局必有非结局入口，故排除后 armed 不会空。
+    if not fired:
+        non_ending = [b for b in armed if not b.is_ending]
+        if non_ending:
+            armed = non_ending
 
     # 只在玩家有「新发言」时才惊动导演（省 LLM；也避免对同一句反复判）。读玩家所在地的近期对话。
     place = str(getattr(hbm, "place_id", "") or "")

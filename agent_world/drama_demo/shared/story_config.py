@@ -73,3 +73,20 @@ def active_npc_ids(story_id: Optional[str] = None) -> List[int]:
     """活跃故事的全部 NPC agent id（不含玩家 0；喂玩家可见的 agent 名册/位置/消息）。"""
     agents = active_pack(story_id).agents.get("agents") or []
     return [int(a["agent_id"]) for a in agents if int(a.get("agent_id", -1)) > 0]
+
+
+def current_clues(fired: Any, story_id: Optional[str] = None) -> List[str]:
+    """当前玩家向「线索」：已上膛未触发非结局 bert 的 hint；**全空时兜底回开场钩子 onboarding.hook**，
+    保证前端线索栏永不空白、玩家任何时候都看得到「我该朝哪使劲」（删幕后线索是唯一进度指引）。
+
+    f01 开局快照 / f14 每回合 delta / session_start 三处统一走这里，避免「线索为空玩家两眼一抹黑」。
+    """
+    pack = active_pack(story_id)
+    try:
+        clues = list(pack.berts.current_hints(set(fired or [])))
+    except Exception:  # noqa: BLE001
+        clues = []
+    if clues:
+        return clues
+    hook = ((pack.meta or {}).get("onboarding") or {}).get("hook")
+    return [str(hook)] if hook else []

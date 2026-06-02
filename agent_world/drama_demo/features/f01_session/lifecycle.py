@@ -102,7 +102,7 @@ def get_session_snapshot(
         pack = story_config.active_pack()
         onboarding = (pack.meta or {}).get("onboarding")
         stats_dimensions = story_config.stats_dimensions()
-        clues = pack.berts.current_hints(set(getattr(hbm, "fired_berts", None) or []))
+        clues = story_config.current_clues(getattr(hbm, "fired_berts", None) or [])
         places = story_config.active_place_ids()
     except Exception:  # noqa: BLE001
         onboarding, stats_dimensions, clues, places = None, [], [], []

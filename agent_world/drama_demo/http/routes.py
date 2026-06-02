@@ -166,13 +166,20 @@ def session_start(sim_id: str):
     # 前端开局即可弹引导、渲染数据驱动 HUD（缺失则空，故事未定义就不显示）。
     onboarding = None
     stats_dimensions: list = []
+    clues: list = []
+    places: list = []
     try:
         from agent_world.drama_demo.shared import story_config
 
-        onboarding = (story_config.active_pack().meta or {}).get("onboarding")
+        pack = story_config.active_pack()
+        onboarding = (pack.meta or {}).get("onboarding")
         stats_dimensions = story_config.stats_dimensions()
+        # 开局首帧就带上「当前线索」与「全部地点」，与 GET /session 对齐——否则前端要等第一次 /world-delta
+        # 轮询才有线索/空房间，开局那一两秒线索栏空、上帝模式只显示有人的地点。
+        clues = story_config.current_clues(getattr(hbm, "fired_berts", None) or [])
+        places = story_config.active_place_ids()
     except Exception:  # noqa: BLE001
-        onboarding, stats_dimensions = None, []
+        onboarding, stats_dimensions, clues, places = None, [], [], []
 
     return jsonify(
         {
@@ -185,6 +192,8 @@ def session_start(sim_id: str):
                 "stats": hbm.stats,
                 "stats_dimensions": stats_dimensions,
                 "onboarding": onboarding,
+                "clues": clues,
+                "places": places,
                 "env_status": env,
             },
         }
