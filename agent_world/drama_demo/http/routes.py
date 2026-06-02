@@ -114,6 +114,22 @@ def story_asset(story_id: str, subpath: str):
     base = (story_dir(story_id) / "assets").resolve()
     if not base.is_dir():
         return _bad_request("该故事暂无图片资源", 404)
+    # 立绘基础图缺失回退：Artist 有时只出了情绪变体(agent_N_<mood>.png) 没出基础图 agent_N.png，
+    # 会导致该角色在「中性/未映射情绪」拍因基础图 404、整张立绘消失（前端连基础回退也落空）。
+    # 这里基础图缺失时顶替一张情绪变体（偏好沉稳表情）当基础图，保证立绘始终有图可显。
+    if not (base / subpath).is_file():
+        import re as _re
+
+        m = _re.fullmatch(r"avatars/agent_(\d+)\.png", subpath)
+        if m:
+            have = {p.name for p in (base / "avatars").glob(f"agent_{m.group(1)}_*.png")}
+            prefer = ("confident", "calm", "neutral", "happy", "anxious", "sad", "angry")
+            pick = next(
+                (f"agent_{m.group(1)}_{mood}.png" for mood in prefer if f"agent_{m.group(1)}_{mood}.png" in have),
+                next(iter(sorted(have)), None),
+            )
+            if pick:
+                return send_from_directory(base, f"avatars/{pick}", max_age=3600)
     try:
         return send_from_directory(base, subpath, max_age=3600)
     except NotFound:
