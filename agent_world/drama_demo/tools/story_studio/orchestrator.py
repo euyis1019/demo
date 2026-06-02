@@ -203,7 +203,22 @@ def generate_full(
             from agent_world.drama_demo.tools.story_studio.onboarding import generate_onboarding
 
             _p("⑤ 生成新手引导…")
-            onb = generate_onboarding(brief, c, client)
+            # 把「开局即可触发的玩家动作(trigger)」喂给引导生成，让 tips 指向真能推进剧情的下一步，
+            # 不再建议触发不了的死动作——这是"玩家不知道怎么推进"的主因之一。
+            opening_triggers = None
+            try:
+                from agent_world.drama_demo.shared.story_pack.bert import BertSet
+
+                _bs = BertSet.from_mapping({"berts": (b or {}).get("berts", [])})
+                _armed = set(_bs.initially_armed())
+                opening_triggers = [
+                    bt.trigger
+                    for bid, bt in _bs.berts.items()
+                    if bid in _armed and not bt.is_ending and bt.trigger
+                ] or None
+            except Exception:  # noqa: BLE001
+                opening_triggers = None
+            onb = generate_onboarding(brief, c, client, opening_triggers=opening_triggers)
             _patch_meta(story_id, target_dir, "onboarding", onb)
         except Exception:  # noqa: BLE001
             pass
