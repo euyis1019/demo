@@ -216,8 +216,6 @@ function GameApp() {
           agentLocations={agentLocations}
           places={worldPlaces}
           placesDisabled={loading || view !== "playing"}
-          worldTick={envTick ?? worldTick}
-          playerTurn={playerTurn}
           stats={state.stats}
           statsDimensions={state.statsDimensions}
           onboarding={onboarding}

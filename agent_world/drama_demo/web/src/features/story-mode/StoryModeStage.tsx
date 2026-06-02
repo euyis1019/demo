@@ -10,7 +10,6 @@ import { StoryPlayerInbox } from "./StoryPlayerInbox";
 import { StoryPlaceList } from "./StoryPlaceList";
 import { StoryRoomRoster } from "./StoryRoomRoster";
 import { StoryComposeBar } from "./StoryComposeBar";
-import { StoryPhonePanel } from "./StoryPhonePanel";
 import { StoryBriefPanel } from "./StoryBriefPanel";
 import { StoryStatsHud } from "./StoryStatsHud";
 import { StorySubtitle } from "./StorySubtitle";
@@ -34,9 +33,6 @@ export interface StoryModeStageProps {
   places?: string[];
   /** 移动/发送禁用（非游玩中/加载时）。 */
   placesDisabled?: boolean;
-  /** 世界 tick / 玩家回合（手机面板显示）。 */
-  worldTick?: number;
-  playerTurn?: number;
   /** 玩家数值，剧情模式 HUD 显示。 */
   stats?: Stats;
   /** 属性维度定义（数据驱动：来自活跃 Story Pack 的 meta.stats）。 */
@@ -66,8 +62,6 @@ export function StoryModeStage({
   playerInbox,
   places,
   placesDisabled,
-  worldTick,
-  playerTurn,
   stats,
   statsDimensions,
   onboarding,
@@ -126,33 +120,32 @@ export function StoryModeStage({
       />
       <div className="story-stage__atmosphere" aria-hidden="true" />
 
-      {/* 左列：数值 HUD + 地点列表自然纵向堆叠 */}
-      {(stats || (places && places.length)) ? (
-        <div className="story-left-col">
-          {stats ? <StoryStatsHud stats={stats} dimensions={statsDimensions} /> : null}
-          {places && places.length ? (
-            <StoryPlaceList placeId={placeId} places={places} disabled={placesDisabled} />
-          ) : null}
+      {/* 左上控件列：工具条正下方聚拢 私信/剧情/收件箱 + 数值 + 地点。
+          全部靠左收纳，右侧整条边留给对话记录，互不遮挡。 */}
+      <div className="story-left-col">
+        <div className="story-left-actions">
+          <StoryComposeBar
+            nameMap={nameMap}
+            presetTarget={composeTarget}
+            onTargetConsumed={() => setComposeTarget(null)}
+            disabled={placesDisabled}
+          />
+          <StoryBriefPanel onboarding={onboarding} />
+          <StoryPlayerInbox inbox={playerInbox} nameMap={nameMap} />
         </div>
-      ) : null}
-
-      {/* 顶部「情境」一行——此刻在哪、和谁在一起（轻指引，补删幕后的目标感空洞） */}
-      <div className="story-situation" aria-live="polite">
-        <span className="story-situation__dot" aria-hidden="true" />
-        {situation}
+        {stats ? <StoryStatsHud stats={stats} dimensions={statsDimensions} /> : null}
+        {places && places.length ? (
+          <StoryPlaceList placeId={placeId} places={places} disabled={placesDisabled} />
+        ) : null}
       </div>
 
-      {/* 右上角控件簇：信息 / 收件箱 / 私信 / 剧情——全部折叠收纳，不再挤占顶部中央 */}
-      <div className="story-corner">
-        <StoryPhonePanel placeLabel={placeName} worldTick={worldTick} playerTurn={playerTurn} />
-        <StoryPlayerInbox inbox={playerInbox} nameMap={nameMap} />
-        <StoryComposeBar
-          nameMap={nameMap}
-          presetTarget={composeTarget}
-          onTargetConsumed={() => setComposeTarget(null)}
-          disabled={placesDisabled}
-        />
-        <StoryBriefPanel onboarding={onboarding} />
+      {/* 顶部中央：情境一行 + 玩家台词输入框（输入框回到最上面中间）。 */}
+      <div className="story-topcenter">
+        <div className="story-situation" aria-live="polite">
+          <span className="story-situation__dot" aria-hidden="true" />
+          {situation}
+        </div>
+        <div className="story-topcenter__speak">{inputSlot}</div>
       </div>
 
       {lastError ? (
@@ -161,7 +154,7 @@ export function StoryModeStage({
         </p>
       ) : null}
 
-      {/* 底部「舞台」带：在场立绘名册 → 字幕(对白) → 玩家台词输入，纵向收束、互不叠压 */}
+      {/* 底部「舞台」带：在场立绘名册 → 字幕(对白)。台词输入已移到顶部中央。 */}
       <div className="story-bottom">
         <StoryRoomRoster
           placeId={placeId}
@@ -177,7 +170,6 @@ export function StoryModeStage({
           remaining={dialogue.remaining}
           onAdvance={dialogue.advance}
         />
-        <div className="story-bottom__speak">{inputSlot}</div>
       </div>
 
       <StoryDialogueHistory messages={roomMessages} nameMap={nameMap} placeId={placeId} />

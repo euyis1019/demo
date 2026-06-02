@@ -63,22 +63,38 @@
   border-radius: 6px;
 }
 
-/* === 夜戏剧场布局 === 顶部「情境」一行 + 右上角控件簇 + 底部舞台带（在场/字幕/台词）。 */
+/* === 夜戏剧场布局 === 顶部中央(情境+台词输入) + 左上控件列 + 底部舞台带 + 右侧对话记录。 */
 
-/* 顶部「情境」：纤细一行，告诉玩家此刻在哪、和谁在一起（补删幕后的目标感）。 */
-.story-situation {
+/* 顶部中央：情境一行 + 玩家台词输入框，纵向居中收束（输入框回到最上面中间）。 */
+.story-topcenter {
   position: absolute;
-  top: 0.9rem;
+  top: 0.75rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 18;
-  max-width: min(64vw, 680px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  width: min(92vw, 720px);
+  pointer-events: none;
+}
+.story-topcenter > * {
+  pointer-events: auto;
+}
+.story-topcenter__speak {
+  width: 100%;
+}
+
+/* 顶部「情境」：纤细一行，告诉玩家此刻在哪、和谁在一起（补删幕后的目标感）。 */
+.story-situation {
+  max-width: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 16px;
+  padding: 4px 16px;
   font-family: var(--stage-serif);
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   letter-spacing: 0.04em;
   color: var(--stage-ink);
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
@@ -101,30 +117,34 @@
   50% { opacity: 1; }
 }
 
-/* 右上角控件簇：信息/收件箱/私信/剧情，全部折叠角标，纵向收纳在右上，不再挤顶部中央。 */
-.story-corner {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  z-index: 32;
+/* 左上控件群：私信/剧情/收件箱，折叠角标纵向靠左收纳（工具条正下方、数值上方）。 */
+.story-left-actions {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 7px;
-  max-width: min(86vw, 360px);
+  align-items: flex-start;
+  gap: 6px;
 }
-.story-corner > * {
+.story-left-actions > * {
+  position: relative; /* 锚定展开面板浮层 */
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   width: auto;
+}
+/* 角标展开面板浮层化：绝对落在角标下方覆盖画面，而非把下方数值/地点顶下去。 */
+.story-left-actions .story-corner-panel,
+.story-left-actions .story-inbox__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 45;
+  margin-top: 0;
 }
 /* 统一角标按钮：玻璃胶囊，暖光描边 hover。 */
 .story-corner-toggle,
-.story-phone__toggle,
 .story-inbox__toggle {
   width: auto;
-  text-align: center;
+  text-align: left;
   padding: 0.34rem 0.82rem;
   font-size: 0.8rem;
   letter-spacing: 0.02em;
@@ -138,15 +158,13 @@
   transition: border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 .story-corner-toggle:hover,
-.story-phone__toggle:hover,
 .story-inbox__toggle:hover {
   color: var(--stage-accent-hot);
   border-color: var(--stage-accent);
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--stage-accent-glow);
 }
-/* 统一角标展开面板：暖色玻璃卡，从角标下方向左展开。 */
+/* 统一展开面板：暖色玻璃卡，从角标下方靠左展开。 */
 .story-corner-panel,
-.story-phone__panel,
 .story-inbox__panel {
   width: min(82vw, 300px);
   margin-top: 6px;
@@ -164,12 +182,12 @@
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
-/* 收件箱在簇里也走右对齐角标样式（覆盖旧的整宽左对齐）。 */
+/* 收件箱在左群里也走靠左角标样式。 */
 .story-inbox {
   margin: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
 }
 
 /* 剧情面板（重看开场背景 + 此刻能做什么）。 */
@@ -212,9 +230,6 @@
 }
 .story-bottom > * {
   pointer-events: auto;
-}
-.story-bottom__speak {
-  width: min(92vw, 720px);
 }
 
 .story-player-input {
@@ -605,8 +620,7 @@
 }
 
 @media (max-width: 640px) {
-  .story-mode-stage__input {
-    top: 0.75rem;
+  .story-topcenter {
     width: 94vw;
   }
 
@@ -906,12 +920,12 @@
   color: #e8eef7;
 }
 
-/* #4 私信/群聊发送栏（收件箱对话框下方） */
+/* #4 私信/群聊发送栏（左上控件群里，靠左角标 + 浮层面板） */
 .story-compose {
   margin: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
 }
 .story-compose__panel {
   display: flex;
@@ -1023,74 +1037,7 @@
   font-size: 0.76rem;
 }
 
-/* #4 上帝模式手机：默认一个 📱 按钮，点开是信息面板 */
-.story-phone {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-}
-.story-phone__toggle {
-  padding: 0.32rem 0.8rem;
-  font-size: 0.82rem;
-  color: #e2e8f0;
-  background: rgba(8, 12, 18, 0.62);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-  cursor: pointer;
-}
-.story-phone__panel {
-  width: 234px;
-  padding: 10px 12px;
-  background: rgba(8, 12, 18, 0.85);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-  font-size: 0.8rem;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  animation: player-action-menu-in 0.18s ease;
-}
-.story-phone__row {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-.story-phone__row > span {
-  color: #94a3b8;
-  flex: 0 0 auto;
-}
-.story-phone__row > b {
-  color: #e8eef7;
-  font-weight: 600;
-  text-align: right;
-}
-
-/* 剧情模式玩家收件箱（输入区上方折叠条） */
-.story-inbox {
-  margin-bottom: 6px;
-  font-size: 0.82rem;
-}
-.story-inbox__toggle {
-  width: 100%;
-  text-align: left;
-  padding: 5px 10px;
-  background: rgba(0, 0, 0, 0.4);
-  color: #cbd5e1;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
-  cursor: pointer;
-}
-.story-inbox__panel {
-  margin-top: 4px;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 6px;
-  padding: 6px 8px;
-}
+/* 剧情模式玩家收件箱：折叠角标 + 展开面板沿用上方统一暖色玻璃样式，这里只补内部 tabs/列表。 */
 .story-inbox__tabs {
   display: flex;
   gap: 6px;
