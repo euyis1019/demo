@@ -69,6 +69,8 @@ export interface GameState {
   onboardingSeen: boolean;
   /** 当前「线索」：已上膛未触发的非结局 bert 的玩家向 hint，随进度自动更新（删幕后的推进指引）。 */
   clues: string[];
+  /** 故事定义的全部地点 id（前端据此列出所有可去地点，含空房间）。 */
+  allPlaces: string[];
   lastError?: string;
   runnerModalOpen: boolean;
 }
@@ -105,6 +107,7 @@ export function createInitialState(): GameState {
     recentRdcLinks: [],
     onboardingSeen: false,
     clues: [],
+    allPlaces: [],
     runnerModalOpen: false,
   };
 }
@@ -186,6 +189,7 @@ function withWorldDelta(
       : state.recentRdcLinks,
     // 当前线索随每次 world-delta 刷新（后端按 fired_berts 重算）；触发 bert 后自动换成下一批。
     clues: delta.clues ?? state.clues,
+    allPlaces: delta.places ?? state.allPlaces,
   };
 }
 
@@ -259,6 +263,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         onboarding: action.data.onboarding ?? state.onboarding ?? null,
         onboardingSeen: false,
         clues: action.data.clues ?? [],
+        allPlaces: action.data.places ?? state.allPlaces ?? [],
         lastError: undefined,
       };
     case "APPLY_SESSION": {
@@ -281,6 +286,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         placeId: action.data.place_id ?? state.placeId,
         onboarding: action.data.onboarding ?? state.onboarding ?? null,
         clues: action.data.clues ?? state.clues,
+        allPlaces: action.data.places ?? state.allPlaces,
       };
     }
     case "SET_LOADING":

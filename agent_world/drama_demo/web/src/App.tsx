@@ -94,10 +94,15 @@ function GameApp() {
     [agentLocations, placeId, nameMap],
   );
 
-  const worldPlaces = useMemo(
-    () => deriveWorldPlaces(placeId, agentLocations, roomF2f),
-    [placeId, agentLocations, roomF2f],
-  );
+  const worldPlaces = useMemo(() => {
+    // 地点列表用故事定义的**全部**地点（含没人的空房间，玩家可自由探索）；后端还没下发 allPlaces 时
+    // 退回「有人的地点」。并入任何 occupied 兜底，玩家当前地点置顶。
+    const occupied = deriveWorldPlaces(placeId, agentLocations, roomF2f);
+    const set = new Set<string>(state.allPlaces.length ? state.allPlaces : occupied);
+    occupied.forEach((p) => set.add(p));
+    const rest = [...set].filter((p) => p !== placeId).sort();
+    return placeId ? [placeId, ...rest] : rest;
+  }, [placeId, agentLocations, roomF2f, state.allPlaces]);
 
   const godModeInput = (
     <PlayerInput

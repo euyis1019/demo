@@ -95,6 +95,7 @@ def get_session_snapshot(
     onboarding = None
     stats_dimensions: list = []
     clues: list = []
+    places: list = []
     try:
         from agent_world.drama_demo.shared import story_config
 
@@ -102,8 +103,9 @@ def get_session_snapshot(
         onboarding = (pack.meta or {}).get("onboarding")
         stats_dimensions = story_config.stats_dimensions()
         clues = pack.berts.current_hints(set(getattr(hbm, "fired_berts", None) or []))
+        places = story_config.active_place_ids()
     except Exception:  # noqa: BLE001
-        onboarding, stats_dimensions, clues = None, [], []
+        onboarding, stats_dimensions, clues, places = None, [], [], []
     return {
         "initialized": True,
         "sim_id": sim_id,
@@ -113,6 +115,9 @@ def get_session_snapshot(
         "onboarding": onboarding,
         "stats_dimensions": stats_dimensions,
         "clues": clues,
+        # 故事定义的**全部**地点（不只玩家/NPC 当前所在地）——前端据此列出所有可去的地方，
+        # 空房间（如档案室/挂号大厅）也能走过去探索，不再只显示有人的那一个。
+        "places": places,
         "player_turn": hbm.player_turn,
         "stats": dict(hbm.stats),
         "stats_update": dict(hbm.stats),

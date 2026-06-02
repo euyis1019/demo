@@ -158,6 +158,8 @@ export interface SessionSnapshot {
   onboarding?: Onboarding | null;
   /** 当前「线索」：已上膛未触发的非结局 bert 的玩家向 hint，随进度自动更新。 */
   clues?: string[];
+  /** 故事定义的全部地点 id（前端列出所有可去地点，含空房间）。 */
+  places?: string[];
   env_status?: Record<string, unknown>;
 }
 
@@ -171,6 +173,7 @@ export interface SessionStartData {
   stats_dimensions?: StatDimension[];
   onboarding?: Onboarding | null;
   clues?: string[];
+  places?: string[];
   env_status?: Record<string, unknown>;
 }
 
@@ -271,6 +274,8 @@ export interface TurnDelta {
   agent_locations?: Record<string, AgentLocation>;
   /** 当前「线索」：已上膛未触发的非结局 bert 的玩家向 hint，随玩家触发 bert 自动更新。 */
   clues?: string[];
+  /** 故事定义的全部地点 id。 */
+  places?: string[];
   /** @deprecated F11 legacy — use room_f2f */
   public_messages: GameMessage[];
   /** @deprecated F11 legacy — use agent_messages */

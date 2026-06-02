@@ -93,6 +93,8 @@ def get_world_delta(
         # 让 delta 自洽：带上 name_map(agent_id→名)，前端轮询不必依赖 snapshot 缓存、也无需写死角色名。
         "name_map": {str(k): v for k, v in name_map.items()},
         "clues": clues,
+        # 故事定义的全部地点——前端据此列出所有可去地点（含没人的空房间），玩家可自由探索。
+        "places": story_config.active_place_ids(),
     }
 
     game_over = consume_game_over_payload(flask_session)
