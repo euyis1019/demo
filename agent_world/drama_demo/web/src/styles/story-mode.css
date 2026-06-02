@@ -543,7 +543,7 @@
 
 .story-subtitle__inner {
   display: grid;
-  grid-template-columns: minmax(170px, 240px) minmax(0, 1fr) minmax(170px, 240px);
+  grid-template-columns: minmax(210px, 300px) minmax(0, 1fr) minmax(210px, 300px);
   align-items: end;
   gap: 1rem;
   width: 100%;
@@ -577,13 +577,27 @@
   left: 50%;
   transform: translateX(-50%);
   width: auto;
-  height: clamp(340px, 62vh, 760px);
-  max-width: clamp(280px, 32vw, 480px);
+  height: clamp(440px, 78vh, 960px);
+  max-width: clamp(380px, 44vw, 680px);
   object-fit: contain;
   object-position: bottom center;
   filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.6));
   pointer-events: none;
   z-index: 1;
+}
+
+/* 往中间靠：左立绘锚到其槽位的内(右)侧、再向画面中央探出一截；右立绘对称（往左探）。
+   文字区 z-index:2 在立绘之上，即便立绘略探入中列也不会盖住台词。 */
+.story-subtitle__slot--left .story-subtitle__avatar {
+  left: auto;
+  right: 0;
+  transform: translateX(24%);
+}
+
+.story-subtitle__slot--right .story-subtitle__avatar {
+  left: 0;
+  right: auto;
+  transform: translateX(-24%);
 }
 
 /* 文字区抬到立绘之上：即便大立绘横向略微溢入中列，字幕也始终在最上层、不被遮挡。 */
@@ -664,7 +678,7 @@
   }
 
   .story-subtitle__inner {
-    grid-template-columns: minmax(110px, 150px) minmax(0, 1fr) minmax(110px, 150px);
+    grid-template-columns: minmax(130px, 180px) minmax(0, 1fr) minmax(130px, 180px);
     min-height: 9.5rem;
     padding: 1rem 0.75rem 1.35rem;
   }
@@ -675,8 +689,8 @@
 
   .story-subtitle__avatar {
     width: auto;
-    height: clamp(220px, 42vh, 400px);
-    max-width: clamp(140px, 46vw, 260px);
+    height: clamp(280px, 52vh, 480px);
+    max-width: clamp(180px, 54vw, 320px);
   }
 
   .story-subtitle__name {
