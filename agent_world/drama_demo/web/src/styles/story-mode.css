@@ -901,157 +901,91 @@
   color: #e8eef7;
 }
 
-/* #4 私信/群聊发送栏（左上控件群里，靠左角标 + 浮层面板） */
-.story-compose {
-  margin: 0;
+/* 📱 玩家手机——对话流 + 底部发送条（复用上帝模式 .agent-phone-modal/.agent-contact-list 外壳，
+   这里只补「进入某联系人后」的对话气泡与发送条；私信+收件箱合并到这一个手机界面）。 */
+.story-phone-thread {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
 }
-.story-compose__panel {
+.story-phone-thread__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-.story-compose__tabs {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.story-compose__tabs > button {
-  padding: 3px 14px;
-  font-size: 0.78rem;
-  background: transparent;
-  color: var(--stage-muted);
-  border: 1px solid var(--stage-glass-edge);
-  border-radius: 999px;
-  cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-.story-compose__tabs > button.is-active {
-  color: #1a140c;
-  background: var(--stage-accent);
-  border-color: var(--stage-accent);
-  font-weight: 600;
-}
-/* 私信对象/群——人物筹码，取代原生 select。 */
-.story-compose__targets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  max-height: 92px;
-  overflow-y: auto;
+  padding: 12px 14px;
   scrollbar-width: thin;
 }
-.story-compose__chip {
-  padding: 3px 11px;
-  font-size: 0.78rem;
-  color: var(--stage-ink);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--stage-glass-edge);
-  border-radius: 999px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.story-compose__chip:hover:not(:disabled) {
-  border-color: var(--stage-accent);
-}
-.story-compose__chip.is-on {
-  color: #1a140c;
-  background: var(--stage-accent-hot);
-  border-color: var(--stage-accent-hot);
-  font-weight: 600;
-}
-.story-compose__chip:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.story-compose__hint {
-  color: var(--stage-muted);
-  font-size: 0.76rem;
-}
-.story-compose__group {
-  width: 100px;
-  padding: 4px 8px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--stage-ink);
-  border: 1px solid var(--stage-glass-edge);
-  border-radius: 7px;
-}
-.story-compose__row {
+.story-phone-bubble {
   display: flex;
-  gap: 6px;
+  max-width: 80%;
 }
-.story-compose__text {
+.story-phone-bubble.is-them {
+  align-self: flex-start;
+}
+.story-phone-bubble.is-mine {
+  align-self: flex-end;
+}
+.story-phone-bubble__text {
+  padding: 8px 12px;
+  border-radius: 14px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.story-phone-bubble.is-them .story-phone-bubble__text {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--drama-text, #e8eef7);
+  border-bottom-left-radius: 4px;
+}
+.story-phone-bubble.is-mine .story-phone-bubble__text {
+  background: linear-gradient(180deg, #3d8bfd, #2f6fe0);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.story-phone-compose {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--drama-panel-border, rgba(255, 255, 255, 0.12));
+}
+.story-phone-compose__text {
   flex: 1 1 auto;
   min-width: 0;
-  padding: 6px 10px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--drama-text, #e8eef7);
   background: rgba(255, 255, 255, 0.07);
-  color: var(--stage-ink);
-  border: 1px solid var(--stage-glass-edge);
-  border-radius: 8px;
+  border: 1px solid var(--drama-panel-border, rgba(255, 255, 255, 0.16));
+  border-radius: 999px;
 }
-.story-compose__text:focus {
+.story-phone-compose__text:focus {
   outline: none;
-  border-color: var(--stage-accent);
+  border-color: rgba(61, 139, 253, 0.6);
 }
-.story-compose__send {
+.story-phone-compose__send {
   flex: 0 0 auto;
-  padding: 6px 16px;
-  color: #1a140c;
-  background: linear-gradient(180deg, var(--stage-accent-hot), var(--stage-accent));
+  padding: 8px 18px;
+  color: #fff;
+  background: linear-gradient(180deg, #3d8bfd, #2f6fe0);
   border: none;
-  border-radius: 8px;
+  border-radius: 999px;
   font-weight: 600;
   cursor: pointer;
-  transition: filter 0.15s ease;
 }
-.story-compose__send:hover:not(:disabled) {
-  filter: brightness(1.08);
-}
-.story-compose__send:disabled {
-  opacity: 0.4;
+.story-phone-compose__send:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
 }
-.story-compose__status {
-  color: var(--stage-accent-hot);
-  font-size: 0.76rem;
-}
-
-/* 剧情模式玩家收件箱：折叠角标 + 展开面板沿用上方统一暖色玻璃样式，这里只补内部 tabs/列表。 */
-.story-inbox__tabs {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-.story-inbox__tabs button {
-  padding: 2px 10px;
-  background: transparent;
-  color: #94a3b8;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 5px;
-  cursor: pointer;
-}
-.story-inbox__tabs button.is-active {
-  background: #2563eb;
-  color: #fff;
-  border-color: #2563eb;
-}
-.story-inbox__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 140px;
-  overflow-y: auto;
-}
-.story-inbox__item {
-  padding: 2px 0;
-  color: #e8eef7;
-  line-height: 1.4;
-}
-.story-inbox__from {
-  color: #93c5fd;
-}
-.story-inbox__empty {
-  color: #64748b;
+.story-phone-compose__status {
+  flex: 0 0 auto;
+  padding: 0 14px 10px;
+  font-size: 0.8rem;
+  color: var(--drama-muted, #9fb0d0);
 }

@@ -6,10 +6,9 @@ import type { PlaceId } from "../../utils/places";
 import { placeDisplayName } from "../../utils/places";
 import { WorldEventModal } from "../world-stage";
 import { storyPlaceBackground } from "./storyAssets";
-import { StoryPlayerInbox } from "./StoryPlayerInbox";
 import { StoryPlaceList } from "./StoryPlaceList";
 import { StoryRoomRoster } from "./StoryRoomRoster";
-import { StoryComposeBar } from "./StoryComposeBar";
+import { StoryPlayerPhone } from "./StoryPlayerPhone";
 import { StoryBriefPanel } from "./StoryBriefPanel";
 import { StoryStatsHud } from "./StoryStatsHud";
 import { StorySubtitle } from "./StorySubtitle";
@@ -112,14 +111,14 @@ export function StoryModeStage({
         onReset={onReset}
         actions={
           <>
-            <StoryComposeBar
+            <StoryPlayerPhone
+              inbox={playerInbox}
               nameMap={nameMap}
               presetTarget={composeTarget}
               onTargetConsumed={() => setComposeTarget(null)}
               disabled={placesDisabled}
             />
             <StoryBriefPanel onboarding={onboarding} />
-            <StoryPlayerInbox inbox={playerInbox} nameMap={nameMap} />
           </>
         }
       />
