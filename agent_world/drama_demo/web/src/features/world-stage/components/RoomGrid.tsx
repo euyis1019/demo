@@ -12,6 +12,8 @@ export interface RoomGridProps {
   nameMap: Record<string, string>;
   recentMoveKeys: string[];
   recentRdcLinks: RdcLink[];
+  /** 故事定义的**全部**地点（含没人的空房间）。上帝模式默认铺满所有地点；缺省时退回「有人的地点」。 */
+  worldPlaces?: string[];
   onAgentClick: (agentId: string) => void;
   onPromptClick?: (message: GameMessage) => void;
 }
@@ -24,10 +26,15 @@ export function RoomGrid({
   nameMap,
   recentMoveKeys,
   recentRdcLinks,
+  worldPlaces,
   onAgentClick,
   onPromptClick,
 }: RoomGridProps) {
-  const places = deriveWorldPlaces(playerPlaceId, agentLocations, roomF2f);
+  // 上帝模式默认显示**全部**地点（即便该地点此刻没人）；后端还没下发 worldPlaces 时退回「有人的地点」。
+  const places =
+    worldPlaces && worldPlaces.length
+      ? worldPlaces
+      : deriveWorldPlaces(playerPlaceId, agentLocations, roomF2f);
   const count = Math.max(1, places.length);
   const cols = Math.ceil(Math.sqrt(count));
   const rows = Math.ceil(count / cols);

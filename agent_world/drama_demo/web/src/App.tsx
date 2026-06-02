@@ -261,6 +261,7 @@ function GameApp() {
                 nameMap={nameMap}
                 recentMoveKeys={recentMoveKeys}
                 recentRdcLinks={recentRdcLinks}
+                worldPlaces={worldPlaces}
                 activeAgentModal={activeAgentModal}
                 pendingWorldEvent={pendingWorldEvent}
                 lastError={lastError}

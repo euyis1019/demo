@@ -15,6 +15,8 @@ export interface WorldStageProps {
   nameMap: Record<string, string>;
   recentMoveKeys: string[];
   recentRdcLinks: RdcLink[];
+  /** 故事定义的**全部**地点（含没人的空房间）——上帝模式据此默认铺满所有地点。 */
+  worldPlaces?: string[];
   activeAgentModal: string | null;
   pendingWorldEvent: WorldEvent | null;
   lastError?: string;
@@ -34,6 +36,7 @@ export function WorldStage({
   nameMap,
   recentMoveKeys,
   recentRdcLinks,
+  worldPlaces,
   activeAgentModal,
   pendingWorldEvent,
   lastError,
@@ -107,6 +110,7 @@ export function WorldStage({
         nameMap={nameMap}
         recentMoveKeys={recentMoveKeys}
         recentRdcLinks={recentRdcLinks}
+        worldPlaces={worldPlaces}
         onAgentClick={onAgentClick}
         onPromptClick={openMessagePrompt}
       />
