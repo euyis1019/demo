@@ -67,6 +67,14 @@ def get_world_delta(
         extra_world_events=routing_events,
     )
 
+    # 当前「线索」：此刻已上膛、未触发的非结局 bert 的玩家向 hint。随玩家触发 bert 自动推进 → 前端那行线索逐条更新。
+    clues: list = []
+    if hbm is not None:
+        try:
+            clues = story_config.active_pack().berts.current_hints(set(getattr(hbm, "fired_berts", None) or []))
+        except Exception:  # noqa: BLE001
+            clues = []
+
     result: Dict[str, Any] = {
         **delta,
         "current_tick": t_now,
@@ -75,6 +83,7 @@ def get_world_delta(
         "player_turn": hbm.player_turn if hbm else 1,
         # 让 delta 自洽：带上 name_map(agent_id→名)，前端轮询不必依赖 snapshot 缓存、也无需写死角色名。
         "name_map": {str(k): v for k, v in name_map.items()},
+        "clues": clues,
     }
 
     game_over = consume_game_over_payload(flask_session)

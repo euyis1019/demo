@@ -91,16 +91,19 @@ def get_session_snapshot(
             "runner_ready": runner_ready,
             "env_status": env,
         }
-    # 新手引导 + 属性维度（管理 agent 设计期生成，写在活跃故事的 meta；缺失则空）。
+    # 新手引导 + 属性维度（管理 agent 设计期生成，写在活跃故事的 meta；缺失则空）+ 开局当前线索。
     onboarding = None
     stats_dimensions: list = []
+    clues: list = []
     try:
         from agent_world.drama_demo.shared import story_config
 
-        onboarding = (story_config.active_pack().meta or {}).get("onboarding")
+        pack = story_config.active_pack()
+        onboarding = (pack.meta or {}).get("onboarding")
         stats_dimensions = story_config.stats_dimensions()
+        clues = pack.berts.current_hints(set(getattr(hbm, "fired_berts", None) or []))
     except Exception:  # noqa: BLE001
-        onboarding, stats_dimensions = None, []
+        onboarding, stats_dimensions, clues = None, [], []
     return {
         "initialized": True,
         "sim_id": sim_id,
@@ -109,6 +112,7 @@ def get_session_snapshot(
         "place_id": hbm.place_id,
         "onboarding": onboarding,
         "stats_dimensions": stats_dimensions,
+        "clues": clues,
         "player_turn": hbm.player_turn,
         "stats": dict(hbm.stats),
         "stats_update": dict(hbm.stats),

@@ -38,6 +38,8 @@ export interface StoryModeStageProps {
   statsDimensions?: StatDimension[];
   /** 开场引导（背景 + 此刻能做什么）——剧情模式里随手可重看，补删幕后的目标感。 */
   onboarding?: Onboarding | null;
+  /** 当前「线索」：随玩家触发 bert 自动更新的下一步指引；空则回退到 onboarding.hook。 */
+  clues?: string[];
   pendingWorldEvent: WorldEvent | null;
   lastError?: string;
   inputSlot: ReactNode;
@@ -64,6 +66,7 @@ export function StoryModeStage({
   stats,
   statsDimensions,
   onboarding,
+  clues,
   pendingWorldEvent,
   lastError,
   inputSlot,
@@ -98,6 +101,13 @@ export function StoryModeStage({
       ? `${placeName} · 此刻和你在一起的：${presentNames.join("、")}`
       : `${placeName} · 此处只有你一人`;
 
+  // 当前线索：随进度更新的 bert hint 优先；没有则回退到开场钩子 onboarding.hook。
+  const activeClues = (clues ?? []).filter(Boolean);
+  const clueText = activeClues.length
+    ? activeClues.join("　／　")
+    : onboarding?.hook ?? "";
+  const clueTitle = activeClues.length ? activeClues.join("\n") : onboarding?.hook ?? "";
+
   return (
     <div className="story-mode-stage">
       <StoryModeToolbar
@@ -118,7 +128,7 @@ export function StoryModeStage({
               onTargetConsumed={() => setComposeTarget(null)}
               disabled={placesDisabled}
             />
-            <StoryBriefPanel onboarding={onboarding} />
+            <StoryBriefPanel onboarding={onboarding} clues={clues} />
           </>
         }
       />
@@ -148,10 +158,10 @@ export function StoryModeStage({
           <span className="story-situation__dot" aria-hidden="true" />
           {situation}
         </div>
-        {onboarding?.hook ? (
-          <div className="story-hint" title={onboarding.hook}>
+        {clueText ? (
+          <div className="story-hint" title={clueTitle}>
             <span className="story-hint__mark" aria-hidden="true">🔍 线索</span>
-            <span className="story-hint__text">{onboarding.hook}</span>
+            <span className="story-hint__text">{clueText}</span>
           </div>
         ) : null}
         <div className="story-topcenter__speak">{inputSlot}</div>

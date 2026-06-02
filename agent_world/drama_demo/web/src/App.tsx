@@ -219,6 +219,7 @@ function GameApp() {
           stats={state.stats}
           statsDimensions={state.statsDimensions}
           onboarding={onboarding}
+          clues={state.clues}
           pendingWorldEvent={pendingWorldEvent}
           lastError={lastError}
           inputSlot={storyModeInput}

@@ -156,6 +156,8 @@ export interface SessionSnapshot {
   stats_update?: Stats;
   stats_dimensions?: StatDimension[];
   onboarding?: Onboarding | null;
+  /** 当前「线索」：已上膛未触发的非结局 bert 的玩家向 hint，随进度自动更新。 */
+  clues?: string[];
   env_status?: Record<string, unknown>;
 }
 
@@ -168,6 +170,7 @@ export interface SessionStartData {
   stats: Stats;
   stats_dimensions?: StatDimension[];
   onboarding?: Onboarding | null;
+  clues?: string[];
   env_status?: Record<string, unknown>;
 }
 
@@ -266,6 +269,8 @@ export interface TurnDelta {
   state_changes?: StateChange[];
   world_events?: WorldEvent[];
   agent_locations?: Record<string, AgentLocation>;
+  /** 当前「线索」：已上膛未触发的非结局 bert 的玩家向 hint，随玩家触发 bert 自动更新。 */
+  clues?: string[];
   /** @deprecated F11 legacy — use room_f2f */
   public_messages: GameMessage[];
   /** @deprecated F11 legacy — use agent_messages */

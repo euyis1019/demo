@@ -67,6 +67,8 @@ export interface GameState {
   /** 新手引导（管理 agent 生成）；onboardingSeen 控制开局弹窗只显示一次。 */
   onboarding?: Onboarding | null;
   onboardingSeen: boolean;
+  /** 当前「线索」：已上膛未触发的非结局 bert 的玩家向 hint，随进度自动更新（删幕后的推进指引）。 */
+  clues: string[];
   lastError?: string;
   runnerModalOpen: boolean;
 }
@@ -102,6 +104,7 @@ export function createInitialState(): GameState {
     recentMoveKeys: [],
     recentRdcLinks: [],
     onboardingSeen: false,
+    clues: [],
     runnerModalOpen: false,
   };
 }
@@ -180,6 +183,8 @@ function withWorldDelta(
           (link, index, all) => all.findIndex((item) => item.key === link.key) === index,
         )
       : state.recentRdcLinks,
+    // 当前线索随每次 world-delta 刷新（后端按 fired_berts 重算）；触发 bert 后自动换成下一批。
+    clues: delta.clues ?? state.clues,
   };
 }
 
@@ -252,6 +257,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         endingId: undefined,
         onboarding: action.data.onboarding ?? state.onboarding ?? null,
         onboardingSeen: false,
+        clues: action.data.clues ?? [],
         lastError: undefined,
       };
     case "APPLY_SESSION": {
@@ -273,6 +279,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         playerTurn: action.data.player_turn ?? state.playerTurn,
         placeId: action.data.place_id ?? state.placeId,
         onboarding: action.data.onboarding ?? state.onboarding ?? null,
+        clues: action.data.clues ?? state.clues,
       };
     }
     case "SET_LOADING":

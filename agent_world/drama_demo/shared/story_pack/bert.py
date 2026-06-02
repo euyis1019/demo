@@ -45,6 +45,7 @@ class Bert:
     id: str
     trigger: str
     reaction: str = ""
+    hint: str = ""  # 玩家向「线索」：一句勾而不破的下一步提示（指向本条 trigger，不剧透后果）。删幕后给玩家随进度更新的目标感。
     target: int = 0
     place: str = ""
     once: bool = True
@@ -68,6 +69,7 @@ class Bert:
             id=bid,
             trigger=str(data.get("trigger") or ""),
             reaction=str(data.get("reaction") or ""),
+            hint=str(data.get("hint") or ""),
             target=_as_int(data.get("target"), 0),
             place=str(data.get("place", "") or ""),
             once=bool(data.get("once", True)),
@@ -132,6 +134,22 @@ class BertSet:
 
     def ending_berts(self) -> List[str]:
         return [bid for bid, b in self.berts.items() if b.is_ending]
+
+    def current_hints(self, fired: set) -> List[str]:
+        """当前可循的「线索」：此刻已上膛、尚未触发、非结局、且配了 hint 的 bert 的玩家向提示。
+
+        随玩家触发 bert（fired 增长）→ 上膛集合推进 → 线索自动换成下一批，给玩家「按线索推进」的指引。
+        去重保序：同一句 hint 只出一次。"""
+        out: List[str] = []
+        seen: set = set()
+        for bid in self.armed_ids(set(fired)):
+            b = self.berts[bid]
+            if b.is_ending or bid in fired or not b.hint:
+                continue
+            if b.hint not in seen:
+                seen.add(b.hint)
+                out.append(b.hint)
+        return out
 
     # ---------- validate ----------
     def validate(

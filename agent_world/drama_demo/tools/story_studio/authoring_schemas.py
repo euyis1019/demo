@@ -30,6 +30,8 @@ BERT_OUTPUT_SCHEMA: Dict[str, Any] = {
                     "trigger": {"type": "string", "minLength": 1},
                     # 反应：target 这个 NPC 触发后要演什么（非结局 bert 必填）；容错 null（Bert.from_mapping 兜成 ""）
                     "reaction": {"type": ["string", "null"]},
+                    # 玩家向「线索」：一句勾而不破的下一步提示（指向本条 trigger）。非结局 bert 应配；容错 null。
+                    "hint": {"type": ["string", "null"]},
                     # 反应的 NPC（agent_id）；结局 bert 可省略。容错：LLM 偶尔给字符串数字。
                     "target": {"type": ["integer", "string", "null"]},
                     # 可选：仅此地点生效。容错 null（LLM 常对可选字段显式给 null）。

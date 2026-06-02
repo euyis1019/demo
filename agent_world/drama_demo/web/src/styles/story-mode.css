@@ -225,6 +225,17 @@
   font-weight: 600;
   color: var(--stage-accent-hot);
 }
+/* 剧情面板里的「当前线索」列表（随进度更新的多条 hint）。 */
+.story-brief__clues {
+  margin: 5px 0 0;
+  padding-left: 1.15em;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: disc;
+  color: var(--stage-ink);
+  line-height: 1.5;
+}
 .story-brief__background {
   margin: 0 0 8px;
   line-height: 1.6;
