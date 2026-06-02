@@ -25,7 +25,8 @@ prompt_trace:
   max_traces_per_session: 5000
   truncate_prompt_chars: 0
 
-recap_window_ticks: 20
+# actor「记忆」回看窗口（拍）：放到整局，让 actor 看到本局全部对话/交流、不忘前面细节。
+recap_window_ticks: 100000
 
 # F16 WebSocket world delta stream (dev_logs/31 Phase 5 §14.4)
 world_stream:

@@ -101,5 +101,7 @@ def prompt_trace_truncate_chars() -> int:
 
 
 def recap_window_ticks() -> int:
-    raw = load_turn_control().get("recap_window_ticks", 20)
+    # actor「记忆」回看窗口（拍）。默认放到整局（10 万拍 → since_t 实际归 0），让 actor 看到本局**全部**
+    # 对话/交流，不再只记得最近一小段而忘掉前面的细节（用户反馈）。需要省 token 的故事可在 turn_control 调小。
+    raw = load_turn_control().get("recap_window_ticks", 100000)
     return max(1, int(raw))

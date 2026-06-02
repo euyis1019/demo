@@ -40,7 +40,9 @@ def build_thread_recap(
     lines: List[str] = []
     seen_utterances: set[tuple[Any, ...]] = set()
     try:
-        rows = world_db.fetch_messages_for_recap(since_t, t_now, limit=40)
+        # 给 actor 足够的「记忆」：本局到目前为止的对话/私信/群聊（默认窗口已放宽到整局），
+        # 上限放到 300 条，避免它只记得最近几句、忘掉前面交流过的细节（用户反馈）。
+        rows = world_db.fetch_messages_for_recap(since_t, t_now, limit=300)
     except Exception:
         rows = []
 
@@ -48,7 +50,8 @@ def build_thread_recap(
         ch = str(row.get("channel_type") or "")
         at_tick = int(row.get("attempted_at") or 0)
         sender_id = row.get("sender_id")
-        content = _short_quote(str(row.get("content") or ""))
+        # 放宽到 300 字：原 48 字会把台词截半、丢交流细节；台词本就短(1-2句)，300 字足够留全文。
+        content = _short_quote(str(row.get("content") or ""), limit=300)
         if not content or sender_id is None:
             continue
         sid = int(sender_id)
@@ -106,14 +109,15 @@ def build_thread_recap(
         state_rows = world_db.fetch_state_logs_since(since_t, t_now, agent_id=aid)
     except Exception:
         state_rows = []
-    for row in state_rows[-5:]:
+    for row in state_rows[-20:]:
         os_lines.append(
-            f"- update_state @ t={int(row['at_tick'])}: 「{_short_quote(str(row.get('content') or ''))}」"
+            f"- update_state @ t={int(row['at_tick'])}: 「{_short_quote(str(row.get('content') or ''), limit=200)}」"
         )
 
     sections: List[str] = []
     if lines:
-        sections.append("【近期对话摘要】\n" + "\n".join(lines[-12:]))
+        # 展示本局全部已记录的对话/交流（不再只留最近 12 行），让 actor 记得住前面聊过/约定过的细节。
+        sections.append("【本局对话与交流记录（按时间）】\n" + "\n".join(lines))
     if os_lines:
         sections.append("【你最近 OS】\n" + "\n".join(os_lines))
     return "\n\n".join(sections)
