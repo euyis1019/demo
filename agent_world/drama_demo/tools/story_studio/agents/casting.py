@@ -38,7 +38,9 @@ _SYSTEM = """你是选角 + 世界搭建师。根据故事 brief，产出世界�
 - 每个非玩家 agent 都要写满 soul + speech_style + speech_samples + inner + long_term_goal + current_state + opening_line。
 - inner 用第二人称（"你其实……"），写出反派的真实图谋、卧底身份、暗中勾结、不可告人的私心等——
   这是让演员"知道自己在演谁、为什么这么做"的关键。
-- 每个 agent 的 location 必须在 places 里；relations 的 src/dst 必须是已列 agent；
+- 每个 agent 的 location 必须**一字不差地等于** places 里某个 place_id（直接复制那个字符串，禁止改写、加前缀
+  或换近义词——如 places 里是「窗边」就写「窗边」，不能写成「大堂窗边」，否则播种期外键崩溃、游戏起不来）；
+  relations 的 src/dst 必须是已列 agent；
   relations.type 必须在 relation_types 里声明。soul/inner 只写人物本身，不要写剧情脚本/分幕（剧情走向另有专门设计）。
 
 ★「不可空泛敷衍」的可验证标准（务必逐条满足，否则会被评审打回重写）：

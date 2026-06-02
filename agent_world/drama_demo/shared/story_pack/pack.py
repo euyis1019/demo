@@ -132,6 +132,18 @@ class StoryPack:
         if "agent_id" in player:
             chk_agent(player.get("agent_id"), "meta.player.agent_id")
 
+        # agents[].location ∈ places —— 引擎 set_location 有 place 外键，location 不是已定义 place 会在播种期
+        # FK 崩溃（前端表现为「Runner 启动即退出」）。生成期 LLM 偶尔给出近似但对不上的地名（如「大堂窗边」vs
+        # 「窗边」），validate 原先不查这条，于是漏到运行期才崩。这里提前闭合：每个 agent 必须有 location 且 ∈ places。
+        if have_places:
+            for a in self.agents.get("agents", []) or []:
+                loc = a.get("location")
+                ctx = f"agent {a.get('agent_id')}({a.get('name', '')}).location"
+                if loc in (None, ""):
+                    out.append(f"[X2] {ctx} 缺失（每个 agent 必须有出生 place）")
+                else:
+                    chk_place(loc, ctx)
+
         return out
 
 
