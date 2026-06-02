@@ -66,17 +66,17 @@ def pick_active_ids(
     world: Any,
     t: int,
     *,
-    passive_ticks_so_far: int = 0,
     batch_tick_index: int = 0,
 ) -> List[int]:
     """Return agent ids allowed to run LLM this tick.
 
-    全程数据驱动、无随机激活——只在有明确理由时选 agent，是否真开口由 actor 自己反思（可 do_nothing）：
-      1) 玩家刚开口 → 本幕在场 NPC(inject_agents) 在最初 ~2 拍回应（不刷屏）；
-      2) inject agent 还没把玩家这句回完 → 继续给一拍；
-      3) 任何 agent 有未读私信(RDC/群) → 回复，但每拍至多 MAX_REPLIERS 个，防止并发过载；
-      4) 没有玩家输入的空拍 → 按**确定性轮转**让本幕在场 NPC 里轮到的那一个自主活动。
-         谁在场、由谁推进，全由管理 agent 经 Story Pack 的 node.inject_agents 决定，引擎不随机挑人、不强制移动。
+    全程数据驱动、无随机激活、无强制开口——只在有明确理由时**给 agent 出手机会**，是否真开口由 actor
+    自己反思（可 do_nothing）：
+      1) 玩家刚开口 → 本幕在场 NPC(inject_agents) 在最初 ~2 拍获得回应机会（回完即止，之后静默等玩家）；
+      2) inject agent 还没把玩家这句回完 → 继续给一拍机会；
+      3) 任何 agent 有未读私信(RDC/群) → 给回复机会，但每拍至多 MAX_REPLIERS 个，防止并发过载；
+      4) 空拍（无玩家输入）默认**静默等玩家**（回合制）；仅当 Story Pack 显式开 ambient_enabled 才把出手机会
+         平等交给在场 NPC 自主决定行动——引擎不再「每 N 拍轮一个强制开口」，活的世界来自 agent 自己决定。
     """
     if not is_f07_enabled():
         agents = getattr(world, "agents", None) or {}
@@ -116,14 +116,20 @@ def pick_active_ids(
         if agent is not None and has_unread_inbound(aid, agent, world, t):
             add(aid)
             repliers += 1
-    # 4) 空拍场景活性（**默认关闭**）：仅当 Story Pack 经 turn_context 显式开 ambient 时，才在无玩家输入的
-    #    空拍里确定性轮转一个在场 NPC 自主活动。默认关闭——剧情模式按反馈走「回合制」：NPC 回应完玩家这句就
-    #    停下、等玩家再开口，不自顾自一句接一句往下说/旁白刷屏（玩家不开口时整场静默地等他）。
-    #    需要"活的世界"的故事可在生成的 mirror/turn_context 里置 ambient_enabled=True 重新打开，引擎不写死。
-    if turn_context.get("ambient_enabled") and not in_respond_window and passive_ticks_so_far < 1 and int(t) % 3 == 0:
-        ambient = [aid for aid in inject_ids if aid not in seen]
-        if ambient:
-            add(ambient[(int(t) // 3) % len(ambient)])
+    # 4) 空拍场景活性（默认关闭——回合制：玩家不开口时本幕 NPC 默认静默地等他）。
+    #    需要「活的世界」的故事可经 turn_context 置 ambient_enabled=True 打开；打开后引擎**不再**用
+    #    「每 N 拍轮一个 NPC 强制开口」这种死规则，而是把出手机会平等交给本幕在场 NPC，由每个 actor
+    #    自己反思这一拍要不要行动（可 do_nothing）——活的世界来自 agent 自主决定行动，不是引擎逼谁开口。
+    #    仅保留 MAX_REPLIERS 并发上限（纯基础设施：防一拍并发太多 LLM 压垮 Runner→玩家指令 IPC 超时）。
+    if turn_context.get("ambient_enabled") and not in_respond_window:
+        offered = 0
+        for aid in inject_ids:
+            if offered >= MAX_REPLIERS:
+                break
+            if aid in seen:
+                continue
+            add(aid)
+            offered += 1
 
     log.debug("F07 pick_active t=%s batch=%s inject_live=%s active=%s",
               t, batch_tick_index, inject_live, active)

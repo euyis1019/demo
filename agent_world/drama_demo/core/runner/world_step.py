@@ -17,7 +17,6 @@ class DramaWorldStep(WorldStep):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._tick_context: Optional[Dict[str, Any]] = None
-        self._passive_ticks_batch: int = 0
         self._batch_tick_index: int = 0
 
     def set_tick_context(
@@ -28,12 +27,10 @@ class DramaWorldStep(WorldStep):
     ) -> None:
         self._tick_context = dict(turn_context) if turn_context else None
         if reset_l3_window:
-            self._passive_ticks_batch = 0
             self._batch_tick_index = 0
 
     def clear_tick_context(self) -> None:
         self._tick_context = None
-        self._passive_ticks_batch = 0
         self._batch_tick_index = 0
 
     async def run_one_tick(self) -> Dict[str, Any]:
@@ -57,17 +54,12 @@ class DramaWorldStep(WorldStep):
         if inject_tick is not None:
             batch_tick_index = max(0, int(t) - int(inject_tick))
 
-        primary = set(abcs.primary_active_ids(ctx))
         active = abcs.pick_active_ids(
             ctx,
             self.world,
             t,
-            passive_ticks_so_far=self._passive_ticks_batch,
             batch_tick_index=batch_tick_index,
         )
-        passive_added = [aid for aid in active if aid not in primary]
-        if passive_added:
-            self._passive_ticks_batch += 1
         return active
 
     def _agent_place_id(self, agent_id: int) -> Optional[str]:
