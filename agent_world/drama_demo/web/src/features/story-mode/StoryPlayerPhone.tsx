@@ -58,10 +58,12 @@ export function StoryPlayerPhone({
   );
 
   // 每个联系人最近一条私信（升序排序后后写覆盖即为最新）。
+  // 归线程/判归属一律用后端玩家 agent id（"0"，与消息里的 sender_id 同源），不是 UI 占位 id "player"——
+  // 否则玩家**自己发出**的私信（sender_id=0）算不出对端、会被错分到 peer="0" 而从联系人线程里漏掉。
   const lastByPeer = useMemo(() => {
     const m: Record<string, GameMessage> = {};
     for (const msg of sortMessages(rdc)) {
-      m[rdcPeerId(msg, PLAYER_AGENT_ID)] = msg;
+      m[rdcPeerId(msg, VIRTUAL_PLAYER_AGENT_ID)] = msg;
     }
     return m;
   }, [rdc]);
@@ -76,7 +78,7 @@ export function StoryPlayerPhone({
   const threadMessages = useMemo(() => {
     if (!sel) return [];
     if (sel.kind === "rdc") {
-      return sortMessages(rdc.filter((m) => rdcPeerId(m, PLAYER_AGENT_ID) === sel.peer));
+      return sortMessages(rdc.filter((m) => rdcPeerId(m, VIRTUAL_PLAYER_AGENT_ID) === sel.peer));
     }
     return sortMessages(grp.filter((m) => String(m.group_id ?? "") === sel.groupId));
   }, [sel, rdc, grp]);
@@ -192,7 +194,9 @@ export function StoryPlayerPhone({
                       <p className="agent-phone__empty">还没有消息，写一句开始吧</p>
                     ) : (
                       threadMessages.map((m, i) => {
-                        const mine = String(m.sender_id ?? "") === PLAYER_AGENT_ID;
+                        // 玩家自己发的消息 sender_id=0（VIRTUAL_PLAYER_AGENT_ID），靠它判右对齐；
+                        // 不能用 UI 占位 id "player"（与 sender_id 不同源，会恒为 false、把自己的话排到左边）。
+                        const mine = String(m.sender_id ?? "") === VIRTUAL_PLAYER_AGENT_ID;
                         return (
                           <div
                             key={`${m.attempted_at ?? 0}-${i}`}
