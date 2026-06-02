@@ -1,11 +1,21 @@
-/* --- Story mode (immersive ADV) --- */
+/* --- Story mode (immersive ADV) — 夜戏剧场 cinematic noir stage --- */
 
 .story-mode-stage {
+  /* design tokens: warm stage-light accent over deep noir; literary serif for names/titles */
+  --stage-accent: #e3a85c;          /* warm key light */
+  --stage-accent-hot: #f0b96a;
+  --stage-accent-glow: rgba(227, 168, 92, 0.5);
+  --stage-ink: #f2ece2;             /* warm off-white text */
+  --stage-muted: #b7ab98;
+  --stage-glass: rgba(14, 12, 10, 0.66);
+  --stage-glass-edge: rgba(227, 168, 92, 0.22);
+  --stage-serif: "Songti SC", "STSong", "Noto Serif CJK SC", "Noto Serif SC", "SimSun", serif;
+
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #000;
+  background: #07060a;
 }
 
 .story-mode-stage__background {
@@ -15,6 +25,29 @@
   background-size: cover;
   background-repeat: no-repeat;
   transition: opacity 0.45s ease;
+  /* slight warm desaturation so UI accents read against any generated art */
+  filter: saturate(0.92) brightness(0.86);
+}
+
+/* Cinematic atmosphere: vignette + warm top/bottom letterbox gradients + faint film grain. */
+.story-stage__atmosphere {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 85% at 50% 42%, transparent 48%, rgba(4, 3, 7, 0.62) 100%),
+    linear-gradient(to bottom, rgba(4, 3, 7, 0.7) 0%, transparent 16%, transparent 66%, rgba(3, 2, 6, 0.86) 100%);
+}
+.story-stage__atmosphere::after {
+  /* faint grain via layered radial dots — adds film texture without an image asset */
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.8) 0.5px, transparent 0.5px);
+  background-size: 3px 3px;
 }
 
 .story-mode-stage__error {
@@ -30,13 +63,158 @@
   border-radius: 6px;
 }
 
-.story-mode-stage__input {
+/* === 夜戏剧场布局 === 顶部「情境」一行 + 右上角控件簇 + 底部舞台带（在场/字幕/台词）。 */
+
+/* 顶部「情境」：纤细一行，告诉玩家此刻在哪、和谁在一起（补删幕后的目标感）。 */
+.story-situation {
   position: absolute;
-  top: 1rem;
+  top: 0.9rem;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 20;
-  width: min(92vw, 760px);
+  z-index: 18;
+  max-width: min(64vw, 680px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 16px;
+  font-family: var(--stage-serif);
+  font-size: 0.84rem;
+  letter-spacing: 0.04em;
+  color: var(--stage-ink);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
+  background: linear-gradient(90deg, transparent, rgba(8, 6, 4, 0.5) 18%, rgba(8, 6, 4, 0.5) 82%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.story-situation__dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--stage-accent);
+  box-shadow: 0 0 8px var(--stage-accent-glow);
+  animation: story-situation-pulse 2.6s ease-in-out infinite;
+}
+@keyframes story-situation-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* 右上角控件簇：信息/收件箱/私信/剧情，全部折叠角标，纵向收纳在右上，不再挤顶部中央。 */
+.story-corner {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 32;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+  max-width: min(86vw, 360px);
+}
+.story-corner > * {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  width: auto;
+}
+/* 统一角标按钮：玻璃胶囊，暖光描边 hover。 */
+.story-corner-toggle,
+.story-phone__toggle,
+.story-inbox__toggle {
+  width: auto;
+  text-align: center;
+  padding: 0.34rem 0.82rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  color: var(--stage-ink);
+  background: var(--stage-glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--stage-glass-edge);
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+.story-corner-toggle:hover,
+.story-phone__toggle:hover,
+.story-inbox__toggle:hover {
+  color: var(--stage-accent-hot);
+  border-color: var(--stage-accent);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--stage-accent-glow);
+}
+/* 统一角标展开面板：暖色玻璃卡，从角标下方向左展开。 */
+.story-corner-panel,
+.story-phone__panel,
+.story-inbox__panel {
+  width: min(82vw, 300px);
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: rgba(12, 10, 8, 0.92);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--stage-glass-edge);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  font-size: 0.8rem;
+  color: var(--stage-ink);
+  animation: story-corner-in 0.18s ease;
+}
+@keyframes story-corner-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* 收件箱在簇里也走右对齐角标样式（覆盖旧的整宽左对齐）。 */
+.story-inbox {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+/* 剧情面板（重看开场背景 + 此刻能做什么）。 */
+.story-brief__title {
+  margin: 0 0 6px;
+  font-family: var(--stage-serif);
+  font-size: 0.96rem;
+  font-weight: 600;
+  color: var(--stage-accent-hot);
+  letter-spacing: 0.03em;
+}
+.story-brief__background {
+  margin: 0 0 8px;
+  line-height: 1.6;
+  color: var(--stage-ink);
+}
+.story-brief__tips {
+  margin: 0;
+  padding-left: 1.1em;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--stage-muted);
+  line-height: 1.5;
+}
+
+/* 底部「舞台」带：在场名册 → 字幕 → 台词，纵向收束居中、互不叠压。 */
+.story-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 16;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 0.9rem;
+  pointer-events: none;
+}
+.story-bottom > * {
+  pointer-events: auto;
+}
+.story-bottom__speak {
+  width: min(92vw, 720px);
 }
 
 .story-player-input {
@@ -304,11 +482,7 @@
 }
 
 .story-subtitle {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 15;
+  width: 100%;
   padding: 0;
   pointer-events: none;
 }
@@ -373,10 +547,12 @@
 
 .story-subtitle__name {
   margin: 0 0 0.55rem;
-  font-size: 1.2rem;
+  font-family: var(--stage-serif, serif);
+  font-size: 1.24rem;
   font-weight: 600;
-  color: #93c5fd;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  letter-spacing: 0.06em;
+  color: var(--stage-accent-hot, #f0b96a);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 14px rgba(227, 168, 92, 0.25);
 }
 
 .story-subtitle__content {
@@ -677,21 +853,16 @@
 
 /* #5 在场名册：顶部居中一排「这里有谁」的立绘头像 */
 .story-roster {
-  position: absolute;
-  top: 88px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 7;
   display: flex;
   gap: 10px;
-  max-width: 56vw;
+  max-width: min(72vw, 720px);
   overflow-x: auto;
-  padding: 6px 12px;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
+  padding: 5px 12px;
+  background: linear-gradient(180deg, rgba(10, 8, 6, 0.18), rgba(10, 8, 6, 0.42));
+  border: 1px solid rgba(227, 168, 92, 0.14);
+  border-radius: 999px;
   scrollbar-width: thin;
+  pointer-events: auto;
 }
 .story-roster--empty {
   color: #8090b0;
@@ -737,41 +908,80 @@
 
 /* #4 私信/群聊发送栏（收件箱对话框下方） */
 .story-compose {
-  margin-top: 6px;
-  padding: 7px 8px;
-  background: rgba(8, 12, 18, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  font-size: 0.82rem;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.story-compose__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .story-compose__tabs {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 5px;
 }
 .story-compose__tabs > button {
-  padding: 2px 10px;
+  padding: 3px 14px;
+  font-size: 0.78rem;
   background: transparent;
-  color: #9fb0d0;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 5px;
+  color: var(--stage-muted);
+  border: 1px solid var(--stage-glass-edge);
+  border-radius: 999px;
   cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 .story-compose__tabs > button.is-active {
-  background: #2563eb;
-  color: #fff;
-  border-color: #2563eb;
+  color: #1a140c;
+  background: var(--stage-accent);
+  border-color: var(--stage-accent);
+  font-weight: 600;
 }
-.story-compose__tabs select,
+/* 私信对象/群——人物筹码，取代原生 select。 */
+.story-compose__targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-height: 92px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.story-compose__chip {
+  padding: 3px 11px;
+  font-size: 0.78rem;
+  color: var(--stage-ink);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--stage-glass-edge);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.story-compose__chip:hover:not(:disabled) {
+  border-color: var(--stage-accent);
+}
+.story-compose__chip.is-on {
+  color: #1a140c;
+  background: var(--stage-accent-hot);
+  border-color: var(--stage-accent-hot);
+  font-weight: 600;
+}
+.story-compose__chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.story-compose__hint {
+  color: var(--stage-muted);
+  font-size: 0.76rem;
+}
 .story-compose__group {
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 3px 6px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #e8eef7;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 5px;
+  width: 100px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--stage-ink);
+  border: 1px solid var(--stage-glass-edge);
+  border-radius: 7px;
 }
 .story-compose__row {
   display: flex;
@@ -780,37 +990,41 @@
 .story-compose__text {
   flex: 1 1 auto;
   min-width: 0;
-  padding: 5px 8px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #e8eef7;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 5px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--stage-ink);
+  border: 1px solid var(--stage-glass-edge);
+  border-radius: 8px;
 }
-.story-compose__row > button {
+.story-compose__text:focus {
+  outline: none;
+  border-color: var(--stage-accent);
+}
+.story-compose__send {
   flex: 0 0 auto;
-  padding: 5px 14px;
-  background: #2563eb;
-  color: #fff;
+  padding: 6px 16px;
+  color: #1a140c;
+  background: linear-gradient(180deg, var(--stage-accent-hot), var(--stage-accent));
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
+  font-weight: 600;
   cursor: pointer;
+  transition: filter 0.15s ease;
 }
-.story-compose__row > button:disabled {
-  opacity: 0.45;
+.story-compose__send:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.story-compose__send:disabled {
+  opacity: 0.4;
   cursor: not-allowed;
 }
 .story-compose__status {
-  margin-top: 4px;
-  color: #fbbf24;
+  color: var(--stage-accent-hot);
   font-size: 0.76rem;
 }
 
 /* #4 上帝模式手机：默认一个 📱 按钮，点开是信息面板 */
 .story-phone {
-  position: absolute;
-  top: 56px;
-  right: 12px;
-  z-index: 8;
   display: flex;
   flex-direction: column;
   align-items: flex-end;

@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from "react";
-import type { GameMessage, StatDimension, Stats, WorldEvent } from "../../api/types";
+import { useMemo, useState, type ReactNode } from "react";
+import type { GameMessage, Onboarding, StatDimension, Stats, WorldEvent } from "../../api/types";
 import type { AgentInbox } from "../../store/agentInbox";
+import { agentsInPlace } from "../../store/worldSync";
 import type { PlaceId } from "../../utils/places";
 import { placeDisplayName } from "../../utils/places";
 import { WorldEventModal } from "../world-stage";
@@ -10,6 +11,7 @@ import { StoryPlaceList } from "./StoryPlaceList";
 import { StoryRoomRoster } from "./StoryRoomRoster";
 import { StoryComposeBar } from "./StoryComposeBar";
 import { StoryPhonePanel } from "./StoryPhonePanel";
+import { StoryBriefPanel } from "./StoryBriefPanel";
 import { StoryStatsHud } from "./StoryStatsHud";
 import { StorySubtitle } from "./StorySubtitle";
 import { StoryDialogueHistory } from "./StoryDialogueHistory";
@@ -39,6 +41,8 @@ export interface StoryModeStageProps {
   stats?: Stats;
   /** 属性维度定义（数据驱动：来自活跃 Story Pack 的 meta.stats）。 */
   statsDimensions?: StatDimension[];
+  /** 开场引导（背景 + 此刻能做什么）——剧情模式里随手可重看，补删幕后的目标感。 */
+  onboarding?: Onboarding | null;
   pendingWorldEvent: WorldEvent | null;
   lastError?: string;
   inputSlot: ReactNode;
@@ -66,6 +70,7 @@ export function StoryModeStage({
   playerTurn,
   stats,
   statsDimensions,
+  onboarding,
   pendingWorldEvent,
   lastError,
   inputSlot,
@@ -81,10 +86,24 @@ export function StoryModeStage({
   const roomMessages = playerRoomMessages(roomF2f, placeId);
   const dialogue = useStoryDialogueQueue(roomMessages, nameMap, agentMood);
   const backgroundUrl = storyPlaceBackground(placeId);
-  // 在场名册点某个 NPC → 预选私信对象，给下方发送栏。
+  // 在场名册点某个 NPC → 预选私信对象，给右上角私信栏。
   const [composeTarget, setComposeTarget] = useState<string | null>(null);
 
-  const subtitlePlaceholder = `【${placeDisplayName(placeId)}】`;
+  const placeName = placeDisplayName(placeId);
+  const subtitlePlaceholder = `【${placeName}】`;
+
+  // 在场 NPC 名字 → 顶部「情境」一行的环境提示（删幕后给玩家「此刻在哪、和谁在一起」的轻指引）。
+  const presentNames = useMemo(
+    () =>
+      agentsInPlace(agentLocations ?? {}, placeId)
+        .filter((id) => id !== "player")
+        .map((id) => nameMap[String(id)] ?? `Agent ${id}`),
+    [agentLocations, placeId, nameMap],
+  );
+  const situation =
+    presentNames.length > 0
+      ? `${placeName} · 此刻和你在一起的：${presentNames.join("、")}`
+      : `${placeName} · 此处只有你一人`;
 
   return (
     <div className="story-mode-stage">
@@ -103,10 +122,11 @@ export function StoryModeStage({
         className="story-mode-stage__background"
         style={{ backgroundImage: `url(${backgroundUrl})` }}
         role="img"
-        aria-label={placeDisplayName(placeId)}
+        aria-label={placeName}
       />
+      <div className="story-stage__atmosphere" aria-hidden="true" />
 
-      {/* 左列：数值 HUD + 地点列表自然纵向堆叠（不再各自魔法像素定位，避免维度多时相互重叠/留洞） */}
+      {/* 左列：数值 HUD + 地点列表自然纵向堆叠 */}
       {(stats || (places && places.length)) ? (
         <div className="story-left-col">
           {stats ? <StoryStatsHud stats={stats} dimensions={statsDimensions} /> : null}
@@ -116,21 +136,24 @@ export function StoryModeStage({
         </div>
       ) : null}
 
-      {/* #4：上帝模式手机——所在地 + 进度（在场看名册立绘、数值看左侧 HUD，不在此重复） */}
-      <StoryPhonePanel
-        placeLabel={placeDisplayName(placeId)}
-        worldTick={worldTick}
-        playerTurn={playerTurn}
-      />
+      {/* 顶部「情境」一行——此刻在哪、和谁在一起（轻指引，补删幕后的目标感空洞） */}
+      <div className="story-situation" aria-live="polite">
+        <span className="story-situation__dot" aria-hidden="true" />
+        {situation}
+      </div>
 
-      {/* #5：当前地点在场 NPC 立绘名册——点头像可快速私信 */}
-      <StoryRoomRoster
-        placeId={placeId}
-        agentLocations={agentLocations ?? {}}
-        nameMap={nameMap}
-        agentMood={agentMood}
-        onPick={(id) => setComposeTarget(id)}
-      />
+      {/* 右上角控件簇：信息 / 收件箱 / 私信 / 剧情——全部折叠收纳，不再挤占顶部中央 */}
+      <div className="story-corner">
+        <StoryPhonePanel placeLabel={placeName} worldTick={worldTick} playerTurn={playerTurn} />
+        <StoryPlayerInbox inbox={playerInbox} nameMap={nameMap} />
+        <StoryComposeBar
+          nameMap={nameMap}
+          presetTarget={composeTarget}
+          onTargetConsumed={() => setComposeTarget(null)}
+          disabled={placesDisabled}
+        />
+        <StoryBriefPanel onboarding={onboarding} />
+      </div>
 
       {lastError ? (
         <p className="story-mode-stage__error game-error" role="alert">
@@ -138,31 +161,26 @@ export function StoryModeStage({
         </p>
       ) : null}
 
-      <div className="story-mode-stage__input">
-        <StoryPlayerInbox inbox={playerInbox} nameMap={nameMap} />
-        {/* #4：私信/群聊发送栏——收件箱下方的输入框 */}
-        <StoryComposeBar
+      {/* 底部「舞台」带：在场立绘名册 → 字幕(对白) → 玩家台词输入，纵向收束、互不叠压 */}
+      <div className="story-bottom">
+        <StoryRoomRoster
+          placeId={placeId}
+          agentLocations={agentLocations ?? {}}
           nameMap={nameMap}
-          presetTarget={composeTarget}
-          onTargetConsumed={() => setComposeTarget(null)}
-          disabled={placesDisabled}
+          agentMood={agentMood}
+          onPick={(id) => setComposeTarget(id)}
         />
-        {inputSlot}
+        <StorySubtitle
+          line={dialogue.line}
+          placeholder={subtitlePlaceholder}
+          hasNext={dialogue.hasNext}
+          remaining={dialogue.remaining}
+          onAdvance={dialogue.advance}
+        />
+        <div className="story-bottom__speak">{inputSlot}</div>
       </div>
 
-      <StorySubtitle
-        line={dialogue.line}
-        placeholder={subtitlePlaceholder}
-        hasNext={dialogue.hasNext}
-        remaining={dialogue.remaining}
-        onAdvance={dialogue.advance}
-      />
-
-      <StoryDialogueHistory
-        messages={roomMessages}
-        nameMap={nameMap}
-        placeId={placeId}
-      />
+      <StoryDialogueHistory messages={roomMessages} nameMap={nameMap} placeId={placeId} />
 
       {pendingWorldEvent ? (
         <WorldEventModal event={pendingWorldEvent} onDismiss={onDismissWorldEvent} />

@@ -220,6 +220,7 @@ function GameApp() {
           playerTurn={playerTurn}
           stats={state.stats}
           statsDimensions={state.statsDimensions}
+          onboarding={onboarding}
           pendingWorldEvent={pendingWorldEvent}
           lastError={lastError}
           inputSlot={storyModeInput}
