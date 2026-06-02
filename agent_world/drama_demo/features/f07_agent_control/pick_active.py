@@ -21,6 +21,8 @@ from agent_world.drama_demo.features.f17_virtual_player.player_entity import (
 
 log = logging.getLogger("agent_world.drama_demo.f07.pick_active")
 
+REACT_WINDOW = 5   # 玩家开口后的「反应窗」拍数：这几拍内每拍轮一个在场 NPC 自主反应（接玩家或接其他 NPC 的话，
+# 让 NPC 之间也有来有往）；窗口一过、玩家不再开口就安静。是否真开口仍由 actor 自己定（acting_guide 管克制）。
 RESPOND_TICKS = 1  # 玩家说话后给在场 NPC 1 拍回应机会即可——「还没回完」由规则2(player_memory 未清)兜着继续，
 # 回完(mark_communication_action 清 player_memory)就立刻收手。设 2 会在 NPC 已回完后再白跑一拍 do_nothing，
 # 而每拍都阻塞等一次 LLM(数秒)，白白拖慢玩家下一句的处理——故收到 1，让 actor 回应更跟手。
@@ -118,12 +120,17 @@ def pick_active_ids(
         if agent is not None and has_unread_inbound(aid, agent, world, t):
             add(aid)
             repliers += 1
-    # 4) 空拍场景活性（默认关闭——回合制：玩家不开口时本幕 NPC 默认静默地等他）。
-    #    需要「活的世界」的故事可经 turn_context 置 ambient_enabled=True 打开；打开后引擎**不再**用
-    #    「每 N 拍轮一个 NPC 强制开口」这种死规则，而是把出手机会平等交给本幕在场 NPC，由每个 actor
-    #    自己反思这一拍要不要行动（可 do_nothing）——活的世界来自 agent 自主决定行动，不是引擎逼谁开口。
-    #    仅保留 MAX_REPLIERS 并发上限（纯基础设施：防一拍并发太多 LLM 压垮 Runner→玩家指令 IPC 超时）。
-    if turn_context.get("ambient_enabled") and not in_respond_window:
+    # 4) 玩家开口后的「反应窗」：rule1 那拍在场 NPC 回应玩家之后，接下来 REACT_WINDOW 拍内**每拍再轮一个**
+    #    在场 NPC，让他自主反应——可以接玩家的话，也可以接**其他 NPC 刚说的那句**（NPC 之间你一言我一语，
+    #    场子活起来）。每拍至多一个、轮着来，且只在「玩家刚开过口」的活跃窗内开；玩家不再开口、窗口一过就
+    #    安静下来（不是空拍乱刷）。是否真开口由 actor 自己反思（acting_guide 管克制/不重复，可 do_nothing）。
+    if inject_live and 0 < batch_tick_index < REACT_WINDOW:
+        reactive = [aid for aid in inject_ids if aid not in seen]
+        if reactive:
+            add(reactive[batch_tick_index % len(reactive)])
+    # 4b) 纯空拍场景活性（默认关闭——回合制）：玩家长时间不开口时，仅当 Story Pack 显式 ambient_enabled 才
+    #     让在场 NPC 自主活动；默认静默等玩家。
+    elif turn_context.get("ambient_enabled") and not in_respond_window:
         offered = 0
         for aid in inject_ids:
             if offered >= MAX_REPLIERS:
