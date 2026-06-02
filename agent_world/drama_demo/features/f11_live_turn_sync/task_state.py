@@ -79,7 +79,17 @@ def sync_runtime_state(
     session_overlay = runtime.get("session")
     if session_overlay:
         store = flask_session.setdefault(SESSION_KEY, {})
-        store[sim_id] = session_overlay
+        # place_id（玩家在哪）只由同步移动处理器（f02 /player-action move）权威写回 cookie；
+        # 后台 async turn 从不移动玩家，overlay.session 里的 place_id 只是提交那一拍的旧镜像。
+        # 若无脑用 overlay 覆盖，会把玩家刚点选移动到的新地点又拉回原地（移动后下一次
+        # /session·/player-turn·/action-result 同步即回弹）。合并时保留活动 cookie 已有的
+        # place_id；仅当本局 cookie 尚无会话时才回落到 overlay 的位置。
+        live = store.get(sim_id) or {}
+        merged = dict(session_overlay)
+        live_place = live.get("place_id")
+        if live_place:
+            merged["place_id"] = live_place
+        store[sim_id] = merged
 
     tasks_overlay = runtime.get("tasks") or {}
     if tasks_overlay:
