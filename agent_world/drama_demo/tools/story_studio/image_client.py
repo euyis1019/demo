@@ -17,9 +17,10 @@ from typing import Optional
 
 ARK_ENDPOINT = "https://ark.cn-beijing.volces.com/api/v3/images/generations"
 ARK_T2I_MODEL = os.environ.get("ARK_T2I_MODEL", "doubao-seedream-4-5-251128")
-# 主模型「额度不够」时自动切到的备用模型（用户指定 Doubao-Seedream-5.0-lite）。
-# ARK 模型 id 用小写连字符；如实际 id 不同，设环境变量 ARK_T2I_FALLBACK_MODEL 覆盖即可。
-ARK_T2I_FALLBACK_MODEL = os.environ.get("ARK_T2I_FALLBACK_MODEL", "doubao-seedream-5-0-lite")
+# 主模型「额度不够」(429) 时自动切到的备用模型。默认用 doubao-seedream-4-0-250828——这是经实测**真实存在
+# 且可调用**的 ARK 文生图模型 id（旧默认 doubao-seedream-5-0-lite 实为 404 NotFound·并非有效 id，导致主模型
+# 429 后备用也跟着挂）。账号若开通了别的图模型，设环境变量 ARK_T2I_MODEL / ARK_T2I_FALLBACK_MODEL 覆盖即可。
+ARK_T2I_FALLBACK_MODEL = os.environ.get("ARK_T2I_FALLBACK_MODEL", "doubao-seedream-4-0-250828")
 
 # 判定「额度/余额不够」的信号：HTTP 429，或错误体里出现这些词（中英）。命中即切备用模型重试。
 _QUOTA_HINTS = (
