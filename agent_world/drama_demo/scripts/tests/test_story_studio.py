@@ -70,11 +70,16 @@ _CASTING = {
 
 _BERT = {
     "berts": [
+        # 开局非结局入口：配 hint（满足 [B12]）；arms 串后续。
         {"id": "crack", "trigger": "玩家逼问守门人是否收了贿赂并施压", "target": 1,
+         "hint": "守门人收钱时眼神躲闪——抓住这点逼一逼，他未必扛得住。",
          "reaction": "心虚动摇，支吾着承认收过钱", "place": "hall", "arms": ["good_end"]},
+        # 结局均串在反应链末端（requires 非空，满足 [B11]）：crack 之后才走得到两种收场；各配收场 hint（满足 [B13]）。
         {"id": "good_end", "trigger": "玩家答应替他保守秘密换他配合", "requires": ["crack"],
+         "hint": "他已松口——你可以答应替他保守秘密，换一条进去的路，就此了结。",
          "ending": {"kind": "good", "summary": "守门人放你进去并供出买通他的人"}},
-        {"id": "bad_end", "trigger": "玩家当众揭发守门人受贿",
+        {"id": "bad_end", "trigger": "玩家当众揭发守门人受贿", "requires": ["crack"],
+         "hint": "或者当众把他受贿的事抖出来——痛快，但未必有好下场。",
          "ending": {"kind": "bad", "summary": "事情闹大，你被乱棍赶出"}},
     ]
 }
