@@ -134,8 +134,19 @@ class BertSet:
         return [bid for bid, b in self.berts.items() if b.is_ending]
 
     # ---------- validate ----------
-    def validate(self, *, agent_ids: Optional[set] = None, place_ids: Optional[set] = None) -> List[str]:
-        """结构 + 引用闭合校验。返回违例列表（空=通过）。"""
+    def validate(
+        self,
+        *,
+        agent_ids: Optional[set] = None,
+        place_ids: Optional[set] = None,
+        strict: bool = False,
+    ) -> List[str]:
+        """结构 + 引用闭合校验。返回违例列表（空=通过）。
+
+        strict=True 额外加「开局可玩面」软门禁 [B9]/[B10]——只在**生成期**用来逼管理 agent 产出
+        玩家上手就能推进的开局；运行期加载(load_and_validate)走默认 strict=False，**不因可玩面问题拒载
+        已有故事**（旧故事照常能玩，可玩面问题留待下次重新生成时由生成门禁兜）。
+        """
         issues: List[str] = []
         if not self.berts:
             issues.append("[B0] 至少要有 1 条 bert")
@@ -184,4 +195,23 @@ class BertSet:
         orphans = sorted(ids - reachable)
         if orphans:
             issues.append(f"[B8] 存在「永不上膛」的孤儿 bert（无前置链可达）：{orphans}")
+        if strict:
+            # [B9] 开局可玩面：开局必须有可触发的非结局 bert，否则玩家一上来无从下手（怎么说都没反应）。
+            opening = set(self.initially_armed())
+            open_play = [bid for bid in opening if not self.berts[bid].is_ending]
+            if not open_play:
+                issues.append(
+                    "[B9] 开局没有任何可触发的非结局 bert（玩家一上来无从推进）：开局上膛 ＝ requires 为空"
+                    "且没被任何 bert 用 arms 指向；请至少留 1 条（建议≥2、覆盖多个在场 NPC）开局入口"
+                )
+            # [B10] requires/arms 自相矛盾：requires 为空（本意开局上膛）却又被别的 bert 用 arms 指向
+            # （实为被那条上膛、开局其实锁死）。反应链设计错误——要么别被 arms 指向、要么给它非空 requires。
+            contradicted = sorted(
+                bid for bid, b in self.berts.items() if not b.requires and arming.get(bid)
+            )
+            if contradicted:
+                issues.append(
+                    f"[B10] 这些 bert 的 requires 为空却又被别的 bert 用 arms 指向，自相矛盾（开局其实锁死）："
+                    f"{contradicted}；要开局可触发就别被 arms 指向，要串作后续就给它非空 requires"
+                )
         return issues

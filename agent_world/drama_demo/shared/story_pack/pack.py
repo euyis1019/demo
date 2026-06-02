@@ -60,8 +60,12 @@ class StoryPack:
         return {int(g["group_id"]) for g in self.groups.get("groups", []) if "group_id" in g}
 
     # ---------- validate ----------
-    def validate(self) -> List[str]:
-        """图结构(V) + 跨文件引用闭合(X) + bert 规则集(B) 的全部违例（结构性，供播种/骨架编译共用）。"""
+    def validate(self, *, strict: bool = False) -> List[str]:
+        """图结构(V) + 跨文件引用闭合(X) + bert 规则集(B) 的全部违例（结构性，供播种/骨架编译共用）。
+
+        strict=True 时额外加 bert「开局可玩面」软门禁（[B9]/[B10]）——仅生成期用，逼管理 agent 产出
+        玩家上手即可推进的开局；运行期加载默认 strict=False，不因可玩面问题拒载已有故事。
+        """
         issues: List[str] = list(self.graph.validate())
         issues.extend(self._validate_cross_refs())
         if self.berts.berts:  # 仅当本包采用 bert 时才校验（旧任务包 berts 为空，跳过）
@@ -69,6 +73,7 @@ class StoryPack:
             issues.extend(self.berts.validate(
                 agent_ids=(self.agent_ids() or None),
                 place_ids=(self.place_ids() or None),
+                strict=strict,
             ))
         return issues
 

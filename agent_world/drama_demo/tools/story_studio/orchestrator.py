@@ -291,7 +291,8 @@ def compile_pack(
     write_story_pack(sections, target)
     # 仅当写到生产落点时用标准 loader 校验；否则在该目录就地校验。
     pack = load_story_pack(story_id) if target == story_dir(story_id) else _load_pack_from_dir(story_id, target)
-    return CompileResult(story_id=story_id, target_dir=target, issues=pack.validate())
+    # 生成期用 strict：除结构外，再卡「开局可玩面」([B9]/[B10])，逼管理 agent 产出玩家上手即可推进的开局。
+    return CompileResult(story_id=story_id, target_dir=target, issues=pack.validate(strict=True))
 
 
 def _load_pack_from_dir(story_id: str, directory: Path):
