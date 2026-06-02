@@ -114,13 +114,14 @@ def story_asset(story_id: str, subpath: str):
     base = (story_dir(story_id) / "assets").resolve()
     if not base.is_dir():
         return _bad_request("该故事暂无图片资源", 404)
-    # 立绘基础图缺失回退：Artist 有时只出了情绪变体(agent_N_<mood>.png) 没出基础图 agent_N.png，
-    # 会导致该角色在「中性/未映射情绪」拍因基础图 404、整张立绘消失（前端连基础回退也落空）。
-    # 这里基础图缺失时顶替一张情绪变体（偏好沉稳表情）当基础图，保证立绘始终有图可显。
+    # 立绘缺图回退：Artist 常只出了**部分**情绪变体(agent_N_<mood>.png)、且有时连基础图 agent_N.png 都没出。
+    # 运行期 agent 的情绪标签是 LLM 自由生成的（如 wary/curious…），Artist 没出对应变体就会 404、整张立绘消失，
+    # 表现为「该角色有时显示、有时不显示」（随情绪而变）。这里对**基础图或任意情绪变体**的缺失都顶替一张已有变体
+    # （偏好沉稳表情）当占位，保证只要该角色还有任一张立绘，任何情绪标签下都不会消失。不改故事数据，换故事即生效。
     if not (base / subpath).is_file():
         import re as _re
 
-        m = _re.fullmatch(r"avatars/agent_(\d+)\.png", subpath)
+        m = _re.fullmatch(r"avatars/agent_(\d+)(?:_[^/]+)?\.png", subpath)
         if m:
             have = {p.name for p in (base / "avatars").glob(f"agent_{m.group(1)}_*.png")}
             prefer = ("confident", "calm", "neutral", "happy", "anxious", "sad", "angry")
