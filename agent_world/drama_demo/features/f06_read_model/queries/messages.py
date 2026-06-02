@@ -272,7 +272,7 @@ class MessageQueriesMixin:
                        channel_type, content, place_id, attempted_at, delivered
                 FROM direct_message
                 WHERE channel_type='RDC'
-                  AND attempted_at > ? AND attempted_at <= ?
+                  AND attempted_at >= ? AND attempted_at <= ?
                   AND (sender_id=? OR recipient_id=?)
                 ORDER BY attempted_at, message_id
                 """,
@@ -297,7 +297,7 @@ class MessageQueriesMixin:
                 INNER JOIN group_member gm
                     ON gm.group_id = dm.group_id AND gm.agent_id = ?
                 WHERE dm.channel_type='GRP'
-                  AND dm.attempted_at > ? AND dm.attempted_at <= ?
+                  AND dm.attempted_at >= ? AND dm.attempted_at <= ?
                   AND (dm.sender_id=? OR dm.recipient_id=?)
                 ORDER BY dm.attempted_at, dm.message_id
                 """,
