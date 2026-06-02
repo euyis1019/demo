@@ -117,57 +117,43 @@
   50% { opacity: 1; }
 }
 
-/* 左上控件群：私信/剧情/收件箱，折叠角标纵向靠左收纳（工具条正下方、数值上方）。 */
-.story-left-actions {
+/* 私信/剧情/收件箱：左上工具条里与「上帝模式/暂停/重开」同排的按钮。
+   每个 item 相对定位，展开面板绝对浮层落在该按钮正下方，不顶动同排其它按钮。 */
+.story-corner-item,
+.story-inbox {
+  position: relative;
+  margin: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
 }
-.story-left-actions > * {
-  position: relative; /* 锚定展开面板浮层 */
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  width: auto;
-}
-/* 角标展开面板浮层化：绝对落在角标下方覆盖画面，而非把下方数值/地点顶下去。 */
-.story-left-actions .story-corner-panel,
-.story-left-actions .story-inbox__panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 45;
-  margin-top: 0;
-}
-/* 统一角标按钮：玻璃胶囊，暖光描边 hover。 */
+/* 同排按钮：与 .story-toolbar__btn 同尺寸方角，暖色描边 hover 归入夜戏剧场基调。 */
 .story-corner-toggle,
 .story-inbox__toggle {
-  width: auto;
-  text-align: left;
-  padding: 0.34rem 0.82rem;
-  font-size: 0.8rem;
-  letter-spacing: 0.02em;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
   color: var(--stage-ink);
   background: var(--stage-glass);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(6px);
   border: 1px solid var(--stage-glass-edge);
-  border-radius: 999px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  border-radius: 6px;
   cursor: pointer;
-  transition: border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+  transition: border-color 0.18s ease, color 0.18s ease;
 }
 .story-corner-toggle:hover,
 .story-inbox__toggle:hover {
   color: var(--stage-accent-hot);
   border-color: var(--stage-accent);
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--stage-accent-glow);
 }
-/* 统一展开面板：暖色玻璃卡，从角标下方靠左展开。 */
+/* 展开面板：暖色玻璃卡，绝对浮层落在按钮下方靠左。 */
 .story-corner-panel,
 .story-inbox__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 45;
   width: min(82vw, 300px);
-  margin-top: 6px;
   padding: 10px 12px;
   background: rgba(12, 10, 8, 0.92);
   backdrop-filter: blur(14px);
@@ -181,13 +167,6 @@
 @keyframes story-corner-in {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
-}
-/* 收件箱在左群里也走靠左角标样式。 */
-.story-inbox {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
 }
 
 /* 剧情面板（重看开场背景 + 此刻能做什么）。 */
@@ -464,7 +443,9 @@
   z-index: 40;
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: 0.45rem;
+  max-width: min(64vw, 640px);
 }
 
 .story-toolbar__btn {

@@ -110,6 +110,18 @@ export function StoryModeStage({
         onPauseWorld={onPauseWorld}
         onResumeWorld={onResumeWorld}
         onReset={onReset}
+        actions={
+          <>
+            <StoryComposeBar
+              nameMap={nameMap}
+              presetTarget={composeTarget}
+              onTargetConsumed={() => setComposeTarget(null)}
+              disabled={placesDisabled}
+            />
+            <StoryBriefPanel onboarding={onboarding} />
+            <StoryPlayerInbox inbox={playerInbox} nameMap={nameMap} />
+          </>
+        }
       />
 
       <div
@@ -120,24 +132,15 @@ export function StoryModeStage({
       />
       <div className="story-stage__atmosphere" aria-hidden="true" />
 
-      {/* 左上控件列：工具条正下方聚拢 私信/剧情/收件箱 + 数值 + 地点。
-          全部靠左收纳，右侧整条边留给对话记录，互不遮挡。 */}
-      <div className="story-left-col">
-        <div className="story-left-actions">
-          <StoryComposeBar
-            nameMap={nameMap}
-            presetTarget={composeTarget}
-            onTargetConsumed={() => setComposeTarget(null)}
-            disabled={placesDisabled}
-          />
-          <StoryBriefPanel onboarding={onboarding} />
-          <StoryPlayerInbox inbox={playerInbox} nameMap={nameMap} />
+      {/* 左列：数值 HUD + 地点列表（私信/剧情/收件箱已并入顶部工具条同排）。 */}
+      {stats || (places && places.length) ? (
+        <div className="story-left-col">
+          {stats ? <StoryStatsHud stats={stats} dimensions={statsDimensions} /> : null}
+          {places && places.length ? (
+            <StoryPlaceList placeId={placeId} places={places} disabled={placesDisabled} />
+          ) : null}
         </div>
-        {stats ? <StoryStatsHud stats={stats} dimensions={statsDimensions} /> : null}
-        {places && places.length ? (
-          <StoryPlaceList placeId={placeId} places={places} disabled={placesDisabled} />
-        ) : null}
-      </div>
+      ) : null}
 
       {/* 顶部中央：情境一行 + 玩家台词输入框（输入框回到最上面中间）。 */}
       <div className="story-topcenter">

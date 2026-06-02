@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { WorldLoopState } from "../../api/types";
 
 export interface StoryModeToolbarProps {
@@ -11,6 +12,8 @@ export interface StoryModeToolbarProps {
   onReset?: () => void;
   /** God mode only shows mode switch; story mode shows all controls. */
   compact?: boolean;
+  /** 玩家工具（私信/剧情/收件箱）作为同排按钮接在控制键之后。 */
+  actions?: ReactNode;
 }
 
 export function StoryModeToolbar({
@@ -23,6 +26,7 @@ export function StoryModeToolbar({
   onResumeWorld,
   onReset,
   compact = false,
+  actions,
 }: StoryModeToolbarProps) {
   const isPaused = worldLoopState === "paused";
   const showWorldControls = !compact && viewMode === "story";
@@ -67,6 +71,7 @@ export function StoryModeToolbar({
           重开
         </button>
       ) : null}
+      {actions}
     </div>
   );
 }
