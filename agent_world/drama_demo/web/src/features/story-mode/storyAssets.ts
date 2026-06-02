@@ -34,3 +34,26 @@ export function storyAvatarUrl(speakerId: string, mood?: string): string {
   }
   return storyAvatarBaseUrl(speakerId);
 }
+
+/** 受控情绪枚举（对齐后端 shared/emotion.py EMOTIONS）；立绘变体图按此命名 agent_{id}_{emotion}.png。 */
+export const STORY_EMOTIONS = [
+  "neutral",
+  "happy",
+  "angry",
+  "sad",
+  "anxious",
+  "confident",
+] as const;
+
+/** 一个 agent 的全部立绘 url（基础 + 各非 neutral 情绪变体），供预热缓存——开口时瞬时切换、与字幕同步。 */
+export function storyAvatarVariantUrls(speakerId: string): string[] {
+  if (speakerId === PLAYER_AGENT_ID) {
+    return [storyAvatarBaseUrl(speakerId)];
+  }
+  return [
+    storyAvatarBaseUrl(speakerId),
+    ...STORY_EMOTIONS.filter((e) => e !== "neutral").map((e) =>
+      storyAvatarUrl(speakerId, e),
+    ),
+  ];
+}

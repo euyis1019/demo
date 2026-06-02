@@ -1,11 +1,12 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { GameMessage, Onboarding, StatDimension, Stats, WorldEvent } from "../../api/types";
 import type { AgentInbox } from "../../store/agentInbox";
 import { agentsInPlace } from "../../store/worldSync";
 import type { PlaceId } from "../../utils/places";
 import { placeDisplayName } from "../../utils/places";
 import { WorldEventModal } from "../world-stage";
-import { storyPlaceBackground } from "./storyAssets";
+import { preloadAvatars } from "./greenScreenKey";
+import { storyAvatarVariantUrls, storyPlaceBackground } from "./storyAssets";
 import { StoryPlaceList } from "./StoryPlaceList";
 import { StoryRoomRoster } from "./StoryRoomRoster";
 import { StoryPlayerPhone } from "./StoryPlayerPhone";
@@ -91,13 +92,21 @@ export function StoryModeStage({
   const placeName = placeDisplayName(placeId);
   const subtitlePlaceholder = `【${placeName}】`;
 
+  // 当前在场 NPC id（驱动名册 + 立绘预热）。
+  const presentIds = useMemo(
+    () => agentsInPlace(agentLocations ?? {}, placeId).filter((id) => id !== "player"),
+    [agentLocations, placeId],
+  );
+  // 预热在场 NPC 的全部情绪立绘变体：进房间/有人进来时提前解析进缓存，等他开口时立绘**瞬时**切到对的情绪、
+  // 与字幕同帧——解决「立绘慢半拍、对不上台词」。失败（缺某情绪变体图）静默回退，不影响。
+  useEffect(() => {
+    preloadAvatars(presentIds.flatMap((id) => storyAvatarVariantUrls(String(id))));
+  }, [presentIds]);
+
   // 在场 NPC 名字 → 顶部「情境」一行的环境提示（删幕后给玩家「此刻在哪、和谁在一起」的轻指引）。
   const presentNames = useMemo(
-    () =>
-      agentsInPlace(agentLocations ?? {}, placeId)
-        .filter((id) => id !== "player")
-        .map((id) => nameMap[String(id)] ?? `Agent ${id}`),
-    [agentLocations, placeId, nameMap],
+    () => presentIds.map((id) => nameMap[String(id)] ?? `Agent ${id}`),
+    [presentIds, nameMap],
   );
   const situation =
     presentNames.length > 0

@@ -128,6 +128,51 @@ export function chromaKeyGreenToDataUrl(src: string): Promise<string> {
   });
 }
 
+// ── 立绘解析缓存（让换情绪与字幕同帧切换，不再滞后）─────────────────────────────
+// src → 最终可显示 url（已透明的原图，或运行期抠绿后的 dataURL）。换情绪时若命中，可同步立刻切图，
+// 不必每次都重新「判透明 + 抠绿」（那是异步的，会让立绘慢字幕半拍）。配合 preloadAvatars 预热，
+// 角色开口时其情绪立绘多半已在缓存里，瞬时切换。
+const RESOLVED_CACHE = new Map<string, string>();
+const RESOLVING = new Map<string, Promise<string>>();
+
+/** 同步取已解析好的立绘 url（命中即可本帧切换、与字幕同步）；未解析过则返回 undefined。 */
+export function getResolvedAvatar(src: string): string | undefined {
+  return RESOLVED_CACHE.get(src);
+}
+
+/** 解析一张立绘到可显示 url：已透明→直接用原图；否则运行期抠绿成 dataURL。结果缓存 + 同 src 并发去重。 */
+export function resolveAvatar(src: string): Promise<string> {
+  const hit = RESOLVED_CACHE.get(src);
+  if (hit) {
+    return Promise.resolve(hit);
+  }
+  const inflight = RESOLVING.get(src);
+  if (inflight) {
+    return inflight;
+  }
+  const p = (async () => {
+    const keyed = await imageHasTransparency(src);
+    const out = keyed ? src : await chromaKeyGreenToDataUrl(src);
+    RESOLVED_CACHE.set(src, out);
+    RESOLVING.delete(src);
+    return out;
+  })().catch((err) => {
+    RESOLVING.delete(src);
+    throw err;
+  });
+  RESOLVING.set(src, p);
+  return p;
+}
+
+/** 预热：把这些立绘提前解析进缓存，等角色真开口时瞬时切换（与字幕同帧）。缺图等失败静默忽略。 */
+export function preloadAvatars(srcs: Iterable<string>): void {
+  for (const s of srcs) {
+    if (s && !RESOLVED_CACHE.has(s) && !RESOLVING.has(s)) {
+      void resolveAvatar(s).catch(() => {});
+    }
+  }
+}
+
 /** True when PNG already has meaningful transparency (pre-processed asset). */
 export async function imageHasTransparency(src: string): Promise<boolean> {
   return new Promise((resolve) => {
