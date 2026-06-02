@@ -1,7 +1,7 @@
 """F07 L3 — 每拍激活哪些 agent（数据驱动，无随机、无单故事写死）。
 
 谁本拍可跑 LLM 全由「有没有理由」决定：玩家刚说话→本幕在场 NPC 回应；有未读私信→回复(有上限)；
-空拍→在本幕在场 NPC(由管理 agent 经 Story Pack 的 node.inject_agents 决定)里确定性轮转一个自主活动。
+空拍→默认静默等玩家（回合制；ambient 默认关，需 Story Pack 显式开才轮转在场 NPC 自主活动）。
 引擎不随机挑人、不强制移动、不写死任何故事的角色编号/幕名/地点（换 Story Pack 即换游戏）。
 """
 
@@ -116,9 +116,11 @@ def pick_active_ids(
         if agent is not None and has_unread_inbound(aid, agent, world, t):
             add(aid)
             repliers += 1
-    # 4) 空拍场景活性：无玩家输入时，按确定性轮转给本幕在场 NPC 里轮到的那一个一拍，由它自主决定是否行动。
-    #    无随机；每批至多放一个；低频（每 3 拍一次）保持节奏，且不与玩家回应窗口叠加。
-    if not in_respond_window and passive_ticks_so_far < 1 and int(t) % 3 == 0:
+    # 4) 空拍场景活性（**默认关闭**）：仅当 Story Pack 经 turn_context 显式开 ambient 时，才在无玩家输入的
+    #    空拍里确定性轮转一个在场 NPC 自主活动。默认关闭——剧情模式按反馈走「回合制」：NPC 回应完玩家这句就
+    #    停下、等玩家再开口，不自顾自一句接一句往下说/旁白刷屏（玩家不开口时整场静默地等他）。
+    #    需要"活的世界"的故事可在生成的 mirror/turn_context 里置 ambient_enabled=True 重新打开，引擎不写死。
+    if turn_context.get("ambient_enabled") and not in_respond_window and passive_ticks_so_far < 1 and int(t) % 3 == 0:
         ambient = [aid for aid in inject_ids if aid not in seen]
         if ambient:
             add(ambient[(int(t) // 3) % len(ambient)])
