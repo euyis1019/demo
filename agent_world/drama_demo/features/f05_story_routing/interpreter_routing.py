@@ -26,9 +26,17 @@ def get_interpreter(story_id: str) -> StoryInterpreter:
 
 
 def _gather_scene(ipc_client: Any, place: str, agent_ids: List[int], ipc_timeout: float) -> None:
-    """把指定 **NPC** 聚到某地点，让反应同场可见。★绝不移动玩家(agent 0)——玩家位置完全由玩家自己主导。"""
+    """把指定 **NPC** 聚到某地点，让反应同场可见。★绝不移动玩家(agent 0)——玩家位置完全由玩家自己主导。
+
+    ★仅在 **npc_free_move=true** 的开放/活世界故事里才真的搬人。封闭场景(free_move=false，如密室/盘问)下
+    引擎**绝不**主动搬 NPC：他们守在 Casting 摆好的原位、由玩家自己走过去找。否则会出现「导演把 target
+    反复聚到玩家面前、又按 bert.place 把他拽回原地」的来回闪动——表现为 NPC「来了又走、却不说话」。
+    注意：bert 的 reaction 在调用本函数**之前**已注入，NPC 留在原地照常当面反应，不受此门控影响。"""
+    from agent_world.drama_demo.shared.story_pack.scenario_adapter import is_free_move_enabled
     from agent_world.drama_demo.http.ipc_helper import send_move_agent
 
+    if not is_free_move_enabled():
+        return
     if not place:
         return
     for aid in agent_ids:
