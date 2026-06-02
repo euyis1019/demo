@@ -141,12 +141,19 @@ export function StoryModeStage({
         </div>
       ) : null}
 
-      {/* 顶部中央：情境一行 + 玩家台词输入框（输入框回到最上面中间）。 */}
+      {/* 顶部中央：情境一行 +（可选）线索一行 + 玩家台词输入框。线索＝管理 agent 生成的开场钩子，
+          删分幕/任务后给玩家随时可见的目标感；详情可点左上「📖 剧情」回看。 */}
       <div className="story-topcenter">
         <div className="story-situation" aria-live="polite">
           <span className="story-situation__dot" aria-hidden="true" />
           {situation}
         </div>
+        {onboarding?.hook ? (
+          <div className="story-hint" title={onboarding.hook}>
+            <span className="story-hint__mark" aria-hidden="true">🔍 线索</span>
+            <span className="story-hint__text">{onboarding.hook}</span>
+          </div>
+        ) : null}
         <div className="story-topcenter__speak">{inputSlot}</div>
       </div>
 

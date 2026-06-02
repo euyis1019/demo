@@ -615,6 +615,25 @@ body {
   line-height: 1.8;
   color: #cdd7ea;
 }
+/* 开局弹窗里的「线索」高亮块：删分幕/任务后给玩家第一眼的目标感（与界面常驻线索同源）。 */
+.onboarding-modal__hook {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  font-size: 1.02rem;
+  line-height: 1.7;
+  color: #f4e7cf;
+  background: rgba(227, 168, 92, 0.12);
+  border-left: 3px solid #e3a85c;
+  border-radius: 6px;
+}
+.onboarding-modal__hook-mark {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #f0b96a;
+}
 .onboarding-modal__sub {
   margin: 0 0 10px;
   font-size: 1rem;

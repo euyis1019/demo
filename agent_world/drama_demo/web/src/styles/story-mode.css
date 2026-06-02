@@ -117,6 +117,37 @@
   50% { opacity: 1; }
 }
 
+/* 顶部「线索」一行：管理 agent 生成的开场钩子，删分幕/任务后给玩家随时可见的目标感。
+   轻量单行、可截断（完整文案 hover 提示 + 左上「📖 剧情」可回看），不喧宾夺主。 */
+.story-hint {
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 14px;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
+  background: linear-gradient(90deg, transparent, rgba(20, 14, 6, 0.5) 18%, rgba(20, 14, 6, 0.5) 82%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.story-hint__mark {
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--stage-accent);
+}
+.story-hint__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--stage-ink);
+  opacity: 0.92;
+}
+
 /* 私信/剧情/收件箱：左上工具条里与「上帝模式/暂停/重开」同排的按钮。
    每个 item 相对定位，展开面板绝对浮层落在该按钮正下方，不顶动同排其它按钮。 */
 .story-corner-item,
@@ -177,6 +208,22 @@
   font-weight: 600;
   color: var(--stage-accent-hot);
   letter-spacing: 0.03em;
+}
+/* 剧情面板里的「线索」块：比正文醒目，常驻可回看（与顶部线索同源 onboarding.hook）。 */
+.story-brief__hook {
+  margin: 0 0 8px;
+  padding: 7px 9px;
+  line-height: 1.55;
+  color: var(--stage-ink);
+  background: rgba(227, 168, 92, 0.1);
+  border-left: 2px solid var(--stage-accent);
+  border-radius: 4px;
+}
+.story-brief__hook-mark {
+  margin-right: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--stage-accent-hot);
 }
 .story-brief__background {
   margin: 0 0 8px;

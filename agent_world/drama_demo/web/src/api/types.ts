@@ -138,6 +138,8 @@ export interface Onboarding {
   title?: string;
   background?: string;
   tips?: string[];
+  /** 一句「开场钩子/线索」：删分幕/任务后给玩家随时可见的目标感（前端常驻「线索」位 + 引导卡）。 */
+  hook?: string;
 }
 
 export interface SessionSnapshot {

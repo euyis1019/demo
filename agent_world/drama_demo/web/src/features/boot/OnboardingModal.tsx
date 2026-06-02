@@ -18,6 +18,12 @@ export function OnboardingModal({ onboarding, onDismiss }: OnboardingModalProps)
         {onboarding.background ? (
           <p className="onboarding-modal__bg">{onboarding.background}</p>
         ) : null}
+        {onboarding.hook ? (
+          <p className="onboarding-modal__hook">
+            <span className="onboarding-modal__hook-mark" aria-hidden="true">🔍 线索</span>
+            {onboarding.hook}
+          </p>
+        ) : null}
         {tips.length ? (
           <>
             <h2 className="onboarding-modal__sub">你现在可以做什么</h2>

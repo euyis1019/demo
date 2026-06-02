@@ -12,7 +12,7 @@ export interface StoryBriefPanelProps {
  */
 export function StoryBriefPanel({ onboarding }: StoryBriefPanelProps) {
   const [open, setOpen] = useState(false);
-  if (!onboarding || (!onboarding.background && !(onboarding.tips?.length))) {
+  if (!onboarding || (!onboarding.background && !(onboarding.tips?.length) && !onboarding.hook)) {
     return null;
   }
   return (
@@ -28,6 +28,12 @@ export function StoryBriefPanel({ onboarding }: StoryBriefPanelProps) {
       {open ? (
         <div className="story-corner-panel story-brief__panel">
           {onboarding.title ? <p className="story-brief__title">{onboarding.title}</p> : null}
+          {onboarding.hook ? (
+            <p className="story-brief__hook">
+              <span className="story-brief__hook-mark" aria-hidden="true">🔍 线索</span>
+              {onboarding.hook}
+            </p>
+          ) : null}
           {onboarding.background ? (
             <p className="story-brief__background">{onboarding.background}</p>
           ) : null}
