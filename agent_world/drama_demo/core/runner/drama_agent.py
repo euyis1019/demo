@@ -199,27 +199,24 @@ class DramaAgent(DemoAgent):
     def _short_action_rules(self) -> str:
         """通用（数据驱动）的本回合行动要求——人设/剧情来自活跃 Story Pack 的知识块，这里只给跨故事
         通用的行动纪律。不含任何写死的故事/阶段/角色编号规则（换 config 即换游戏）。"""
-        from agent_world.drama_demo.shared.story_pack.scenario_adapter import (
-            is_free_move_enabled,
+        # NPC 可按自己的角色意图真实移动（request_move 已不再被引擎吞）——但务必「言行一致」：
+        # 说要去某处就真的 move 过去，别只动嘴不动身；也别明明没动却说自己走了。非必要不挪窝。
+        move_rule = (
+            "2) 你**可以 request_move 到相邻地点**，由你自行判断是否需要（要去查个东西/躲开/追随某人/离场等）——"
+            "但**非必要不挪窝**，守在该守的地方。\n"
+            "   ★**言行必须一致**：台词里说了「我去/我走/到那边」，这一拍就**真的 request_move 过去**；"
+            "不打算动就别在台词里说自己走了。\n"
         )
-
-        if is_free_move_enabled():
-            move_rule = (
-                "2) 你可以 request_move 到相邻地点，由你自行判断是否需要（如被叫去某处、追随某人）；"
-                "台词须与移动一致。\n"
-            )
-        else:
-            move_rule = (
-                "2) request_move 被引擎忽略，台词里不要说「我去某处」——位置不会变。\n"
-            )
 
         # 只保留跨故事的「工具/消息时序」引擎机制；**何时开口/何时沉默/怎么演/如何推进**由管理 agent 经
         # acting_guide 生成进 meta.acting_guide，运行期由 knowledge.py 注入——引擎不再硬性「每拍必回应」
         # （旧硬规则会盖过 acting_guide 的沉默纪律，导致 NPC 太活跃、刷屏、不推进剧情）。
         return (
             "【本回合怎么行动——按你的角色处境与上文「表演须知」自己判断，别机械执行】\n"
+            "（以下是跨故事的通用行动纪律；**若与上文你的「表演须知」(acting_guide) 有出入，一律以「表演须知」为准**——"
+            "那才是为你这个角色量身调教的。）\n"
             "1) 这一拍**开不开口、说什么、还是沉默(do_nothing)，由你自己判断**——别为刷存在感硬接话：\n"
-            "   · 玩家直接对你说话时你应当回应（别无视玩家）：当面 speak_to_local、私信 send_message；\n"
+            "   · 玩家直接对你说话时一般应当回应（别无视玩家）：当面 speak_to_local、私信 send_message；\n"
             "   · NPC 之间不必每拍都搭话——这一拍你没有要紧的话/事、或只会重复别人，就 do_nothing，把舞台让给该说的人；\n"
             "   · 一旦开口就**带着你的目的推进这一幕**（追问/试探/施压/交代或验收任务/揭露），别寒暄注水、别原地打转。\n"
             f"{move_rule}"

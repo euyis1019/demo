@@ -1,4 +1,4 @@
-"""drama demo ActionDispatcher — agent-initiated MOVE is IPC-only (Flask routing)."""
+"""drama demo ActionDispatcher — NPC 自主移动放行，言行一致（导演引导走 f05 另一条路）。"""
 
 from __future__ import annotations
 
@@ -18,8 +18,12 @@ _DRAMA_MOVE_REASON = "drama_move_ipc_only"
 
 
 class DramaActionDispatcher(ActionDispatcher):
-    """Suppress agent ``request_move`` by default (location via Flask IPC);
-    ``DRAMA_FREE_MOVE=1`` lets request_move through to the generic dispatcher (旋钮2)."""
+    """NPC 自主移动（``request_move``）始终放行——agent 按自己的角色意图决定要走就**真的走**（言行一致）。
+
+    这与「导演引导」是两条不同的路：导演那条（f05 ``_gather_scene``）由引擎按 bert 把 NPC 搬到
+    反应地点、曾导致 NPC 来回乱晃，仍按 ``npc_free_move`` 单独门控关掉；而 agent 自己发起的
+    ``request_move`` 不再被引擎吞掉，落到通用 dispatcher 真正生效。移动克制由 drama_agent prompt
+    「非必要不挪窝 / 言行一致」+ meta.acting_guide 把关，不靠引擎硬性禁止。"""
 
     async def dispatch(
         self,
@@ -33,28 +37,6 @@ class DramaActionDispatcher(ActionDispatcher):
                 action_type = ActionType(action_type)
             except ValueError:
                 pass
-
-        # 旋钮2：默认抑制 agent 自主移动（旧版脚本搬人）；DRAMA_FREE_MOVE=1 时放开，
-        # request_move 落到通用 dispatcher 真正生效（移动引导见 drama_agent prompt「非必要不移动」）。
-        from agent_world.drama_demo.shared.story_pack.scenario_adapter import (
-            is_free_move_enabled,
-        )
-
-        move_type = getattr(ActionType, "REQUEST_MOVE", "request_move")
-        if (action_type == move_type or action_type == "request_move") and not is_free_move_enabled():
-            place_id = kwargs.get("place_id") or kwargs.get("target")
-            log.info(
-                "HBM dispatcher: ignore agent request_move agent=%s place=%s t=%s",
-                agent_id,
-                place_id,
-                t,
-            )
-            return {
-                "success": False,
-                "reason": _DRAMA_MOVE_REASON,
-                "noop": True,
-                "place_id": place_id,
-            }
 
         return await super().dispatch(agent_id, action_type, t, **kwargs)
 
