@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 from agent_world.drama_demo.features.f15_prompt_trace.refs import (
     f2f_ref_key,
     grp_ref_key,
+    location_ref_key,
     noop_ref_key,
     rdc_ref_key,
     state_ref_key,
@@ -92,6 +93,17 @@ async def record_action_links(
                 at_tick=int(t),
                 link_kind="grp",
                 ref_key=grp_ref_key(int(t), int(agent_id), int(group_id)),
+            )
+        elif name in ("request_move", "move"):
+            # NPC 自主移动：dispatch 入队、回合末提交，但决策 t 与提交 t 同一拍（step.py step 9），
+            # 故位置事件 at_tick == t。把移动事件链到这一拍的决策 trace，让 Prompt Inspector 点
+            # 「地点」也能看到「为什么走」。玩家移动走 IPC（source=ipc_move、无 LLM），不经此路径。
+            store.link_outcome(
+                trace_id=trace_id,
+                agent_id=int(agent_id),
+                at_tick=int(t),
+                link_kind="loc",
+                ref_key=location_ref_key(int(t), int(agent_id)),
             )
         elif name == "update_state":
             content = str(action_kwargs.get("new_state") or "")
