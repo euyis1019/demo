@@ -37,6 +37,21 @@ def build_thread_recap(
     t_now = int(t)
     aid = int(agent_id)
 
+    # 可见域边界（引擎级强隔离，不靠 actor 自觉）：F2F 只看自己当前所在地点、GRP 只看自己所在群、
+    # RDC 只看与自己相关的（收或发）。取不到时降级为空集——只会更严、绝不越权。
+    try:
+        cur_place = str((world_db.fetch_all_agent_locations() or {}).get(aid, {}).get("place_id") or "")
+    except Exception:  # noqa: BLE001
+        cur_place = ""
+    try:
+        my_groups = {
+            int(gid)
+            for gid, members in (world_db.fetch_group_members() or {}).items()
+            if aid in {int(m) for m in (members or [])}
+        }
+    except Exception:  # noqa: BLE001
+        my_groups = set()
+
     lines: List[str] = []
     seen_utterances: set[tuple[Any, ...]] = set()
     try:
@@ -55,6 +70,18 @@ def build_thread_recap(
         if not content or sender_id is None:
             continue
         sid = int(sender_id)
+        # —— 可见域过滤：越权内容直接丢弃；自己说过/做过的(sid==aid)永远保留 ——
+        if ch == "F2F":
+            if sid != aid and str(row.get("place_id") or "") != cur_place:
+                continue
+        elif ch == "RDC":
+            _rid = row.get("recipient_id")
+            if sid != aid and (int(_rid) if _rid is not None else -1) != aid:
+                continue
+        elif ch == "GRP":
+            _gid = row.get("group_id")
+            if sid != aid and (int(_gid) if _gid is not None else -1) not in my_groups:
+                continue
         dedupe_key = (
             ch,
             at_tick,
@@ -82,12 +109,8 @@ def build_thread_recap(
             if recipient_id is None:
                 continue
             rid = int(recipient_id)
-            if sid != aid and rid != aid:
-                lines.append(
-                    f"- {_agent_label(sid, name_map)}→{_agent_label(rid, name_map)}"
-                    f"(RDC, t={at_tick}): 「{content}」"
-                )
-            elif sid == aid:
+            # 经可见域过滤后，RDC 必是「自己发」或「发给自己」——第三方私信已在上面丢弃。
+            if sid == aid:
                 lines.append(
                     f"- 你→{_agent_label(rid, name_map)}(RDC, t={at_tick}): 「{content}」"
                 )
@@ -248,7 +271,10 @@ def build_pack_agent_knowledge(
     else:
         sections.append(_section(
             "此刻",
-            "现在没有人正对你说话。按你的处境、目的与内心，自行决定此刻是开口、行动、还是 do_nothing。"))
+            "没有人正当面对你说话。但**先看下方「本局对话与交流记录」**——有没有人**私信你(RDC)**、"
+            "或你**所在群**里在喊你？有人私信你、问你话、点了你的名，通常就该回（回私信用 send_message 发回给对方、"
+            "群里用 send_to_group）；至于回不回、怎么回，由你按角色与处境自己定。"
+            "要是确实没人找你、也没要紧的事可做，再 do_nothing 安静等着——别把找你的人晾在那不理。"))
 
     # 7) 表演须知——由设计期管理 agent 按本故事基调生成（meta.acting_guide），运行期只注入、不内嵌规则。
     guide = _pack_acting_guide(pack)
