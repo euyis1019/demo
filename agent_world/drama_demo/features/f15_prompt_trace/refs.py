@@ -47,9 +47,12 @@ def attach_trace_fields(
     ref_key: str,
     link_map: Dict[str, str],
 ) -> None:
-    item["ref_key"] = ref_key
+    # 只有当这条行动**确有 trace 链接**时才挂 ref_key+prompt_trace_id——前端据 ref_key 渲染「查看 Prompt」
+    # 入口。没有 LLM 决策的行动（玩家自己的台词/私信/群聊、或本拍因故没建 trace）就不挂，前端自然不可点，
+    # 从根上杜绝「点开报 no trace」的死链：可点 ⟺ 真有 prompt 可看。
     trace_id = link_map.get(ref_key)
     if trace_id:
+        item["ref_key"] = ref_key
         item["prompt_trace_id"] = trace_id
 
 

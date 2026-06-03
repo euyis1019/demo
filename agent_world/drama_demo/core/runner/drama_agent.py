@@ -128,11 +128,11 @@ class DramaAgent(DemoAgent):
         from agent_world.drama_demo.core.runner.integration import prompt_trace
 
         trace_store = prompt_trace.PromptTraceStore(world_db) if world_db is not None else None
-        skip_idle_trace = (
-            abcs.is_world_loop_enabled()
-            and turn_ctx.get("player_inject_tick") is None
-        )
-        if trace_store is not None and trace_store.enabled and not skip_idle_trace:
+        # 过去 idle 拍（世界循环运行、无玩家注入）跳过建 trace；但开场白、NPC 之间自主互发私信、NPC 自主
+        # 移动都发生在 idle 拍，前端却把这些行动都做成了 Prompt Inspector 可点击入口——点开就报「no trace」。
+        # 改为：只要 trace 开启，就给每个本拍被选中出手的 NPC 建 trace（选中数受 pick_active 限流，一整局
+        # 远不到 cap=5000）。让前端「能看到的每个行动」都查得到 prompt——不再区分玩家注入拍与自主拍。
+        if trace_store is not None and trace_store.enabled:
             trace_id = trace_store.begin_trace(
                 agent_id=int(self.agent_id),
                 at_tick=int(t),

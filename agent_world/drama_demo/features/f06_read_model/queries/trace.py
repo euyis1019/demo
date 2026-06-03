@@ -61,7 +61,7 @@ class TraceQueriesMixin:
                     """
                     SELECT link_id, trace_id, agent_id, at_tick, link_kind, ref_key
                     FROM agent_action_trace_link
-                    WHERE at_tick > ? AND at_tick <= ?
+                    WHERE at_tick >= ? AND at_tick <= ?
                     ORDER BY at_tick, link_id
                     """,
                     (int(since_t), int(t_now)),

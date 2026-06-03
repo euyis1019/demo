@@ -9,7 +9,6 @@ from agent_world.drama_demo.features.f15_prompt_trace.refs import (
     f2f_ref_key,
     grp_ref_key,
     location_ref_key,
-    noop_ref_key,
     rdc_ref_key,
     state_ref_key,
 )
@@ -114,22 +113,8 @@ async def record_action_links(
                 link_kind="state",
                 ref_key=state_ref_key(int(t), int(agent_id), content),
             )
-        elif name == "do_nothing" or result.get("noop"):
-            store.link_outcome(
-                trace_id=trace_id,
-                agent_id=int(agent_id),
-                at_tick=int(t),
-                link_kind="do_nothing",
-                ref_key=noop_ref_key(int(t), int(agent_id)),
-            )
-        elif name == "relation_change":
-            store.link_outcome(
-                trace_id=trace_id,
-                agent_id=int(agent_id),
-                at_tick=int(t),
-                link_kind="relation",
-                ref_key=f"rel:{t}:{agent_id}",
-            )
+        # do_nothing / noop / relation_change 不建 link：前端没有对应可点入口（不像 F2F/RDC/GRP/loc/state
+        # 那样会被 enrich 成可点击事件），过去建的是「永不会被反查」的孤儿 link，纯占库、易误导。去掉。
     except Exception as exc:  # noqa: BLE001
         log.warning("F15 link_outcome failed agent=%s: %s", agent_id, exc)
 
