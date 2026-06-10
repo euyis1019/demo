@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from cyber_town.backend.player_agent import PlayerAgent
+from cyber_town.backend.agents.player_agent import PlayerAgent
 
 
 def _agent() -> PlayerAgent:

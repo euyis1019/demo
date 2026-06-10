@@ -10,19 +10,16 @@ cyber_town/
 ├── world_seed/            # 纯数据层：世界种子
 │   ├── scenario.yaml      #   3 地点 / 4 agent / 关系 / 群 / 能力 / coverage
 │   └── loader.py          #   灌库（照搬引擎 run_demo._seed_world，含 self-edge 补全）
-├── backend/               # 后端薄应用层
+├── backend/               # 后端（W6 按功能分包；详见 backend/__init__.py 包地图）
+│   ├── main.py            #   FastAPI 入口（uvicorn 路径不变）
 │   ├── config.py          #   常量 + .env / LLM 配置解析（零依赖）
-│   ├── actions.py         #   agent→引擎的动作数据形状（duck-type 契约）
-│   ├── llm_client.py      #   LLM 工厂：真实 AsyncOpenAI / 离线 Mock 可互换
-│   ├── npc.py             #   CyberTownNPC：LLM 村民（生活化提示词，允许沉默）
-│   ├── player_agent.py    #   PlayerAgent：玩家虚拟农夫（不调 LLM，命令队列）
-│   ├── scheduler.py       #   激活调度：同场每拍 + 异地低频心跳
-│   ├── world_factory.py   #   内核装配（唯一成套 import agent_world 的地方）
-│   ├── affinity/          #   M4：好感度薄层（独立 affinity.db；主路拦截+规则底噪）
-│   ├── snapshot.py        #   M1：每拍世界快照（自管消息游标，勿用引擎 last_seen）
-│   ├── ws_hub.py          #   M1：WS 连接管理 + 广播 + 玩家命令入队
-│   ├── tick_loop.py       #   M1：固定墙钟心跳后台任务（变速拍 + 优雅退出）
-│   ├── main.py            #   M1：FastAPI 入口（lifespan 装配 / /ws/world / /healthz）
+│   ├── prompts/           #   ★ 所有软引导/提示词文本的唯一集中地
+│   ├── agents/            #   actions / npc / player_agent
+│   ├── runtime/           #   world_factory / scheduler / tick_loop
+│   ├── api/               #   ws_hub / snapshot / timeline
+│   ├── llm/               #   client（真实/Mock 工厂）/ json_call（JSON 元决策）
+│   ├── affinity/          #   M4：好感度薄层（独立 affinity.db；100% LLM 主路）
+│   ├── directors/         #   W5：管理类 agent（激活导演 / 世界事件导演）
 │   ├── .env               #   LLM_API_KEY=...（gitignored，见 .env.example）
 │   └── .env.example
 ├── frontend/              # M2：Godot 4.x 工程（全代码化生成，导入即跑）

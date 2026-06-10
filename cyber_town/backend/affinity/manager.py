@@ -19,41 +19,17 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
+# 文本件全部来自 prompts（W6 集中管理）；从本模块 re-export 维持旧引用面
+from cyber_town.backend.prompts.affinity import (
+    ADJUST_AFFINITY_TOOL,
+    LEVELS,
+    REFLECT_REMINDER,
+    SUFFIX_FOOTER,
+    SUFFIX_HEADER,
+    render_attitude_line,
+)
+
 log = logging.getLogger(__name__)
-
-# 5 档阈值与行为指引（集中一处，调档只改这里）
-LEVELS = [
-    (80, "挚友", "无话不谈，可以交心、可以托付事情"),
-    (60, "亲密", "很信任对方，主动关心，愿意分享心里话"),
-    (40, "友好", "当朋友处，主动攀谈，愿意帮些小忙"),
-    (20, "熟悉", "脸熟了，正常来往，话比对陌生人多些"),
-    (0,  "陌生", "还不熟，客气但保持距离，不交浅言深"),
-]
-
-# 私有工具 schema（追加进 NPC 的 tools；引擎不认识它，必须前置拦截）
-ADJUST_AFFINITY_TOOL: Dict[str, Any] = {
-    "type": "function",
-    "function": {
-        "name": "adjust_affinity",
-        "description": (
-            "（内心活动，别人看不见）你对每个人的观感**只有你自己会更新**——"
-            "系统不会替你变心。每拍留意：刚才的对话/举动有没有让你对谁的看法"
-            "起变化？哪怕一点点（愉快的寒暄 +1、被照顾 +2、被冒犯 -2、"
-            "真正暖心或伤人的事 ±3 以上），就顺手调用本工具记一笔；"
-            "毫无波澜则不调。可以和说话等动作同拍使用。"
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "target": {"type": "integer", "description": "对方 agent_id"},
-                "delta": {"type": "integer", "description": "好感变化，-3 到 +5"},
-                "reason": {"type": "string", "description": "一句话原因（内心记一笔）"},
-            },
-            "required": ["target", "delta"],
-            "additionalProperties": False,
-        },
-    },
-}
 
 LLM_DELTA_MIN, LLM_DELTA_MAX = -3, 5   # 主路单次 clamp（仅防爆表）
 
@@ -113,27 +89,19 @@ class AffinityManager:
         present = [int(a) for a in (getattr(obs, "co_located_agents", None) or [])]
         if not present:
             return ""
-        lines = ["# 我对在场各人的态度（依此把握语气与主动程度，别直接念数字）"]
+        lines = [SUFFIX_HEADER]
         for other in present:
             score = self._store.get_score(npc.agent_id, other)
             level, guide = self.level_of(score)
             who = self._names.get(other, f"agent_{other}")
-            tag = "（玩家）" if other == self._player_id else ""
-            lines.append(f"- {who}{tag}：{level} {score}/100 —— {guide}")
-        lines.append(
-            "这些态度只会因你自己调用 adjust_affinity 而变化——系统不会替你变心。"
-        )
+            lines.append(render_attitude_line(
+                who, other == self._player_id, level, score, guide))
+        lines.append(SUFFIX_FOOTER)
         # 条件化自省提醒（非每拍重复，仅在真的收到话时触发——避免空泛诱导）
         heard = bool(getattr(obs, "incoming_messages", None)) or \
             bool(getattr(obs, "overheard", None))
         if heard:
-            lines.append(
-                "⚖ 你这一拍收到了别人的话——回应之前先自问：这话有没有让你"
-                "对说话人的观感起变化（暖心/冒犯/可靠/失望…）？**有就先调用"
-                " adjust_affinity 记一笔（可与说话等动作同拍并用），再回应**；"
-                "真的毫无波澜才略过。同一件事只记一次——往拍已记过分的旧话，"
-                "别因为还看得见就反复计。"
-            )
+            lines.append(REFLECT_REMINDER)
         return "\n".join(lines)
 
     # ------------------------------------------------------------------ #

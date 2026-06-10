@@ -15,7 +15,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from cyber_town.backend.actions import (
+from cyber_town.backend.agents.actions import (
     AgentResponse,
     ToolCall,
     do_nothing_response,

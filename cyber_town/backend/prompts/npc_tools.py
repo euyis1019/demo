@@ -1,0 +1,152 @@
+"""NPC 的 7 个引擎工具 schema（原 agents/npc.py::TOOLS，W6 集中至 prompts）。
+
+工具的中文 description 是 NPC 行为软引导的重要载体——改「怎么跟 LLM 介绍
+这个动作」只改这里。
+
+⚠ 工具名严格等于引擎 ActionType.value（agent_world/world/dispatcher.py），
+一个字都不能改；好感度私有工具 adjust_affinity 在 prompts/affinity.py。
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List
+
+TOOLS: List[Dict[str, Any]] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "speak_to_local",
+            "description": (
+                "对当前地点里所有人当面说出口的话（同地点广播，在场的人都听见）。"
+                "是『口语』不是『短信腔』：像街坊当面唠嗑那样说话，"
+                "称呼随口、说事直接。适合：寒暄、唠家常、招呼客人、当面答话。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "string",
+                        "description": "你说出口的话，1-3 句，口语。",
+                    }
+                },
+                "required": ["content"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_message",
+            "description": (
+                "给某个具体的人发私信（手机短信/微信，对方不在身边也能收到，"
+                "异地约 1 拍后送达）。悄悄话、捎话、远程招呼用这个；"
+                "对方就在你眼前时优先当面说（speak_to_local）。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target": {"type": "integer", "description": "收件人 agent_id"},
+                    "content": {"type": "string"},
+                },
+                "required": ["target", "content"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_to_group",
+            "description": (
+                "在你所在的群聊里发消息，群成员下一拍能看到。"
+                "适合：跟全镇人说事、张罗活动、群里搭话。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "group_id": {"type": "integer"},
+                    "content": {"type": "string"},
+                },
+                "required": ["group_id", "content"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "request_move",
+            "description": (
+                "走去另一个地点（本拍末出发，下一拍人在新地点）。"
+                "按你的生活作息走动：串门、采买、收工去酒馆。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "place_id": {"type": "string", "description": "目的地 place_id"},
+                },
+                "required": ["place_id"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_state",
+            "description": (
+                "更新自己的『当前状态』（你正在做什么/心里在想什么）。"
+                "干活、歇着、心情变化都可以用它记录——不说话的拍子里，"
+                "用它让别人看见你在过日子。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "new_state": {
+                        "type": "string",
+                        "description": "新的状态描述，1-2 句。",
+                    },
+                },
+                "required": ["new_state"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_short_term_goal",
+            "description": (
+                "更新自己的『当前小目标』（接下来一小段时间打算干嘛）。"
+                "发现自己在原地打转/重复说同样的话时，先调它再行动。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "new_goal": {
+                        "type": "string",
+                        "description": "1-2 句，明确下一步。",
+                    },
+                },
+                "required": ["new_goal"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "do_nothing",
+            "description": (
+                "这一拍安静过：发呆、继续手头的活、晒太阳。"
+                "乡下日子慢，没事不必硬找话——这是完全正常的选择。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+        },
+    },
+]

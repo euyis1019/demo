@@ -9,9 +9,9 @@ import pytest
 from cyber_town.backend.affinity import AffinityManager, AffinityStore
 from cyber_town.backend.affinity.manager import DEFAULT_SEED, ADJUST_AFFINITY_TOOL
 from cyber_town.backend.config import DEFAULT_SCENARIO_PATH, LLMConfig
-from cyber_town.backend.llm_client import make_llm_client
-from cyber_town.backend.snapshot import SnapshotBuilder
-from cyber_town.backend.world_factory import build_world
+from cyber_town.backend.llm.client import make_llm_client
+from cyber_town.backend.api.snapshot import SnapshotBuilder
+from cyber_town.backend.runtime.world_factory import build_world
 from cyber_town.world_seed.loader import load_scenario
 
 _MOCK_CFG = LLMConfig(base_url="http://mock", model="mock", api_key="mock")
