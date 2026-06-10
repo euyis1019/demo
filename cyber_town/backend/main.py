@@ -13,7 +13,6 @@
 * ``CYBER_TOWN_SCENARIO=path``  自定义世界种子
 * ``CYBER_TOWN_SIM_DIR=path``   world.db 落盘目录（默认 tempdir）
 * ``CYBER_TOWN_TICK_SECONDS``   心跳间隔（默认 config.TICK_SECONDS）
-* ``CYBER_TOWN_HEARTBEAT``      异地 NPC 心跳拍数（默认 config.HEARTBEAT_EVERY）
 """
 
 from __future__ import annotations
@@ -34,7 +33,6 @@ from cyber_town.backend.affinity import AffinityManager, AffinityStore
 from cyber_town.backend.affinity.manager import DEFAULT_SEED
 from cyber_town.backend.config import (
     DEFAULT_SCENARIO_PATH,
-    HEARTBEAT_EVERY,
     PLAYER_ID,
     TICK_SECONDS,
     LLMConfig,
@@ -59,7 +57,6 @@ def create_app(
     *,
     mock: Optional[bool] = None,
     tick_seconds: Optional[float] = None,
-    heartbeat_every: Optional[int] = None,
     sim_dir: Optional[str] = None,
 ) -> FastAPI:
     """应用工厂：参数优先，环境变量兜底（便于测试注入）。"""
@@ -71,9 +68,6 @@ def create_app(
     )
     cfg_tick = tick_seconds if tick_seconds is not None else float(
         os.environ.get("CYBER_TOWN_TICK_SECONDS", TICK_SECONDS)
-    )
-    cfg_heartbeat = heartbeat_every if heartbeat_every is not None else int(
-        os.environ.get("CYBER_TOWN_HEARTBEAT", HEARTBEAT_EVERY)
     )
     cfg_sim_dir = sim_dir or os.environ.get("CYBER_TOWN_SIM_DIR")
 
@@ -89,9 +83,7 @@ def create_app(
         run_dir = Path(cfg_sim_dir) if cfg_sim_dir else Path(
             tempfile.mkdtemp(prefix="cyber_town_ws_")
         )
-        asm = await build_world(
-            scenario, run_dir, client, llm_cfg, heartbeat_every=cfg_heartbeat,
-        )
+        asm = await build_world(scenario, run_dir, client, llm_cfg)
         # ---- M4 好感度薄层：装配后接线（与 world_factory 解耦）------------
         affinity_store = AffinityStore(run_dir / "affinity.db", player_id=PLAYER_ID)
         affinity_store.seed(DEFAULT_SEED)

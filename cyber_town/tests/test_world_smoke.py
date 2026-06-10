@@ -25,7 +25,7 @@ async def _build(tmp_path: Path):
     scenario = load_scenario(DEFAULT_SCENARIO_PATH)
     client = make_llm_client(_MOCK_CFG, mock=True)
     return await build_world(
-        scenario, tmp_path, client, _MOCK_CFG, heartbeat_every=4,
+        scenario, tmp_path, client, _MOCK_CFG,
     )
 
 

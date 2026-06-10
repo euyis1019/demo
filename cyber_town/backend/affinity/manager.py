@@ -1,13 +1,14 @@
-"""AffinityManager —— 好感度业务逻辑（方案 §9：主路 piggyback + 规则法底噪）。
+"""AffinityManager —— 好感度业务逻辑（W3 纯自主化：唯一更新路 = LLM 主路）。
 
-两条更新路（叠加，零额外 LLM 调用）：
-* **主路**：NPC 决策时 LLM 顺带产出私有工具 ``adjust_affinity(target, delta,
-  reason)``——该工具引擎 dispatcher 不认识会静默丢弃，所以由
-  ``CyberTownNPC.private_tool_handler`` 在返回引擎**之前**拦截到这里；
-  delta clamp [-3, +5]。
-* **底噪（规则法）**：tick 末直接查 world_db（不依赖 obs——那是 NPC 决策内
-  的局部变量，审计 AFF-4）：玩家当面说 +2 / 私信 +1 / 同地点共处 +0.5/拍
-  （半分用两拍 +1 实现）/ 连续 ≥10 拍无互动 -1。每对单拍累计 clamp [-2, +5]。
+**好感度 100% 由 NPC 自己决定**（用户自主性审计后拍板）：NPC 决策时经私有
+工具 ``adjust_affinity(target, delta, reason)`` 自主记录观感变化——该工具
+引擎 dispatcher 不认识会静默丢弃，所以由 ``CyberTownNPC.private_tool_handler``
+在返回引擎**之前**拦截到这里；delta clamp [-3, +5] 仅防爆表，是否调用/对谁/
+多少/原因全由 LLM 决定。
+
+> 历史注记：曾有「规则法底噪」（按消息历史自动 +2/+1/共处/衰减），因属
+> 「后端代理 NPC 内心」且形成虚假自我认知回路，经审计后整体移除——
+> 提示词层改为明确引导 LLM 主动评估（见 ADJUST_AFFINITY_TOOL 与第 6 段）。
 
 注入：``prompt_suffix_provider`` 给 NPC 系统提示词追加第 6 段「我对在场各人
 的态度」（只渲染在场者控 token），不动引擎前 5 段。
@@ -35,9 +36,11 @@ ADJUST_AFFINITY_TOOL: Dict[str, Any] = {
     "function": {
         "name": "adjust_affinity",
         "description": (
-            "（内心活动，别人看不见）这一拍的互动让你对某人的观感变了，"
-            "就调整你对 ta 的好感。变化要克制：日常寒暄 ±1，"
-            "真正暖心/伤人的事才 ±3 以上。可以和说话动作同拍使用。"
+            "（内心活动，别人看不见）你对每个人的观感**只有你自己会更新**——"
+            "系统不会替你变心。每拍留意：刚才的对话/举动有没有让你对谁的看法"
+            "起变化？哪怕一点点（愉快的寒暄 +1、被照顾 +2、被冒犯 -2、"
+            "真正暖心或伤人的事 ±3 以上），就顺手调用本工具记一笔；"
+            "毫无波澜则不调。可以和说话等动作同拍使用。"
         ),
         "parameters": {
             "type": "object",
@@ -52,14 +55,7 @@ ADJUST_AFFINITY_TOOL: Dict[str, Any] = {
     },
 }
 
-# 规则法权重（方案 §13 Q3 默认值，M4 可调）
-RULE_F2F_FROM_PLAYER = 2      # 玩家当面对话
-RULE_RDC_FROM_PLAYER = 1      # 玩家私信
-RULE_COPRESENCE_EVERY = 2     # 同地点共处：每 2 拍 +1（等效 +0.5/拍）
-RULE_DECAY_AFTER = 10         # 连续 N 拍无互动
-RULE_DECAY = -1
-LLM_DELTA_MIN, LLM_DELTA_MAX = -3, 5
-RULE_TICK_MIN, RULE_TICK_MAX = -2, 5   # 规则法单拍累计 clamp
+LLM_DELTA_MIN, LLM_DELTA_MAX = -3, 5   # 主路单次 clamp（仅防爆表）
 
 
 class AffinityManager:
@@ -124,66 +120,21 @@ class AffinityManager:
             who = self._names.get(other, f"agent_{other}")
             tag = "（玩家）" if other == self._player_id else ""
             lines.append(f"- {who}{tag}：{level} {score}/100 —— {guide}")
+        lines.append(
+            "这些态度只会因你自己调用 adjust_affinity 而变化——系统不会替你变心。"
+        )
+        # 条件化自省提醒（非每拍重复，仅在真的收到话时触发——避免空泛诱导）
+        heard = bool(getattr(obs, "incoming_messages", None)) or \
+            bool(getattr(obs, "overheard", None))
+        if heard:
+            lines.append(
+                "⚖ 你这一拍收到了别人的话——回应之前先自问：这话有没有让你"
+                "对说话人的观感起变化（暖心/冒犯/可靠/失望…）？**有就先调用"
+                " adjust_affinity 记一笔（可与说话等动作同拍并用），再回应**；"
+                "真的毫无波澜才略过。同一件事只记一次——往拍已记过分的旧话，"
+                "别因为还看得见就反复计。"
+            )
         return "\n".join(lines)
-
-    # ------------------------------------------------------------------ #
-    # 规则法底噪（tick_loop 末调用；直接查 world_db）                      #
-    # ------------------------------------------------------------------ #
-
-    def apply_rule_based(self, asm: Any, report: Dict[str, Any]) -> None:
-        """按本拍世界事实给「NPC 对玩家」的好感做底噪累计（fail-soft）。"""
-        try:
-            t = int(report.get("t", 0))
-            deltas: Dict[int, int] = {}      # npc_id -> 本拍累计
-            interacted: set = set()
-
-            # 玩家本拍发出的消息（F2F 扇出行 recipient=NPC / RDC 单行）；
-            # DISTINCT 防御理论上的重复行（审查 AFF-004）
-            rows = asm.world_db._conn.execute(  # noqa: SLF001 — 只读统计
-                "SELECT DISTINCT recipient_id, channel_type FROM direct_message "
-                "WHERE sender_id=? AND attempted_at=? AND delivered=1",
-                (self._player_id, t),
-            ).fetchall()
-            for rid, ch in rows:
-                rid = int(rid)
-                if ch == "F2F":
-                    deltas[rid] = deltas.get(rid, 0) + RULE_F2F_FROM_PLAYER
-                elif ch == "RDC":
-                    deltas[rid] = deltas.get(rid, 0) + RULE_RDC_FROM_PLAYER
-                interacted.add(rid)
-
-            player_place = asm.world.location_of(self._player_id)
-            for npc in asm.npcs:
-                nid = npc.agent_id
-                # 共处底噪：每 RULE_COPRESENCE_EVERY 拍 +1
-                if (asm.world.location_of(nid) == player_place
-                        and t % RULE_COPRESENCE_EVERY == 0):
-                    deltas[nid] = deltas.get(nid, 0) + 1
-                    interacted.add(nid)
-                # 疏远衰减：太久没互动（衰减不刷新互动时刻）
-                # rows_n 为空时 last=0 意为「从未互动」；严格大于（>）配合种子
-                # 的 last_interact_at=-10，保证首次衰减最早发生在 t>10 的检查点
-                # （审查 AFFINITY-001/AFF-005）。注意：共处底噪每 2 拍续期互动
-                # 时刻，小世界里衰减本就罕见——属预期的温和设计，触发必留日志。
-                rows_n = [r for r in self._store.pairs_of(nid)
-                          if int(r["other_id"]) == self._player_id]
-                last = int(rows_n[0]["last_interact_at"]) if rows_n else 0
-                if nid not in interacted and t - last > RULE_DECAY_AFTER \
-                        and t % RULE_DECAY_AFTER == 0:
-                    deltas[nid] = deltas.get(nid, 0) + RULE_DECAY
-                    log.info("好感度疏远衰减：%s→玩家 %d（上次互动 t=%d，现 t=%d）",
-                             self._names.get(nid, nid), RULE_DECAY, last, t)
-
-            for nid, d in deltas.items():
-                d = max(RULE_TICK_MIN, min(RULE_TICK_MAX, d))
-                if d == 0 or nid == self._player_id:
-                    continue
-                self._store.apply_delta(
-                    nid, self._player_id, d, t,
-                    reason="规则底噪", touch_interact=(nid in interacted),
-                )
-        except Exception as exc:  # noqa: BLE001 — 底噪失败不阻断 tick
-            log.warning("好感度规则法本拍跳过：%s", exc)
 
     # ------------------------------------------------------------------ #
     # 导出                                                                 #

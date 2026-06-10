@@ -23,6 +23,13 @@ var _name_label: Label
 var _state_label: Label
 var _bubble: Label
 var _bubble_timer := 0.0
+var _wander_allowed := false     # W3 状态驱动：current_state 含动态语义才游走
+
+## 动态语义词（NPC 自己写的 current_state 含这些字 → 它在「活动」→ 允许游走）；
+## 静态语义（坐/蹲/靠/睡…）或无线索 → 站定。游走从此有 LLM 表达背书。
+const ACTIVE_HINTS := ["走", "逛", "转", "巡", "跑", "忙", "干活", "收拾",
+	"打扫", "理货", "搬", "摆", "备", "擦", "扫", "锄", "浇", "喂", "翻地", "薅"]
+const STILL_HINTS := ["坐", "蹲", "靠", "躺", "歇", "睡", "发呆", "站定", "等着"]
 
 
 func _ready() -> void:
@@ -110,6 +117,7 @@ func apply_snapshot(info: Dictionary) -> void:
 		_show_bubble(str(bubble))
 	var cs := str(info.get("current_state", "")).strip_edges().replace("\n", " ")
 	_state_label.text = ("〔%s〕" % cs.left(18)) if cs != "" else ""
+	_wander_allowed = _infer_wander(cs)
 
 
 func _process(delta: float) -> void:
@@ -120,6 +128,11 @@ func _process(delta: float) -> void:
 				_state = State.WANDER
 				_wander_timer = randf_range(2.0, 5.0)
 		State.WANDER:
+			# W3：仅当 NPC 自己的 current_state 表达了动态语义才游走
+			# （干活/打扫/理货…）；否则站定播 idle——画面不杜撰行为
+			if not _wander_allowed:
+				_play_idle()
+				return
 			_wander_timer -= delta
 			if _wander_timer <= 0.0:
 				_wander_timer = randf_range(3.0, 8.0)
@@ -148,6 +161,18 @@ func _step_towards(target: Vector2, speed: float, delta: float) -> void:
 		_sprite.play("walk_%s" % _facing)
 	else:
 		_play_idle()
+
+
+## W3 状态驱动游走判定：静态语义（明确「不动」）优先压制；其次动态语义放行；
+## 两者皆无 → 站定（保守：没有 LLM 表达背书就不杜撰走动）。
+func _infer_wander(cs: String) -> bool:
+	for w in STILL_HINTS:
+		if cs.contains(w):
+			return false
+	for w in ACTIVE_HINTS:
+		if cs.contains(w):
+			return true
+	return false
 
 
 func _play_idle() -> void:

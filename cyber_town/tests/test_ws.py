@@ -16,7 +16,7 @@ from cyber_town.backend.main import create_app
 
 def _make_client(tmp_path) -> TestClient:
     app = create_app(
-        mock=True, tick_seconds=0.05, heartbeat_every=4, sim_dir=str(tmp_path),
+        mock=True, tick_seconds=0.05, sim_dir=str(tmp_path),
     )
     return TestClient(app)
 

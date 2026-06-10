@@ -79,7 +79,7 @@ def test_level_mapping() -> None:
 async def _build_with_affinity(tmp_path: Path):
     scenario = load_scenario(DEFAULT_SCENARIO_PATH)
     client = make_llm_client(_MOCK_CFG, mock=True)
-    asm = await build_world(scenario, tmp_path, client, _MOCK_CFG, heartbeat_every=4)
+    asm = await build_world(scenario, tmp_path, client, _MOCK_CFG)
     store = AffinityStore(tmp_path / "affinity.db", player_id=0)
     store.seed(DEFAULT_SEED)
     mgr = AffinityManager(store, asm.name_directory, player_id=0)
@@ -97,19 +97,6 @@ async def test_wire_npcs_attaches_hooks(tmp_path: Path) -> None:
         assert any(t["function"]["name"] == "adjust_affinity"
                    for t in npc.extra_tools)
     assert ADJUST_AFFINITY_TOOL in asm.npcs[0].extra_tools
-
-
-@pytest.mark.asyncio
-async def test_rule_based_player_f2f_raises_affinity(tmp_path: Path) -> None:
-    """玩家当面说话 → 同地点 NPC（大山）对玩家好感上升。"""
-    asm, mgr, store = await _build_with_affinity(tmp_path)
-    before = store.get_score(3, 0)
-    asm.player.push_command(
-        {"action": "speak_to_local", "kwargs": {"content": "大山哥辛苦了！"}})
-    report = await asm.world_step.run_one_tick()
-    mgr.apply_rule_based(asm, report)
-    after = store.get_score(3, 0)
-    assert after > before, f"当面互动后好感应上升：{before} -> {after}"
 
 
 @pytest.mark.asyncio
@@ -186,6 +173,7 @@ async def test_prompt_suffix_renders_present_only(tmp_path: Path) -> None:
 
     text = dashan.prompt_suffix_provider(dashan, _Obs())
     assert "我对在场各人的态度" in text
+    assert "adjust_affinity" in text, "W3：第6段应含主动评估引导"
     assert "农场主" in text and "熟悉" in text  # 种子 30 分=熟悉
 
     class _Empty:

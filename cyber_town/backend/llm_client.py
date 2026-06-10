@@ -71,7 +71,7 @@ class _MockCompletion:
 
 # 剧本表：(agent_id, t) -> [(tool_name, args), ...]
 # 设计目标：8 拍内把 F2F / RDC(跨地点+1拍延迟) / GRP / request_move 全过一遍。
-# 配合 --heartbeat 4：老钱(1) 在 t=3,7 激活；阿香(2) 在 t=2,6；大山(3) 异地后 t=5。
+# 全员每拍激活（W3）：未列入剧本表的 (aid,t) 一律 do_nothing。
 _SCRIPT: Dict[Tuple[int, int], List[Tuple[str, Dict[str, Any]]]] = {
     # 大山(3)：开局在 farm 与玩家同场，每拍激活
     (3, 0): [("speak_to_local", {"content": "新邻居，早啊。你这地荒了两年，得先翻一遍土。"})],
@@ -80,10 +80,10 @@ _SCRIPT: Dict[Tuple[int, int], List[Tuple[str, Dict[str, Any]]]] = {
     (3, 3): [("send_to_group", {"group_id": 100, "content": "各位，新邻居今天开始翻地了，回头都搭把手。"})],
     (3, 4): [("request_move", {"place_id": "square"})],
     (3, 5): [("speak_to_local", {"content": "老钱，锄头呢？给新邻居挑把称手的。"})],
-    # 老钱(1)：异地，靠心跳拍激活（heartbeat=4 → t=3,7）
+    # 老钱(1)
     (1, 3): [("send_message", {"target": 3, "content": "放心，锄头我挑好了，最趁手的那把。让他直接来拿。"})],
     (1, 7): [("update_state", {"new_state": "把留给新农场主的锄头擦了擦，摆在柜台最显眼的位置。"})],
-    # 阿香(2)：异地心跳（heartbeat=4 → t=2,6）
+    # 阿香(2)
     (2, 2): [("update_state", {"new_state": "杯子擦完了，开始切晚上下酒的卤味。"})],
     (2, 6): [("send_to_group", {"group_id": 100, "content": "晚上都来酒馆，给新邻居接风，我请第一轮。"})],
 }
