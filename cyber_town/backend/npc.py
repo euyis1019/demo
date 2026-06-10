@@ -387,15 +387,36 @@ class CyberTownNPC:
                 )
 
         if obs.incoming_messages:
-            lines.append("# 你收到的消息：")
-            for m in obs.incoming_messages:
-                ch = getattr(m, "channel_type", "?")
-                gid = getattr(m, "group_id", None)
-                tag = ch + (f"#g{gid}" if gid else "")
+            # W4：私信与群聊分开渲染——私信是「对方特意私下发给你的话」，
+            # 混在消息堆里会被忽略（实测 flash 看见了也不回）。这里只做
+            # 事实与社交常识的呈现（私信通常盼着回音），回不回仍由你决定。
+            dms = [m for m in obs.incoming_messages
+                   if getattr(m, "channel_type", "") == "RDC"]
+            others = [m for m in obs.incoming_messages if m not in dms]
+            if dms:
                 lines.append(
-                    f"  - [{tag}] 来自 {self._label(getattr(m, 'sender_id', None))}："
-                    f"{getattr(m, 'content', '')}"
+                    "# 📨 你收到的私信（对方特意私下发给你、还没得到你的回应——"
+                    "正等你的回音）："
                 )
+                for m in dms:
+                    sender = getattr(m, "sender_id", None)
+                    here = sender in set(obs.co_located_agents or [])
+                    how = ("人就在你跟前，当面答（speak_to_local）或回私信都行"
+                           if here else "回私信用 send_message")
+                    lines.append(
+                        f"  - {self._label(sender)} 私下对你说："
+                        f"「{getattr(m, 'content', '')}」（{how}）"
+                    )
+            if others:
+                lines.append("# 你收到的其他消息：")
+                for m in others:
+                    ch = getattr(m, "channel_type", "?")
+                    gid = getattr(m, "group_id", None)
+                    tag = ch + (f"#g{gid}" if gid else "")
+                    lines.append(
+                        f"  - [{tag}] 来自 {self._label(getattr(m, 'sender_id', None))}："
+                        f"{getattr(m, 'content', '')}"
+                    )
 
         f2f_history = list(getattr(obs, "f2f_local_history", []) or [])
         if f2f_history:
@@ -437,8 +458,10 @@ class CyberTownNPC:
         lines.append(
             "【这一拍】按你的人设和眼前情形自然地过——说话、做事、走动、"
             "或者就安静待着（do_nothing），全凭你自己，沉默也完全正常。\n"
-            "仅有的两条纪律：别和『你自己最近做过的』雷同（不复读）；"
-            "当面说是口语，人不在身边才用私信。"
+            "仅有的三条纪律：别和『你自己最近做过的』雷同（不复读）；"
+            "当面说是口语，人不在身边才用私信；"
+            "别人特意发给你的私信别已读不回——本拍就回应它（当面答或回信皆可），"
+            "怎么答、答什么由你。"
         )
         return "\n".join(lines)
 
