@@ -1,0 +1,30 @@
+; 赛博小镇 Godot 工程（Godot 4.x，导入即跑）
+; 设计说明：
+;  * 场景文件保持极简（根节点+脚本），所有子节点由脚本 _ready 构建——
+;    避免手写 .tscn 出错，也便于纯代码审查。
+;  * 输入不走 InputMap，直接键盘轮询（WASD/方向键移动，E 互动，Tab 菜单）。
+;  * 像素风：default_texture_filter=0（nearest），勿改否则精灵发糊。
+
+config_version=5
+
+[application]
+
+config/name="赛博小镇 CyberTown"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.3")
+
+[autoload]
+
+Config="*res://scripts/config.gd"
+WorldNet="*res://scripts/world_net.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0

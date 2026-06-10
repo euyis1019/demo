@@ -21,6 +21,9 @@ dist/
 # world.db / pool.db 等 SQLite 仿真产物
 *.db
 
+# ---- Godot ----
+.godot/
+
 # ---- 操作系统 ----
 .DS_Store
 

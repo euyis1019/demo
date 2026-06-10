@@ -24,6 +24,12 @@ cyber_town/
 │   ├── main.py            #   M1：FastAPI 入口（lifespan 装配 / /ws/world / /healthz）
 │   ├── .env               #   LLM_API_KEY=...（gitignored，见 .env.example）
 │   └── .env.example
+├── frontend/              # M2：Godot 4.x 工程（全代码化生成，导入即跑）
+│   ├── project.godot      #   像素渲染 + autoload（Config/WorldNet）
+│   ├── scenes/            #   极简场景（根节点+脚本，子节点全由代码构建）
+│   ├── scripts/           #   config/world_net/sprite_lib/player/npc/day_night/main
+│   ├── assets/            #   CC0 图集与音频（来源见 CREDITS.md）
+│   └── CREDITS.md         #   素材许可清单
 ├── tests/                 # pytest：调度/玩家命令/冒烟/快照游标/WS 端到端
 ├── requirements.txt       # 后端依赖（勿跑 pip install -e .）
 └── run_m0.py              # M0 CLI：纯文本活体世界
@@ -44,6 +50,10 @@ python3 -m pytest cyber_town/tests -q
 # M1：后端 WS 服务（真实 LLM；Mock 加 CYBER_TOWN_MOCK=1）
 uvicorn cyber_town.backend.main:app --port 8000
 # 然后 WS 连 ws://127.0.0.1:8000/ws/world，REST 看 http://127.0.0.1:8000/healthz
+
+# M2：Godot 前端（先启动上面的后端）
+# 用 Godot 4.x 打开 cyber_town/frontend/project.godot，按 F5 运行；
+# WASD/方向键走动，走进「广场/酒馆」区域即自动前往（下一拍生效）。
 ```
 
 > ⚠ 用 Python `websockets` 库写调试客户端时务必 `connect(url, proxy=None)`——
