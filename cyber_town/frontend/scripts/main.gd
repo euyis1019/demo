@@ -29,6 +29,7 @@ var _hint: Label
 
 func _ready() -> void:
 	_build_ground()
+	_build_decor()
 	# script.new()：从脚本直接实例化（脚本 extends CanvasModulate），
 	# 比先 new 再 set_script 更符合 Godot 4 习惯且初始化时序无歧义
 	day_night = (load("res://scripts/day_night.gd") as GDScript).new()
@@ -227,6 +228,23 @@ func _build_ground() -> void:
 		sign.add_theme_color_override("font_color", Color(1, 1, 0.9))
 		sign.z_index = -8
 		add_child(sign)
+
+
+func _build_decor() -> void:
+	# 用 CC0 图集（Overworld.png）摆装饰物：谷仓/喷泉/集市摊/木屋/树/栅栏/木箱。
+	# 全部 z_index=-5：压在地面色块(-10)之上、角色(0)之下，不参与碰撞。
+	var atlas: Texture2D = load("res://assets/gfx/Overworld.png")
+	for entry in Config.DECOR_PLACEMENTS:
+		var region: Rect2 = Config.DECOR_REGIONS[entry[0]]
+		var at := AtlasTexture.new()
+		at.atlas = atlas
+		at.region = region
+		var sp := Sprite2D.new()
+		sp.texture = at
+		sp.scale = Vector2.ONE * Config.SPRITE_SCALE
+		sp.position = entry[1]
+		sp.z_index = -5
+		add_child(sp)
 
 
 func _build_hud() -> void:
