@@ -13,6 +13,7 @@
 * ``CYBER_TOWN_SCENARIO=path``  自定义世界种子
 * ``CYBER_TOWN_SIM_DIR=path``   world.db 落盘目录（默认 tempdir）
 * ``CYBER_TOWN_TICK_SECONDS``   心跳间隔（默认 config.TICK_SECONDS）
+* ``CYBER_TOWN_DIRECTORS=0``    关闭管理类 agent（回退全员每拍激活、无环境事件）
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ from cyber_town.backend.config import (
     LLMConfig,
     resolve_llm_config,
 )
+from cyber_town.backend.directors import ActivationDirector, WorldDirector
 from cyber_town.backend.llm_client import make_llm_client
 from cyber_town.backend.snapshot import SnapshotBuilder
 from cyber_town.backend.tick_loop import tick_loop
@@ -46,6 +48,12 @@ from cyber_town.backend.world_factory import build_world
 from cyber_town.backend.ws_hub import WSHub
 from cyber_town.world_seed.loader import load_scenario
 
+# uvicorn 只配置自家 logger，根 logger 无 handler 会吞掉应用 INFO 日志；
+# basicConfig 在根 logger 已有 handler 时是 no-op，安全
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 log = logging.getLogger(__name__)
 
 # Mock 模式占位配置（不需要真实 key——离线剧本不发网络请求）
@@ -92,9 +100,23 @@ def create_app(
         )
         affinity_mgr.wire_npcs(asm.npcs)
 
+        # ---- W5 管理类 agent（只调配资源与感知输入，不产生 NPC 行为）----
+        directors = []
+        world_dir = None
+        if os.environ.get("CYBER_TOWN_DIRECTORS", "1") not in ("0", "false"):
+            act_dir = ActivationDirector(
+                client, llm_cfg.model, [n.agent_id for n in asm.npcs])
+            asm.scheduler.interval_provider = act_dir.interval_of
+            world_dir = WorldDirector(client, llm_cfg.model)
+            for npc in asm.npcs:
+                npc.world_event_provider = world_dir.render_for_npc
+            directors = [act_dir, world_dir]
+            log.info("管理类 agent 已启用：激活导演 + 世界事件导演")
+
         hub = WSHub()
         snapshot_builder = SnapshotBuilder(
             asm, tick_seconds=cfg_tick, affinity_manager=affinity_mgr,
+            world_director=world_dir,
         )
 
         app.state.asm = asm
@@ -102,7 +124,7 @@ def create_app(
         app.state.snapshot_builder = snapshot_builder
         app.state.tick_task = asyncio.create_task(
             tick_loop(asm, hub, snapshot_builder, cfg_tick,
-                      affinity_manager=affinity_mgr)
+                      affinity_manager=affinity_mgr, directors=directors)
         )
         log.info(
             "世界已启动：mock=%s tick=%.2fs sim_dir=%s", cfg_mock, cfg_tick, run_dir,

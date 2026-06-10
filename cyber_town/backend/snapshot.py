@@ -23,10 +23,11 @@ class SnapshotBuilder:
     """有状态快照构建器：持有消息游标与 seq 计数（每世界一个实例）。"""
 
     def __init__(self, asm: Any, tick_seconds: float = 2.5,
-                 affinity_manager: Any = None) -> None:
+                 affinity_manager: Any = None, world_director: Any = None) -> None:
         self._asm = asm
         self._tick_seconds = float(tick_seconds)
         self._affinity = affinity_manager      # 可选（M4）：None 时快照不含好感度
+        self._world_director = world_director  # 可选（W5）：环境事件→前端 HUD
         self._seq = 0
         self._cursor = -1                 # 玩家消息 arrive_at 游标（引擎查询是严格 >）
         self._overhear_cursor = -1        # 旁听 attempted_at 游标（引擎查询是 >=，闭区间！）
@@ -62,6 +63,8 @@ class SnapshotBuilder:
         }
         if self._affinity is not None:
             data["affinity"] = self._affinity.snapshot_dict()
+        if self._world_director is not None:
+            data["world_event"] = self._world_director.current_event(t)
         # 游标推进放在所有查询之后（同一帧内各查询共享旧游标）。
         # 注意两套引擎查询的区间语义不同（审查 B-1）：
         #   fetch_arrived_for  用严格 >  → 游标存 t

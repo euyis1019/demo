@@ -25,6 +25,7 @@ const PENDING_TIMEOUT := 8.0
 var _clock_label: Label
 var _banner: Label
 var _hint: Label
+var _event_label: Label   # W5 世界事件条幅
 
 
 func _ready() -> void:
@@ -129,6 +130,13 @@ func _on_snapshot(frame: Dictionary) -> void:
 	if wt != "":
 		_clock_label.text = "🕐 %s" % wt
 		day_night.set_world_time(wt)
+	# W5 环境事件（世界事实，来自世界事件导演）
+	var ev: Variant = data.get("world_event")
+	if ev != null and str(ev) != "":
+		_event_label.text = "🍃 %s" % str(ev)
+		_event_label.visible = true
+	else:
+		_event_label.visible = false
 	# agents 分发
 	var agents: Dictionary = data.get("agents", {})
 	for aid_str in agents:
@@ -298,6 +306,12 @@ func _build_hud() -> void:
 	_clock_label.position = Vector2(16, 12)
 	_clock_label.add_theme_font_size_override("font_size", 20)
 	ui.add_child(_clock_label)
+	_event_label = Label.new()
+	_event_label.visible = false
+	_event_label.position = Vector2(160, 12)
+	_event_label.add_theme_font_size_override("font_size", 14)
+	_event_label.add_theme_color_override("font_color", Color(0.85, 0.95, 0.75))
+	ui.add_child(_event_label)
 	_banner = Label.new()
 	_banner.visible = false
 	_banner.position = Vector2(16, 44)

@@ -205,6 +205,8 @@ class CyberTownNPC:
     extra_tools: List[Dict[str, Any]] = field(default_factory=list)
     # 第 6 段提示词：fn(npc, obs) -> str；返回空串则不追加
     prompt_suffix_provider: Optional[Callable[["CyberTownNPC", Any], str]] = None
+    # 第 7 段（W5 世界事件导演）：fn(t) -> str；环境事实注入，空串不追加
+    world_event_provider: Optional[Callable[[int], str]] = None
     # 私有工具：引擎不认识的 tool（dispatcher 会静默丢弃），返回前在此拦截。
     # handler 调用约定：fn(npc, tool_name, args, t) -> None（异常会被吞并告警）
     private_tool_names: frozenset = frozenset()
@@ -235,6 +237,14 @@ class CyberTownNPC:
                     sys_prompt = sys_prompt + "\n\n" + suffix
             except Exception as exc:  # noqa: BLE001 — 挂点异常跳过拼接
                 log.warning("NPC %s 第6段拼接失败：%s", self.agent_id, exc)
+        # 第 7 段挂点（W5 世界事件）：环境事实，如何反应全由 LLM
+        if self.world_event_provider is not None:
+            try:
+                ev = self.world_event_provider(t)
+                if ev:
+                    sys_prompt = sys_prompt + "\n\n" + ev
+            except Exception as exc:  # noqa: BLE001
+                log.warning("NPC %s 第7段拼接失败：%s", self.agent_id, exc)
 
         user_text = self._observation_to_text(obs, t)
         try:
