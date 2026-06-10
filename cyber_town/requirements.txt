@@ -1,0 +1,20 @@
+# cyber_town 后端依赖（不要跑 pip install -e .——根 pyproject 声明的
+# vendor/oasis 在本仓库缺失会装失败；按本文件单独装即可）
+#   安装：uv pip install -r cyber_town/requirements.txt
+#   （或 python3 -m pip install -r cyber_town/requirements.txt）
+
+# 引擎内核运行所需（agent_world 自包含路径）
+PyYAML>=6.0
+pydantic>=2.0.0
+conscribe>=1.1.1
+openai>=1.0.0
+
+# M1+ 后端服务
+fastapi>=0.110.0
+uvicorn>=0.30.0
+websockets>=12.0
+
+# 测试
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+httpx>=0.27.0
