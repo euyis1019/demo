@@ -198,46 +198,87 @@ func _check_zone_transition() -> void:
 
 # ---- 表现层构建 -------------------------------------------------------------
 
+## 地面：TileMapLayer 程序化密铺（Ninja Adventure tileset，16px @×2 = 32px/格）。
+## 草地三变体随机做野地基底；广场铺橙砂；一条泥土小路横贯三区。
 func _build_ground() -> void:
-	# 全图野地底色
-	var base := ColorRect.new()
-	base.color = Config.GRASS_BASE
-	base.position = Config.WORLD_RECT.position
-	base.size = Config.WORLD_RECT.size
+	# 兜底背景色（防点缀 tile 透明边/任何缝隙透出 viewport 灰）
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.58, 0.62, 0.40)
+	backdrop.position = Config.WORLD_RECT.position - Vector2(64, 64)
+	backdrop.size = Config.WORLD_RECT.size + Vector2(128, 128)
+	backdrop.z_index = -30
+	add_child(backdrop)
+
+	var tile_set := TileSet.new()
+	tile_set.tile_size = Vector2i(16, 16)
+	var src := TileSetAtlasSource.new()
+	src.texture = load(Config.NA_TILESET)
+	src.texture_region_size = Vector2i(16, 16)
+	var used: Array = [Config.T_GRASS, Config.T_SAND, Config.T_DIRT] + Config.T_DECO
+	for coord in used:
+		src.create_tile(coord)
+	tile_set.add_source(src, 0)
+
+	# 双层：base 满铺（草/砂/泥，全为不透明满块）；deco 稀疏点缀（草丛/花）
+	var base := TileMapLayer.new()
+	base.tile_set = tile_set
+	base.scale = Vector2.ONE * Config.SPRITE_SCALE
 	base.z_index = -20
 	add_child(base)
-	# 三个地点的地面块 + 名牌
+	var deco := TileMapLayer.new()
+	deco.tile_set = tile_set
+	deco.scale = Vector2.ONE * Config.SPRITE_SCALE
+	deco.z_index = -19
+	add_child(deco)
+
+	var cell_px := 16.0 * Config.SPRITE_SCALE
+	var cols := int(Config.WORLD_RECT.size.x / cell_px) + 1
+	var rows := int(Config.WORLD_RECT.size.y / cell_px) + 1
+	var square: Rect2 = Config.ZONES["square"]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20260610   # 固定种子：点缀分布稳定可截图回归
+
+	for cy in rows:
+		for cx in cols:
+			var wpos := Vector2((cx + 0.5) * cell_px, (cy + 0.5) * cell_px)
+			if square.has_point(wpos):
+				base.set_cell(Vector2i(cx, cy), 0, Config.T_SAND)    # 广场：橙砂
+			elif _on_path(wpos):
+				base.set_cell(Vector2i(cx, cy), 0, Config.T_DIRT)    # 小路：泥土
+			else:
+				base.set_cell(Vector2i(cx, cy), 0, Config.T_GRASS)   # 草基底
+				if rng.randf() < Config.DECO_RATE:
+					deco.set_cell(Vector2i(cx, cy), 0,
+						Config.T_DECO[rng.randi_range(0, Config.T_DECO.size() - 1)])
+
+	# 地点名牌（保留导航性）
 	for pid in Config.ZONES:
 		var rect: Rect2 = Config.ZONES[pid]
-		var patch := ColorRect.new()
-		patch.color = Config.ZONE_COLORS[pid]
-		patch.position = rect.position
-		patch.size = rect.size
-		patch.z_index = -10
-		add_child(patch)
-		var border := ReferenceRect.new()
-		border.position = rect.position
-		border.size = rect.size
-		border.border_color = Color(0, 0, 0, 0.25)
-		border.border_width = 2.0
-		border.editor_only = false
-		border.z_index = -9
-		add_child(border)
 		var sign := Label.new()
 		sign.text = "「%s」" % Config.ZONE_NAMES[pid]
 		sign.position = rect.position + Vector2(rect.size.x / 2 - 36, -30)
 		sign.add_theme_font_size_override("font_size", 18)
-		sign.add_theme_color_override("font_color", Color(1, 1, 0.9))
+		sign.add_theme_color_override("font_color", Color(1, 1, 0.92))
+		sign.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
+		sign.add_theme_constant_override("shadow_offset_y", 2)
 		sign.z_index = -8
 		add_child(sign)
 
 
+## 横贯三区的泥土小路（带状，y 在 415±24 内蜿蜒）
+func _on_path(wpos: Vector2) -> bool:
+	if wpos.x < 90 or wpos.x > 1540:
+		return false
+	var wave := sin(wpos.x * 0.012) * 36.0
+	return absf(wpos.y - (430.0 + wave)) < 26.0
+
+
 func _build_decor() -> void:
-	# 用 CC0 图集（Overworld.png）摆装饰物：谷仓/喷泉/集市摊/木屋/树/栅栏/木箱。
-	# 全部 z_index=-5：压在地面色块(-10)之上、角色(0)之下，不参与碰撞。
-	var atlas: Texture2D = load("res://assets/gfx/Overworld.png")
-	for entry in Config.DECOR_PLACEMENTS:
-		var region: Rect2 = Config.DECOR_REGIONS[entry[0]]
+	# Ninja Adventure 大块物件：农舍/田垄/池塘/鸟居/樱花/酒馆圆顶屋/松树/酒坛。
+	# z=-5：压在地面(-20)之上、角色(0)之下，不参与碰撞。
+	var atlas: Texture2D = load(Config.NA_TILESET)
+	for entry in Config.NA_PLACEMENTS:
+		var region: Rect2 = Config.NA_PROPS[entry[0]]
 		var at := AtlasTexture.new()
 		at.atlas = atlas
 		at.region = region
@@ -273,9 +314,9 @@ func _build_hud() -> void:
 
 func _build_bgm() -> void:
 	var bgm := AudioStreamPlayer.new()
-	var stream: AudioStream = load("res://assets/audio/town_theme.mp3")
-	if stream is AudioStreamMP3:
-		(stream as AudioStreamMP3).loop = true
+	var stream: AudioStream = load("res://assets/audio/theme_village.ogg")
+	if stream is AudioStreamOggVorbis:
+		(stream as AudioStreamOggVorbis).loop = true
 	bgm.stream = stream
 	bgm.volume_db = -14.0
 	bgm.autoplay = true

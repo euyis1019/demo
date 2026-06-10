@@ -30,3 +30,6 @@ dist/
 # ---- 本地 vibe coding 文件（不入库）----
 /CLAUDE.md
 docs/开发规范.md
+
+# ---- Godot Web 导出产物 ----
+cyber_town/frontend/dist/

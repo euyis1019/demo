@@ -1,13 +1,12 @@
 class_name SpriteLib
-## 精灵帧工具：从 16x32 网格图集运行时构建 SpriteFrames。
+## 精灵帧工具：从网格图集运行时构建 SpriteFrames。
 ##
-## 素材（OGA Zelda-like，CC0）帧布局已逐像素核实：
-##   前 4 列 × 前 4 行，行0=朝下 / 行1=朝右 / 行2=朝上 / 行3=朝左
-## （侧面朝向用眼部暗色像素质心判定：行1 质心在中线右侧→朝右）。
+## 当前素材（Ninja Adventure，CC0）：16×16/帧（64×112 = 4 列走帧 × 7 行，
+## 前 4 行为行走方向）。行序（截图迭代核实）：行0=下 / 行1=右 / 行2=上 / 行3=左。
 
 const FRAME_W := 16
-const FRAME_H := 32
-const WALK_FPS := 6.0
+const FRAME_H := 16
+const WALK_FPS := 7.0
 
 const ROW_OF := {"down": 0, "right": 1, "up": 2, "left": 3}
 

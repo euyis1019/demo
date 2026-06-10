@@ -26,16 +26,18 @@ var _bubble_timer := 0.0
 
 
 func _ready() -> void:
-	var tex: Texture2D = load("res://assets/gfx/NPC_test.png")
+	# 按 agent_id 取专属村民外观（老钱=白须老者/阿香=紫发女/大山=橙衣壮汉）
+	var tex_path: String = Config.NA_CHARS.get(npc_id, Config.NA_CHARS[3])
+	var tex: Texture2D = load(tex_path)
 	_sprite = AnimatedSprite2D.new()
 	_sprite.sprite_frames = SpriteLib.build(tex)
-	_sprite.scale = Vector2.ONE * Config.SPRITE_SCALE
+	_sprite.scale = Vector2.ONE * Config.CHAR_SCALE
 	_sprite.play("idle_down")
 	add_child(_sprite)
 
 	_name_label = Label.new()
 	_name_label.text = display_name
-	_name_label.position = Vector2(-30, -40 * Config.SPRITE_SCALE / 2 - 14)
+	_name_label.position = Vector2(-30, -44)
 	_name_label.custom_minimum_size = Vector2(60, 0)
 	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_name_label.add_theme_font_size_override("font_size", 12)
@@ -51,7 +53,7 @@ func _ready() -> void:
 
 	_bubble = Label.new()
 	_bubble.visible = false
-	_bubble.position = Vector2(-90, -40 * Config.SPRITE_SCALE - 10)
+	_bubble.position = Vector2(-90, -84)
 	_bubble.custom_minimum_size = Vector2(180, 0)
 	_bubble.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_bubble.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -75,7 +77,7 @@ func _ready() -> void:
 	pick.input_pickable = true
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
-	circle.radius = 18.0 * Config.SPRITE_SCALE
+	circle.radius = 14.0 * Config.CHAR_SCALE
 	shape.shape = circle
 	pick.add_child(shape)
 	pick.input_event.connect(

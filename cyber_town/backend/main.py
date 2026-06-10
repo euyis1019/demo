@@ -27,6 +27,8 @@ from pathlib import Path
 from typing import Any, AsyncIterator, Optional
 
 from fastapi import FastAPI, HTTPException, WebSocket
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from cyber_town.backend.affinity import AffinityManager, AffinityStore
 from cyber_town.backend.affinity.manager import DEFAULT_SEED
@@ -162,6 +164,18 @@ def create_app(
         hub: WSHub = app.state.hub
         await hub.register(ws, app.state.snapshot_builder.hello())
         await hub.handle_client(ws, app.state.asm.player)
+
+    # ---- W2：Web 版游戏静态托管（Godot 导出产物，浏览器即玩）------------
+    # 导出：Godot --headless --path cyber_town/frontend --export-release "Web" dist/index.html
+    dist = Path(__file__).parent.parent / "frontend" / "dist"
+    if (dist / "index.html").exists():
+        app.mount("/game", StaticFiles(directory=str(dist), html=True), name="game")
+
+        @app.get("/")
+        async def index() -> RedirectResponse:
+            return RedirectResponse(url="/game/")
+    else:
+        log.warning("未发现 Web 导出产物（%s），/game 不可用——见 README 导出命令", dist)
 
     return app
 
