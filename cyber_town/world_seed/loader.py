@@ -63,12 +63,19 @@ async def seed_into_db(
             latency_ticks=int(c.get("latency_ticks", 0)),
             can_reach=int(c.get("can_reach", 1)),
         )
-    # self-edge：F2F 同地点零延迟 / 同场 RDC 即达 都依赖它（V4）
+    # self-edge：F2F 同地点可达性依赖它（V4；F2F 总线 arrive_at 写死 =t，
+    # 与 latency 无关——face_to_face.py:80）。
+    # ⚠ latency 必须 ≥1（W4 修复）：同场 RDC 私信若 latency=0 则 arrive_at=t，
+    # 与「引擎每拍把 active agent 的感知游标推进到 t」（step.py:271-275）+
+    # 「地点内随机决策顺序」叠加 → NPC 排在玩家之前决策的拍次，该私信
+    # 永远掉出 fetch_arrived_for 的 (last_seen, t] 窗口被静默吞掉（约半数丢失，
+    # 体感即「NPC 不回私信」）。latency=1 让同场私信下一拍必达，且语义更合理
+    # （私信本就不该比当面说话还快）。
     for p in scenario.get("places", []):
         await world_db.upsert_coverage(
             src_place=p["place_id"],
             dst_place=p["place_id"],
-            latency_ticks=0,
+            latency_ticks=1,
             can_reach=1,
         )
 
