@@ -11,6 +11,7 @@ var player_id := -1
 var names := {}                  # agent_id(int) -> 显示名
 var groups := []                 # [{group_id, name, members}]
 var contacts_cache := []         # 最近一帧快照的 contacts
+var affinity_to_player := {}     # npc_id(int) -> score（M4，快照 agents 携带）
 
 var _root: Control
 var _tabs: TabContainer
@@ -93,6 +94,12 @@ func open_private(npc_id: int) -> void:
 ## 每帧快照灌入：消息分拣 / 联系人刷新 / 角标与提示音
 func ingest_snapshot(data: Dictionary) -> void:
 	contacts_cache = data.get("contacts", [])
+	# M4：NPC 对玩家的好感（agents 分片携带），联系人列表显示爱心
+	var agents: Dictionary = data.get("agents", {})
+	for aid_str in agents:
+		var sc: Variant = (agents[aid_str] as Dictionary).get("affinity_to_player")
+		if sc != null:
+			affinity_to_player[int(aid_str)] = int(sc)
 	_refresh_contacts()
 	var pv: Dictionary = data.get("player_view", {})
 	var got_private := false
@@ -214,6 +221,8 @@ func _refresh_contacts() -> void:
 	for c in contacts_cache:
 		var aid := int(c.get("agent_id", -1))
 		var label := str(c.get("name", _name_of(aid)))
+		if affinity_to_player.has(aid):
+			label += "  %s%d" % [_heart_of(int(affinity_to_player[aid])), int(affinity_to_player[aid])]
 		var reachable: bool = bool(c.get("can_reach_now", false))
 		var idx := _contact_list.add_item(label + ("" if reachable else "（不可达）"))
 		_contact_list.set_item_metadata(idx, aid)
@@ -247,6 +256,15 @@ func _refresh_badges() -> void:
 
 func _badge(n: int) -> String:
 	return "" if n <= 0 else "（%d）" % n
+
+
+func _heart_of(score: int) -> String:
+	## 好感爱心：陌生🤍 熟悉/友好❤ 亲密/挚友❤❤（与后端 5 档阈值对齐）
+	if score >= 60:
+		return "❤❤"
+	if score >= 20:
+		return "❤"
+	return "🤍"
 
 
 func _name_of(aid: int) -> String:

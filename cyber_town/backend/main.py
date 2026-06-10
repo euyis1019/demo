@@ -28,9 +28,12 @@ from typing import Any, AsyncIterator, Optional
 
 from fastapi import FastAPI, HTTPException, WebSocket
 
+from cyber_town.backend.affinity import AffinityManager, AffinityStore
+from cyber_town.backend.affinity.manager import DEFAULT_SEED
 from cyber_town.backend.config import (
     DEFAULT_SCENARIO_PATH,
     HEARTBEAT_EVERY,
+    PLAYER_ID,
     TICK_SECONDS,
     LLMConfig,
     resolve_llm_config,
@@ -86,14 +89,25 @@ def create_app(
         asm = await build_world(
             scenario, run_dir, client, llm_cfg, heartbeat_every=cfg_heartbeat,
         )
+        # ---- M4 好感度薄层：装配后接线（与 world_factory 解耦）------------
+        affinity_store = AffinityStore(run_dir / "affinity.db", player_id=PLAYER_ID)
+        affinity_store.seed(DEFAULT_SEED)
+        affinity_mgr = AffinityManager(
+            affinity_store, asm.name_directory, player_id=PLAYER_ID,
+        )
+        affinity_mgr.wire_npcs(asm.npcs)
+
         hub = WSHub()
-        snapshot_builder = SnapshotBuilder(asm, tick_seconds=cfg_tick)
+        snapshot_builder = SnapshotBuilder(
+            asm, tick_seconds=cfg_tick, affinity_manager=affinity_mgr,
+        )
 
         app.state.asm = asm
         app.state.hub = hub
         app.state.snapshot_builder = snapshot_builder
         app.state.tick_task = asyncio.create_task(
-            tick_loop(asm, hub, snapshot_builder, cfg_tick)
+            tick_loop(asm, hub, snapshot_builder, cfg_tick,
+                      affinity_manager=affinity_mgr)
         )
         log.info(
             "世界已启动：mock=%s tick=%.2fs sim_dir=%s", cfg_mock, cfg_tick, run_dir,
@@ -111,6 +125,7 @@ def create_app(
                 asm.world_db.close()
             except Exception:  # noqa: BLE001 — 关库失败只记日志
                 log.warning("world_db.close() 失败", exc_info=True)
+            affinity_store.close()
             log.info("世界已关停")
 
     app = FastAPI(title="赛博小镇后端", lifespan=lifespan)

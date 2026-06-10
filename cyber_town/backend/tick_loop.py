@@ -22,13 +22,17 @@ async def tick_loop(
     hub: Any,
     snapshot_builder: Any,
     tick_seconds: float,
+    affinity_manager: Any = None,
 ) -> None:
-    """持续驱动世界直到任务被 cancel。"""
-    log.info("tick_loop 启动：interval=%.2fs", tick_seconds)
+    """持续驱动世界直到任务被 cancel。affinity_manager 可选（M4 好感度底噪）。"""
+    log.info("tick_loop 启动：interval=%.2fs affinity=%s",
+             tick_seconds, affinity_manager is not None)
     while True:
         t0 = time.monotonic()
         try:
             report = await asm.world_step.run_one_tick()
+            if affinity_manager is not None:
+                affinity_manager.apply_rule_based(asm, report)  # 内部 fail-soft
             snap = await snapshot_builder.build(report)
             await hub.broadcast(snap)
             if report.get("failures"):
