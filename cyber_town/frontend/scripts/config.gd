@@ -33,7 +33,7 @@ const NA_TILESET := "res://assets/gfx/na/tileset.png"
 ## 地面 tile（atlas 格坐标 col,row；程序化按色相+方差筛纯色块后人工确认）
 const T_GRASS := Vector2i(22, 22)            # 满块草基底（带细纹理，无透明边）
 const T_DECO := [Vector2i(9, 15), Vector2i(12, 15)]  # 点缀层：草丛/花（带透明边，叠在基底上）
-const DECO_RATE := 0.06                      # 点缀密度
+const DECO_RATE := 0.10                      # 点缀密度（W7：野地加密，近路减半见 main）
 const T_SAND := Vector2i(14, 13)     # 橙砂（广场地面）
 const T_DIRT := Vector2i(1, 15)      # 泥土（小路）
 
@@ -68,6 +68,7 @@ const NA_PLACEMENTS := [
 	# —— 广场：池塘 + 鸟居 + 樱花 + 圆顶杂货铺 + 货车 ——
 	["pond", Vector2(790, 280)],
 	["torii", Vector2(620, 195)],
+	["sakura", Vector2(870, 185)],
 	["tree_round", Vector2(950, 180)], ["bush", Vector2(905, 215)],
 	["house_dome", Vector2(930, 505)],
 	["jar", Vector2(645, 540)], ["jar", Vector2(668, 552)], ["bush", Vector2(620, 555)],
@@ -102,6 +103,14 @@ const ANCHORS := {
 	"farm":   [Vector2(200, 330), Vector2(320, 420), Vector2(150, 470), Vector2(380, 280)],
 	"square": [Vector2(740, 330), Vector2(860, 420), Vector2(680, 470), Vector2(900, 280)],
 	"saloon": [Vector2(1260, 330), Vector2(1380, 420), Vector2(1200, 470), Vector2(1420, 280)],
+}
+
+## NPC 专属主题色（名牌圆点/气泡描边；对应现有外观：老钱金/阿香红/大山橙）
+const NPC_COLORS := {
+	0: Color(0.55, 0.85, 0.55),
+	1: Color(0.95, 0.78, 0.30),
+	2: Color(0.90, 0.45, 0.50),
+	3: Color(0.95, 0.60, 0.25),
 }
 
 const PLAYER_SPEED := 150.0      # 玩家步速（px/s）

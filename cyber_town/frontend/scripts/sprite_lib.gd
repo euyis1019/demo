@@ -1,14 +1,23 @@
 class_name SpriteLib
-## 精灵帧工具：从网格图集运行时构建 SpriteFrames。
+## 精灵帧工具 + 共享视觉件工厂（W7 画面升级）。
 ##
 ## 当前素材（Ninja Adventure，CC0）：16×16/帧（64×112 = 4 列走帧 × 7 行，
 ## 前 4 行为行走方向）。行序（截图迭代核实）：行0=下 / 行1=右 / 行2=上 / 行3=左。
+##
+## W7 新增（全部程序化生成，零新素材；纹理用 static 缓存全场共享）：
+## make_shadow 脚下软阴影 / make_panel_style UI 深色 pill /
+## make_particle_tex CPU 粒子白点（web Compatibility 必须显式给 texture，
+## 已知坑 godot#96030）/ make_radial_tex 径向渐变（灯光/阴影共用）/
+## pop_bubble & fade_bubble 气泡 Q 弹出现与淡出演出。
 
 const FRAME_W := 16
 const FRAME_H := 16
 const WALK_FPS := 7.0
 
 const ROW_OF := {"down": 0, "right": 1, "up": 2, "left": 3}
+
+static var _shadow_tex: Texture2D = null
+static var _particle_tex: Texture2D = null
 
 
 ## 从图集构建含 walk_/idle_ 四向动画的 SpriteFrames
@@ -45,3 +54,88 @@ static func dir_name(v: Vector2, fallback: String = "down") -> String:
 	if absf(v.x) > absf(v.y):
 		return "right" if v.x > 0 else "left"
 	return "down" if v.y > 0 else "up"
+
+
+# ---- W7 共享视觉件 ----------------------------------------------------------
+
+## 径向渐变纹理（中心 from → 边缘 to），灯光与阴影共用
+static func make_radial_tex(size: int, from: Color, to: Color) -> GradientTexture2D:
+	var grad := Gradient.new()
+	grad.set_color(0, from)
+	grad.set_color(1, to)
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	tex.width = size
+	tex.height = size
+	return tex
+
+
+## 脚下椭圆软阴影（w=阴影宽度像素；调用方挂为子节点即可）
+static func make_shadow(w: float = 24.0) -> Sprite2D:
+	if _shadow_tex == null:
+		_shadow_tex = make_radial_tex(64, Color(0, 0, 0, 0.35), Color(0, 0, 0, 0))
+	var sp := Sprite2D.new()
+	sp.texture = _shadow_tex
+	sp.scale = Vector2(w / 64.0, w / 64.0 * 0.45)   # 压扁成椭圆
+	sp.show_behind_parent = true
+	return sp
+
+
+## UI 深色半透明 pill 面板样式（名牌/HUD 共用）
+static func make_panel_style(bg := Color(0, 0, 0, 0.45)) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg
+	style.corner_radius_top_left = 6
+	style.corner_radius_top_right = 6
+	style.corner_radius_bottom_left = 6
+	style.corner_radius_bottom_right = 6
+	style.content_margin_left = 6.0
+	style.content_margin_right = 6.0
+	style.content_margin_top = 2.0
+	style.content_margin_bottom = 2.0
+	return style
+
+
+## CPU 粒子用 2×2 白点纹理（web Compatibility 不显式给 texture 可能不出图）
+static func make_particle_tex() -> Texture2D:
+	if _particle_tex == null:
+		var img := Image.create(2, 2, false, Image.FORMAT_RGBA8)
+		img.fill(Color.WHITE)
+		_particle_tex = ImageTexture.create_from_image(img)
+	return _particle_tex
+
+
+## 通用 CPU 粒子构造（炊烟/萤火虫/花瓣/灰尘共用骨架）
+static func make_particles(amount: int, lifetime: float) -> CPUParticles2D:
+	var p := CPUParticles2D.new()
+	p.texture = make_particle_tex()
+	p.amount = amount
+	p.lifetime = lifetime
+	return p
+
+
+## 气泡 Q 弹出现：wrap 从 0.6 倍回弹放大 + 打字机逐字
+static func pop_bubble(wrap: Node2D, label: Label) -> void:
+	wrap.visible = true
+	wrap.modulate.a = 1.0
+	wrap.scale = Vector2(0.6, 0.6)
+	wrap.position.y = 0.0
+	var tw := wrap.create_tween()
+	tw.tween_property(wrap, "scale", Vector2.ONE, 0.18) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	# 打字机：逐字显出，长文封顶 2s
+	var n := label.text.length()
+	label.visible_characters = 0
+	var tw2 := label.create_tween()
+	tw2.tween_property(label, "visible_characters", n, clampf(n * 0.03, 0.2, 2.0))
+
+
+## 气泡淡出消失：0.3s 渐隐 + 上浮，结束后隐藏
+static func fade_bubble(wrap: Node2D) -> void:
+	var tw := wrap.create_tween().set_parallel()
+	tw.tween_property(wrap, "modulate:a", 0.0, 0.3)
+	tw.tween_property(wrap, "position:y", wrap.position.y - 6.0, 0.3)
+	tw.chain().tween_callback(func() -> void: wrap.visible = false)

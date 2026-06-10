@@ -4,6 +4,7 @@ extends CanvasLayer
 ## 呈现分工（D18）：当面说类消息实时头顶气泡 + 全部进记录；私聊/群聊只进面板+角标+提示音。
 
 signal speak_requested(content: String)          # 当面说（main 负责本地气泡回显）
+signal dm_sent(npc_id: int)                      # 私信已发出（W7：main 给目标挂思考指示）
 
 const PHONE_SIZE := Vector2(390, 600)
 
@@ -207,6 +208,7 @@ func _send_private() -> void:
 	if text == "" or _active_private < 0:
 		return
 	if WorldNet.send_private_message(_active_private, text):
+		dm_sent.emit(_active_private)
 		_private_input.text = ""
 		var line := "[color=#fc6]我[/color]：%s" % text
 		_private_logs.get_or_add(_active_private, []).append(line)
