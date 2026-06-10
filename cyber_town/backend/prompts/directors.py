@@ -29,13 +29,14 @@ def render_activation_user(t: int, summary: str) -> str:
 
 
 def render_activation_digest(player_place: str, npcs: List[Dict[str, Any]]) -> str:
-    """世界摘要：npcs 每项 {id, name, place, with_player: bool, talking: bool, state}。"""
+    """世界摘要：npcs 每项 {id, name, place, with_player, talking, unread_dm, state}。"""
     lines = [f"玩家位置：{player_place}"]
     for n in npcs:
         with_player = "与玩家同地点" if n["with_player"] else "独处异地"
+        unread = "，⚠ 有未回应的私信（必须 high）" if n.get("unread_dm") else ""
         lines.append(
             f"- NPC {n['id']}（{n['name']}）@{n['place']}，{with_player}，"
-            f"近5拍{'有' if n['talking'] else '无'}消息往来，状态：{n['state']}"
+            f"近5拍{'有' if n['talking'] else '无'}消息往来{unread}，状态：{n['state']}"
         )
     return "\n".join(lines)
 

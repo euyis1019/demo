@@ -1,5 +1,10 @@
 extends CanvasModulate
 ## 日夜色调：按快照 world_time（HH:MM）在关键帧颜色间插值（方案 §7.6，纯前端表现）。
+## W7：暴露 darkness 因子（0=白昼 1=深夜），驱动点光/暗角/云影/萤火虫。
+
+signal darkness_changed(d: float)
+
+var darkness := 0.0
 
 const KEYFRAMES := [
 	# [分钟数, 色调]
@@ -21,6 +26,23 @@ func set_world_time(hhmm: String) -> void:
 	if minutes < 5 * 60.0:
 		minutes += 24 * 60.0  # 0:00-5:00 落到环回段
 	color = _interp(minutes)
+	var d := _darkness_of(minutes)
+	if not is_equal_approx(d, darkness):
+		darkness = d
+		darkness_changed.emit(d)
+
+
+## 夜色程度：18:00→20:00 线性升 0→1，整夜保持，28:00(04:00)→30:00(06:00) 降回 0
+func _darkness_of(m: float) -> float:
+	if m < 18 * 60.0:
+		return 0.0
+	if m < 20 * 60.0:
+		return (m - 18 * 60.0) / 120.0
+	if m < 28 * 60.0:
+		return 1.0
+	if m < 30 * 60.0:
+		return 1.0 - (m - 28 * 60.0) / 120.0
+	return 0.0
 
 
 func _interp(m: float) -> Color:

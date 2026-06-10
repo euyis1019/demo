@@ -52,5 +52,26 @@ class ActivationScheduler:
                     interval = 1
             if (int(t) + aid) % interval == 0:   # 按 id 错峰
                 active.append(aid)
+            elif self._has_unread_dm(world, aid, t):
+                # W7 紧急唤醒：有未读私信（已送达、还没看过）的 NPC 不等档位
+                # ——「手机响了把人叫醒」是思考预算分配，不碰行为内容（§4.8）。
+                # 没有它，low/sleep 档 NPC 最长 4~12 拍后才看到私信，玩家
+                # 体感就是已读不回（W7 截图复现的根因之一）。
+                active.append(aid)
+                log.info("t=%s NPC %s 有未读私信，紧急唤醒（绕过档位）", t, aid)
         log.debug("t=%s active=%s", t, active)
         return active
+
+    @staticmethod
+    def _has_unread_dm(world: Any, aid: int, t: int) -> bool:
+        """该 NPC 是否有「已送达但还没感知过」的 RDC 私信（fail-soft）。"""
+        try:
+            db = getattr(world, "world_db", None)
+            agent = world.agents.get(aid)
+            if db is None or agent is None:
+                return False
+            last_seen = int(getattr(agent, "last_message_seen_at", -1) or -1)
+            rows = db.fetch_arrived_for(aid, int(t), last_seen)
+            return any(getattr(r, "channel_type", "") == "RDC" for r in rows)
+        except Exception:  # noqa: BLE001 — 查询失败不影响正常调度
+            return False

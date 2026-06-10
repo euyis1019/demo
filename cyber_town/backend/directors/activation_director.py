@@ -20,6 +20,7 @@ import logging
 from typing import Any, Dict
 
 from cyber_town.backend.llm.json_call import call_llm_json
+from cyber_town.backend.runtime.scheduler import ActivationScheduler
 from cyber_town.backend.prompts.directors import (
     ACTIVATION_DIGEST_FALLBACK,
     ACTIVATION_SYSTEM,
@@ -108,6 +109,8 @@ class ActivationDirector:
                 "place": place,
                 "with_player": place == player_place,
                 "talking": any(s == nid or r == nid for s, r in recent_pairs),
+                # W7：未读私信显式上报（与 scheduler 紧急唤醒同源判断）
+                "unread_dm": ActivationScheduler._has_unread_dm(asm.world, nid, t),  # noqa: SLF001
                 "state": (npc.current_state or "").replace("\n", " ")[:40],
             })
         return render_activation_digest(player_place, npcs)

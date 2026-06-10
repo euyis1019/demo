@@ -40,3 +40,56 @@ def test_all_npcs_active_every_tick() -> None:
     for t in range(12):
         active = set(sched.pick_active(world, t))
         assert active == {0, 1, 2, 3}, f"t={t} 应全员激活：{active}"
+
+
+class _FakeDM:
+    def __init__(self, channel_type: str = "RDC") -> None:
+        self.channel_type = channel_type
+
+
+class _FakeDB:
+    """world_db 替身：可配置某 agent 的未读私信。"""
+
+    def __init__(self, unread: Dict[int, list]) -> None:
+        self._unread = unread
+
+    def fetch_arrived_for(self, aid: int, t: int, last_seen: int = -1) -> list:
+        return self._unread.get(int(aid), [])
+
+
+class _FakeAgent:
+    last_message_seen_at = -1
+
+
+class _FakeWorldDB(_FakeWorld):
+    """带 world_db 与 agent 对象的替身（W7 紧急唤醒用）。"""
+
+    def __init__(self, locations: Dict[int, str], unread: Dict[int, list]) -> None:
+        super().__init__(locations)
+        self.agents = {aid: _FakeAgent() for aid in locations}
+        self.world_db = _FakeDB(unread)
+
+
+def test_unread_dm_urgent_wakeup_bypasses_tier() -> None:
+    """W7：sleep 档 NPC 有未读私信 → 本拍紧急唤醒，不等档位。"""
+    world = _FakeWorldDB({0: "farm", 1: "square"}, unread={1: [_FakeDM("RDC")]})
+    sched = ActivationScheduler(player_id=0, interval_provider=lambda _n: 12)
+    # 选一个按档位不会激活的拍：(t + 1) % 12 != 0
+    t = 5
+    assert (t + 1) % 12 != 0
+    assert 1 in sched.pick_active(world, t)
+
+
+def test_no_unread_dm_keeps_tier_schedule() -> None:
+    """无未读私信时，sleep 档 NPC 仍按档位错峰（不被误唤醒）。"""
+    world = _FakeWorldDB({0: "farm", 1: "square"}, unread={})
+    sched = ActivationScheduler(player_id=0, interval_provider=lambda _n: 12)
+    t = 5
+    assert 1 not in sched.pick_active(world, t)
+
+
+def test_non_rdc_messages_do_not_trigger_wakeup() -> None:
+    """群聊消息不触发紧急唤醒（只有私信算「手机响了」）。"""
+    world = _FakeWorldDB({0: "farm", 1: "square"}, unread={1: [_FakeDM("GRP")]})
+    sched = ActivationScheduler(player_id=0, interval_provider=lambda _n: 12)
+    assert 1 not in sched.pick_active(world, 5)
