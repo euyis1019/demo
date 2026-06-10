@@ -18,9 +18,14 @@ cyber_town/
 │   ├── player_agent.py    #   PlayerAgent：玩家虚拟农夫（不调 LLM，命令队列）
 │   ├── scheduler.py       #   激活调度：同场每拍 + 异地低频心跳
 │   ├── world_factory.py   #   内核装配（唯一成套 import agent_world 的地方）
+│   ├── snapshot.py        #   M1：每拍世界快照（自管消息游标，勿用引擎 last_seen）
+│   ├── ws_hub.py          #   M1：WS 连接管理 + 广播 + 玩家命令入队
+│   ├── tick_loop.py       #   M1：固定墙钟心跳后台任务（变速拍 + 优雅退出）
+│   ├── main.py            #   M1：FastAPI 入口（lifespan 装配 / /ws/world / /healthz）
 │   ├── .env               #   LLM_API_KEY=...（gitignored，见 .env.example）
 │   └── .env.example
-├── tests/                 # pytest：调度不变量 / 玩家命令 / 全链路冒烟
+├── tests/                 # pytest：调度/玩家命令/冒烟/快照游标/WS 端到端
+├── requirements.txt       # 后端依赖（勿跑 pip install -e .）
 └── run_m0.py              # M0 CLI：纯文本活体世界
 ```
 
@@ -35,12 +40,20 @@ python3 -m cyber_town.run_m0 --num-ticks 6 --heartbeat 4
 
 # 测试
 python3 -m pytest cyber_town/tests -q
+
+# M1：后端 WS 服务（真实 LLM；Mock 加 CYBER_TOWN_MOCK=1）
+uvicorn cyber_town.backend.main:app --port 8000
+# 然后 WS 连 ws://127.0.0.1:8000/ws/world，REST 看 http://127.0.0.1:8000/healthz
 ```
+
+> ⚠ 用 Python `websockets` 库写调试客户端时务必 `connect(url, proxy=None)`——
+> websockets 14+ 会读 macOS 系统代理，本机回环流量被代理截断会报
+> "did not receive a valid HTTP response"（Godot 前端不受影响）。
 
 ## 阶段进度（方案 §12）
 
 - [x] **M0** 活体世界纯文本跑通（Mock 全通道 + 真实 LLM 双验收 ✓；V1-V5 全过，单拍 avg 3.6s）
-- [ ] M1 FastAPI 持续 tick + WS 推快照 + 玩家文本闭环
+- [x] **M1** FastAPI 持续 tick + WS 推快照 + 玩家文本闭环（18 pytest ✓ + uvicorn 进程级验收 ✓）
 - [ ] M2 Godot 渲染世界 + 键盘移动 + 氛围
 - [ ] M3 类手机菜单三渠道闭环 + 按 E 直达
 - [ ] M4 好感度注入
