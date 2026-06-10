@@ -19,16 +19,7 @@ PLAYER_ID = 0                 # 玩家农夫的 agent_id（固定外键，全后
 TICK_SECONDS = 2.5            # 世界心跳间隔（M1 用；M0 压测后可调）
 LLM_TIMEOUT_SECONDS = 20.0    # 单次 LLM 调用超时；超时该 NPC 当拍 do_nothing
 
-# 5 段系统提示词标题（perception.build 的 segment_headers，引擎默认是 None）。
-# ⚠ 段数与顺序必须与引擎 PerceptionBuilder 的 5 段语义对齐：
-#   人格内核(soul) / 长期目标 / 当前状态 / 当前小目标 / 场景行为规则——不可重排。
-SEGMENT_HEADERS = (
-    "# 人格内核",
-    "# 长期目标",
-    "# 当前状态",
-    "# 当前小目标",
-    "# 场景行为规则",
-)
+# 5 段系统提示词标题已移至 prompts/segments.py（W6：提示词集中管理）
 
 
 def load_dotenv_into_environ(env_path: Optional[Path] = None) -> None:
@@ -56,7 +47,10 @@ class LLMConfig:
     # repr=False：防止 print/log/调试时把 key 带出去（审查 CONFIG-1）
     api_key: str = field(repr=False)
     temperature: float = 0.8
-    max_tokens: int = 400
+    # None = 不传 max_tokens（用 API 默认上限）——W6 用户拍板放开输出预算，
+    # 防 reasoning 模型（deepseek-v4-flash）思维链挤占答案额度导致截断；
+    # 需要限制时在 scenario.yaml 的 llm 段显式写 max_tokens
+    max_tokens: Optional[int] = None
     timeout: float = LLM_TIMEOUT_SECONDS
 
 
@@ -80,11 +74,12 @@ def resolve_llm_config(scenario_llm: Dict[str, Any]) -> LLMConfig:
             "LLM_API_KEY=sk-...（该文件已 gitignore）。"
         )
 
+    raw_max = scenario_llm.get("max_tokens")
     return LLMConfig(
         base_url=str(scenario_llm.get("base_url", "https://api.deepseek.com")),
         model=str(scenario_llm.get("model", "deepseek-v4-flash")),
         api_key=api_key,
         temperature=float(scenario_llm.get("temperature", 0.8)),
-        max_tokens=int(scenario_llm.get("max_tokens", 400)),
+        max_tokens=int(raw_max) if raw_max else None,
         timeout=float(scenario_llm.get("timeout", LLM_TIMEOUT_SECONDS)),
     )

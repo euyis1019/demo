@@ -18,8 +18,8 @@ from typing import Any, Dict
 import pytest
 
 from cyber_town.backend.directors import ActivationDirector, WorldDirector
-from cyber_town.backend.directors.base import call_llm_json
-from cyber_town.backend.scheduler import ActivationScheduler
+from cyber_town.backend.llm.json_call import call_llm_json
+from cyber_town.backend.runtime.scheduler import ActivationScheduler
 
 
 # ---------------------------------------------------------------- mock LLM

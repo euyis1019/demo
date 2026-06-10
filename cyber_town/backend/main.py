@@ -40,12 +40,12 @@ from cyber_town.backend.config import (
     resolve_llm_config,
 )
 from cyber_town.backend.directors import ActivationDirector, WorldDirector
-from cyber_town.backend.llm_client import make_llm_client
-from cyber_town.backend.snapshot import SnapshotBuilder
-from cyber_town.backend.tick_loop import tick_loop
-from cyber_town.backend.timeline import build_timeline
-from cyber_town.backend.world_factory import build_world
-from cyber_town.backend.ws_hub import WSHub
+from cyber_town.backend.llm.client import make_llm_client
+from cyber_town.backend.api.snapshot import SnapshotBuilder
+from cyber_town.backend.runtime.tick_loop import tick_loop
+from cyber_town.backend.api.timeline import build_timeline
+from cyber_town.backend.runtime.world_factory import build_world
+from cyber_town.backend.api.ws_hub import WSHub
 from cyber_town.world_seed.loader import load_scenario
 
 # uvicorn 只配置自家 logger，根 logger 无 handler 会吞掉应用 INFO 日志；

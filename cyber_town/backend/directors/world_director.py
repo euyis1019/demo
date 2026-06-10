@@ -15,24 +15,17 @@ import asyncio
 import logging
 from typing import Any, Dict, Optional
 
-from cyber_town.backend.directors.base import call_llm_json
+from cyber_town.backend.llm.json_call import call_llm_json
+from cyber_town.backend.prompts.directors import (
+    WORLD_SYSTEM,
+    render_world_event_segment,
+    render_world_user,
+)
 
 log = logging.getLogger(__name__)
 
 DECIDE_EVERY = 24                 # 每 N 拍考虑一次（默认 ≈2 游戏小时）
 DEFAULT_DURATION = 18             # 事件默认持续拍数
-
-_SYSTEM = (
-    "你是一个星露谷式农场小镇仿真的「世界事件导演」。你不控制任何角色，"
-    "只负责偶尔让世界发生一点环境层面的小事，让小镇有生活的起伏。\n"
-    "规则：\n"
-    "1) 事件必须是环境/氛围事实（天气变化、集市日、谁家炊烟、远处戏班路过、"
-    "鸡跑出笼……），绝不能指挥任何角色做事或替角色说话；\n"
-    "2) 与当前世界时间、季节感协调；和最近事件不重复；\n"
-    "3) 多数时候世界平平常常——大约一半的机会选择不投放事件。\n"
-    "只输出 JSON：{\"event\": \"一句环境描述（20-50字）\" 或 null, "
-    "\"duration_ticks\": 12~30, \"reason\": \"一句话\"}"
-)
 
 
 class WorldDirector:
@@ -60,7 +53,7 @@ class WorldDirector:
 
     def render_for_npc(self, t: int) -> str:
         ev = self.current_event(t)
-        return f"# 此刻的天时人事\n{ev}" if ev else ""
+        return render_world_event_segment(ev) if ev else ""
 
     # ---- tick_loop 钩子（后台决策，绝不拖拍）----------------------------
 
@@ -76,9 +69,8 @@ class WorldDirector:
         recent = "；".join(self._history[-3:]) or "（无）"
         cur = self._event or "（无）"
         data = await call_llm_json(
-            self._client, self._model, _SYSTEM,
-            f"世界时间 {wall}（tick {t}）。当前事件：{cur}。最近发生过：{recent}。\n"
-            f"要不要让世界发生点什么？",
+            self._client, self._model, WORLD_SYSTEM,
+            render_world_user(wall, t, cur, recent),
         )
         if not data:
             return

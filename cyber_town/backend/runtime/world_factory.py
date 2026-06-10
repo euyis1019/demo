@@ -34,14 +34,11 @@ from agent_world.world.relation_graph import RelationGraph
 from agent_world.world.state import WorldState
 from agent_world.world.step import WorldStep
 
-from cyber_town.backend.config import (
-    PLAYER_ID,
-    SEGMENT_HEADERS,
-    LLMConfig,
-)
-from cyber_town.backend.npc import CyberTownNPC
-from cyber_town.backend.player_agent import PlayerAgent
-from cyber_town.backend.scheduler import ActivationScheduler
+from cyber_town.backend.agents.npc import CyberTownNPC
+from cyber_town.backend.agents.player_agent import PlayerAgent
+from cyber_town.backend.config import PLAYER_ID, LLMConfig
+from cyber_town.backend.prompts.segments import SEGMENT_HEADERS
+from cyber_town.backend.runtime.scheduler import ActivationScheduler
 from cyber_town.world_seed.loader import seed_into_db
 
 log = logging.getLogger(__name__)

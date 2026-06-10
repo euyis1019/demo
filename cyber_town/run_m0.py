@@ -29,8 +29,9 @@ from cyber_town.backend.config import (
     DEFAULT_SCENARIO_PATH,
     resolve_llm_config,
 )
-from cyber_town.backend.llm_client import make_llm_client
-from cyber_town.backend.world_factory import AssembledWorld, build_world
+from cyber_town.backend.llm.client import make_llm_client
+from cyber_town.backend.prompts.observation import _wall_clock_label
+from cyber_town.backend.runtime.world_factory import AssembledWorld, build_world
 from cyber_town.world_seed.loader import load_scenario
 
 log = logging.getLogger("cyber_town.m0")
@@ -52,7 +53,8 @@ def _print_tick_report(tick: int, report: Dict[str, Any], asm: AssembledWorld) -
     agents = asm.all_agents
     wall = ""
     if asm.npcs:
-        wall = asm.npcs[0]._wall_clock_label(tick)  # noqa: SLF001 — 共享同一时钟配置
+        # W6：时钟渲染已抽至 prompts/observation（NPC 实例方法不再存在）
+        wall = _wall_clock_label(asm.npcs[0], tick)
     head = f" 世界时间 {wall}" if wall else ""
     print(f"\n=================== tick t={tick}{head} ===================")
     print(

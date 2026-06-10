@@ -22,7 +22,9 @@ llm:
   api_key_env: LLM_API_KEY
   model: deepseek-v4-flash
   temperature: 0.8
-  max_tokens: 400
+  # max_tokens 默认不设（W6：放开输出预算，防思维链挤占答案被截断）；
+  # 如需限制取消下行注释
+  # max_tokens: 2000
 
 places:
   - place_id: farm

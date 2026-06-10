@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-from cyber_town.backend.scheduler import ActivationScheduler
+from cyber_town.backend.runtime.scheduler import ActivationScheduler
 
 
 class _FakeWorld:

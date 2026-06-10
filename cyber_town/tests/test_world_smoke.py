@@ -14,8 +14,8 @@ from pathlib import Path
 import pytest
 
 from cyber_town.backend.config import DEFAULT_SCENARIO_PATH, LLMConfig
-from cyber_town.backend.llm_client import make_llm_client
-from cyber_town.backend.world_factory import build_world
+from cyber_town.backend.llm.client import make_llm_client
+from cyber_town.backend.runtime.world_factory import build_world
 from cyber_town.world_seed.loader import load_scenario
 
 _MOCK_CFG = LLMConfig(base_url="http://mock", model="mock", api_key="mock")

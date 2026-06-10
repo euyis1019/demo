@@ -16,26 +16,21 @@ fail-soft：LLM 失败/超时/输出不合法 → 沿用上一份策略；首份
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from typing import Any, Dict
 
-from cyber_town.backend.directors.base import call_llm_json
+from cyber_town.backend.llm.json_call import call_llm_json
+from cyber_town.backend.prompts.directors import (
+    ACTIVATION_DIGEST_FALLBACK,
+    ACTIVATION_SYSTEM,
+    render_activation_digest,
+    render_activation_user,
+)
 
 log = logging.getLogger(__name__)
 
 DECIDE_EVERY = 10                  # 每 N 拍元决策一次
 TIER_INTERVAL = {"high": 1, "low": 4, "sleep": 12}
-
-_SYSTEM = (
-    "你是一个多智能体小镇仿真的「激活导演」。你不控制任何角色的言行，"
-    "只决定下个时间窗口里每个 NPC 获得思考机会的频率，目标是：\n"
-    "1) 正在与玩家互动、或彼此对话进行中的 NPC 必须 high（不许打断对话）；\n"
-    "2) 有未回应消息/刚被点名的 NPC 必须 high；\n"
-    "3) 独处且无事的 NPC 用 low 省算力；长期完全无事的可 sleep；\n"
-    "4) 宁可多给 high，不要让活跃场景卡顿。\n"
-    "只输出 JSON：{\"tiers\": {\"<npc_id>\": \"high|low|sleep\", ...}, \"reason\": \"一句话\"}"
-)
 
 
 class ActivationDirector:
@@ -70,10 +65,10 @@ class ActivationDirector:
             summary = self._world_digest(asm, t)
         except Exception as exc:  # noqa: BLE001 — 摘要失败不挡元决策
             log.warning("激活导演世界摘要失败：%s", exc)
-            summary = "（世界摘要暂不可用，请保守地全员 high）"
+            summary = ACTIVATION_DIGEST_FALLBACK
         data = await call_llm_json(
-            self._client, self._model, _SYSTEM,
-            f"当前 tick t={t}。世界近况：\n{summary}\n请给出下个窗口的激活档位。",
+            self._client, self._model, ACTIVATION_SYSTEM,
+            render_activation_user(t, summary),
         )
         if not data or "tiers" not in data:
             log.info("激活导演：本轮无有效输出，沿用现策略 %s", self.tiers)
@@ -96,23 +91,23 @@ class ActivationDirector:
     # ---- 世界摘要（只读）------------------------------------------------
 
     def _world_digest(self, asm: Any, t: int) -> str:
-        lines = []
         player_place = asm.world.location_of(asm.player.agent_id)
-        lines.append(f"玩家位置：{player_place}")
         # 最近 5 拍的消息热度（含未回应私信检测的原料）
         rows = asm.world_db._conn.execute(  # noqa: SLF001 — 只读摘要
             "SELECT sender_id, recipient_id, channel_type FROM direct_message "
             "WHERE attempted_at > ? AND delivered=1", (t - 5,),
         ).fetchall()
         recent_pairs = {(int(s) if s is not None else -1, int(r)) for s, r, _ in rows}
+        npcs = []
         for npc in asm.npcs:
             nid = npc.agent_id
             place = asm.world.location_of(nid)
-            cs = (npc.current_state or "").replace("\n", " ")[:40]
-            talking = any(s == nid or r == nid for s, r in recent_pairs)
-            with_player = "与玩家同地点" if place == player_place else "独处异地"
-            lines.append(
-                f"- NPC {nid}（{npc.name}）@{place}，{with_player}，"
-                f"近5拍{'有' if talking else '无'}消息往来，状态：{cs}"
-            )
-        return "\n".join(lines)
+            npcs.append({
+                "id": nid,
+                "name": npc.name,
+                "place": place,
+                "with_player": place == player_place,
+                "talking": any(s == nid or r == nid for s, r in recent_pairs),
+                "state": (npc.current_state or "").replace("\n", " ")[:40],
+            })
+        return render_activation_digest(player_place, npcs)

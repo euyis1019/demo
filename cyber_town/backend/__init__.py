@@ -1,12 +1,15 @@
-"""赛博小镇后端薄应用层。
+"""cyber_town.backend —— 赛博小镇后端（W6 重组后的包地图）。
 
-模块职责（解耦边界）：
+根级（位置不动：uvicorn 入口与 .env 红线路径依赖）：
+* ``main``       FastAPI 入口（uvicorn cyber_town.backend.main:app）
+* ``config``     零依赖配置：跨层常量 / .env 加载 / LLMConfig 解析
 
-- ``config``        常量 + .env / LLM 配置解析（不 import 引擎）
-- ``actions``       agent 返回给引擎的动作数据形状（不 import 引擎）
-- ``llm_client``    LLM 客户端工厂：真实 AsyncOpenAI / 离线 Mock 可互换
-- ``npc``           CyberTownNPC：LLM 驱动村民（生活化提示词，允许沉默）
-- ``player_agent``  PlayerAgent：人类驱动虚拟农夫（不调 LLM，命令队列）
-- ``scheduler``     ActivationScheduler：同场每拍 + 异地低频心跳
-- ``world_factory`` 内核装配（唯一 import agent_world 全家桶的地方）
+功能包：
+* ``prompts``    ★ 所有软引导/提示词文本的唯一集中地（改文案只来这里）
+* ``agents``     agent 实现：actions / npc / player_agent
+* ``runtime``    世界运行：world_factory / scheduler / tick_loop
+* ``api``        前端服务视图：ws_hub / snapshot / timeline
+* ``llm``        LLM 接入：client（真实/Mock 工厂）/ json_call（JSON 元决策调用）
+* ``affinity``   好感度薄层：store（SQLite）/ manager（业务门面）
+* ``directors``  管理类 agent：activation_director / world_director（§15）
 """
