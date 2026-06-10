@@ -200,6 +200,9 @@ class CyberTownNPC:
     minutes_per_tick: int = 5
 
     # ---- 扩展挂点（M4 好感度等，保持解耦）----
+    # 追加给 LLM 的额外工具 schema（如 adjust_affinity——引擎不认识的私有工具
+    # 必须同时登记进 private_tool_names，否则会被 dispatcher 静默丢弃）
+    extra_tools: List[Dict[str, Any]] = field(default_factory=list)
     # 第 6 段提示词：fn(npc, obs) -> str；返回空串则不追加
     prompt_suffix_provider: Optional[Callable[["CyberTownNPC", Any], str]] = None
     # 私有工具：引擎不认识的 tool（dispatcher 会静默丢弃），返回前在此拦截。
@@ -242,7 +245,7 @@ class CyberTownNPC:
                         {"role": "system", "content": sys_prompt},
                         {"role": "user", "content": user_text},
                     ],
-                    tools=TOOLS,
+                    tools=TOOLS + self.extra_tools,
                     tool_choice="auto",
                     temperature=self.temperature,
                     max_tokens=self.max_tokens,

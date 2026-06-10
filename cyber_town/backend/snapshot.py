@@ -22,9 +22,11 @@ log = logging.getLogger(__name__)
 class SnapshotBuilder:
     """有状态快照构建器：持有消息游标与 seq 计数（每世界一个实例）。"""
 
-    def __init__(self, asm: Any, tick_seconds: float = 2.5) -> None:
+    def __init__(self, asm: Any, tick_seconds: float = 2.5,
+                 affinity_manager: Any = None) -> None:
         self._asm = asm
         self._tick_seconds = float(tick_seconds)
+        self._affinity = affinity_manager      # 可选（M4）：None 时快照不含好感度
         self._seq = 0
         self._cursor = -1                 # 玩家消息 arrive_at 游标（引擎查询是严格 >）
         self._overhear_cursor = -1        # 旁听 attempted_at 游标（引擎查询是 >=，闭区间！）
@@ -58,6 +60,8 @@ class SnapshotBuilder:
             "moves": self._moves(t),
             "failures": list(report.get("failures", []) or []),
         }
+        if self._affinity is not None:
+            data["affinity"] = self._affinity.snapshot_dict()
         # 游标推进放在所有查询之后（同一帧内各查询共享旧游标）。
         # 注意两套引擎查询的区间语义不同（审查 B-1）：
         #   fetch_arrived_for  用严格 >  → 游标存 t
@@ -130,13 +134,16 @@ class SnapshotBuilder:
         out: Dict[str, Any] = {}
         for a in asm.all_agents:
             aid = a.agent_id
-            out[str(aid)] = {
+            entry = {
                 "name": a.name,
                 "location": asm.world.location_of(aid),
                 "is_player": aid == asm.player.agent_id,
                 "current_state": (a.current_state or "").strip(),
                 "bubble": bubbles.get(aid),
             }
+            if self._affinity is not None and aid != asm.player.agent_id:
+                entry["affinity_to_player"] = self._affinity.to_player_score(aid)
+            out[str(aid)] = entry
         return out
 
     def _bubbles(self, t: int) -> Dict[int, str]:

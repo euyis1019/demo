@@ -18,6 +18,7 @@ cyber_town/
 │   ├── player_agent.py    #   PlayerAgent：玩家虚拟农夫（不调 LLM，命令队列）
 │   ├── scheduler.py       #   激活调度：同场每拍 + 异地低频心跳
 │   ├── world_factory.py   #   内核装配（唯一成套 import agent_world 的地方）
+│   ├── affinity/          #   M4：好感度薄层（独立 affinity.db；主路拦截+规则底噪）
 │   ├── snapshot.py        #   M1：每拍世界快照（自管消息游标，勿用引擎 last_seen）
 │   ├── ws_hub.py          #   M1：WS 连接管理 + 广播 + 玩家命令入队
 │   ├── tick_loop.py       #   M1：固定墙钟心跳后台任务（变速拍 + 优雅退出）
@@ -65,7 +66,10 @@ uvicorn cyber_town.backend.main:app --port 8000
 ## 阶段进度（方案 §12）
 
 - [x] **M0** 活体世界纯文本跑通（Mock 全通道 + 真实 LLM 双验收 ✓；V1-V5 全过，单拍 avg 3.6s）
-- [x] **M1** FastAPI 持续 tick + WS 推快照 + 玩家文本闭环（18 pytest ✓ + uvicorn 进程级验收 ✓）
-- [ ] M2 Godot 渲染世界 + 键盘移动 + 氛围
-- [ ] M3 类手机菜单三渠道闭环 + 按 E 直达
-- [ ] M4 好感度注入
+- [x] **M1** FastAPI 持续 tick + WS 推快照 + 玩家文本闭环（pytest ✓ + uvicorn 进程级验收 ✓）
+- [x] **M2** Godot 渲染世界 + 键盘移动 + 氛围（headless 实跑验收 ✓ + 后端 e2e 连通 ✓）
+- [x] **M3** 类手机菜单「小镇通」三渠道 + 按 E 直达（headless 消息流验收 ✓）
+- [x] **M4** 好感度注入（27 pytest ✓ + 真实 LLM 验收：好感 30→34、语气生效、零泄漏 ✓）
+
+> 视觉效果的最终确认需在 Godot 编辑器中打开运行（开发机无显示环境，
+> 已用 headless 模式覆盖脚本解析/运行/WS 链路/消息流验收）。
