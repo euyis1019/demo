@@ -26,6 +26,7 @@ llm:
 
 places:
   - place_id: farm
+    display_name: 农场
     capacity: 6
     attrs:
       timezone: Asia/Shanghai
@@ -37,6 +38,7 @@ places:
         不必硬找话。语气轻松家常。
 
   - place_id: square
+    display_name: 广场
     capacity: 8
     attrs:
       timezone: Asia/Shanghai
@@ -47,6 +49,7 @@ places:
         寒暄；没客人时店主就理理货、晒晒太阳。语气热络客气，但不聒噪。
 
   - place_id: saloon
+    display_name: 酒馆
     capacity: 8
     attrs:
       timezone: Asia/Shanghai

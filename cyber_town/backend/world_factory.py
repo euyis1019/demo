@@ -134,7 +134,8 @@ async def build_world(
         connectivity=connectivity, clock=clock,
     )
 
-    segment_store = SegmentStore()
+    # max_raw_actions 调大供档案页时间线回看（compressor=None 不清理，内存可控）
+    segment_store = SegmentStore(max_raw_actions=120)
     perception = PerceptionBuilder(
         world_db=world_db, places=place_store, relations=relation_graph,
         caps=capability_table, connectivity=connectivity,

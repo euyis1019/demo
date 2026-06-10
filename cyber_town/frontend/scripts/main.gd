@@ -112,6 +112,8 @@ func _on_hello(data: Dictionary) -> void:
 		var npc := NpcScene.instantiate()
 		npc.npc_id = aid
 		npc.display_name = str(agents[aid_str])
+		npc.clicked.connect(func(clicked_id: int) -> void:
+			phone.open_profile(clicked_id))   # M6：点村民看档案
 		add_child(npc)
 		_npcs[aid] = npc
 	# 菜单名册/群信息

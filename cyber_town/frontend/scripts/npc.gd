@@ -5,6 +5,8 @@ extends Node2D
 
 enum State { IDLE, WANDER, WALKING }
 
+signal clicked(npc_id: int)      # M6：点击村民 → 档案页
+
 var npc_id: int = -1
 var display_name := ""
 var anchor_index := 0            # 由 main 按地点到场顺序分配
@@ -67,6 +69,21 @@ func _ready() -> void:
 	style.content_margin_bottom = 4.0
 	_bubble.add_theme_stylebox_override("normal", style)
 	add_child(_bubble)
+
+	# M6：点击拾取区（圆形覆盖精灵），点村民打开其档案页
+	var pick := Area2D.new()
+	pick.input_pickable = true
+	var shape := CollisionShape2D.new()
+	var circle := CircleShape2D.new()
+	circle.radius = 18.0 * Config.SPRITE_SCALE
+	shape.shape = circle
+	pick.add_child(shape)
+	pick.input_event.connect(
+		func(_vp: Node, ev: InputEvent, _idx: int) -> void:
+			var mb := ev as InputEventMouseButton
+			if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+				clicked.emit(npc_id))
+	add_child(pick)
 
 
 ## 引擎确认的当前地点（供 main 判断是否需要重新分配锚点）

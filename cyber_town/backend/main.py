@@ -41,6 +41,7 @@ from cyber_town.backend.config import (
 from cyber_town.backend.llm_client import make_llm_client
 from cyber_town.backend.snapshot import SnapshotBuilder
 from cyber_town.backend.tick_loop import tick_loop
+from cyber_town.backend.timeline import build_timeline
 from cyber_town.backend.world_factory import build_world
 from cyber_town.backend.ws_hub import WSHub
 from cyber_town.world_seed.loader import load_scenario
@@ -140,6 +141,20 @@ def create_app(
             "t": int(asm.world.clock.t),
             "clients": app.state.hub.client_count,
             "agents": len(asm.all_agents),
+        }
+
+    @app.get("/agents/{agent_id}/timeline")
+    async def agent_timeline(agent_id: int, limit: int = 60) -> dict:
+        """M6 档案页：某 agent 的行为时间线（对话/OS/移动/目标）。"""
+        asm = getattr(app.state, "asm", None)
+        if asm is None:
+            raise HTTPException(status_code=503, detail="世界尚未就绪")
+        if agent_id not in {a.agent_id for a in asm.all_agents}:
+            raise HTTPException(status_code=404, detail=f"agent {agent_id} 不存在")
+        return {
+            "agent_id": agent_id,
+            "name": asm.name_directory.get(agent_id, f"agent_{agent_id}"),
+            "entries": build_timeline(asm, agent_id, limit=limit),
         }
 
     @app.websocket("/ws/world")

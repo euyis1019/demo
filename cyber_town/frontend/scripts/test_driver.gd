@@ -72,6 +72,11 @@ func _run() -> void:
 	await _sleep(0.5)
 	await _shot("08_archive_world")
 
+	# —— M6 档案页：看大山的动态时间线 ——
+	main.phone.open_profile(3)
+	await _sleep(1.5)                              # REST 拉取
+	await _shot("09_agent_profile")
+
 	print("[UITEST] DONE")
 	await _sleep(0.5)
 	get_tree().quit()

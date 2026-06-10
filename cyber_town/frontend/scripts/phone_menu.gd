@@ -44,6 +44,9 @@ var _private_input: LineEdit
 var _group_history: RichTextLabel
 var _group_input: LineEdit
 var _archive_view: RichTextLabel
+var _profile_title: Label
+var _profile_view: RichTextLabel
+var _profile_agent := -1         # 档案页当前查看的 agent
 
 
 func _ready() -> void:
@@ -54,6 +57,7 @@ func _ready() -> void:
 	add_child(_notify)
 	_build_ui()
 	_root.visible = false
+	WorldNet.timeline_received.connect(_on_timeline)
 
 
 # ====================== 对外接口（main 调用） ======================
@@ -89,6 +93,27 @@ func open_private(npc_id: int) -> void:
 	_select_contact_row(npc_id)
 	_render_private()
 	_private_input.grab_focus()
+
+
+## M6 档案页：查看某 agent 的行为时间线（点击 NPC 精灵 / 私聊页按钮进入）
+func open_profile(agent_id: int) -> void:
+	_profile_agent = agent_id
+	open(4)
+	_profile_title.text = "「%s」的动态（加载中…）" % _name_of(agent_id)
+	_profile_view.text = ""
+	WorldNet.fetch_timeline(agent_id)
+
+
+func _on_timeline(agent_id: int, data: Dictionary) -> void:
+	if agent_id != _profile_agent:
+		return
+	_profile_title.text = "「%s」的动态  ⟳点击名字刷新" % str(data.get("name", agent_id))
+	var lines: Array = []
+	for e in data.get("entries", []):
+		lines.append("[color=#8a8]%s[/color] %s" % [
+			str(e.get("time", "")), str(e.get("text", ""))])
+	_profile_view.text = "\n".join(lines) if lines.size() > 0 \
+		else "[color=#888]（还没有可看的动静）[/color]"
 
 
 ## 每帧快照灌入：消息分拣 / 联系人刷新 / 角标与提示音
@@ -244,7 +269,7 @@ func _select_contact_row(npc_id: int) -> void:
 
 
 func _refresh_badges() -> void:
-	if _tabs.get_tab_count() < 4:
+	if _tabs.get_tab_count() < 5:
 		return  # 构建期防御：tabs 未建齐
 	if _root.visible:
 		if _tabs.current_tab == 1:
@@ -255,6 +280,7 @@ func _refresh_badges() -> void:
 	_tabs.set_tab_title(1, "私聊" + _badge(_unread["private"]))
 	_tabs.set_tab_title(2, "群聊" + _badge(_unread["group"]))
 	_tabs.set_tab_title(3, "记录")
+	_tabs.set_tab_title(4, "档案")
 
 
 # ====================== 工具 ======================
@@ -350,6 +376,7 @@ func _build_ui() -> void:
 	_tabs.add_child(_build_private_tab())
 	_tabs.add_child(_build_group_tab())
 	_tabs.add_child(_build_archive_tab())
+	_tabs.add_child(_build_profile_tab())
 	# 信号必须在全部 tab 建好之后再连——add 首个 tab 即触发 tab_changed，
 	# 彼时 set_tab_title(1..3) 会越界（headless 实测抓到的 child null 错误）
 	_tabs.tab_changed.connect(func(_i: int) -> void: _refresh_badges())
@@ -387,9 +414,19 @@ func _build_private_tab() -> Control:
 		_active_private = int(_contact_list.get_item_metadata(i))
 		_render_private())
 	box.add_child(_contact_list)
+	var title_row := HBoxContainer.new()
 	_private_title = Label.new()
 	_private_title.add_theme_font_size_override("font_size", 12)
-	box.add_child(_private_title)
+	_private_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_row.add_child(_private_title)
+	var profile_btn := Button.new()
+	profile_btn.text = "📋 看TA档案"
+	profile_btn.add_theme_font_size_override("font_size", 11)
+	profile_btn.pressed.connect(func() -> void:
+		if _active_private >= 0:
+			open_profile(_active_private))
+	title_row.add_child(profile_btn)
+	box.add_child(title_row)
 	_private_history = _make_history()
 	box.add_child(_private_history)
 	var row := HBoxContainer.new()
@@ -430,6 +467,28 @@ func _build_archive_tab() -> Control:
 	box.name = "记录"
 	_archive_view = _make_history()
 	box.add_child(_archive_view)
+	return box
+
+
+func _build_profile_tab() -> Control:
+	var box := VBoxContainer.new()
+	box.name = "档案"
+	var hint := Label.new()
+	hint.text = "点击世界里的村民查看 TA 的动态"
+	hint.add_theme_font_size_override("font_size", 11)
+	hint.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	box.add_child(hint)
+	_profile_title = Label.new()
+	_profile_title.add_theme_font_size_override("font_size", 13)
+	box.add_child(_profile_title)
+	# 标题可点刷新
+	_profile_title.mouse_filter = Control.MOUSE_FILTER_STOP
+	_profile_title.gui_input.connect(func(ev: InputEvent) -> void:
+		var mb := ev as InputEventMouseButton
+		if mb != null and mb.pressed and _profile_agent >= 0:
+			WorldNet.fetch_timeline(_profile_agent))
+	_profile_view = _make_history()
+	box.add_child(_profile_view)
 	return box
 
 
