@@ -10,6 +10,7 @@ signal snapshot_received(frame: Dictionary)
 signal ack_received(data: Dictionary)
 signal error_received(data: Dictionary)
 signal connection_changed(connected: bool)
+signal timeline_received(agent_id: int, data: Dictionary)   # M6 档案页
 
 var _socket := WebSocketPeer.new()
 var _connected := false
@@ -104,3 +105,24 @@ func send_private_message(target: int, content: String) -> bool:
 
 func send_to_group(group_id: int, content: String) -> bool:
 	return send_command("send_to_group", {"group_id": group_id, "content": content})
+
+
+## M6：拉取某 agent 的行为时间线（REST，一次性 HTTPRequest，完成即自毁）
+func fetch_timeline(agent_id: int) -> void:
+	var req := HTTPRequest.new()
+	add_child(req)
+	req.request_completed.connect(
+		func(_result: int, code: int, _headers: PackedStringArray,
+				body: PackedByteArray) -> void:
+			req.queue_free()
+			if code != 200:
+				push_warning("档案拉取失败 agent=%d code=%d" % [agent_id, code])
+				return
+			var data: Variant = JSON.parse_string(body.get_string_from_utf8())
+			if typeof(data) == TYPE_DICTIONARY:
+				timeline_received.emit(agent_id, data)
+	)
+	var err := req.request("%s/agents/%d/timeline?limit=60" % [Config.HTTP_BASE, agent_id])
+	if err != OK:
+		push_warning("档案请求发起失败：%s" % err)
+		req.queue_free()

@@ -3,6 +3,7 @@ extends Node
 ## 引擎只有离散 place，地点内坐标全是前端表现层（方案 §7.2/C4）。
 
 const WS_URL := "ws://127.0.0.1:8000/ws/world"
+const HTTP_BASE := "http://127.0.0.1:8000"   # REST（档案页 timeline 等）
 
 ## 三个地点的世界矩形（像素坐标，决定 zone 触发与地面绘制）
 const ZONES := {

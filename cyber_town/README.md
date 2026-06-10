@@ -55,8 +55,12 @@ uvicorn cyber_town.backend.main:app --port 8000
 # M2/M3：Godot 前端（先启动上面的后端）
 # 用 Godot 4.x 打开 cyber_town/frontend/project.godot，按 F5 运行：
 #   WASD/方向键 走动；走进「广场/酒馆」区域即自动前往（下一拍生效）
-#   Tab 呼出「小镇通」菜单（当面说/私聊/群聊/记录，未读角标+提示音）
+#   Tab 呼出「小镇通」菜单（当面说/私聊/群聊/记录/档案，未读角标+提示音）
 #   走近 NPC 按 E 直达与其的私聊会话
+#   鼠标点击任意村民 → 档案页：TA 的行为时间线（对话/内心OS/移动轨迹）
+
+# UI 回归（模拟完整用户旅程并截图到 /tmp/ct_ui）
+CT_UITEST=1 /Applications/Godot.app/Contents/MacOS/Godot --path cyber_town/frontend
 ```
 
 > ⚠ 用 Python `websockets` 库写调试客户端时务必 `connect(url, proxy=None)`——
@@ -69,7 +73,9 @@ uvicorn cyber_town.backend.main:app --port 8000
 - [x] **M1** FastAPI 持续 tick + WS 推快照 + 玩家文本闭环（pytest ✓ + uvicorn 进程级验收 ✓）
 - [x] **M2** Godot 渲染世界 + 键盘移动 + 氛围（headless 实跑验收 ✓ + 后端 e2e 连通 ✓）
 - [x] **M3** 类手机菜单「小镇通」三渠道 + 按 E 直达（headless 消息流验收 ✓）
-- [x] **M4** 好感度注入（27 pytest ✓ + 真实 LLM 验收：好感 30→34、语气生效、零泄漏 ✓）
+- [x] **M4** 好感度注入（真实 LLM 验收：好感 30→34、语气生效、零泄漏 ✓）
+- [x] **M5** 场景装饰（谷仓/喷泉/集市摊/酒馆木屋/树栅栏，CC0 图集，截图验收 ✓）
+- [x] **M6** 村民档案页（点击 NPC 看行为时间线：对话双向/内心OS/移动，31 pytest ✓）
 
 > 视觉效果的最终确认需在 Godot 编辑器中打开运行（开发机无显示环境，
 > 已用 headless 模式覆盖脚本解析/运行/WS 链路/消息流验收）。
