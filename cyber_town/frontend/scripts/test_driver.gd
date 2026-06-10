@@ -15,6 +15,8 @@ func _ready() -> void:
 	if dir != "":
 		_out = dir
 	DirAccess.make_dir_recursive_absolute(_out)
+	# 置顶防 macOS 遮挡节流（被挡住时渲染暂停，frame_post_draw 不触发会卡死旅程）
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true)
 	print("[UITEST] 启动，截图目录：", _out)
 	_run()
 
@@ -82,11 +84,21 @@ func _sleep(sec: float) -> void:
 
 
 func _shot(name_: String) -> void:
-	await RenderingServer.frame_post_draw          # 保证拿到已渲染帧
+	# 等渲染完帧，但带 3s 超时降级（窗口被遮挡时 frame_post_draw 可能不来）
+	var timed_out := [false]
+	var timer := get_tree().create_timer(3.0)
+	timer.timeout.connect(func() -> void: timed_out[0] = true)
+	while not timed_out[0]:
+		var done := [false]
+		RenderingServer.frame_post_draw.connect(
+			func() -> void: done[0] = true, CONNECT_ONE_SHOT)
+		await get_tree().process_frame
+		if done[0]:
+			break
 	var img := get_viewport().get_texture().get_image()
 	var path := "%s/%s.png" % [_out, name_]
 	img.save_png(path)
-	print("[UITEST] 截图 ", path)
+	print("[UITEST] 截图 ", path, "（降级）" if timed_out[0] else "")
 
 
 func _set_key(keycode: Key, pressed: bool) -> void:
