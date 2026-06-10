@@ -3,7 +3,7 @@
 用法（从仓库根）：
 
     # 离线冒烟（Mock LLM 剧本，不走网络；玩家命令也走剧本）
-    python3 -m cyber_town.run_m0 --mock-llm --num-ticks 8 --heartbeat 4
+    python3 -m cyber_town.run_m0 --mock-llm --num-ticks 8
 
     # 真实 LLM（需 backend/.env 有 LLM_API_KEY 且内网网关可达）
     python3 -m cyber_town.run_m0 --num-ticks 6
@@ -27,7 +27,6 @@ from typing import Any, Dict, List
 
 from cyber_town.backend.config import (
     DEFAULT_SCENARIO_PATH,
-    HEARTBEAT_EVERY,
     resolve_llm_config,
 )
 from cyber_town.backend.llm_client import make_llm_client
@@ -142,8 +141,6 @@ async def main(argv: List[str] | None = None) -> int:
     parser.add_argument("--sim-dir", default=None, help="world.db 落盘目录（默认 tempdir）")
     parser.add_argument("--mock-llm", action="store_true",
                         help="离线剧本模式：不调真实 LLM，玩家命令也走内置剧本")
-    parser.add_argument("--heartbeat", type=int, default=HEARTBEAT_EVERY,
-                        help="异地 NPC 心跳间隔（拍）")
     parser.add_argument("--log-level", default="WARNING")
     args = parser.parse_args(argv)
 
@@ -161,11 +158,9 @@ async def main(argv: List[str] | None = None) -> int:
 
     mode = "Mock 剧本" if args.mock_llm else f"真实 LLM（{llm_cfg.model}）"
     print(f"=== 赛博小镇 M0：{scenario.get('simulation_id')} | {mode} ===")
-    print(f"=== sim_dir={sim_dir} heartbeat={args.heartbeat} ===")
+    print(f"=== sim_dir={sim_dir}（全员每拍激活）===")
 
-    asm = await build_world(
-        scenario, sim_dir, client, llm_cfg, heartbeat_every=args.heartbeat,
-    )
+    asm = await build_world(scenario, sim_dir, client, llm_cfg)
 
     tick_costs: List[float] = []
     for tick in range(args.num_ticks):

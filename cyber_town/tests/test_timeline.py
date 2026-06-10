@@ -20,7 +20,7 @@ _MOCK_CFG = LLMConfig(base_url="http://mock", model="mock", api_key="mock")
 async def _world(tmp_path: Path):
     scenario = load_scenario(DEFAULT_SCENARIO_PATH)
     client = make_llm_client(_MOCK_CFG, mock=True)
-    return await build_world(scenario, tmp_path, client, _MOCK_CFG, heartbeat_every=4)
+    return await build_world(scenario, tmp_path, client, _MOCK_CFG)
 
 
 @pytest.mark.asyncio
@@ -59,7 +59,7 @@ async def test_timeline_includes_received_side(tmp_path: Path) -> None:
 
 
 def test_timeline_rest_endpoint(tmp_path: Path) -> None:
-    app = create_app(mock=True, tick_seconds=0.05, heartbeat_every=4,
+    app = create_app(mock=True, tick_seconds=0.05,
                      sim_dir=str(tmp_path))
     with TestClient(app) as client:
         import time

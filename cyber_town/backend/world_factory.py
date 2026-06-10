@@ -35,7 +35,6 @@ from agent_world.world.state import WorldState
 from agent_world.world.step import WorldStep
 
 from cyber_town.backend.config import (
-    HEARTBEAT_EVERY,
     PLAYER_ID,
     SEGMENT_HEADERS,
     LLMConfig,
@@ -99,7 +98,6 @@ async def build_world(
     sim_dir: Path,
     llm_client: Any,
     llm_cfg: LLMConfig,
-    heartbeat_every: int = HEARTBEAT_EVERY,
 ) -> AssembledWorld:
     """从 scenario 构建完整内核 + agents，返回 AssembledWorld。"""
     sim_dir.mkdir(parents=True, exist_ok=True)
@@ -207,9 +205,7 @@ async def build_world(
     if player is None:
         raise ValueError("scenario 里必须有一个 is_player: true（或 agent_id=0）的玩家 agent")
 
-    scheduler = ActivationScheduler(
-        player_id=player.agent_id, heartbeat_every=heartbeat_every,
-    )
+    scheduler = ActivationScheduler(player_id=player.agent_id)
 
     # C1 对策：有 agents 时 dispatcher/perception 绝不能为 None（引擎无兜底）
     assert dispatcher is not None and perception is not None
@@ -229,9 +225,9 @@ async def build_world(
     )
 
     log.info(
-        "世界装配完成：player=%s(%d) npcs=%s heartbeat=%d",
+        "世界装配完成：player=%s(%d) npcs=%s（全员每拍激活）",
         player.name, player.agent_id,
-        [f"{n.name}({n.agent_id})" for n in npcs], heartbeat_every,
+        [f"{n.name}({n.agent_id})" for n in npcs],
     )
     return AssembledWorld(
         world=world_state, world_step=world_step, world_db=world_db,

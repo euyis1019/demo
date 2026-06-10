@@ -19,7 +19,7 @@ _MOCK_CFG = LLMConfig(base_url="http://mock", model="mock", api_key="mock")
 async def _build(tmp_path: Path):
     scenario = load_scenario(DEFAULT_SCENARIO_PATH)
     client = make_llm_client(_MOCK_CFG, mock=True)
-    asm = await build_world(scenario, tmp_path, client, _MOCK_CFG, heartbeat_every=4)
+    asm = await build_world(scenario, tmp_path, client, _MOCK_CFG)
     return asm, SnapshotBuilder(asm)
 
 

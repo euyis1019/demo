@@ -17,7 +17,6 @@ DEFAULT_SCENARIO_PATH = REPO_ROOT / "cyber_town" / "world_seed" / "scenario.yaml
 # ---- 跨层契约常量（方案 §8 / §13）------------------------------------------
 PLAYER_ID = 0                 # 玩家农夫的 agent_id（固定外键，全后端统一）
 TICK_SECONDS = 2.5            # 世界心跳间隔（M1 用；M0 压测后可调）
-HEARTBEAT_EVERY = 10          # 异地 NPC 低频心跳：每 N 拍激活一次（按 id 错峰）
 LLM_TIMEOUT_SECONDS = 20.0    # 单次 LLM 调用超时；超时该 NPC 当拍 do_nothing
 
 # 5 段系统提示词标题（perception.build 的 segment_headers，引擎默认是 None）。
