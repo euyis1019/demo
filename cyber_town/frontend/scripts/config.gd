@@ -2,8 +2,20 @@ extends Node
 ## 全局配置（autoload: Config）——世界布局 / 服务器地址 / 视觉参数。
 ## 引擎只有离散 place，地点内坐标全是前端表现层（方案 §7.2/C4）。
 
-const WS_URL := "ws://127.0.0.1:8000/ws/world"
-const HTTP_BASE := "http://127.0.0.1:8000"   # REST（档案页 timeline 等）
+## 服务器地址：桌面运行连本机后端；Web 导出版自适应当前页面 host
+## （浏览器里游戏由 FastAPI 静态托管，与 WS/REST 同源）。
+static func ws_url() -> String:
+	if OS.has_feature("web"):
+		var host := str(JavaScriptBridge.eval("location.host", true))
+		var scheme := "wss" if str(JavaScriptBridge.eval("location.protocol", true)) == "https:" else "ws"
+		return "%s://%s/ws/world" % [scheme, host]
+	return "ws://127.0.0.1:8000/ws/world"
+
+
+static func http_base() -> String:
+	if OS.has_feature("web"):
+		return str(JavaScriptBridge.eval("location.origin", true))
+	return "http://127.0.0.1:8000"
 
 ## 三个地点的世界矩形（像素坐标，决定 zone 触发与地面绘制）
 const ZONES := {

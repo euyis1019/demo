@@ -52,12 +52,15 @@ python3 -m pytest cyber_town/tests -q
 uvicorn cyber_town.backend.main:app --port 8000
 # 然后 WS 连 ws://127.0.0.1:8000/ws/world，REST 看 http://127.0.0.1:8000/healthz
 
-# M2/M3：Godot 前端（先启动上面的后端）
-# 用 Godot 4.x 打开 cyber_town/frontend/project.godot，按 F5 运行：
-#   WASD/方向键 走动；走进「广场/酒馆」区域即自动前往（下一拍生效）
-#   Tab 呼出「小镇通」菜单（当面说/私聊/群聊/记录/档案，未读角标+提示音）
-#   走近 NPC 按 E 直达与其的私聊会话
-#   鼠标点击任意村民 → 档案页：TA 的行为时间线（对话/内心OS/移动轨迹）
+# 🌐 Web 端（推荐）：导出一次后，浏览器即玩
+# 1) 导出（需 Godot 4.6 + Web export templates）：
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path cyber_town/frontend \
+  --export-release "Web" dist/index.html
+# 2) 启动后端（自动托管 dist）→ 浏览器打开 http://127.0.0.1:8000/game/
+#   操作：WASD/方向键 走动；走进区域即自动前往；Tab 呼出「小镇通」
+#   （当面说/私聊/群聊/记录/档案）；走近村民按 E 直达私聊；点击村民看档案
+
+# 🖥 桌面端（开发调试）：Godot 打开 cyber_town/frontend/project.godot 按 F5
 
 # UI 回归（模拟完整用户旅程并截图到 /tmp/ct_ui）
 CT_UITEST=1 /Applications/Godot.app/Contents/MacOS/Godot --path cyber_town/frontend
@@ -74,8 +77,11 @@ CT_UITEST=1 /Applications/Godot.app/Contents/MacOS/Godot --path cyber_town/front
 - [x] **M2** Godot 渲染世界 + 键盘移动 + 氛围（headless 实跑验收 ✓ + 后端 e2e 连通 ✓）
 - [x] **M3** 类手机菜单「小镇通」三渠道 + 按 E 直达（headless 消息流验收 ✓）
 - [x] **M4** 好感度注入（真实 LLM 验收：好感 30→34、语气生效、零泄漏 ✓）
-- [x] **M5** 场景装饰（谷仓/喷泉/集市摊/酒馆木屋/树栅栏，CC0 图集，截图验收 ✓）
+- [x] **M5** 场景装饰（CC0 图集，截图验收 ✓）
 - [x] **M6** 村民档案页（点击 NPC 看行为时间线：对话双向/内心OS/移动，31 pytest ✓）
+- [x] **W1** 视觉全面重构（Ninja Adventure CC0：双层 tilemap 整图 + 四角色差异化 + 和风 BGM）
+- [x] **W2** Web 端化（Godot Web 导出 + FastAPI `/game` 托管 + WS 同源自适应 +
+  中文像素字体内嵌；Chrome 无头端到端验收：画面 ✓ WS ✓ 中文 ✓）
 
 > 视觉效果的最终确认需在 Godot 编辑器中打开运行（开发机无显示环境，
 > 已用 headless 模式覆盖脚本解析/运行/WS 链路/消息流验收）。

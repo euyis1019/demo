@@ -27,7 +27,7 @@ func _ready() -> void:
 
 
 func _connect_to_server() -> void:
-	var err := _socket.connect_to_url(Config.WS_URL)
+	var err := _socket.connect_to_url(Config.ws_url())
 	if err != OK:
 		push_warning("WS 连接发起失败：%s，%.1fs 后重试" % [err, _retry_delay])
 
@@ -122,7 +122,7 @@ func fetch_timeline(agent_id: int) -> void:
 			if typeof(data) == TYPE_DICTIONARY:
 				timeline_received.emit(agent_id, data)
 	)
-	var err := req.request("%s/agents/%d/timeline?limit=60" % [Config.HTTP_BASE, agent_id])
+	var err := req.request("%s/agents/%d/timeline?limit=60" % [Config.http_base(), agent_id])
 	if err != OK:
 		push_warning("档案请求发起失败：%s" % err)
 		req.queue_free()

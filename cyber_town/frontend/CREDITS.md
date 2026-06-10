@@ -4,6 +4,7 @@
 |---|---|---|---|
 | 村庄 tileset / 角色 / 头像 | `assets/gfx/na/*` | Pixel-boy (Anokolisa)，[Ninja Adventure Asset Pack](https://github.com/pixel-boy/NinjaAdventure)（镜像：[superpowers-asset-packs](https://github.com/sparklinlabs/superpowers-asset-packs)） | **CC0**（公有领域，可商用，无需署名） |
 | 背景音乐 | `assets/audio/theme_village.ogg` | 同上（Ninja Adventure musics/theme-1） | **CC0** |
+| 中文像素字体 | `assets/fonts/fusion-pixel-zh.ttf` | TakWolf，[缝合像素字体](https://github.com/TakWolf/fusion-pixel-font) | **OFL-1.1**（随附 OFL.txt） |
 | 脚步声 / 提示音 | `assets/audio/{footstep,notify}.wav` | 本项目程序合成（Python wave） | CC0 等同（自制） |
 
 角色帧布局：16×16/帧，4 列走帧 × 前 4 行方向（行0=下/1=右/2=上/3=左）。
