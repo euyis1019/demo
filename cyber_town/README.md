@@ -51,9 +51,11 @@ python3 -m pytest cyber_town/tests -q
 uvicorn cyber_town.backend.main:app --port 8000
 # 然后 WS 连 ws://127.0.0.1:8000/ws/world，REST 看 http://127.0.0.1:8000/healthz
 
-# M2：Godot 前端（先启动上面的后端）
-# 用 Godot 4.x 打开 cyber_town/frontend/project.godot，按 F5 运行；
-# WASD/方向键走动，走进「广场/酒馆」区域即自动前往（下一拍生效）。
+# M2/M3：Godot 前端（先启动上面的后端）
+# 用 Godot 4.x 打开 cyber_town/frontend/project.godot，按 F5 运行：
+#   WASD/方向键 走动；走进「广场/酒馆」区域即自动前往（下一拍生效）
+#   Tab 呼出「小镇通」菜单（当面说/私聊/群聊/记录，未读角标+提示音）
+#   走近 NPC 按 E 直达与其的私聊会话
 ```
 
 > ⚠ 用 Python `websockets` 库写调试客户端时务必 `connect(url, proxy=None)`——

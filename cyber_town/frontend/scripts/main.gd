@@ -7,7 +7,11 @@ const NpcScene := preload("res://scenes/npc.tscn")
 
 var player: CharacterBody2D
 var day_night: CanvasModulate
+var phone: CanvasLayer           # 类手机菜单（M3）
 var _npcs := {}                  # npc_id(int) -> npc 节点
+var _names := {}                 # agent_id(int) -> 显示名（hello 名册）
+
+const E_TALK_DISTANCE := 96.0    # 按 E 直达私聊的触发距离（像素）
 var _player_id := -1
 var _confirmed_place := ""       # 引擎确认的玩家所在地
 var _pending_move := ""          # 已发送、等下一拍确认的目标地
@@ -20,6 +24,7 @@ const PENDING_TIMEOUT := 8.0
 
 var _clock_label: Label
 var _banner: Label
+var _hint: Label
 
 
 func _ready() -> void:
@@ -36,6 +41,12 @@ func _ready() -> void:
 	_build_hud()
 	_build_bgm()
 
+	phone = (load("res://scripts/phone_menu.gd") as GDScript).new()
+	add_child(phone)
+	# 发送即本地回显（D18：自己的当面说立即出气泡，不等快照）
+	phone.speak_requested.connect(func(content: String) -> void:
+		player.show_bubble(content))
+
 	WorldNet.hello_received.connect(_on_hello)
 	WorldNet.snapshot_received.connect(_on_snapshot)
 	WorldNet.connection_changed.connect(_on_connection)
@@ -43,6 +54,43 @@ func _ready() -> void:
 
 func _physics_process(_delta: float) -> void:
 	_check_zone_transition()
+	_update_talk_hint()
+
+
+## 键盘热键（_unhandled：输入框打字时不触发）
+func _unhandled_key_input(event: InputEvent) -> void:
+	var key := event as InputEventKey
+	if key == null or not key.pressed or key.echo:
+		return
+	match key.keycode:
+		KEY_TAB:
+			phone.toggle()
+		KEY_ESCAPE:
+			phone.close()
+		KEY_E:
+			if not phone.is_open():
+				var npc_id := _nearest_npc_id()
+				if npc_id >= 0:
+					phone.open_private(npc_id)  # 按 E 直达该 NPC 私聊页（D9）
+
+
+func _nearest_npc_id() -> int:
+	var best := -1
+	var best_d := E_TALK_DISTANCE
+	for aid in _npcs:
+		var d: float = player.position.distance_to(_npcs[aid].position)
+		if d < best_d:
+			best_d = d
+			best = aid
+	return best
+
+
+func _update_talk_hint() -> void:
+	var npc_id := _nearest_npc_id()
+	if npc_id >= 0 and not phone.is_open():
+		_hint.text = "按 E 和 %s 私聊 · Tab 打开小镇通" % str(_names.get(npc_id, "村民"))
+	else:
+		_hint.text = "WASD/方向键 走动 · 走进区域即可前往 · Tab 打开小镇通"
 
 
 # ---- 协议侧 ----------------------------------------------------------------
@@ -57,6 +105,7 @@ func _on_hello(data: Dictionary) -> void:
 	var agents: Dictionary = data.get("agents", {})
 	for aid_str in agents:
 		var aid := int(aid_str)
+		_names[aid] = str(agents[aid_str])
 		if aid == _player_id or _npcs.has(aid):
 			continue
 		var npc := NpcScene.instantiate()
@@ -64,6 +113,10 @@ func _on_hello(data: Dictionary) -> void:
 		npc.display_name = str(agents[aid_str])
 		add_child(npc)
 		_npcs[aid] = npc
+	# 菜单名册/群信息
+	phone.player_id = _player_id
+	phone.names = _names
+	phone.groups = data.get("groups", [])
 
 
 func _on_snapshot(frame: Dictionary) -> void:
@@ -88,6 +141,15 @@ func _on_snapshot(frame: Dictionary) -> void:
 				_anchor_counter[loc] = int(_anchor_counter.get(loc, 0)) + 1
 				npc.anchor_index = _anchor_counter[loc]
 			npc.apply_snapshot(info)
+	# 菜单灌入消息流 + 当面说可用性（移动 pending 时置灰，方案 §7.2）
+	phone.ingest_snapshot(data)
+	var present: Array = []
+	var places: Dictionary = data.get("places", {})
+	if places.has(_confirmed_place):
+		for oid in places[_confirmed_place].get("occupants", []):
+			if int(oid) != _player_id:
+				present.append(str(_names.get(int(oid), oid)))
+	phone.set_local_enabled(_pending_move == "", present)
 
 
 func _apply_player_state(info: Dictionary) -> void:
@@ -181,12 +243,12 @@ func _build_hud() -> void:
 	_banner.add_theme_font_size_override("font_size", 14)
 	_banner.add_theme_color_override("font_color", Color(1, 0.45, 0.4))
 	ui.add_child(_banner)
-	var hint := Label.new()
-	hint.text = "WASD/方向键 走动 · 走进区域即可前往"
-	hint.position = Vector2(16, 690)
-	hint.add_theme_font_size_override("font_size", 13)
-	hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
-	ui.add_child(hint)
+	_hint = Label.new()
+	_hint.text = "WASD/方向键 走动 · 走进区域即可前往 · Tab 打开小镇通"
+	_hint.position = Vector2(16, 690)
+	_hint.add_theme_font_size_override("font_size", 13)
+	_hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
+	ui.add_child(_hint)
 
 
 func _build_bgm() -> void:
