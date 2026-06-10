@@ -23,6 +23,7 @@ async def tick_loop(
     snapshot_builder: Any,
     tick_seconds: float,
     affinity_manager: Any = None,
+    directors: Any = None,
 ) -> None:
     """持续驱动世界直到任务被 cancel。affinity_manager 参数保留向后兼容（W3 起好感度仅 LLM 主路，tick 内无规则注入）。"""
     log.info("tick_loop 启动：interval=%.2fs affinity=%s",
@@ -31,6 +32,12 @@ async def tick_loop(
         t0 = time.monotonic()
         try:
             report = await asm.world_step.run_one_tick()
+            # W5 导演钩子：后台元决策（fire-and-forget，绝不拖拍）
+            for d in (directors or []):
+                try:
+                    d.maybe_decide(asm, int(report.get("t", 0)))
+                except Exception:  # noqa: BLE001 — 导演故障不阻断世界
+                    log.warning("导演钩子异常", exc_info=True)
             snap = await snapshot_builder.build(report)
             await hub.broadcast(snap)
             if report.get("failures"):

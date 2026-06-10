@@ -1,7 +1,8 @@
-"""激活调度器：**全员每拍激活**（W3 纯自主化，用户拍板推翻原 D5 心跳制）。
+"""激活调度器：默认全员每拍（W3）；接入激活导演后按档位错峰（W5）。
 
-每个 NPC 每拍都获得思考机会——行动时机不再被调度器代理，世界全域同步活着
-（token 成本随 NPC 数线性增长，3 NPC 规模可接受）。
+默认（无 interval_provider）每个 NPC 每拍都获得思考机会——行动时机不被任何
+规则代理。接入激活导演后，频率由低频 LLM 元决策分配（high/low/sleep），
+时机分配从「规则代理」升级为「管理 agent 判断」，详见方案 §15.1。
 
 引擎契约（world/step.py::_pick_active）：
 * scheduler 非 None 且 ``pick_active`` 返回**非 None** → 直接用该列表，
@@ -16,7 +17,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, List
+from typing import Any, Callable, List, Optional
 
 from cyber_town.backend.config import PLAYER_ID
 
@@ -24,17 +25,32 @@ log = logging.getLogger(__name__)
 
 
 class ActivationScheduler:
-    """全员每拍激活：谁都不被代理「何时能思考」。"""
+    """激活调度：默认全员每拍；接入激活导演后按其档位（W5 智能预算）。
 
-    def __init__(self, player_id: int = PLAYER_ID) -> None:
+    ``interval_provider``：fn(npc_id) -> int（每几拍一次思考机会）。
+    None = 全员每拍（纯自主默认，向后兼容）。导演档位是 LLM 元决策而非
+    硬规则——时机分配从「规则代理」升级为「管理 agent 判断」（方案 §15）。
+    """
+
+    def __init__(self, player_id: int = PLAYER_ID,
+                 interval_provider: Optional[Callable[[int], int]] = None) -> None:
         self.player_id = int(player_id)
+        self.interval_provider = interval_provider
 
     def pick_active(self, world: Any, t: int) -> List[int]:
-        """返回本拍激活的 agent_id 列表（永远非 None；玩家恒在 + 全部 NPC）。"""
+        """返回本拍激活的 agent_id 列表（永远非 None；玩家恒在）。"""
         active: List[int] = [self.player_id]
         for aid in getattr(world, "agents", {}):
             aid = int(aid)
-            if aid != self.player_id:
+            if aid == self.player_id:
+                continue
+            interval = 1
+            if self.interval_provider is not None:
+                try:
+                    interval = max(1, int(self.interval_provider(aid)))
+                except Exception:  # noqa: BLE001 — 导演异常→安全侧每拍
+                    interval = 1
+            if (int(t) + aid) % interval == 0:   # 按 id 错峰
                 active.append(aid)
         log.debug("t=%s active=%s", t, active)
         return active
