@@ -111,6 +111,11 @@ func ingest_snapshot(data: Dictionary) -> void:
 			_local_log.append(line)
 			_archive.append("[color=#88c]🗣[/color] " + line)
 	for m in pv.get("overheard", []):
+		# 引擎对 F2F 设计性双写（同 message_id 既入 direct 又入 overhear，
+		# face_to_face.py 即如此）——已作为直达收到的不再重复显示旁听版；
+		# 真正的旁听（别人对别人说、自己只是在场）没有 d: 记录，照常显示。
+		if _seen_ids.has("d:%s" % str(m.get("message_id", ""))):
+			continue
 		if _mark_seen("o", m):
 			var line := _fmt(m.get("sender_id"), str(m.get("content", "")))
 			_local_log.append("[color=#999](旁听) [/color]" + line)

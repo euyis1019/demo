@@ -17,6 +17,7 @@ config/features=PackedStringArray("4.3")
 
 Config="*res://scripts/config.gd"
 WorldNet="*res://scripts/world_net.gd"
+TestDriver="*res://scripts/test_driver.gd"
 
 [display]
 
