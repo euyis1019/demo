@@ -2,9 +2,11 @@
 
 | 资源 | 文件 | 作者/来源 | 许可 |
 |---|---|---|---|
-| 角色/村民/地图图集 | `assets/gfx/{character,NPC_test,Overworld,objects}.png` | ArMM1998，[Zelda-like tilesets and sprites](https://opengameart.org/content/zelda-like-tilesets-and-sprites)（OpenGameArt） | **CC0**（公有领域） |
-| 背景音乐 | `assets/audio/town_theme.mp3` | cynicmusic（pixelsphere.org），[Town Theme RPG](https://opengameart.org/content/town-theme-rpg)（OpenGameArt） | **CC0**（公有领域） |
-| 脚步声 / 提示音 | `assets/audio/{footstep,notify}.wav` | 本项目程序合成（Python wave 正弦+噪声包络） | CC0 等同（自制） |
+| 村庄 tileset / 角色 / 头像 | `assets/gfx/na/*` | Pixel-boy (Anokolisa)，[Ninja Adventure Asset Pack](https://github.com/pixel-boy/NinjaAdventure)（镜像：[superpowers-asset-packs](https://github.com/sparklinlabs/superpowers-asset-packs)） | **CC0**（公有领域，可商用，无需署名） |
+| 背景音乐 | `assets/audio/theme_village.ogg` | 同上（Ninja Adventure musics/theme-1） | **CC0** |
+| 脚步声 / 提示音 | `assets/audio/{footstep,notify}.wav` | 本项目程序合成（Python wave） | CC0 等同（自制） |
 
-精灵帧布局（已逐像素核实，见 `scripts/sprite_lib.gd`）：
-16×32/帧，前 4 列 × 前 4 行；行 0=朝下、行 1=朝右、行 2=朝上、行 3=朝左。
+角色帧布局：16×16/帧，4 列走帧 × 前 4 行方向（行0=下/1=右/2=上/3=左）。
+角色分配：char_5=玩家（草帽农夫）、char_9=老钱（白须老者）、
+char_12=阿香（黑发红衣）、char_2=大山（橙衣壮汉）；face_N 为对应头像。
+地面/物件 tile 坐标见 scripts/config.gd（NA_* 常量，逐块目检+截图迭代核定）。

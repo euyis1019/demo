@@ -11,18 +11,18 @@ var _facing := "down"
 
 func _ready() -> void:
 	add_to_group("player")
-	var tex: Texture2D = load("res://assets/gfx/character.png")
+	var tex: Texture2D = load(Config.NA_CHARS[0])   # 草帽农夫（玩家）
 	_sprite = AnimatedSprite2D.new()
 	_sprite.sprite_frames = SpriteLib.build(tex)
-	_sprite.scale = Vector2.ONE * Config.SPRITE_SCALE
+	_sprite.scale = Vector2.ONE * Config.CHAR_SCALE
 	_sprite.play("idle_down")
 	add_child(_sprite)
 
 	var shape := CollisionShape2D.new()
 	var rect := RectangleShape2D.new()
-	rect.size = Vector2(14, 10) * Config.SPRITE_SCALE
+	rect.size = Vector2(12, 8) * Config.CHAR_SCALE
 	shape.shape = rect
-	shape.position = Vector2(0, 10 * Config.SPRITE_SCALE)  # 碰撞贴脚部
+	shape.position = Vector2(0, 5 * Config.CHAR_SCALE)  # 碰撞贴脚部
 	add_child(shape)
 
 	var cam := Camera2D.new()
@@ -44,7 +44,7 @@ func _ready() -> void:
 
 	var name_label := Label.new()
 	name_label.text = "我"
-	name_label.position = Vector2(-12, -40 * Config.SPRITE_SCALE / 2 - 14)
+	name_label.position = Vector2(-12, -44)
 	name_label.add_theme_font_size_override("font_size", 12)
 	name_label.add_theme_color_override("font_color", Color(1, 1, 0.85))
 	add_child(name_label)
@@ -99,7 +99,7 @@ func _tick_bubble(delta: float) -> void:
 func _make_bubble() -> Label:
 	var l := Label.new()
 	l.visible = false
-	l.position = Vector2(-90, -40 * Config.SPRITE_SCALE - 10)
+	l.position = Vector2(-90, -84)
 	l.custom_minimum_size = Vector2(180, 0)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

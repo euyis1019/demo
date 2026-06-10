@@ -12,14 +12,78 @@ const ZONES := {
 	"saloon": Rect2(1100, 120, 420, 460),
 }
 
-## 地点显示名与地面色（草地/石板/木地板的像素感基色）
 const ZONE_NAMES := {"farm": "农场", "square": "广场", "saloon": "酒馆"}
-const ZONE_COLORS := {
-	"farm":   Color8(96, 153, 78),
-	"square": Color8(158, 144, 116),
-	"saloon": Color8(133, 94, 66),
+
+## ====== Ninja Adventure（CC0）视觉资产 ======
+## tileset.png 16px 网格；以下坐标均已对网格标注图逐块目检，截图迭代校正。
+const NA_TILESET := "res://assets/gfx/na/tileset.png"
+
+## 地面 tile（atlas 格坐标 col,row；程序化按色相+方差筛纯色块后人工确认）
+const T_GRASS := Vector2i(22, 22)            # 满块草基底（带细纹理，无透明边）
+const T_DECO := [Vector2i(9, 15), Vector2i(12, 15)]  # 点缀层：草丛/花（带透明边，叠在基底上）
+const DECO_RATE := 0.06                      # 点缀密度
+const T_SAND := Vector2i(14, 13)     # 橙砂（广场地面）
+const T_DIRT := Vector2i(1, 15)      # 泥土（小路）
+
+## 大块物件（tileset.png 内像素 region；对照 /tmp/na_part{A,B}.png 标注图逐块读数）
+const NA_PROPS := {
+	"house_thatch": Rect2(0, 0, 64, 80),     # 茅草屋（农家）
+	"house_door":   Rect2(128, 0, 64, 80),   # 茅草屋带门
+	"house_red":    Rect2(192, 0, 76, 80),   # 红瓦大屋（酒馆主体，和风）
+	"house_dome":   Rect2(256, 0, 48, 64),   # 圆顶茅屋（杂货铺）
+	"torii":        Rect2(0, 64, 32, 48),    # 鸟居
+	"fence":        Rect2(96, 432, 48, 16),  # 深色尖木栅栏
+	"pond":         Rect2(288, 96, 76, 76),  # 池塘（橙圈蓝水）
+	"bush":         Rect2(0, 96, 32, 32),    # 圆灌木
+	"tree_round":   Rect2(64, 128, 32, 48),  # 圆冠绿树
+	"pine":         Rect2(128, 128, 32, 48), # 深绿杉
+	"cart":         Rect2(80, 120, 32, 40),  # 红篷货车（单辆）
+	"jar":          Rect2(16, 96, 16, 16),   # 陶罐/酒坛
+	"sakura":       Rect2(64, 208, 64, 48),  # 樱花树簇
+	"field":        Rect2(400, 240, 48, 32), # 田畦（草上棕土块）
 }
-const GRASS_BASE := Color8(74, 122, 62)   # 全图底色（zone 之间的野地）
+
+## 物件布置（name, 世界坐标中心；避开 NPC 锚点与玩家通行带）
+const NA_PLACEMENTS := [
+	# —— 农场：茅草农舍 + 三排田畦 + 木栏 ——
+	["house_thatch", Vector2(180, 215)],
+	["field", Vector2(140, 345)], ["field", Vector2(252, 345)],
+	["field", Vector2(140, 425)], ["field", Vector2(252, 425)],
+	["field", Vector2(140, 505)], ["field", Vector2(252, 505)],
+	["fence", Vector2(120, 565)], ["fence", Vector2(216, 565)], ["fence", Vector2(312, 565)], ["fence", Vector2(408, 565)],
+	["tree_round", Vector2(420, 210)], ["bush", Vector2(380, 285)],
+	["jar", Vector2(255, 250)],
+	# —— 广场：池塘 + 鸟居 + 樱花 + 圆顶杂货铺 + 货车 ——
+	["pond", Vector2(790, 280)],
+	["torii", Vector2(620, 195)],
+	["tree_round", Vector2(950, 180)], ["bush", Vector2(905, 215)],
+	["house_dome", Vector2(930, 505)],
+	["jar", Vector2(645, 540)], ["jar", Vector2(668, 552)], ["bush", Vector2(620, 555)],
+	["bush", Vector2(700, 165)],
+	# —— 酒馆：红瓦大屋 + 门口酒坛 + 树 ——
+	["house_red", Vector2(1300, 235)],
+	["jar", Vector2(1235, 360)], ["jar", Vector2(1262, 372)], ["jar", Vector2(1368, 365)],
+	["pine", Vector2(1465, 205)], ["tree_round", Vector2(1150, 200)],
+	["bush", Vector2(1175, 520)], ["fence", Vector2(1300, 565)],
+	# —— 林缘野地点缀 ——
+	["pine", Vector2(300, 70)], ["tree_round", Vector2(360, 80)],
+	["pine", Vector2(525, 320)], ["tree_round", Vector2(545, 625)],
+	["pine", Vector2(1050, 415)], ["pine", Vector2(1540, 645)],
+	["tree_round", Vector2(1090, 660)], ["pine", Vector2(60, 660)],
+	["bush", Vector2(520, 485)], ["bush", Vector2(1060, 175)], ["bush", Vector2(820, 665)],
+]
+
+## 角色精灵映射（agent_id → Ninja Adventure 角色图；16×28，4列走帧×4行方向）
+const NA_CHARS := {
+	0: "res://assets/gfx/na/char_5.png",   # 玩家＝草帽农夫
+	1: "res://assets/gfx/na/char_9.png",   # 老钱＝白须老者
+	2: "res://assets/gfx/na/char_12.png",  # 阿香＝黑发红衣女
+	3: "res://assets/gfx/na/char_2.png",   # 大山＝橙衣壮汉
+}
+const NA_FACES := {
+	0: "res://assets/gfx/na/face_5.png", 1: "res://assets/gfx/na/face_9.png",
+	2: "res://assets/gfx/na/face_12.png", 3: "res://assets/gfx/na/face_2.png",
+}
 
 ## 每个地点的站位锚点（NPC 到达后的落点 + 游走圆心），按到场顺序轮用
 const ANCHORS := {
@@ -28,43 +92,12 @@ const ANCHORS := {
 	"saloon": [Vector2(1260, 330), Vector2(1380, 420), Vector2(1200, 470), Vector2(1420, 280)],
 }
 
-## 装饰物图集区域（Overworld.png 内像素 rect，坐标已逐块目检核实）
-const DECOR_REGIONS := {
-	"barn":     Rect2(176, 0, 80, 80),    # 大谷仓（农场）
-	"house":    Rect2(96, 0, 64, 80),     # 小木屋（酒馆）
-	"tree":     Rect2(80, 256, 32, 32),   # 大圆冠树
-	"fountain": Rect2(352, 144, 48, 40),  # 喷泉（广场中心）
-	"stall":    Rect2(288, 360, 72, 76),  # 蓝白集市摊（杂货铺）
-	"crates":   Rect2(480, 0, 32, 32),    # 木箱
-	"fence":    Rect2(32, 272, 48, 16),   # 木栅栏
-}
-
-## 装饰摆放（name, 世界坐标中心；已避开各地点 NPC 锚点与玩家通行带）
-const DECOR_PLACEMENTS := [
-	# —— 农场 ——
-	["barn", Vector2(180, 220)],
-	["fence", Vector2(150, 560)], ["fence", Vector2(246, 560)], ["fence", Vector2(342, 560)],
-	["tree", Vector2(430, 210)],
-	# —— 广场 ——
-	["fountain", Vector2(790, 230)],
-	["stall", Vector2(617, 585)],   # 左下角，避开锚点 (680,470)（×2 缩放后篷区勿盖站位）
-	["crates", Vector2(960, 200)],
-	["tree", Vector2(615, 185)],
-	# —— 酒馆 ——
-	["house", Vector2(1310, 230)],
-	["crates", Vector2(1170, 530)], ["crates", Vector2(1450, 530)],
-	["tree", Vector2(1465, 190)],
-	# —— 野地点缀 ——
-	["tree", Vector2(520, 320)], ["tree", Vector2(540, 640)],
-	["tree", Vector2(1045, 420)], ["tree", Vector2(300, 70)],
-	["tree", Vector2(820, 670)], ["tree", Vector2(1520, 660)],
-]
-
 const PLAYER_SPEED := 150.0      # 玩家步速（px/s）
 const NPC_SPEED := 70.0          # NPC 跨地点步行速度
 const NPC_WANDER_RADIUS := 56.0  # NPC 在锚点附近游走半径
 const BUBBLE_SECONDS := 5.0      # 头顶气泡显示时长
-const SPRITE_SCALE := 2.0        # 16x32 像素角色放大倍数
+const SPRITE_SCALE := 2.0        # 地面/物件放大倍数（16px tile → 32px）
+const CHAR_SCALE := 3.0          # 角色放大倍数（16×16 帧 → 48px，约 1.5 格高）
 
 ## 世界边界（相机限制）
 const WORLD_RECT := Rect2(0, 0, 1600, 700)
