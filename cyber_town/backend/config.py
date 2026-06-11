@@ -51,6 +51,11 @@ class LLMConfig:
     # 防 reasoning 模型（deepseek-v4-flash）思维链挤占答案额度导致截断；
     # 需要限制时在 scenario.yaml 的 llm 段显式写 max_tokens
     max_tokens: Optional[int] = None
+    # W8：NPC 拍内决策禁用思维链（DeepSeek thinking.disabled）——实测 v4-flash
+    # 带思维链时 tool_calls 产出不稳定（答话写进思维链不调工具→被当独白丢弃，
+    # 即「不回复」主根因），且时延 4.2s→2.7s。导演元决策不受此开关影响。
+    # 换非 DeepSeek 网关时若不识别该参数，在 scenario.yaml 设 disable_thinking: false
+    disable_thinking: bool = True
     timeout: float = LLM_TIMEOUT_SECONDS
 
 
@@ -81,5 +86,6 @@ def resolve_llm_config(scenario_llm: Dict[str, Any]) -> LLMConfig:
         api_key=api_key,
         temperature=float(scenario_llm.get("temperature", 0.8)),
         max_tokens=int(raw_max) if raw_max else None,
+        disable_thinking=bool(scenario_llm.get("disable_thinking", True)),
         timeout=float(scenario_llm.get("timeout", LLM_TIMEOUT_SECONDS)),
     )

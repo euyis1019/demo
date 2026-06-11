@@ -56,6 +56,8 @@ class CyberTownNPC:
     # None = 不传 max_tokens（用 API 默认上限）——W6 用户拍板：放开输出预算，
     # 防 reasoning 模型思维链挤占答案额度导致截断
     max_tokens: Optional[int] = None
+    # W8：禁思维链（见 config.LLMConfig.disable_thinking 注释——tool_calls 稳定性 + 提速）
+    disable_thinking: bool = True
     llm_timeout: float = 20.0               # 单次调用超时（变速拍对策）
     # 世界时间显示映射（纯叙事，不影响内核 tick）
     wall_start_time: str = "08:00"
@@ -121,6 +123,8 @@ class CyberTownNPC:
         )
         if self.max_tokens:
             kwargs["max_tokens"] = self.max_tokens
+        if self.disable_thinking:
+            kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
         try:
             resp = await asyncio.wait_for(
                 self.client.chat.completions.create(**kwargs),
@@ -133,7 +137,43 @@ class CyberTownNPC:
             log.error("NPC %s LLM 调用失败 t=%s：%s", self.agent_id, t, exc)
             return make_response([ToolCall("do_nothing")])
 
+        # W8 格式纠错重试（不丢话保险）：模型偶发把答话写进 content 而不调工具，
+        # 这话会被当独白丢弃（「不回复」的隐性来源之一）。同拍追问一次让它
+        # 自己改用工具——说不说/说什么仍 100% 由 LLM 决定，只纠输出格式。
+        resp = await self._retry_if_silent_with_content(resp, kwargs, t)
         return self._extract_tool_calls(resp, t)
+
+    async def _retry_if_silent_with_content(
+        self, resp: Any, kwargs: Dict[str, Any], t: int
+    ) -> Any:
+        """无 tool_calls 但 content 非空 → 带纠错提示重试一次（10s 限时，失败用原响应）。"""
+        try:
+            msg = resp.choices[0].message
+        except (AttributeError, IndexError):
+            return resp
+        content = (getattr(msg, "content", None) or "").strip()
+        if (getattr(msg, "tool_calls", None) or []) or not content:
+            return resp
+        retry_kwargs = dict(kwargs)
+        retry_kwargs["messages"] = list(kwargs["messages"]) + [
+            {"role": "assistant", "content": content},
+            {"role": "user", "content": (
+                "（系统提示）你刚才只输出了文字、没有调用任何工具——这段话没有"
+                "进入世界，别人听不见。若这是想说出口的话/想做的事，请重新用"
+                "对应工具表达（speak_to_local / send_message / update_state…）；"
+                "若你确实想安静过这一拍，调用 do_nothing。"
+            )},
+        ]
+        try:
+            retried = await asyncio.wait_for(
+                self.client.chat.completions.create(**retry_kwargs), timeout=10.0,
+            )
+            if getattr(retried.choices[0].message, "tool_calls", None):
+                log.info("NPC %s t=%s 格式纠错重试成功（content→工具）", self.agent_id, t)
+                return retried
+        except Exception as exc:  # noqa: BLE001 — 重试失败不影响原响应路径
+            log.warning("NPC %s t=%s 格式纠错重试失败：%s", self.agent_id, t, exc)
+        return resp
 
     # ------------------------------------------------------------------ #
     # LLM 响应解析 + 私有工具拦截                                            #
