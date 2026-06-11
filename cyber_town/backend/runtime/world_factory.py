@@ -192,6 +192,7 @@ async def build_world(
             model=llm_cfg.model,
             temperature=llm_cfg.temperature,
             max_tokens=llm_cfg.max_tokens,
+            disable_thinking=llm_cfg.disable_thinking,
             llm_timeout=llm_cfg.timeout,
             wall_start_time=wall_start,
             minutes_per_tick=minutes_per_tick,
