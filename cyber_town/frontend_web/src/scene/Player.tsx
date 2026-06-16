@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -9,6 +9,7 @@ import {
 import { net } from "../net/ws";
 import { playerRef } from "./playerRef";
 import { isUiFocused } from "../ui/uiState";
+import Character, { MODEL, type Anim } from "./Character";
 
 const keys: Record<string, boolean> = {};
 window.addEventListener("keydown", (e) => (keys[e.code] = true));
@@ -17,8 +18,10 @@ window.addEventListener("keyup", (e) => (keys[e.code] = false));
 // M-web1：玩家 WASD 在 XZ 走动、贴地；走进地块（内缩矩形滞后）自动发 request_move。
 export default function Player() {
   const group = useRef<THREE.Group>(null);
+  const model = useRef<THREE.Group>(null);
   const pendingRef = useRef<string>("");
   const pendingSince = useRef(0);
+  const [anim, setAnim] = useState<Anim>("idle");
 
   useFrame((_, dt) => {
     const g = group.current;
@@ -30,14 +33,16 @@ export default function Player() {
       if (keys["KeyS"] || keys["ArrowDown"]) iz += 1;
       if (keys["KeyW"] || keys["ArrowUp"]) iz -= 1;
     }
-    if (ix || iz) {
+    const moving = !!(ix || iz);
+    if (moving) {
       const len = Math.hypot(ix, iz);
       playerRef.x += (ix / len) * PLAYER_SPEED * dt;
       playerRef.z += (iz / len) * PLAYER_SPEED * dt;
       playerRef.x = THREE.MathUtils.clamp(playerRef.x, WORLD.x + 1, WORLD.x + WORLD.w - 1);
       playerRef.z = THREE.MathUtils.clamp(playerRef.z, WORLD.z + 1, WORLD.z + WORLD.d - 1);
-      playerRef.facing = Math.abs(ix) > Math.abs(iz) ? (ix > 0 ? "right" : "left") : iz > 0 ? "down" : "up";
+      if (model.current) model.current.rotation.y = Math.atan2(ix / len, iz / len);
     }
+    if ((moving ? "walk" : "idle") !== anim) setAnim(moving ? "walk" : "idle");
     g.position.set(playerRef.x, groundY(playerRef.x, playerRef.z), playerRef.z);
 
     // 进区检测 → request_move（内缩矩形滞后；与已确认地点不同才发）
@@ -56,15 +61,10 @@ export default function Player() {
 
   return (
     <group ref={group} position={[PLAYER_SPAWN[0], 0, PLAYER_SPAWN[1]]}>
-      <mesh position={[0, 0.75, 0]} castShadow>
-        <capsuleGeometry args={[0.34, 0.72, 6, 12]} />
-        <meshStandardMaterial color={NPC_COLORS[0]} roughness={0.8} />
-      </mesh>
-      <mesh position={[0, 1.46, 0]} castShadow>
-        <sphereGeometry args={[0.3, 16, 16]} />
-        <meshStandardMaterial color={"#ffe0bd"} roughness={0.7} />
-      </mesh>
-      <Html position={[0, 2.05, 0]} center occlude={false} pointerEvents="none">
+      <group ref={model}>
+        <Character url={MODEL[0]} anim={anim} />
+      </group>
+      <Html position={[0, 2.1, 0]} center occlude={false} pointerEvents="none">
         <div style={{
           background: "rgba(0,0,0,0.55)", color: "#fff", border: `2px solid ${NPC_COLORS[0]}`,
           borderRadius: 8, padding: "1px 8px", fontSize: 13, whiteSpace: "nowrap", fontWeight: 600,
