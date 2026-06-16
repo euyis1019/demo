@@ -152,11 +152,16 @@ func _ready() -> void:
 	add_child(pick)
 
 
+const BUBBLE_BASE_Y := -76.0       # 气泡 wrap 基准 y（去重堆叠在此之上抬升）
+const BUBBLE_MAX_CHARS := 64       # 气泡显示软上限（全文仍在「小镇通」可读）
+
+
 ## 气泡三层结构：wrap（pivot 在尾巴根）+ Label + 尾巴 Polygon2D（主题色描边）
 func _build_bubble() -> void:
 	_bubble_wrap = Node2D.new()
 	_bubble_wrap.visible = false
-	_bubble_wrap.position = Vector2(0, -76)
+	_bubble_wrap.position = Vector2(0, BUBBLE_BASE_Y)
+	_bubble_wrap.z_index = 100   # W9：气泡恒在最上层，不被前景角色/物件遮挡
 	var theme_color: Color = Config.NPC_COLORS.get(npc_id, Color.WHITE)
 	_bubble = Label.new()
 	_bubble.position = Vector2(-90, -52)
@@ -315,6 +320,26 @@ func _play_idle() -> void:
 
 func _show_bubble(text: String) -> void:
 	set_thinking(false)
-	_bubble.text = text
+	var shown := text
+	if shown.length() > BUBBLE_MAX_CHARS:
+		shown = shown.substr(0, BUBBLE_MAX_CHARS) + "…"   # 软截断，减小气泡体积与重叠
+	_bubble.text = shown
 	_bubble_timer = Config.BUBBLE_SECONDS
 	SpriteLib.pop_bubble(_bubble_wrap, _bubble)
+
+
+# ---- W9 气泡去重堆叠（供 main 的 BubbleDeclutter 调用）----
+
+func bubble_visible() -> bool:
+	return _bubble_wrap != null and _bubble_wrap.visible
+
+
+## 在基准位之上额外抬升 px（每帧由去重器先归零再按需抬升）
+func set_bubble_lift(px: float) -> void:
+	if _bubble_wrap != null:
+		_bubble_wrap.position.y = BUBBLE_BASE_Y - px
+
+
+## 气泡当前全局 AABB（用 Label 实测矩形，含描边足够近似）
+func bubble_global_rect() -> Rect2:
+	return _bubble.get_global_rect()

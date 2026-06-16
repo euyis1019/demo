@@ -119,9 +119,16 @@ func _animate(dir: Vector2) -> void:
 			_footstep.play()
 
 
+const BUBBLE_BASE_Y := -76.0
+const BUBBLE_MAX_CHARS := 64
+
+
 ## 头顶气泡（自己当面说的话本地回显，方案 D18）
 func show_bubble(text: String) -> void:
-	_bubble.text = text
+	var shown := text
+	if shown.length() > BUBBLE_MAX_CHARS:
+		shown = shown.substr(0, BUBBLE_MAX_CHARS) + "…"
+	_bubble.text = shown
 	_bubble_timer = Config.BUBBLE_SECONDS
 	SpriteLib.pop_bubble(_bubble_wrap, _bubble)
 
@@ -133,10 +140,26 @@ func _tick_bubble(delta: float) -> void:
 			SpriteLib.fade_bubble(_bubble_wrap)
 
 
+# ---- W9 气泡去重堆叠（供 main 的 BubbleDeclutter 调用）----
+
+func bubble_visible() -> bool:
+	return _bubble_wrap != null and _bubble_wrap.visible
+
+
+func set_bubble_lift(px: float) -> void:
+	if _bubble_wrap != null:
+		_bubble_wrap.position.y = BUBBLE_BASE_Y - px
+
+
+func bubble_global_rect() -> Rect2:
+	return _bubble.get_global_rect()
+
+
 func _build_bubble() -> void:
 	_bubble_wrap = Node2D.new()
 	_bubble_wrap.visible = false
-	_bubble_wrap.position = Vector2(0, -76)
+	_bubble_wrap.position = Vector2(0, BUBBLE_BASE_Y)
+	_bubble_wrap.z_index = 100   # W9：气泡恒在最上层
 	_bubble = Label.new()
 	_bubble.position = Vector2(-90, -52)
 	_bubble.custom_minimum_size = Vector2(180, 0)

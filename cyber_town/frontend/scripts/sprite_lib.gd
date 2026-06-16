@@ -139,3 +139,39 @@ static func fade_bubble(wrap: Node2D) -> void:
 	tw.tween_property(wrap, "modulate:a", 0.0, 0.3)
 	tw.tween_property(wrap, "position:y", wrap.position.y - 6.0, 0.3)
 	tw.chain().tween_callback(func() -> void: wrap.visible = false)
+
+
+## W9 气泡去重堆叠（核心算法，main 每帧调用）。
+## owners 为「气泡宿主」，须实现 duck-typed：bubble_visible()->bool /
+## set_bubble_lift(px) / bubble_global_rect()->Rect2 / 属性 global_position。
+## 按宿主屏幕 y 升序处理：上方角色留基准位，下方气泡与已放置者重叠则上顶，
+## 直至互不相交（标准 AABB 错开），消除多气泡叠成一团。
+static func declutter_bubbles(owners: Array, gap := 6.0) -> void:
+	var vis: Array = []
+	for o in owners:
+		if o.bubble_visible():
+			vis.append(o)
+	if vis.size() < 2:
+		if vis.size() == 1:
+			vis[0].set_bubble_lift(0.0)
+		return
+	vis.sort_custom(func(a, b): return a.global_position.y < b.global_position.y)
+	var placed: Array = []          # 已定位气泡的全局 Rect2
+	for o in vis:
+		o.set_bubble_lift(0.0)      # 先归零取基准矩形
+		var r: Rect2 = o.bubble_global_rect()
+		var lift := 0.0
+		var guard := 0
+		while guard < 8:
+			guard += 1
+			var bumped := false
+			for pr in placed:
+				if r.intersects(pr):
+					var new_top: float = pr.position.y - r.size.y - gap
+					lift += r.position.y - new_top
+					r.position.y = new_top
+					bumped = true
+			if not bumped:
+				break
+		o.set_bubble_lift(lift)
+		placed.append(r)
