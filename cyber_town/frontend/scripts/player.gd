@@ -120,7 +120,7 @@ func _animate(dir: Vector2) -> void:
 
 
 const BUBBLE_BASE_Y := -76.0
-const BUBBLE_MAX_CHARS := 64
+const BUBBLE_MAX_CHARS := 48       # 气泡显示软上限（W10 配合短句对话）
 
 
 ## 头顶气泡（自己当面说的话本地回显，方案 D18）
