@@ -30,12 +30,14 @@ const ZONE_NAMES := {"farm": "农场", "square": "广场", "saloon": "酒馆"}
 ## tileset.png 16px 网格；以下坐标均已对网格标注图逐块目检，截图迭代校正。
 const NA_TILESET := "res://assets/gfx/na/tileset.png"
 
-## 地面 tile（atlas 格坐标 col,row；程序化按色相+方差筛纯色块后人工确认）
-const T_GRASS := Vector2i(22, 22)            # 满块草基底（带细纹理，无透明边）
+## 地面 tile（atlas 格坐标 col,row）。W9：全图统一为**一套地形家族**——
+## vivid 草基底 + 「泥嵌草」3×3 自动过渡块，草↔泥用 bitmask autotile 生成
+## 真实过渡瓦片（消除硬边界/割裂感）；广场与小路都用夯土（同一套过渡）。
+const T_GRASS := [Vector2i(22, 11), Vector2i(14, 16)]   # 纯草满块变体（同族 vivid 绿，加权随机）
+const T_DIRT_CENTER := Vector2i(21, 16)                 # 满泥（夯土中心）
+const T_DIRT_BLOCK := Vector2i(20, 15)   # 泥嵌草 3×3 块左上角；块内 (dx,dy)：dx 0左/1中/2右，dy 0上/1中/2下
 const T_DECO := [Vector2i(9, 15), Vector2i(12, 15)]  # 点缀层：草丛/花（带透明边，叠在基底上）
 const DECO_RATE := 0.10                      # 点缀密度（W7：野地加密，近路减半见 main）
-const T_SAND := Vector2i(14, 13)     # 橙砂（广场地面）
-const T_DIRT := Vector2i(1, 15)      # 泥土（小路）
 
 ## 大块物件（tileset.png 内像素 region；对照 /tmp/na_part{A,B}.png 标注图逐块读数）
 const NA_PROPS := {
@@ -45,7 +47,7 @@ const NA_PROPS := {
 	"house_dome":   Rect2(256, 0, 48, 64),   # 圆顶茅屋（杂货铺）
 	"torii":        Rect2(0, 64, 32, 48),    # 鸟居
 	"fence":        Rect2(96, 432, 48, 16),  # 深色尖木栅栏
-	"pond":         Rect2(288, 96, 76, 76),  # 池塘（橙圈蓝水）
+	"pond":         Rect2(302, 110, 52, 52),  # 池塘（仅水体+红圈，去掉自带橙 apron——W9 防硬边方块）
 	"bush":         Rect2(0, 96, 32, 32),    # 圆灌木
 	"tree_round":   Rect2(64, 128, 32, 48),  # 圆冠绿树
 	"pine":         Rect2(128, 128, 32, 48), # 深绿杉

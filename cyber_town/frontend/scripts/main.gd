@@ -114,6 +114,19 @@ func _process(_delta: float) -> void:
 		_cloud.region_rect = Rect2(
 			_cloud.region_rect.position + Vector2(12, 5) * _delta,
 			_cloud.region_rect.size)
+	_declutter_bubbles()
+
+
+## W9 气泡去重堆叠：多个角色同屏说话时把重叠气泡垂直错开。收集本帧可见气泡
+## 交给 SpriteLib.declutter_bubbles（核心算法抽离，便于确定性测试）。
+func _declutter_bubbles() -> void:
+	var owners: Array = []
+	if player != null and player.bubble_visible():
+		owners.append(player)
+	for aid in _npcs:
+		if _npcs[aid].bubble_visible():
+			owners.append(_npcs[aid])
+	SpriteLib.declutter_bubbles(owners)
 
 
 ## 键盘热键（_unhandled：输入框打字时不触发）
@@ -281,12 +294,19 @@ func _build_ground() -> void:
 	var src := TileSetAtlasSource.new()
 	src.texture = load(Config.NA_TILESET)
 	src.texture_region_size = Vector2i(16, 16)
-	var used: Array = [Config.T_GRASS, Config.T_SAND, Config.T_DIRT] + Config.T_DECO
+	# 注册地形家族全部用到的瓦片：草变体 + 泥中心 + 泥嵌草 3×3 块 9 格 + 点缀
+	var used: Array = Config.T_GRASS.duplicate()
+	used.append(Config.T_DIRT_CENTER)
+	for dy in range(3):
+		for dx in range(3):
+			used.append(Config.T_DIRT_BLOCK + Vector2i(dx, dy))
+	used.append_array(Config.T_DECO)
 	for coord in used:
-		src.create_tile(coord)
+		if not src.has_tile(coord):
+			src.create_tile(coord)
 	tile_set.add_source(src, 0)
 
-	# 双层：base 满铺（草/砂/泥，全为不透明满块）；deco 稀疏点缀（草丛/花）
+	# 双层：base 满铺（草基底 + autotile 泥过渡）；deco 稀疏点缀（草丛/花）
 	var base := TileMapLayer.new()
 	base.tile_set = tile_set
 	base.scale = Vector2.ONE * Config.SPRITE_SCALE
@@ -305,41 +325,34 @@ func _build_ground() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20260610   # 固定种子：点缀分布稳定可截图回归
 
-	var is_grass := {}    # Vector2i -> bool（第二遍边界扫描用）
+	# 第一遍：把每格分类为「夯土」(广场 + 小路) 或「草」，存进集合供 autotile 查邻居
+	var is_dirt := {}
 	for cy in rows:
 		for cx in cols:
 			var wpos := Vector2((cx + 0.5) * cell_px, (cy + 0.5) * cell_px)
-			var cell := Vector2i(cx, cy)
-			if square.has_point(wpos):
-				base.set_cell(cell, 0, Config.T_SAND)    # 广场：橙砂
-			elif _on_path(wpos):
-				base.set_cell(cell, 0, Config.T_DIRT)    # 小路：泥土
-			else:
-				base.set_cell(cell, 0, Config.T_GRASS)   # 草基底
-				is_grass[cell] = true
-				# W7 点缀分区：近路减半、野地加倍（打破均匀随机的程序感）
-				var rate: float = Config.DECO_RATE
-				if absf(wpos.y - 430.0) < 90.0:
-					rate *= 0.5
-				elif wpos.y < 160.0 or wpos.y > 600.0:
-					rate *= 1.6
-				if rng.randf() < rate:
-					deco.set_cell(cell, 0,
-						Config.T_DECO[rng.randi_range(0, Config.T_DECO.size() - 1)])
+			if square.has_point(wpos) or _on_path(wpos):
+				is_dirt[Vector2i(cx, cy)] = true
 
-	# W7 边界咬合：砂/泥格若有草邻居，叠一片带透明边的草丛——
-	# 伪造草缘「咬进」路面的羽化感，消除 16px 一刀切
+	# 第二遍：草格铺基底+点缀；泥格用 bitmask 选 3×3 过渡块对应瓦片
+	# （草是背景，块内位置由四邻是否为草决定——矩形/带状区域的角/边/内全覆盖）
 	for cy in rows:
 		for cx in cols:
 			var cell := Vector2i(cx, cy)
-			if is_grass.has(cell):
+			if is_dirt.has(cell):
+				base.set_cell(cell, 0, _dirt_tile(is_dirt, cx, cy))
 				continue
-			for n in [Vector2i(cx - 1, cy), Vector2i(cx + 1, cy),
-					Vector2i(cx, cy - 1), Vector2i(cx, cy + 1)]:
-				if is_grass.has(n):
-					if rng.randf() < 0.55:
-						deco.set_cell(cell, 0, Config.T_DECO[0])
-					break
+			var gi := 0 if rng.randf() < 0.78 else 1   # 草变体（主块为主，偶尔换口味）
+			base.set_cell(cell, 0, Config.T_GRASS[gi])
+			# 点缀分区：近路减半、野地加倍（打破均匀随机的程序感）
+			var rate: float = Config.DECO_RATE
+			var wy := (cy + 0.5) * cell_px
+			if absf(wy - 430.0) < 90.0:
+				rate *= 0.5
+			elif wy < 160.0 or wy > 600.0:
+				rate *= 1.6
+			if rng.randf() < rate:
+				deco.set_cell(cell, 0,
+					Config.T_DECO[rng.randi_range(0, Config.T_DECO.size() - 1)])
 
 	# 地点名牌（保留导航性；点阵字 12 整数倍防糊）
 	for pid in Config.ZONES:
@@ -361,6 +374,29 @@ func _on_path(wpos: Vector2) -> bool:
 		return false
 	var wave := sin(wpos.x * 0.012) * 36.0
 	return absf(wpos.y - (430.0 + wave)) < 26.0
+
+
+## bitmask autotile：泥格按四邻是否为草，从 3×3「泥嵌草」块取对应过渡瓦片。
+## 草在外侧 → 哪边是草哪边就用块的对应边/角；四邻皆泥=满泥中心。
+## 矩形广场 + 横向小路均为凸形，9 格（4 角+4 边+中心）即可干净收边。
+func _dirt_tile(is_dirt: Dictionary, cx: int, cy: int) -> Vector2i:
+	var grass_up := not is_dirt.has(Vector2i(cx, cy - 1))
+	var grass_down := not is_dirt.has(Vector2i(cx, cy + 1))
+	var grass_left := not is_dirt.has(Vector2i(cx - 1, cy))
+	var grass_right := not is_dirt.has(Vector2i(cx + 1, cy))
+	if not (grass_up or grass_down or grass_left or grass_right):
+		return Config.T_DIRT_CENTER
+	var dx := 1   # 0 左边 / 1 中 / 2 右边
+	if grass_left:
+		dx = 0
+	elif grass_right:
+		dx = 2
+	var dy := 1   # 0 上 / 1 中 / 2 下
+	if grass_up:
+		dy = 0
+	elif grass_down:
+		dy = 2
+	return Config.T_DIRT_BLOCK + Vector2i(dx, dy)
 
 
 func _build_decor() -> void:
