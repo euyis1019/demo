@@ -18,15 +18,19 @@ TOOLS: List[Dict[str, Any]] = [
             "name": "speak_to_local",
             "description": (
                 "对当前地点里所有人当面说出口的话（同地点广播，在场的人都听见）。"
-                "是『口语』不是『短信腔』：像街坊当面唠嗑那样说话，"
-                "称呼随口、说事直接。适合：寒暄、唠家常、招呼客人、当面答话。"
+                "像真人当面唠嗑：**一次只说一句短话**（通常十来个字，最多一句），"
+                "想说的多就分几拍、你一句我一句地来回——别一口气长篇大论。"
+                "口语、不是『短信腔』，称呼随口、说事直接。"
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "content": {
                         "type": "string",
-                        "description": "你说出口的话，1-3 句，口语。",
+                        "description": (
+                            "你这一拍说出口的一句短话（口语，越短越像真人；"
+                            "一般 ≤20 字，别堆成一段。还有话下一拍接着说）。"
+                        ),
                     }
                 },
                 "required": ["content"],
@@ -42,12 +46,14 @@ TOOLS: List[Dict[str, Any]] = [
                 "给某个具体的人发私信（手机短信/微信，对方不在身边也能收到，"
                 "异地约 1 拍后送达）。悄悄话、捎话、远程招呼用这个；"
                 "对方就在你眼前时优先当面说（speak_to_local）。"
+                "像发微信：一条短消息说一件事，别写成长信。"
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "target": {"type": "integer", "description": "收件人 agent_id"},
-                    "content": {"type": "string"},
+                    "content": {"type": "string",
+                                "description": "一条短消息（口语，简短；多的话分几条发）"},
                 },
                 "required": ["target", "content"],
                 "additionalProperties": False,

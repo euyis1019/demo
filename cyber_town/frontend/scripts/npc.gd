@@ -153,7 +153,7 @@ func _ready() -> void:
 
 
 const BUBBLE_BASE_Y := -76.0       # 气泡 wrap 基准 y（去重堆叠在此之上抬升）
-const BUBBLE_MAX_CHARS := 64       # 气泡显示软上限（全文仍在「小镇通」可读）
+const BUBBLE_MAX_CHARS := 48       # 气泡显示软上限（W10 配合短句对话）
 
 
 ## 气泡三层结构：wrap（pivot 在尾巴根）+ Label + 尾巴 Polygon2D（主题色描边）
