@@ -179,11 +179,16 @@ def create_app(
         await hub.register(ws, app.state.snapshot_builder.hello())
         await hub.handle_client(ws, app.state.asm.player)
 
-    # ---- Web 版游戏静态托管（Godot 导出产物，浏览器即玩）----------------
-    # 默认托管 3D 版（frontend3d）；CYBER_TOWN_FRONTEND=2d 可切回 2D 版。
-    # 导出：godot --headless --path cyber_town/frontend3d --export-release "Web" dist/index.html
-    _front = os.environ.get("CYBER_TOWN_FRONTEND", "3d").lower()
-    _front_dir = "frontend" if _front in ("2d", "frontend") else "frontend3d"
+    # ---- Web 版游戏静态托管（浏览器即玩）-------------------------------
+    # 默认托管真 3D 版（frontend_web，Three.js/R3F）；可切：
+    #   CYBER_TOWN_FRONTEND=2d   → Godot 2D 版（frontend）
+    #   CYBER_TOWN_FRONTEND=godot3d → Godot 伪 3D 版（frontend3d）
+    # 出包：cd cyber_town/frontend_web && npm run build（产物 dist，base 已设 /game/）
+    _front = os.environ.get("CYBER_TOWN_FRONTEND", "web").lower()
+    _front_dir = {
+        "2d": "frontend", "frontend": "frontend",
+        "godot3d": "frontend3d", "frontend3d": "frontend3d",
+    }.get(_front, "frontend_web")
     dist = Path(__file__).parent.parent / _front_dir / "dist"
     if (dist / "index.html").exists():
         app.mount("/game", StaticFiles(directory=str(dist), html=True), name="game")
