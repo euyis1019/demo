@@ -179,11 +179,15 @@ def create_app(
         await hub.register(ws, app.state.snapshot_builder.hello())
         await hub.handle_client(ws, app.state.asm.player)
 
-    # ---- W2：Web 版游戏静态托管（Godot 导出产物，浏览器即玩）------------
-    # 导出：Godot --headless --path cyber_town/frontend --export-release "Web" dist/index.html
-    dist = Path(__file__).parent.parent / "frontend" / "dist"
+    # ---- Web 版游戏静态托管（Godot 导出产物，浏览器即玩）----------------
+    # 默认托管 3D 版（frontend3d）；CYBER_TOWN_FRONTEND=2d 可切回 2D 版。
+    # 导出：godot --headless --path cyber_town/frontend3d --export-release "Web" dist/index.html
+    _front = os.environ.get("CYBER_TOWN_FRONTEND", "3d").lower()
+    _front_dir = "frontend" if _front in ("2d", "frontend") else "frontend3d"
+    dist = Path(__file__).parent.parent / _front_dir / "dist"
     if (dist / "index.html").exists():
         app.mount("/game", StaticFiles(directory=str(dist), html=True), name="game")
+        log.info("Web 前端托管：%s（/game）", _front_dir)
 
         @app.get("/")
         async def index() -> RedirectResponse:
