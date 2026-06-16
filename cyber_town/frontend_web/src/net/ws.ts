@@ -1,6 +1,7 @@
 import { SEND_THROTTLE } from "../config";
 import type { CommandAction, HelloAck, SnapshotFrame } from "./protocol";
 import { useWorld } from "../store/worldStore";
+import { useChat } from "../store/chatStore";
 
 // WS 单例：连后端 /ws/world，收 hello/snapshot 写 store，发玩家命令（含节流+重连）。
 // 复刻 Godot world_net.gd 的契约：上行 {action, client_seq, kwargs}，命令白名单 5 个。
@@ -66,6 +67,11 @@ class WorldNet {
       case "snapshot": {
         const f = frame as SnapshotFrame;
         w.applySnapshot(f.t, f.data);
+        // 累积聊天日志（名册来自 hello）
+        const names: Record<number, string> = {};
+        const roster = w.hello?.agents ?? {};
+        for (const [k, v] of Object.entries(roster)) names[Number(k)] = v;
+        useChat.getState().ingest(f.data.player_view ?? {}, names, w.playerId);
         break;
       }
       case "ack":
