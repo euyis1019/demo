@@ -4,6 +4,11 @@
 > billboard 立绘**」这条伪 3D 路线的观感与 Web 可行性（见 [docs/3D可行性调研.md](../../docs/3D可行性调研.md) 推荐方案 B1）。
 > **独立工程，不依赖后端、不影响 `cyber_town/frontend` 的 2D 正式版。**
 
+> **W12 升级：静态场景已全面 3D 化**——地形（起伏网格 + 顶点色 splat 草/泥过渡）、
+> 草、花、石头、栅栏、菜畦全部立体构建（程序化网格 / MultiMesh 合批 / 交叉双 quad +
+> alpha scissor + 风 shader），角色仍为 billboard 立绘。即「基本全 3D 构建的场景」。
+> 实现依据：`docs` 的全 3D 调研方案；落地见 `scripts/world3d.gd`。
+
 ## 怎么跑
 
 ```bash
@@ -21,27 +26,46 @@ cd cyber_town/spike_25d/dist && python3 -m http.server 8077
 
 ## 实现要点（`scripts/world3d.gd`，全代码生成，对齐正式版风格）
 
-- **相机**：`Camera3D` 正交（`PROJECTION_ORTHOGONAL`）+ `look_at` 玩家斜上方 ≈ 51° 俯角，跟随玩家。
-- **地面**：`PlaneMesh` + 平铺纹理（草地 + 夯土广场，复用现有像素 tile），`TEXTURE_FILTER_NEAREST` 保像素感。
-- **光照**：`DirectionalLight3D`(shadow_enabled) + `WorldEnvironment`(ProceduralSky + 天光环境光)。
-- **3D 几何**：房子用 `BoxMesh`，投**真实方向光阴影**（证明真 3D 几何可用）。
-- **角色**：`AnimatedSprite3D`，`billboard = FIXED_Y`（始终竖直朝相机）、`alpha_cut = DISCARD`、
-  `NEAREST`，`SpriteFrames` 由现有 Ninja Adventure 角色帧 4 向构建（复用 2D 美术，无骨骼动画）。
-- **树/植被**：`Sprite3D` billboard（Don't Starve 式 2D 立绘进 3D）。
-- **接地阴影**：精灵自身关闭投影（扁平 billboard 投影很难看），改用程序化柔和
-  `blob.png` 圆形阴影平铺地面——观感更稳。
+- **单一真相高度 `height(x,z)`**：地面网格顶点 + 一切贴地物（草/花/石/栅/树/角色/blob 影）
+  的 y 全喂它 → 杜绝浮空/陷地。FastNoiseLite ±0.6 缓坡。
+- **地形**：`SurfaceTool` 生成起伏 `ArrayMesh`（80×80 格）+ **顶点色 splat `ShaderMaterial`**
+  混草/泥纹理（草地↔夯土广场↔菜畦平滑过渡，单 draw call，消灭叠面 z-fighting）。
+- **草（海量）**：**交叉双 quad**（两片 90° 相交，斜视有体积、不跟相机转）源 mesh，
+  按 10×10m **分块 `MultiMeshInstance3D`**（块级视锥剔除）合批；材质用
+  `ALPHA_SCISSOR`(discard，绝不 blend) + `CULL_DISABLED` + `NEAREST` + **风 spatial shader**
+  （顶点位移 = 世界相位 + TIME + UV.y mask，草根钉住草尖摆）；关投影。
+- **花**：交叉双 quad MultiMesh + `ALPHA_SCISSOR` 静态材质（4 色，程序生成像素花）。
+- **石头**：低面 `SphereMesh` MultiMesh，**投真实阴影**。
+- **栅栏**：程序化「柱+横档」段 `ArrayMesh` MultiMesh，沿 farm 边界，投阴影。
+- **菜畦**：矮 `BoxMesh` 阵列（dirt 纹理），投阴影。
+- **房子**：`BoxMesh`，投真实方向光阴影。
+- **角色**：`AnimatedSprite3D`（`billboard=FIXED_Y` / `alpha_cut=DISCARD` / `NEAREST`），
+  `SpriteFrames` 由现有 Ninja Adventure 角色帧 4 向构建（复用 2D 美术、无骨骼动画）。
+- **树**：`Sprite3D` billboard（Don't Starve 式）。
+- **阴影策略**：只「房子/石头/栅栏/菜畦」等实心几何投真实阴影；草/花/角色/树一律
+  关投影 + 程序化柔和 `blob` 接地影（草不需要 blob）。
+- **性能 HUD**：左上实时显示 FPS / draw_calls / tris（先有标尺再加量）。
 
-## 验证结论
+## 验证结论（Chrome headless WebGL2）
 
-- ✅ **Web 能跑**：Compatibility/WebGL2 下 3D 场景正常渲染（截图见提交说明）。
-- ✅ **真实光影**：方向光对 3D 盒子产生真阴影；天光环境光自然。
-- ✅ **2D 立绘融入 3D**：像素角色/植被作 billboard 站在 3D 地面上、深度遮挡正确、有接地影。
-- 📦 **体积**：dist ≈ 36MB，其中 `index.wasm` 37.7MB 是 **Godot 引擎二进制本身**
-  （与 2D 版同款），`index.pck`（场景+资产）仅 41KB → **转 3D 几乎不增包体**；
-  真正要压的是引擎 wasm（VRAM 压缩 / Basis Universal，见调研文档）。
-- ⚠️ **代价**：这是从零搭的最小场景；正式转 3D 需把 `frontend` 的 ~1400 行 2D 表现层
-  改写为 3D（坐标 `Vector2→Vector3`、节点 2D→3D、shader 重写），**但后端/WS 协议零改动**。
+- ✅ **全 3D 静态场景成立**：起伏地形 + splat 草泥过渡 + 海量立体草丛 + 花 + 石 + 栅栏 +
+  菜畦 + 房子全部 3D 构建；角色 billboard 融入，深度/遮挡/接地正确。
+- ✅ **真实光影**：硬几何投方向光阴影；天光环境光自然。
+- 📊 **性能健康**：draw_calls ≈ **48**、tris ≈ **2.3 万**（约 5000 株草 + 360 朵花 + 石/栅/菜畦）。
+  ⚠️ headless 的 FPS 低是 **SwiftShader 软件渲染（无 GPU）**所致，**不代表真机**；
+  draw call / 三角形数才是真实指标，均在 web 安全区间，真显卡轻松 60fps。
+- 📦 **体积**：dist ≈ 36MB，几乎全是 `index.wasm`（引擎本身，与 2D 同款）；
+  场景+资产 pck 仅几十 KB → 全 3D 化几乎不增包体。
+- ⚠️ **正式落地代价**：本工程是独立验证；接回正式版需把 `frontend` 表现层改写为 3D
+  并接 WebSocket 快照（坐标 `Vector2→Vector3(x,0,y)`），**后端/协议零改动**。
+
+## 必守坑（来自调研，已在代码遵守）
+草用 alpha **scissor 不用 blend**；**分块** MultiMesh（非巨型，才有视锥剔除）；
+草/billboard **不投阴影**；mesh 只在 `_ready` 建一次（`_process` 不重建）；
+风 shader **不用 `depth_prepass_alpha`**（web 不支持）；像素图 **不开 mipmap**、
+平铺用**独立 PNG**（非 AtlasTexture 子区）；地形高度走 **CPU `height()` 不走 shader 位移**。
 
 ## 资产
-`assets/` 下 `grass/dirt/tree` 由现有 `tileset.png` 裁切、`blob.png` 程序生成、
+`assets/` 下 `grass/dirt/path/tree/grasstuft*` 由现有 `tileset.png` 裁切；
+`blade/flower_*`（草叶/4 色花）与 `blob`（接地影）程序生成；
 `char_*.png` 复用正式版角色图（CC0 Ninja Adventure）。
