@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
+import { Loader } from "@react-three/drei";
 import { CAM_SIZE } from "./config";
 import Scene from "./scene/Scene";
 import Hud from "./ui/Hud";
@@ -25,10 +26,13 @@ export default function App() {
         gl={{ antialias: true }}
         style={{ background: "#9ec5e8" }}
       >
-        <Scene />
+        <Suspense fallback={null}>
+          <Scene />
+        </Suspense>
       </Canvas>
       <Hud />
       <PhoneMenu />
+      <Loader />
     </div>
   );
 }
