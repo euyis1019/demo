@@ -1,0 +1,32 @@
+; 赛博小镇 3D 版（frontend3d）：伪 3D（全 3D 静态场景 + billboard 角色），快照驱动。
+; 渲染器强制 Compatibility（WebGL2）——Web 唯一可用。autoload: Config / WorldNet。
+
+config_version=5
+
+[application]
+
+config/name="赛博小镇 3D"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.3")
+
+[autoload]
+
+Config="*res://scripts/config.gd"
+WorldNet="*res://scripts/world_net.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[gui]
+
+theme/custom_font="res://assets/fonts/fusion-pixel-zh.ttf"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0
