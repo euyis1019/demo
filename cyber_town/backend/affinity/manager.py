@@ -24,6 +24,7 @@ from cyber_town.backend.prompts.affinity import (
     ADJUST_AFFINITY_TOOL,
     LEVELS,
     REFLECT_REMINDER,
+    REPUTATION_NOTE,
     SUFFIX_FOOTER,
     SUFFIX_HEADER,
     render_attitude_line,
@@ -97,6 +98,7 @@ class AffinityManager:
             lines.append(render_attitude_line(
                 who, other == self._player_id, level, score, guide))
         lines.append(SUFFIX_FOOTER)
+        lines.append(REPUTATION_NOTE)  # 口碑流动软引导（焐心小镇支柱4）
         # 条件化自省提醒（非每拍重复，仅在真的收到话时触发——避免空泛诱导）
         heard = bool(getattr(obs, "incoming_messages", None)) or \
             bool(getattr(obs, "overheard", None))

@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { create } from "zustand";
 import { useWorld } from "../store/worldStore";
 import { useChat, type Line } from "../store/chatStore";
+import type { NpcInteractions } from "../net/protocol";
 import { net } from "../net/ws";
+import { useToast } from "./toastStore";
 import { setUiFocused } from "./uiState";
 import { NPC_COLORS } from "../config";
 
@@ -147,11 +149,74 @@ function Input({ placeholder, onSend }: { placeholder: string; onSend: (t: strin
 
 function LocalTab() {
   const local = useChat((s) => s.local);
+  const agents = useWorld((s) => s.agents);
+  const playerId = useWorld((s) => s.playerId);
+  const hello = useWorld((s) => s.hello);
+  const ploc = agents[String(playerId)]?.location;
+  const coNpcs = Object.keys(agents)
+    .map(Number)
+    .filter((id) => id !== playerId && !!ploc && agents[String(id)]?.location === ploc);
   return (
     <>
       <Log lines={local} />
+      <GiftBar coNpcs={coNpcs} agents={agents} interactions={hello?.interactions} />
       <Input placeholder="对在场的人说…" onSend={(t) => { net.speakToLocal(t); useChat.getState().pushMine("local", 0, t); }} />
     </>
+  );
+}
+
+// 送心意 / 搭把手：面对面动作（F2F），只对同地点的街坊开放（焐心小镇支柱3/5）
+function GiftBar({ coNpcs, agents, interactions }: {
+  coNpcs: number[]; agents: Record<string, any>; interactions?: Record<string, NpcInteractions>;
+}) {
+  const [openFor, setOpenFor] = useState<number | null>(null);
+  if (!coNpcs.length) {
+    return <div style={{ padding: "5px 12px", fontSize: 12, opacity: 0.55 }}>🎁 走到街坊身边，就能当面送份心意 / 搭把手</div>;
+  }
+  return (
+    <div style={{ padding: "5px 8px", borderTop: "1px solid #2c3a52" }}>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {coNpcs.map((id) => (
+          <button key={id} onClick={() => setOpenFor(openFor === id ? null : id)}
+            style={{ ...chipStyle, background: openFor === id ? "#3a4a63" : "#26344a" }}>
+            🎁 {agents[String(id)]?.name ?? id}
+          </button>
+        ))}
+      </div>
+      {openFor != null && (
+        <GiftMenu npc={openFor} name={agents[String(openFor)]?.name ?? String(openFor)}
+          data={interactions?.[String(openFor)]} onDone={() => setOpenFor(null)} />
+      )}
+    </div>
+  );
+}
+
+function GiftMenu({ npc, name, data, onDone }: {
+  npc: number; name: string; data?: NpcInteractions; onDone: () => void;
+}) {
+  const send = (kind: "gift" | "help", item: string, label: string) => {
+    const ok = kind === "gift" ? net.giveGift(npc, item) : net.lendHand(npc, item);
+    if (!ok) {            // 被节流/断连丢弃 → 别谎报成功，提示稍候、菜单不关
+      useToast.getState().push("手有点快，缓一下再送", "info");
+      return;
+    }
+    useChat.getState().pushMine("local", 0, `（你${kind === "gift" ? "送给" : "帮"}${name}：${label}）`);
+    useToast.getState().push(`心意已送到 ${name} 那儿`, "info");
+    onDone();
+  };
+  const row = (icon: string, kind: "gift" | "help", item: string, label: string) => (
+    <div key={kind + item} onClick={() => send(kind, item, label)} style={giftRowStyle}>
+      {icon} {label}
+    </div>
+  );
+  return (
+    <div style={{ marginTop: 6, background: "rgba(0,0,0,0.25)", borderRadius: 6, padding: 4 }}>
+      {(data?.gifts ?? []).map((g) => row("🎁", "gift", g.id, g.label))}
+      {(data?.helps ?? []).map((h) => row("💪", "help", h.id, h.label))}
+      {!(data?.gifts?.length || data?.helps?.length) && (
+        <div style={{ padding: 6, fontSize: 12, opacity: 0.5 }}>（暂无可送的心意）</div>
+      )}
+    </div>
   );
 }
 
@@ -255,6 +320,14 @@ const inputStyle: React.CSSProperties = {
 };
 const btnStyle: React.CSSProperties = {
   padding: "6px 12px", borderRadius: 6, border: "none", background: "#4a78c0", color: "#fff", cursor: "pointer",
+};
+const chipStyle: React.CSSProperties = {
+  padding: "4px 10px", borderRadius: 14, border: "1px solid #3a4a63",
+  background: "#26344a", color: "#eee", fontSize: 12, cursor: "pointer",
+};
+const giftRowStyle: React.CSSProperties = {
+  padding: "6px 10px", margin: "2px 0", borderRadius: 5, cursor: "pointer",
+  fontSize: 13, color: "#ffe6b0", background: "rgba(230,160,60,0.12)",
 };
 const profileStyle: React.CSSProperties = {
   position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)",

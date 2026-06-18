@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AgentState, Contact, HelloAck, PlayerView, SnapshotData } from "../net/protocol";
+import type { AgentState, Contact, DailyDigest, HelloAck, PlayerView, SnapshotData } from "../net/protocol";
 
 // 单一数据中枢：WS 收到帧后只 setState 顶层切片；组件按需 selector 订阅。
 interface WorldState {
@@ -15,10 +15,12 @@ interface WorldState {
   worldTime: string;
   worldEvent: string | null;
   moves: Record<string, string>;
+  dailyDigest: DailyDigest | null;
 
   setConnected: (c: boolean) => void;
   applyHello: (h: HelloAck) => void;
   applySnapshot: (t: number, d: SnapshotData) => void;
+  clearDigest: () => void;
 }
 
 export const useWorld = create<WorldState>((set) => ({
@@ -34,6 +36,7 @@ export const useWorld = create<WorldState>((set) => ({
   worldTime: "",
   worldEvent: null,
   moves: {},
+  dailyDigest: null,
 
   setConnected: (c) => set({ connected: c }),
   applyHello: (h) =>
@@ -43,7 +46,7 @@ export const useWorld = create<WorldState>((set) => ({
       tickIntervalMs: h.tick_interval_ms ?? 2500,
     }),
   applySnapshot: (t, d) =>
-    set({
+    set((s) => ({
       t,
       agents: d.agents ?? {},
       places: d.places ?? {},
@@ -52,5 +55,8 @@ export const useWorld = create<WorldState>((set) => ({
       worldTime: d.world_time ?? "",
       worldEvent: d.world_event ?? null,
       moves: d.moves ?? {},
-    }),
+      // 纪事仅在跨时段拍非空——非空才覆盖，关掉后(null)不被后续空拍重新唤起
+      dailyDigest: d.daily_digest ?? s.dailyDigest,
+    })),
+  clearDigest: () => set({ dailyDigest: null }),
 }));

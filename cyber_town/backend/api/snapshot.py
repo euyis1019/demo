@@ -16,7 +16,11 @@ import logging
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Set
 
+from cyber_town.backend.config import day_phase
+
 log = logging.getLogger(__name__)
+
+TICKS_PER_DAY = 288  # 一天 288 拍（每拍 5 分钟，方案 D17）——纪事按天计
 
 
 class SnapshotBuilder:
@@ -34,6 +38,13 @@ class SnapshotBuilder:
         self._failed_seen: Set[int] = set()  # 已报告过的失败 message_id
         self._prev_locations: Dict[int, str] = {}  # 上一帧位置（推导进出场）
 
+        # 小镇纪事（焐心小镇支柱5/进度日子线）：每跨一个时段结算一次，
+        # 聚合本时段三人好感增量 + 来访农场的街坊（只读，零强制行为）
+        self._digest_phase: Optional[str] = None
+        self._digest_baseline: Dict[int, int] = {}   # 时段起点的对玩家好感
+        self._digest_visitors: Set[int] = set()       # 本时段来过玩家所在地的 NPC
+        self._digest_day: int = 1
+
         clock_cfg = (asm.scenario.get("clock") or {})
         self._wall_start = str(clock_cfg.get("start_time", "08:00"))
         self._minutes_per_tick = int(clock_cfg.get("minutes_per_tick", 5))
@@ -50,6 +61,7 @@ class SnapshotBuilder:
         self._seq += 1
 
         arrivals, departures = self._diff_locations()
+        self._track_visitors(arrivals)
         data: Dict[str, Any] = {
             "world_time": self._wall_clock(t),
             "places": self._places(),
@@ -60,6 +72,7 @@ class SnapshotBuilder:
             "contacts": await self._contacts(t),
             "moves": self._moves(t),
             "failures": list(report.get("failures", []) or []),
+            "daily_digest": self._maybe_daily_digest(t),
         }
         if self._affinity is not None:
             data["affinity"] = self._affinity.snapshot_dict()
@@ -277,6 +290,67 @@ class SnapshotBuilder:
                     departures.append({"agent_id": aid, "place_id": old})
         self._prev_locations = current
         return arrivals, departures
+
+    # ------------------------------------------------------------------ #
+    # 小镇纪事（只读聚合，零强制行为）                                      #
+    # ------------------------------------------------------------------ #
+
+    def _track_visitors(self, arrivals: List[Dict[str, Any]]) -> None:
+        """累积本时段「来过玩家所在地」的 NPC（= 来串门/找你）。"""
+        asm = self._asm
+        pid = asm.player.agent_id
+        ploc = asm.world.location_of(pid)
+        for a in arrivals:
+            aid = int(a.get("agent_id"))
+            if aid != pid and a.get("place_id") == ploc:
+                self._digest_visitors.add(aid)
+
+    def _maybe_daily_digest(self, t: int) -> Optional[Dict[str, Any]]:
+        """跨时段时结算一页「小镇纪事」；同时段内返回 None（首帧只建基线）。"""
+        if self._affinity is None:
+            return None
+        phase = day_phase(self._wall_clock(t))
+        if not phase:
+            return None
+        asm = self._asm
+        pid = asm.player.agent_id
+        npc_ids = [a.agent_id for a in asm.all_agents if a.agent_id != pid]
+        cur = {nid: int(self._affinity.to_player_score(nid) or 0) for nid in npc_ids}
+
+        if self._digest_phase is None:          # 首帧：建立基线，不结算
+            self._digest_phase = phase
+            self._digest_baseline = cur
+            return None
+        if phase == self._digest_phase:
+            return None
+
+        changes: List[Dict[str, Any]] = []
+        for nid in npc_ids:
+            delta = cur[nid] - self._digest_baseline.get(nid, cur[nid])
+            if delta != 0:
+                level, _ = self._affinity.level_of(cur[nid])
+                changes.append({
+                    "name": asm.name_directory.get(nid, f"agent_{nid}"),
+                    "delta": delta, "level": level,
+                })
+        visitors = sorted(
+            asm.name_directory.get(v, f"agent_{v}") for v in self._digest_visitors
+        )
+        warmth = round(sum(cur.values()) / len(cur)) if cur else 0
+        digest = {
+            "day": self._digest_day,
+            "ended_phase": self._digest_phase,
+            "warmth": warmth,
+            "changes": changes,
+            "visitors": visitors,
+        }
+        ended = self._digest_phase
+        self._digest_phase = phase
+        self._digest_baseline = cur
+        self._digest_visitors = set()
+        if ended == "夜里" and phase == "清晨":
+            self._digest_day += 1
+        return digest
 
     def _moves(self, t: int) -> Dict[str, str]:
         rows = self._asm.world_db._conn.execute(  # noqa: SLF001

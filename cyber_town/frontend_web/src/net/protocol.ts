@@ -1,5 +1,14 @@
 // 协议类型（按后端 snapshot.py / ws_hub.py / player_agent.py 1:1 推导）。
 
+export interface GiftItem {
+  id: string;
+  label: string;
+}
+export interface NpcInteractions {
+  gifts?: GiftItem[];
+  helps?: GiftItem[];
+}
+
 export interface HelloAck {
   protocol_version?: number;
   player_agent_id: number;
@@ -8,6 +17,8 @@ export interface HelloAck {
   places?: { place_id: string; summary?: string; roster_visible?: boolean }[];
   agents: Record<string, string>; // id -> 显示名
   groups?: { group_id: number; name: string; members: number[] }[];
+  // 送心意/搭把手目录（服务端定义，按 npc_id 枚举）——焐心小镇支柱3
+  interactions?: Record<string, NpcInteractions>;
 }
 
 export interface AgentState {
@@ -48,6 +59,14 @@ export interface Contact {
   relation_types?: string[];
 }
 
+export interface DailyDigest {
+  day: number;
+  ended_phase: string;
+  warmth: number;
+  changes: { name: string; delta: number; level: string }[];
+  visitors: string[];
+}
+
 export interface SnapshotData {
   agents: Record<string, AgentState>;
   places: Record<string, { occupants?: number[] }>;
@@ -60,6 +79,7 @@ export interface SnapshotData {
   contacts?: Contact[];
   affinity?: any;
   failures?: any[];
+  daily_digest?: DailyDigest | null;
 }
 
 export interface SnapshotFrame {
@@ -69,10 +89,12 @@ export interface SnapshotFrame {
   data: SnapshotData;
 }
 
-// 上行命令（白名单 5 个）
+// 上行命令：5 个引擎白名单 + 2 个交互薄层命令（后端翻译成 speak_to_local）
 export type CommandAction =
   | "speak_to_local"
   | "send_message"
   | "send_to_group"
   | "request_move"
-  | "do_nothing";
+  | "do_nothing"
+  | "give_gift"
+  | "lend_a_hand";

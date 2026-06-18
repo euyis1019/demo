@@ -5,6 +5,8 @@ import { CAM_SIZE } from "./config";
 import Scene from "./scene/Scene";
 import Hud from "./ui/Hud";
 import PhoneMenu from "./ui/PhoneMenu";
+import Toasts from "./ui/Toasts";
+import DigestModal from "./ui/DigestModal";
 import { net } from "./net/ws";
 
 export default function App() {
@@ -27,6 +29,8 @@ export default function App() {
       </Canvas>
       <Hud />
       <PhoneMenu />
+      <Toasts />
+      <DigestModal />
       <Loader />
     </div>
   );

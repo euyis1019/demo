@@ -40,6 +40,7 @@ from cyber_town.backend.config import (
     resolve_llm_config,
 )
 from cyber_town.backend.directors import ActivationDirector, WorldDirector
+from cyber_town.backend.interactions import GiftHelp
 from cyber_town.backend.llm.client import make_llm_client
 from cyber_town.backend.api.snapshot import SnapshotBuilder
 from cyber_town.backend.runtime.tick_loop import tick_loop
@@ -110,6 +111,11 @@ def create_app(
             world_dir = WorldDirector(client, llm_cfg.model)
             for npc in asm.npcs:
                 npc.world_event_provider = world_dir.render_for_npc
+            # 终局软推力判定：三位街坊都把玩家焐到「挚友」(≥80) 时触发一次接风事实
+            _npc_ids = [n.agent_id for n in asm.npcs]
+            world_dir.finale_checker = lambda: all(
+                (affinity_mgr.to_player_score(nid) or 0) >= 80 for nid in _npc_ids
+            )
             directors = [act_dir, world_dir]
             log.info("管理类 agent 已启用：激活导演 + 世界事件导演")
 
@@ -122,6 +128,7 @@ def create_app(
         app.state.asm = asm
         app.state.hub = hub
         app.state.snapshot_builder = snapshot_builder
+        app.state.gift_help = GiftHelp()  # 送心意/搭把手薄层（焐心小镇支柱3）
         app.state.tick_task = asyncio.create_task(
             tick_loop(asm, hub, snapshot_builder, cfg_tick,
                       affinity_manager=affinity_mgr, directors=directors)
@@ -176,8 +183,11 @@ def create_app(
     @app.websocket("/ws/world")
     async def ws_world(ws: WebSocket) -> None:
         hub: WSHub = app.state.hub
-        await hub.register(ws, app.state.snapshot_builder.hello())
-        await hub.handle_client(ws, app.state.asm.player)
+        hello = app.state.snapshot_builder.hello()
+        # 送心意/搭把手目录随握手下发前端（服务端唯一定义，三方对齐）
+        hello["data"]["interactions"] = app.state.gift_help.catalog()
+        await hub.register(ws, hello)
+        await hub.handle_client(ws, app.state.asm.player, gift_help=app.state.gift_help)
 
     # ---- Web 版游戏静态托管（浏览器即玩）-------------------------------
     # 前端：真 3D 版 frontend_web（Three.js/R3F）。

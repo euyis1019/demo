@@ -15,8 +15,9 @@ cyber_town/
 │   ├── config.py          #   常量 + .env / LLM 配置解析（零依赖）
 │   ├── prompts/           #   ★ 所有软引导/提示词文本的唯一集中地
 │   ├── agents/            #   actions / npc / player_agent
+│   ├── interactions/      #   玩法：送心意/搭把手 → 翻译成 speak_to_local（《焐心小镇》支柱3）
 │   ├── runtime/           #   world_factory / scheduler / tick_loop
-│   ├── api/               #   ws_hub / snapshot / timeline
+│   ├── api/               #   ws_hub / snapshot（含 daily_digest 小镇纪事）/ timeline
 │   ├── llm/               #   client（真实/Mock 工厂）/ json_call（JSON 元决策）
 │   ├── affinity/          #   M4：好感度薄层（独立 affinity.db；100% LLM 主路）
 │   ├── directors/         #   W5：管理类 agent（激活导演 / 世界事件导演）
@@ -52,6 +53,8 @@ uvicorn cyber_town.backend.main:app --port 8000   # Mock 加 CYBER_TOWN_MOCK=1
 # 浏览器打开 http://127.0.0.1:8000/game/
 #   操作：WASD/方向键 走动；走进区域即自动前往；Tab 呼出「小镇通」
 #   （当面说/私聊/群聊/档案）；走近村民按 E 直达私聊；点击村民看档案
+#   玩法：当面说页给同地点街坊「送心意/搭把手」；HUD 看时辰/街坊去向/人情温度/街坊传闻；
+#         好感跨档弹里程碑、每跨时段弹「小镇纪事」；把三人都焐到「挚友」触发涌现式接风
 # 前端开发热重载：cd cyber_town/frontend_web && npm run dev → http://localhost:5173/game/
 ```
 
@@ -70,9 +73,10 @@ uvicorn cyber_town.backend.main:app --port 8000   # Mock 加 CYBER_TOWN_MOCK=1
 - [x] **M4** 好感度注入（真实 LLM 验收：好感 30→34、语气生效、零泄漏 ✓）
 - [x] **M5** 场景装饰（CC0 图集，截图验收 ✓）
 - [x] **M6** 村民档案页（点击 NPC 看行为时间线：对话双向/内心OS/移动，31 pytest ✓）
-- [x] **W1** 视觉全面重构（Ninja Adventure CC0：双层 tilemap 整图 + 四角色差异化 + 和风 BGM）
-- [x] **W2** Web 端化（Godot Web 导出 + FastAPI `/game` 托管 + WS 同源自适应 +
-  中文像素字体内嵌；Chrome 无头端到端验收：画面 ✓ WS ✓ 中文 ✓）
-
-> 视觉效果的最终确认需在 Godot 编辑器中打开运行（开发机无显示环境，
-> 已用 headless 模式覆盖脚本解析/运行/WS 链路/消息流验收）。
+- [x] **W1–W17** 视觉/工程迭代（详见 git 历史）：换栈 **Godot → Three.js/R3F 真 3D**
+  （KayKit 角色 + Quaternius 村庄，PBR + 阴影；旧 Godot 前端已删，frontend_web 为唯一前端）、
+  FastAPI `/game` 同源托管、后端按功能分包、私信必回 + 群聊接话三层修复等。
+- [x] **《焐心小镇》玩法层** 社交人情养成（5 支柱，详见 [玩法设计](../docs/焐心小镇-玩法设计.md)）：
+  送心意/搭把手（→speak_to_local）、作息掐时辰 + 日夜光照、口碑流动 + 街坊传闻、人情温度 +
+  升温里程碑 toast、小镇纪事 daily_digest、终局接纳软推力。**零内核改动、全软引导**；
+  真实 LLM 端到端验收 ✓（送礼自主领情升温、口碑在 NPC 间流动、纪事/弹窗截图 ✓，pytest 40 ✓）。

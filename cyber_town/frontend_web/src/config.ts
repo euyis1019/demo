@@ -66,6 +66,36 @@ export function placeAt(x: number, z: number, shrink = 0): string {
   return "";
 }
 
+// 好感度 5 档（与后端 prompts/affinity.py::LEVELS 阈值一致）——焐心小镇支柱1
+export const AFFINITY_TIERS = ["陌生", "熟悉", "友好", "亲密", "挚友"];
+export function affinityTier(score: number): number {
+  if (score >= 80) return 4;
+  if (score >= 60) return 3;
+  if (score >= 40) return 2;
+  if (score >= 20) return 1;
+  return 0;
+}
+export function affinityLevel(score: number): string {
+  return AFFINITY_TIERS[affinityTier(score)];
+}
+
+// 世界时间 HH:MM → 时段牌（与后端 config.day_phase 阈值一致）——焐心小镇支柱2
+export function dayPhase(worldTime: string): { label: string; icon: string } {
+  const hour = parseInt((worldTime || "").split(":")[0], 10);
+  if (isNaN(hour)) return { label: "", icon: "🕐" };
+  if (hour >= 5 && hour <= 10) return { label: "清晨", icon: "🌅" };
+  if (hour >= 11 && hour <= 15) return { label: "晌午", icon: "☀️" };
+  if (hour >= 16 && hour <= 19) return { label: "傍晚", icon: "🌇" };
+  return { label: "夜里", icon: "🌙" };
+}
+
+// 街坊作息倾向提示（避免盲目扑空；mirror soul 作息，按 agent_id 契约）
+export const NPC_TENDENCY: Record<number, string> = {
+  1: "白天守店，傍晚常去酒馆",
+  2: "白天酒馆清闲，入夜最忙",
+  3: "天亮下地，午后歇晌，傍晚串门",
+};
+
 // 简易地形高度（缓坡，单一真相源；与渲染、贴地共用）
 export function groundY(x: number, z: number): number {
   return (

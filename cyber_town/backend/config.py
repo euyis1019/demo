@@ -22,6 +22,25 @@ LLM_TIMEOUT_SECONDS = 20.0    # 单次 LLM 调用超时；超时该 NPC 当拍 d
 # 5 段系统提示词标题已移至 prompts/segments.py（W6：提示词集中管理）
 
 
+def day_phase(hhmm: str) -> str:
+    """世界时间 HH:MM → 时段标签（焐心小镇支柱2：作息节律的单一真相源）。
+
+    清晨 5-10 / 晌午 11-15 / 傍晚 16-19 / 夜里 20-4。仅作为【事实】供 NPC
+    感知与前端显示，不强制任何作息——NPC 自主按 soul 决定去留。
+    """
+    try:
+        hour = int(str(hhmm).split(":")[0])
+    except (ValueError, IndexError, AttributeError):
+        return ""
+    if 5 <= hour <= 10:
+        return "清晨"
+    if 11 <= hour <= 15:
+        return "晌午"
+    if 16 <= hour <= 19:
+        return "傍晚"
+    return "夜里"
+
+
 def load_dotenv_into_environ(env_path: Optional[Path] = None) -> None:
     """把 ``backend/.env`` 的 KEY=VALUE 写进 os.environ（已有的环境变量优先）。
 
