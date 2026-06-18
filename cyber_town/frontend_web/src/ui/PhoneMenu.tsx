@@ -191,9 +191,13 @@ function PrivTab({ npcIds, agents, contacts, active, setActive, openProfile }: a
   );
 }
 
+const EMPTY: Line[] = [];
 function GroupTab({ groups }: { groups: any[] }) {
   const g = groups[0];
-  const glog = useChat((s) => (g ? s.group[g.group_id] ?? [] : []));
+  // 选稳定引用（整个 group 字典），在 render 里取该群日志——避免 selector 每次
+  // 返回新 [] 触发无限重渲染（这正是「点群聊跳空白页」的崩溃根因）。
+  const groupMap = useChat((s) => s.group);
+  const glog = (g && groupMap[g.group_id]) || EMPTY;
   if (!g) return <div style={{ padding: 16, opacity: 0.6 }}>（暂无群）</div>;
   return (
     <>

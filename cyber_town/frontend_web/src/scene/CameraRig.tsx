@@ -23,11 +23,12 @@ export default function CameraRig() {
   useFrame((_, dt) => {
     const px = playerRef.x, pz = playerRef.z;
     const py = groundY(px, pz);
-    const desired = new THREE.Vector3(px + 0, py + 16, pz + 13);
+    // 偏移更斜（俯角 ~38°，没那么垂直）、更远（看得更广）
+    const desired = new THREE.Vector3(px + 0, py + 15, pz + 19);
     camera.position.x = THREE.MathUtils.damp(camera.position.x, desired.x, 6, dt);
     camera.position.y = THREE.MathUtils.damp(camera.position.y, desired.y, 6, dt);
     camera.position.z = THREE.MathUtils.damp(camera.position.z, desired.z, 6, dt);
-    camera.lookAt(px, py + 0.6, pz);
+    camera.lookAt(px, py + 0.8, pz);
   });
   return null;
 }
