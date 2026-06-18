@@ -43,7 +43,7 @@ export const PLAYER_SPEED = 7.0; // 单位/s
 export const NPC_SPEED = 4.0;
 export const E_TALK_DISTANCE = 5.0;
 export const SEND_THROTTLE = 0.3; // s，同类命令最小间隔
-export const CAM_SIZE = 14; // 正交相机视野高（单位）
+export const CAM_SIZE = 22; // 正交相机视野高（单位，越大看得越多）
 export const BUBBLE_SECONDS = 5.0;
 
 // 某地点第 idx 个锚点（环形复用）

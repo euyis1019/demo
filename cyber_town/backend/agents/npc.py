@@ -118,7 +118,9 @@ class CyberTownNPC:
                 {"role": "user", "content": user_text},
             ],
             tools=TOOLS + self.extra_tools,
-            tool_choice="auto",
+            # W15：强制每拍必调一个工具（含 do_nothing 表沉默）——杜绝「只输出
+            # 文字不调工具」被当独白丢弃的情况，从根上免掉格式纠错重试与其刷屏日志。
+            tool_choice="required",
             temperature=self.temperature,
         )
         if self.max_tokens:
@@ -169,7 +171,8 @@ class CyberTownNPC:
                 self.client.chat.completions.create(**retry_kwargs), timeout=10.0,
             )
             if getattr(retried.choices[0].message, "tool_calls", None):
-                log.info("NPC %s t=%s 格式纠错重试成功（content→工具）", self.agent_id, t)
+                # tool_choice=required 后此路基本不触发；保留作兜底，日志降到 debug 免刷屏
+                log.debug("NPC %s t=%s 格式纠错重试成功（content→工具）", self.agent_id, t)
                 return retried
         except Exception as exc:  # noqa: BLE001 — 重试失败不影响原响应路径
             log.warning("NPC %s t=%s 格式纠错重试失败：%s", self.agent_id, t, exc)
