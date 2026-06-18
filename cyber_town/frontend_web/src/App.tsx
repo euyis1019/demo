@@ -6,11 +6,6 @@ import Scene from "./scene/Scene";
 import Hud from "./ui/Hud";
 import PhoneMenu from "./ui/PhoneMenu";
 import { net } from "./net/ws";
-import { useWorld } from "./store/worldStore";
-
-// 调试：暴露 store/net（截图核验用，生产无害）
-(window as any).__world = useWorld;
-(window as any).__net = net;
 
 export default function App() {
   useEffect(() => {
