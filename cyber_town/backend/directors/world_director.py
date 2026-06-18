@@ -15,8 +15,12 @@ import asyncio
 import logging
 from typing import Any, Dict, Optional
 
+from typing import Callable
+
+from cyber_town.backend.config import day_phase
 from cyber_town.backend.llm.json_call import call_llm_json
 from cyber_town.backend.prompts.directors import (
+    FINALE_FACT,
     WORLD_SYSTEM,
     render_world_event_segment,
     render_world_user,
@@ -40,6 +44,10 @@ class WorldDirector:
         self._expires_at: int = -1
         self._history: list = []      # 最近事件文本（避免重复）
         self._task: Any = None
+        # 终局软推力（焐心小镇支柱5）：注入装配期设定的「三人皆挚友」判定；
+        # 满足时投放一次接风事实（只陈述氛围，不脚本角色言行）
+        self.finale_checker: Optional[Callable[[], bool]] = None
+        self._finale_done: bool = False
 
     # ---- 查询面 ---------------------------------------------------------
 
@@ -58,19 +66,39 @@ class WorldDirector:
     # ---- tick_loop 钩子（后台决策，绝不拖拍）----------------------------
 
     def maybe_decide(self, asm: Any, t: int) -> None:
-        if t % self._decide_every != 0 or t == 0:
+        if t == 0:
+            return
+        if self._maybe_finale(t):       # 终局软推力优先，命中即占用本窗口
+            return
+        if t % self._decide_every != 0:
             return
         if self._task is not None and not self._task.done():
             return
         self._task = asyncio.create_task(self._decide(asm, t))
 
+    def _maybe_finale(self, t: int) -> bool:
+        """三位街坊都把玩家焐到挚友 → 投放一次接风氛围事实（fail-soft）。"""
+        if self._finale_done or self.finale_checker is None:
+            return False
+        try:
+            if not self.finale_checker():
+                return False
+        except Exception:  # noqa: BLE001 — 判定异常不影响世界
+            return False
+        self._event = FINALE_FACT
+        self._expires_at = t + 60
+        self._finale_done = True
+        log.info("终局软推力投放 t=%s：%s", t, FINALE_FACT)
+        return True
+
     async def _decide(self, asm: Any, t: int) -> None:
         wall = self._wall_time(asm, t)
+        phase = day_phase(wall)
         recent = "；".join(self._history[-3:]) or "（无）"
         cur = self._event or "（无）"
         data = await call_llm_json(
             self._client, self._model, WORLD_SYSTEM,
-            render_world_user(wall, t, cur, recent),
+            render_world_user(wall, phase, t, cur, recent),
         )
         if not data:
             return

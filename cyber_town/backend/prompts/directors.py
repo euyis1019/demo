@@ -56,13 +56,23 @@ WORLD_SYSTEM = (
 )
 
 
-def render_world_user(wall: str, t: int, current: str, recent: str) -> str:
+def render_world_user(wall: str, phase: str, t: int, current: str, recent: str) -> str:
+    phase_tag = f"，{phase}时分" if phase else ""
     return (
-        f"世界时间 {wall}（tick {t}）。当前事件：{current}。最近发生过：{recent}。\n"
-        f"要不要让世界发生点什么？"
+        f"世界时间 {wall}{phase_tag}（tick {t}）。当前事件：{current}。最近发生过：{recent}。\n"
+        f"要不要让世界发生点与此刻时辰相称的环境小事？"
     )
 
 
 def render_world_event_segment(event: str) -> str:
     """NPC 第 7 段提示词：环境事实注入（如何反应全由 NPC）。"""
     return f"# 此刻的天时人事\n{event}"
+
+
+# 终局软推力（焐心小镇支柱5）：三位街坊都把玩家焐到「挚友」时投放一次。
+# 只陈述「镇上的氛围」这一事实，绝不脚本化任何角色的言行——是否张罗接风、
+# 怎么张罗、谁牵头，全由 NPC 自主涌现。
+FINALE_FACT = (
+    "镇上这几日，老街坊们碰着面总念叨新来的农场主——说这后生待人实在、"
+    "处出了真情分，是该寻个由头、热热闹闹给他接个风、认作自家人了。"
+)

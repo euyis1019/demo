@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from cyber_town.backend.config import day_phase
+
 # 收尾纪律块（中性总括 + 纪律，怎么过这一拍全归 LLM）
 TURN_DISCIPLINE = (
     "【这一拍】按你的人设和眼前情形自然地过——说话、做事、走动、"
@@ -110,8 +112,10 @@ def render_observation(npc: Any, obs: Any, t: int) -> str:
     """观察 → user prompt 全文（生活化版）。"""
     lines: List[str] = []
     wall = _wall_clock_label(npc, t)
+    phase = day_phase(wall) if wall else ""
     wall_tag = f" 世界时间 {wall}" if wall else ""
-    lines.append(f"# 当前 tick：t={t}{wall_tag}（每拍约 {npc.minutes_per_tick} 分钟）")
+    phase_tag = f"，{phase}时分" if phase else ""
+    lines.append(f"# 当前 tick：t={t}{wall_tag}{phase_tag}（每拍约 {npc.minutes_per_tick} 分钟）")
 
     # 状态陈旧软提醒（无硬性强制——农场慢节奏）
     stale = int(t) - int(getattr(npc, "current_state_set_at", 0) or 0)

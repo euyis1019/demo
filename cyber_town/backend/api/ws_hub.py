@@ -56,8 +56,13 @@ class WSHub:
         for ws in dead:
             self.unregister(ws)
 
-    async def handle_client(self, ws: WebSocket, player: Any) -> None:
-        """单连接收包循环：校验 → 入队 → ack/error。直到断开。"""
+    async def handle_client(self, ws: WebSocket, player: Any,
+                            gift_help: Any = None) -> None:
+        """单连接收包循环：校验 → 入队 → ack/error。直到断开。
+
+        ``gift_help``（可选）：GiftHelp 薄层。收到 ``give_gift``/``lend_a_hand``
+        时先翻译成引擎认得的 ``speak_to_local`` 命令再入队（焐心小镇支柱3）。
+        """
         try:
             while True:
                 try:
@@ -66,10 +71,17 @@ class WSHub:
                     await self._send_error(ws, None, "BAD_REQUEST", "非 JSON 消息")
                     continue
                 client_seq = msg.get("client_seq")
-                command = {
-                    "action": msg.get("action"),
-                    "kwargs": msg.get("kwargs") or {},
-                }
+                action = msg.get("action")
+                if gift_help is not None and action in ("give_gift", "lend_a_hand"):
+                    command = gift_help.translate(action, msg.get("kwargs") or {})
+                    if command is None:
+                        await self._send_error(
+                            ws, client_seq, "UNKNOWN_COMMAND",
+                            f"无效的心意/帮忙：{msg.get('kwargs')!r}",
+                        )
+                        continue
+                else:
+                    command = {"action": action, "kwargs": msg.get("kwargs") or {}}
                 if player.push_command(command):
                     await ws.send_json(
                         {"type": "ack", "data": {"client_seq": client_seq}}
