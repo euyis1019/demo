@@ -52,19 +52,27 @@ class ActivationScheduler:
                     interval = 1
             if (int(t) + aid) % interval == 0:   # 按 id 错峰
                 active.append(aid)
-            elif self._has_unread_dm(world, aid, t):
+            elif self._needs_urgent_wake(world, aid, t):
                 # W7 紧急唤醒：有未读私信（已送达、还没看过）的 NPC 不等档位
                 # ——「手机响了把人叫醒」是思考预算分配，不碰行为内容（§4.8）。
                 # 没有它，low/sleep 档 NPC 最长 4~12 拍后才看到私信，玩家
                 # 体感就是已读不回（W7 截图复现的根因之一）。
+                # W17：扩展到「玩家发到群里的消息」——否则睡眠中的 NPC 看不到
+                # 玩家在群里招呼，群聊永远冷场（只唤醒玩家发的群消息，NPC 之间
+                # 的群闲聊不强制叫醒，避免连锁唤醒雪崩）。
                 active.append(aid)
-                log.info("t=%s NPC %s 有未读私信，紧急唤醒（绕过档位）", t, aid)
+                log.info("t=%s NPC %s 有未读私信/群招呼，紧急唤醒（绕过档位）", t, aid)
         log.debug("t=%s active=%s", t, active)
         return active
 
     @staticmethod
-    def _has_unread_dm(world: Any, aid: int, t: int) -> bool:
-        """该 NPC 是否有「已送达但还没感知过」的 RDC 私信（fail-soft）。"""
+    def _needs_urgent_wake(world: Any, aid: int, t: int) -> bool:
+        """该 NPC 是否有值得立刻叫醒的未读消息（已送达、还没感知过；fail-soft）：
+
+        * 任何人发来的 RDC 私信——私信盼回音，最伤的是已读不回；
+        * **玩家**发到群里的 GRP 消息——玩家在群里招呼总得有人应；NPC 之间的
+          群闲聊不在此列（避免每条群消息都把全员叫醒造成连锁唤醒）。
+        """
         try:
             db = getattr(world, "world_db", None)
             agent = world.agents.get(aid)
@@ -72,6 +80,12 @@ class ActivationScheduler:
                 return False
             last_seen = int(getattr(agent, "last_message_seen_at", -1) or -1)
             rows = db.fetch_arrived_for(aid, int(t), last_seen)
-            return any(getattr(r, "channel_type", "") == "RDC" for r in rows)
+            for r in rows:
+                ch = getattr(r, "channel_type", "")
+                if ch == "RDC":
+                    return True
+                if ch == "GRP" and int(getattr(r, "sender_id", -1)) == PLAYER_ID:
+                    return True
+            return False
         except Exception:  # noqa: BLE001 — 查询失败不影响正常调度
             return False
