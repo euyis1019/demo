@@ -22,12 +22,13 @@ cyber_town/
 │   ├── directors/         #   W5：管理类 agent（激活导演 / 世界事件导演）
 │   ├── .env               #   LLM_API_KEY=...（gitignored，见 .env.example）
 │   └── .env.example
-├── frontend/              # M2：Godot 4.x 工程（全代码化生成，导入即跑）
-│   ├── project.godot      #   像素渲染 + autoload（Config/WorldNet）
-│   ├── scenes/            #   极简场景（根节点+脚本，子节点全由代码构建）
-│   ├── scripts/           #   config/world_net/sprite_lib/player/npc/day_night/main
-│   ├── assets/            #   CC0 图集与音频（来源见 CREDITS.md）
-│   └── CREDITS.md         #   素材许可清单
+├── frontend_web/          # 前端：Three.js + React-Three-Fiber 真 3D（唯一前端）
+│   ├── src/net/           #   ws.ts（WS 客户端）/ protocol.ts（协议类型）
+│   ├── src/store/         #   worldStore / chatStore（zustand）
+│   ├── src/scene/         #   Scene/Ground/Props/Agent/Player/Character/Model/CameraRig
+│   ├── src/ui/            #   Hud / PhoneMenu（小镇通聊天，React DOM）
+│   ├── public/models/     #   KayKit 角色 GLB + Quaternius 村庄/自然/作物 GLB（CC0）
+│   └── package.json       #   vite + react + three + r3f + drei + zustand
 ├── tests/                 # pytest：调度/玩家命令/冒烟/快照游标/WS 端到端
 ├── requirements.txt       # 后端依赖（勿跑 pip install -e .）
 └── run_m0.py              # M0 CLI：纯文本活体世界
@@ -42,26 +43,19 @@ python3 -m cyber_town.run_m0 --mock-llm --num-ticks 8 --heartbeat 4
 # 真实 LLM（DeepSeek 官方 deepseek-v4-flash；backend/.env 需 LLM_API_KEY）
 python3 -m cyber_town.run_m0 --num-ticks 6 --heartbeat 4
 
-# 测试
+# 后端测试
 python3 -m pytest cyber_town/tests -q
 
-# M1：后端 WS 服务（真实 LLM；Mock 加 CYBER_TOWN_MOCK=1）
-uvicorn cyber_town.backend.main:app --port 8000
-# 然后 WS 连 ws://127.0.0.1:8000/ws/world，REST 看 http://127.0.0.1:8000/healthz
-
-# 🌐 Web 端（推荐）：导出一次后，浏览器即玩
-# 1) 导出（需 Godot 4.6 + Web export templates）：
-/Applications/Godot.app/Contents/MacOS/Godot --headless --path cyber_town/frontend \
-  --export-release "Web" dist/index.html
-# 2) 启动后端（自动托管 dist）→ 浏览器打开 http://127.0.0.1:8000/game/
+# 🌐 Web 端（真 3D，推荐）：先出包，再起后端同源托管
+cd cyber_town/frontend_web && npm install && npm run build && cd -
+uvicorn cyber_town.backend.main:app --port 8000   # Mock 加 CYBER_TOWN_MOCK=1
+# 浏览器打开 http://127.0.0.1:8000/game/
 #   操作：WASD/方向键 走动；走进区域即自动前往；Tab 呼出「小镇通」
-#   （当面说/私聊/群聊/记录/档案）；走近村民按 E 直达私聊；点击村民看档案
-
-# 🖥 桌面端（开发调试）：Godot 打开 cyber_town/frontend/project.godot 按 F5
-
-# UI 回归（模拟完整用户旅程并截图到 /tmp/ct_ui）
-CT_UITEST=1 /Applications/Godot.app/Contents/MacOS/Godot --path cyber_town/frontend
+#   （当面说/私聊/群聊/档案）；走近村民按 E 直达私聊；点击村民看档案
+# 前端开发热重载：cd cyber_town/frontend_web && npm run dev → http://localhost:5173/game/
 ```
+
+详细启动/出包/常见问题见 [docs/启动指南.md](../docs/启动指南.md)。
 
 > ⚠ 用 Python `websockets` 库写调试客户端时务必 `connect(url, proxy=None)`——
 > websockets 14+ 会读 macOS 系统代理，本机回环流量被代理截断会报

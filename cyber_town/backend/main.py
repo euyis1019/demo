@@ -180,25 +180,18 @@ def create_app(
         await hub.handle_client(ws, app.state.asm.player)
 
     # ---- Web 版游戏静态托管（浏览器即玩）-------------------------------
-    # 默认托管真 3D 版（frontend_web，Three.js/R3F）；可切：
-    #   CYBER_TOWN_FRONTEND=2d   → Godot 2D 版（frontend）
-    #   CYBER_TOWN_FRONTEND=godot3d → Godot 伪 3D 版（frontend3d）
+    # 前端：真 3D 版 frontend_web（Three.js/R3F）。
     # 出包：cd cyber_town/frontend_web && npm run build（产物 dist，base 已设 /game/）
-    _front = os.environ.get("CYBER_TOWN_FRONTEND", "web").lower()
-    _front_dir = {
-        "2d": "frontend", "frontend": "frontend",
-        "godot3d": "frontend3d", "frontend3d": "frontend3d",
-    }.get(_front, "frontend_web")
-    dist = Path(__file__).parent.parent / _front_dir / "dist"
+    dist = Path(__file__).parent.parent / "frontend_web" / "dist"
     if (dist / "index.html").exists():
         app.mount("/game", StaticFiles(directory=str(dist), html=True), name="game")
-        log.info("Web 前端托管：%s（/game）", _front_dir)
+        log.info("Web 前端托管：frontend_web（/game）")
 
         @app.get("/")
         async def index() -> RedirectResponse:
             return RedirectResponse(url="/game/")
     else:
-        log.warning("未发现 Web 导出产物（%s），/game 不可用——见 README 导出命令", dist)
+        log.warning("未发现前端产物（%s）——先 cd cyber_town/frontend_web && npm run build", dist)
 
     return app
 
