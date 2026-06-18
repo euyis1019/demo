@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
+from cyber_town.backend.agents.bonds import bond_from_score
 # 文本件全部来自 prompts（W6 集中管理）；从本模块 re-export 维持旧引用面
 from cyber_town.backend.prompts.affinity import (
     ADJUST_AFFINITY_TOOL,
@@ -95,8 +96,14 @@ class AffinityManager:
             score = self._store.get_score(npc.agent_id, other)
             level, guide = self.level_of(score)
             who = self._names.get(other, f"agent_{other}")
-            lines.append(render_attitude_line(
-                who, other == self._player_id, level, score, guide))
+            line = render_attitude_line(
+                who, other == self._player_id, level, score, guide)
+            bond = bond_from_score(score)  # B4：羁绊由好感分自动派生
+            if bond == "好友":
+                line += "　【你拿 TA 当好友】"
+            elif bond == "心结":
+                line += "　【你和 TA 有心结】"
+            lines.append(line)
         lines.append(SUFFIX_FOOTER)
         lines.append(REPUTATION_NOTE)  # 口碑流动软引导（焐心小镇支柱4）
         # 条件化自省提醒（非每拍重复，仅在真的收到话时触发——避免空泛诱导）

@@ -16,7 +16,8 @@ import logging
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Set
 
-from cyber_town.backend.config import day_phase
+from cyber_town.backend.agents.bonds import bond_from_score
+from cyber_town.backend.config import classify_activity, day_phase
 
 log = logging.getLogger(__name__)
 
@@ -73,6 +74,7 @@ class SnapshotBuilder:
             "moves": self._moves(t),
             "failures": list(report.get("failures", []) or []),
             "daily_digest": self._maybe_daily_digest(t),
+            "bonds": self._bonds(),
         }
         if self._affinity is not None:
             data["affinity"] = self._affinity.snapshot_dict()
@@ -150,12 +152,15 @@ class SnapshotBuilder:
         out: Dict[str, Any] = {}
         for a in asm.all_agents:
             aid = a.agent_id
+            state_text = (a.current_state or "").strip()
             entry = {
                 "name": a.name,
                 "location": asm.world.location_of(aid),
                 "is_player": aid == asm.player.agent_id,
-                "current_state": (a.current_state or "").strip(),
+                "current_state": state_text,
                 "bubble": bubbles.get(aid),
+                # B1 活动动画：current_state → 动画语义（前端据此让 NPC 看着在干活/歇着）
+                "activity": classify_activity(state_text),
             }
             if self._affinity is not None and aid != asm.player.agent_id:
                 entry["affinity_to_player"] = self._affinity.to_player_score(aid)
@@ -351,6 +356,17 @@ class SnapshotBuilder:
         if ended == "夜里" and phase == "清晨":
             self._digest_day += 1
         return digest
+
+    def _bonds(self) -> Dict[str, Dict[str, str]]:
+        """全量羁绊（好友/心结）：{src_id: {dst_id: bond}}（B4，由好感分派生）。"""
+        if self._affinity is None:
+            return {}
+        out: Dict[str, Dict[str, str]] = {}
+        for row in self._affinity._store.all_pairs():  # noqa: SLF001 — 与 snapshot_dict 同源
+            bond = bond_from_score(int(row["score"]))
+            if bond is not None:
+                out.setdefault(str(row["npc_id"]), {})[str(row["other_id"])] = bond
+        return out
 
     def _moves(self, t: int) -> Dict[str, str]:
         rows = self._asm.world_db._conn.execute(  # noqa: SLF001

@@ -6,7 +6,8 @@ daily_digest 等需起世界的路径由 WS 端到端验收覆盖，这里只锁
 
 from __future__ import annotations
 
-from cyber_town.backend.config import day_phase
+from cyber_town.backend.agents.bonds import bond_from_score
+from cyber_town.backend.config import classify_activity, day_phase
 from cyber_town.backend.directors.world_director import WorldDirector
 from cyber_town.backend.interactions import GiftHelp
 from cyber_town.backend.prompts.directors import FINALE_FACT
@@ -31,6 +32,14 @@ def test_gifthelp_translate_valid_to_speak_to_local():
     # 搭把手走 helps 表
     cmd2 = gh.translate("lend_a_hand", {"target": 2, "item": "prep"})
     assert cmd2["action"] == "speak_to_local" and cmd2["kwargs"]["content"]
+
+
+def test_gifthelp_companions_spend_time():
+    gh = GiftHelp()
+    # B2：陪伴类目存在且 spend_time 可翻译
+    assert all("companions" in v and v["companions"] for v in gh.catalog().values())
+    cmd = gh.translate("spend_time", {"target": 1, "item": "drink"})
+    assert cmd["action"] == "speak_to_local" and "钱叔" in cmd["kwargs"]["content"]
 
 
 def test_gifthelp_translate_invalid_returns_none():
@@ -81,3 +90,26 @@ def test_finale_silent_when_checker_raises():
     wd.finale_checker = lambda: (_ for _ in ()).throw(RuntimeError("boom"))
     wd.maybe_decide(None, 5)                          # 判定异常被吞，不崩
     assert wd.current_event(5) is None
+
+
+# ---- 活动动画分类（B1）------------------------------------------------------
+
+def test_classify_activity():
+    assert classify_activity("在田里锄地") == "work"
+    assert classify_activity("蹲田埂上歇脚") == "sit"
+    assert classify_activity("躺树荫里午睡") == "lie"
+    assert classify_activity("举杯乐呵") == "cheer"
+    assert classify_activity("站着发呆") == "idle"
+    assert classify_activity("") == "idle"
+
+
+# ---- 羁绊由好感派生（B4 系统派生版）----------------------------------------
+
+def test_bond_from_score():
+    assert bond_from_score(80) == "好友"      # 高好感 → 好友
+    assert bond_from_score(75) == "好友"
+    assert bond_from_score(60) is None        # 亲密但未到好友门槛
+    assert bond_from_score(30) is None
+    assert bond_from_score(8) == "心结"        # 跌到很低 → 心结
+    assert bond_from_score(0) == "心结"
+    assert bond_from_score(None) is None

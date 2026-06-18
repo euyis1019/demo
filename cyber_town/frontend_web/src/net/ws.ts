@@ -68,8 +68,10 @@ class WorldNet {
       case "snapshot": {
         const f = frame as SnapshotFrame;
         const prevAgents = useWorld.getState().agents; // 升温检测要在覆盖前取旧值
+        const prevBonds = useWorld.getState().bonds;
         w.applySnapshot(f.t, f.data);
         this.detectWarmth(prevAgents, useWorld.getState().agents, w.hello?.agents);
+        this.detectBonds(prevBonds, f.data.bonds ?? {}, w.playerId, w.hello?.agents);
         // 累积聊天日志（名册来自 hello）
         const names: Record<number, string> = {};
         const roster = w.hello?.agents ?? {};
@@ -88,8 +90,8 @@ class WorldNet {
   send(action: CommandAction, kwargs: Record<string, unknown>): boolean {
     if (!this.sock || this.sock.readyState !== WebSocket.OPEN) return false;
     const now = performance.now() / 1000;
-    // 送礼/帮忙按「动作+对象」分别节流——给不同街坊连送不应互相挤掉
-    const key = (action === "give_gift" || action === "lend_a_hand")
+    // 送礼/帮忙/陪伴按「动作+对象」分别节流——给不同街坊连送不应互相挤掉
+    const key = (action === "give_gift" || action === "lend_a_hand" || action === "spend_time")
       ? `${action}:${kwargs.target}` : action;
     if (now - (this.lastSend[key] ?? -10) < SEND_THROTTLE) return false;
     this.lastSend[key] = now;
@@ -116,6 +118,9 @@ class WorldNet {
   lendHand(target: number, item: string) {
     return this.send("lend_a_hand", { target, item });
   }
+  spendTime(target: number, item: string) {
+    return this.send("spend_time", { target, item });
+  }
 
   // NPC 对玩家好感跨档升温 → 里程碑 toast（焐心小镇支柱1）
   private detectWarmth(
@@ -128,6 +133,25 @@ class WorldNet {
       if (typeof np === "number" && typeof op === "number" && affinityTier(np) > affinityTier(op)) {
         const name = roster?.[id] ?? id;
         useToast.getState().push(`${name} 把你当${affinityLevel(np)}了`, "milestone");
+      }
+    }
+  }
+
+  // NPC 对玩家新结「好友」/新生「心结」→ 里程碑 toast（B4）
+  private detectBonds(
+    prev: Record<string, Record<string, string>>,
+    next: Record<string, Record<string, string>>,
+    playerId: number, roster?: Record<string, string>,
+  ) {
+    const pid = String(playerId);
+    for (const src of Object.keys(next)) {
+      if (src === pid) continue;
+      const nb = next[src]?.[pid];
+      const ob = prev[src]?.[pid];
+      if (nb && nb !== ob) {
+        const name = roster?.[src] ?? src;
+        useToast.getState().push(
+          nb === "好友" ? `${name} 认你做好友了` : `${name} 和你生了心结…`, "milestone");
       }
     }
   }

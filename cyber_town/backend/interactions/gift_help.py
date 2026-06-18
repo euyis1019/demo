@@ -42,6 +42,12 @@ _CATALOG: Dict[int, Dict[str, List[Tuple[str, str, str]]]] = {
             ("stock", "帮搬货上架",
              "（挽起袖子搬起货箱）钱叔，这些重货我来，给你码上架。"),
         ],
+        "companions": [
+            ("drink", "陪他喝一杯",
+             "（拉张凳子坐下）钱叔，忙一天了，陪你喝一杯，唠唠。"),
+            ("listen", "听他念生意经",
+             "（认真听着）钱叔，你这开店的门道，再跟我细说说？"),
+        ],
     },
     2: {  # 阿香 —— 酒馆老板娘，爽利八卦
         "gifts": [
@@ -55,6 +61,12 @@ _CATALOG: Dict[int, Dict[str, List[Tuple[str, str, str]]]] = {
              "（系上围裙）香姐，晚市的料我帮你备，你指挥。"),
             ("serve", "帮招呼客人",
              "（端起托盘）香姐，忙不过来我来跑堂，你尽管张罗。"),
+        ],
+        "companions": [
+            ("drink", "陪她喝一杯",
+             "（在吧台前坐下）香姐，给我也来一杯，陪你说说话。"),
+            ("listen", "听她唠镇上事",
+             "（托着腮听）香姐，镇上最近又有啥新鲜事儿，说来听听？"),
         ],
     },
     3: {  # 大山 —— 庄稼汉，实在
@@ -70,10 +82,18 @@ _CATALOG: Dict[int, Dict[str, List[Tuple[str, str, str]]]] = {
             ("water", "帮挑水浇地",
              "（挑起水桶往田里走）大山哥，歇着，这水我来挑，地我帮你浇上。"),
         ],
+        "companions": [
+            ("rest", "陪他蹲田埂歇会",
+             "（在田埂上挨着坐下）大山哥，歇会儿，陪你看看这长势。"),
+            ("stroll", "一起到处走走",
+             "（并肩往前遛达）大山哥，没事儿，陪你四处转转。"),
+        ],
     },
 }
 
-_ACTION_TO_KIND = {"give_gift": "gifts", "lend_a_hand": "helps"}
+_ACTION_TO_KIND = {
+    "give_gift": "gifts", "lend_a_hand": "helps", "spend_time": "companions",
+}
 
 
 class GiftHelp:

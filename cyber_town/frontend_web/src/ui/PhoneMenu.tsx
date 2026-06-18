@@ -191,31 +191,35 @@ function GiftBar({ coNpcs, agents, interactions }: {
   );
 }
 
+type GiftKind = "gift" | "help" | "companion";
 function GiftMenu({ npc, name, data, onDone }: {
   npc: number; name: string; data?: NpcInteractions; onDone: () => void;
 }) {
-  const send = (kind: "gift" | "help", item: string, label: string) => {
-    const ok = kind === "gift" ? net.giveGift(npc, item) : net.lendHand(npc, item);
+  const send = (kind: GiftKind, item: string, label: string) => {
+    const ok = kind === "gift" ? net.giveGift(npc, item)
+      : kind === "help" ? net.lendHand(npc, item)
+        : net.spendTime(npc, item);
     if (!ok) {            // 被节流/断连丢弃 → 别谎报成功，提示稍候、菜单不关
-      useToast.getState().push("手有点快，缓一下再送", "info");
+      useToast.getState().push("手有点快，缓一下再来", "info");
       return;
     }
-    useChat.getState().pushMine("local", 0, `（你${kind === "gift" ? "送给" : "帮"}${name}：${label}）`);
+    const verb = kind === "gift" ? "送给" : kind === "help" ? "帮" : "陪";
+    useChat.getState().pushMine("local", 0, `（你${verb}${name}：${label}）`);
     useToast.getState().push(`心意已送到 ${name} 那儿`, "info");
     onDone();
   };
-  const row = (icon: string, kind: "gift" | "help", item: string, label: string) => (
+  const row = (icon: string, kind: GiftKind, item: string, label: string) => (
     <div key={kind + item} onClick={() => send(kind, item, label)} style={giftRowStyle}>
       {icon} {label}
     </div>
   );
+  const empty = !(data?.gifts?.length || data?.helps?.length || data?.companions?.length);
   return (
     <div style={{ marginTop: 6, background: "rgba(0,0,0,0.25)", borderRadius: 6, padding: 4 }}>
       {(data?.gifts ?? []).map((g) => row("🎁", "gift", g.id, g.label))}
       {(data?.helps ?? []).map((h) => row("💪", "help", h.id, h.label))}
-      {!(data?.gifts?.length || data?.helps?.length) && (
-        <div style={{ padding: 6, fontSize: 12, opacity: 0.5 }}>（暂无可送的心意）</div>
-      )}
+      {(data?.companions ?? []).map((c) => row("🍵", "companion", c.id, c.label))}
+      {empty && <div style={{ padding: 6, fontSize: 12, opacity: 0.5 }}>（暂无可送的心意）</div>}
     </div>
   );
 }
@@ -258,7 +262,7 @@ function PrivTab({ npcIds, agents, contacts, active, setActive, openProfile }: a
 
 const EMPTY: Line[] = [];
 function GroupTab({ groups }: { groups: any[] }) {
-  const g = groups[0];
+  const g = groups[0]; // 镇民群（全员公共群）
   // 选稳定引用（整个 group 字典），在 render 里取该群日志——避免 selector 每次
   // 返回新 [] 触发无限重渲染（这正是「点群聊跳空白页」的崩溃根因）。
   const groupMap = useChat((s) => s.group);

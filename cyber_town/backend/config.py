@@ -22,6 +22,28 @@ LLM_TIMEOUT_SECONDS = 20.0    # 单次 LLM 调用超时；超时该 NPC 当拍 d
 # 5 段系统提示词标题已移至 prompts/segments.py（W6：提示词集中管理）
 
 
+# 活动动画分类（焐心小镇·B1）：把 NPC 自己写的 current_state 文本按关键词
+# 归到一个动画语义，前端据此让 NPC「看着在干活/歇着」。仅表现层，纯只读派生。
+# 顺序=从具体到泛（cheer/lie 比 work/sit 更专指，优先命中）。
+_ACTIVITY_KEYWORDS = [
+    ("cheer", ["干杯", "举杯", "庆", "乐呵", "痛快", "高兴", "开心", "欢"]),
+    ("lie", ["躺", "睡", "歇晌", "午觉", "午睡", "打盹", "眯一会", "卧"]),
+    ("work", ["锄", "种", "浇", "翻地", "下地", "干活", "搬", "理货", "盘账", "备料",
+              "擦", "打扫", "收割", "收成", "摘", "喂", "劈", "拾掇", "忙活", "干农活",
+              "翻土", "施肥", "补种", "扫"]),
+    ("sit", ["坐", "歇", "蹲", "晒太阳", "纳凉", "歇脚", "歇会", "靠"]),
+]
+
+
+def classify_activity(state_text: str) -> str:
+    """current_state 文本 → 活动动画语义（work/sit/lie/cheer/idle）。无命中=idle。"""
+    s = state_text or ""
+    for activity, kws in _ACTIVITY_KEYWORDS:
+        if any(k in s for k in kws):
+            return activity
+    return "idle"
+
+
 def day_phase(hhmm: str) -> str:
     """世界时间 HH:MM → 时段标签（焐心小镇支柱2：作息节律的单一真相源）。
 

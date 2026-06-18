@@ -7,6 +7,7 @@ export interface GiftItem {
 export interface NpcInteractions {
   gifts?: GiftItem[];
   helps?: GiftItem[];
+  companions?: GiftItem[];
 }
 
 export interface HelloAck {
@@ -28,6 +29,7 @@ export interface AgentState {
   current_state?: string;
   bubble?: string | null;
   affinity_to_player?: number | null;
+  activity?: string; // B1 活动动画语义：work/sit/lie/cheer/idle（后端按 current_state 派生）
 }
 
 export interface MsgRow {
@@ -80,6 +82,7 @@ export interface SnapshotData {
   affinity?: any;
   failures?: any[];
   daily_digest?: DailyDigest | null;
+  bonds?: Record<string, Record<string, string>>; // B4 羁绊：{src:{dst:'好友'|'心结'}}（好感派生）
 }
 
 export interface SnapshotFrame {
@@ -97,4 +100,5 @@ export type CommandAction =
   | "request_move"
   | "do_nothing"
   | "give_gift"
-  | "lend_a_hand";
+  | "lend_a_hand"
+  | "spend_time";

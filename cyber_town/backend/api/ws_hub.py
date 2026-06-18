@@ -72,7 +72,7 @@ class WSHub:
                     continue
                 client_seq = msg.get("client_seq")
                 action = msg.get("action")
-                if gift_help is not None and action in ("give_gift", "lend_a_hand"):
+                if gift_help is not None and action in ("give_gift", "lend_a_hand", "spend_time"):
                     command = gift_help.translate(action, msg.get("kwargs") or {})
                     if command is None:
                         await self._send_error(

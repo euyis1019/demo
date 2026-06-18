@@ -59,8 +59,10 @@ export default function Agent({ id }: { id: number }) {
     // 气泡到期
     const bubbleOn = bubble && performance.now() / 1000 <= bubbleUntil.current;
     if (bubble && !bubbleOn) setBubble("");
-    // 动画状态
-    const want: Anim = moving ? "walk" : bubbleOn ? "talk" : "idle";
+    // 动画状态：移动>说话>活动(按 current_state 派生)>发呆
+    const act = agent?.activity ?? "idle";
+    const idleAnim: Anim = (["work", "sit", "lie", "cheer"].includes(act) ? act : "idle") as Anim;
+    const want: Anim = moving ? "walk" : bubbleOn ? "talk" : idleAnim;
     if (want !== anim) setAnim(want);
   });
 
