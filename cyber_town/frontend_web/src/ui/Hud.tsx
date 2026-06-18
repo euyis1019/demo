@@ -11,6 +11,7 @@ export default function Hud() {
   const connected = useWorld((s) => s.connected);
   const hello = useWorld((s) => s.hello);
   const agents = useWorld((s) => s.agents);
+  const bonds = useWorld((s) => s.bonds);
   const playerId = useWorld((s) => s.playerId);
 
   const phase = dayPhase(worldTime);
@@ -46,6 +47,7 @@ export default function Hud() {
             const name = hello?.agents?.[String(id)] ?? String(id);
             const loc = a.location ? (PLACE_NAMES[a.location] ?? a.location) : "？";
             const aff = a.affinity_to_player;
+            const bond = bonds[String(id)]?.[String(playerId)];
             return (
               <div key={id} style={{ margin: "5px 0" }}>
                 <div style={{ fontSize: 13 }}>
@@ -53,6 +55,8 @@ export default function Hud() {
                   {typeof aff === "number" && (
                     <span style={{ color: "#e88", marginLeft: 6 }}>♥{affinityLevel(aff)}</span>
                   )}
+                  {bond === "好友" && <span style={{ color: "#9fe0a0", marginLeft: 4 }}>· 好友</span>}
+                  {bond === "心结" && <span style={{ color: "#e89090", marginLeft: 4 }}>· 有心结</span>}
                 </div>
                 <div style={{ fontSize: 11, opacity: 0.55 }}>{NPC_TENDENCY[id] ?? ""}</div>
               </div>

@@ -5,8 +5,12 @@ import * as THREE from "three";
 
 // KayKit Adventurers 角色（已绑骨+76 动画）。useGLTF 加载 + SkeletonUtils 克隆（多实例安全）
 // + useAnimations 状态机：idle/walk/talk 交叉淡入。
-export type Anim = "idle" | "walk" | "talk";
-const CLIP: Record<Anim, string> = { idle: "Idle", walk: "Walking_A", talk: "Interact" };
+// idle/walk/talk + 活动动画（B1：让 NPC 不说话也看着在过日子）
+export type Anim = "idle" | "walk" | "talk" | "work" | "sit" | "lie" | "cheer";
+const CLIP: Record<Anim, string> = {
+  idle: "Idle", walk: "Walking_A", talk: "Interact",
+  work: "Use_Item", sit: "Sit_Floor_Idle", lie: "Lie_Idle", cheer: "Cheer",
+};
 
 // agent_id → KayKit 模型（0 玩家=骑士 / 1 老钱=法师 / 2 阿香=盗贼 / 3 大山=蛮族）
 export const MODEL: Record<number, string> = {
