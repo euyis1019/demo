@@ -23,18 +23,32 @@ TURN_DISCIPLINE = (
     "说话像真人当面唠嗑：**一拍只说一句短话**（十来个字最自然），有来有往、"
     "一句一句地接，别一口气说一长段——把长话拆成好几拍慢慢聊更像活人。\n"
     "其余纪律：别和『你自己最近做过的』雷同（不复读）；"
-    "当面说是口语，人不在身边才用私信；"
-    "别人特意发给你的私信**这一拍必须回应**（当面答或 send_message 回信皆可）——"
+    "**对方用哪个渠道找你，回的时候就用同一个渠道**——私信(send_message)来的私信回、"
+    "群里(send_to_group)说的在群里接、当面(speak_to_local)讲的当面答，"
+    "话才会落在对方正盯着的那一页，不会跑到别处他看不见。\n"
+    "别人特意发给你的私信**这一拍必须回应、而且用 send_message 回到私聊里**"
+    "（哪怕他人就在你跟前——当面喊一嗓子，他盯着私聊页是看不到的，等于白回）——"
     "哪怕那句话冒犯了你、让你不舒服、或是没头没尾的怪话，照样要回：可以生气、"
     "回怼、质问、表达莫名其妙，这都是『回应』；唯独不许装没看见。"
     "怎么答、答什么、用什么语气，全由你。"
 )
 
 # W7：私信渲染收尾的回应提醒（追加在私信清单之后，仅有私信时出现）
+# W17：明确「用 send_message 回」——同地点时若用 speak_to_local 回，话进的是
+# 玩家『当面说』页而非『私聊』页，玩家盯着私聊页看不到=体感「已读不回」。
 DM_RESPONSE_NOTE = (
-    "  ↑ 以上私信是对方专门发给你一个人的，正在等你回音。这一拍就回"
-    "（不回应=已读不回，街坊间最伤人的做法）；内容再难听、再奇怪，"
-    "也用你自己的方式回它一句。"
+    "  ↑ 以上私信是对方专门私下发给你的，正在『私聊』里等你回音。这一拍就回，"
+    "而且**回私信要用 send_message**（哪怕他人就在你跟前——你当面喊一嗓子，"
+    "他盯着私聊页是看不到的，等于没回）；内容再难听、再奇怪，也用你自己的方式"
+    "回它一句。不回应=已读不回，街坊间最伤人的做法。"
+)
+
+# W17：群消息渲染收尾的接话引导（追加在群消息清单之后，仅有群消息时出现）。
+# 软引导：有想说才接、可以不接；只是把『群里冷场没人应』的社交尴尬摆出来。
+GROUP_CHIME_NOTE = (
+    "  ↑ 群里有人喊话/搭话，街坊们一般都会随口接一句（哪怕就一句『在呢』"
+    "『咋啦』『晚上行啊』）——想接就用 send_to_group 回到群里，别让人对着空群"
+    "干等；手头实在脱不开身，也可以这拍先不接。"
 )
 
 
@@ -165,7 +179,10 @@ def render_observation(npc: Any, obs: Any, t: int) -> str:
         # 事实与社交常识的呈现（私信通常盼着回音），回不回仍由你决定。
         dms = [m for m in obs.incoming_messages
                if getattr(m, "channel_type", "") == "RDC"]
-        others = [m for m in obs.incoming_messages if m not in dms]
+        grp = [m for m in obs.incoming_messages
+               if getattr(m, "channel_type", "") == "GRP"]
+        others = [m for m in obs.incoming_messages
+                  if m not in dms and m not in grp]
         if dms:
             lines.append(
                 "# 📨 你收到的私信（对方特意私下发给你、还没得到你的回应——"
@@ -173,14 +190,21 @@ def render_observation(npc: Any, obs: Any, t: int) -> str:
             )
             for m in dms:
                 sender = getattr(m, "sender_id", None)
-                here = sender in set(obs.co_located_agents or [])
-                how = ("人就在你跟前，当面答（speak_to_local）或回私信都行"
-                       if here else "回私信用 send_message")
                 lines.append(
                     f"  - {_label(npc, sender)} 私下对你说："
-                    f"「{getattr(m, 'content', '')}」（{how}）"
+                    f"「{getattr(m, 'content', '')}」（用 send_message 回他）"
                 )
             lines.append(DM_RESPONSE_NOTE)
+        if grp:
+            # W17：群消息单列成醒目板块（原先混在「其他消息」里、零引导→没人接）。
+            lines.append("# 💬 群里的消息（镇民群，全群都看得见）：")
+            for m in grp:
+                gid = getattr(m, "group_id", None)
+                lines.append(
+                    f"  - 群(g{gid}) {_label(npc, getattr(m, 'sender_id', None))} 说："
+                    f"「{getattr(m, 'content', '')}」"
+                )
+            lines.append(GROUP_CHIME_NOTE)
         if others:
             lines.append("# 你收到的其他消息：")
             for m in others:
